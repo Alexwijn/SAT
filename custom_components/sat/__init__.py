@@ -99,94 +99,94 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             system = 8
 
         if heating_curve == 0.1:
-            return curve_move + system + 36.4 - (0.00495 * outside_temperature ** 2) - (0.32 * outside_temperature)
+            return curve_move - system + 36.4 - (0.00495 * outside_temperature ** 2) - (0.32 * outside_temperature)
 
         if heating_curve == 0.2:
-            return curve_move + system + 37.7 - (0.0052 * outside_temperature ** 2) - (0.38 * outside_temperature)
+            return curve_move - system + 37.7 - (0.0052 * outside_temperature ** 2) - (0.38 * outside_temperature)
 
         if heating_curve == 0.3:
-            return curve_move + system + 39.0 - (0.00545 * outside_temperature ** 2) - (0.44 * outside_temperature)
+            return curve_move - system + 39.0 - (0.00545 * outside_temperature ** 2) - (0.44 * outside_temperature)
 
         if heating_curve == 0.4:
-            return curve_move + system + 40.3 - (0.0057 * outside_temperature ** 2) - (0.5 * outside_temperature)
+            return curve_move - system + 40.3 - (0.0057 * outside_temperature ** 2) - (0.5 * outside_temperature)
 
         if heating_curve == 0.5:
-            return curve_move + system + 41.6 - (0.00595 * outside_temperature ** 2) - (0.56 * outside_temperature)
+            return curve_move - system + 41.6 - (0.00595 * outside_temperature ** 2) - (0.56 * outside_temperature)
 
         if heating_curve == 0.6:
-            return curve_move + system + 43.1 - (0.0067 * outside_temperature ** 2) - (0.62 * outside_temperature)
+            return curve_move - system + 43.1 - (0.0067 * outside_temperature ** 2) - (0.62 * outside_temperature)
 
         if heating_curve == 0.7:
-            return curve_move + system + 44.6 - (0.00745 * outside_temperature ** 2) - (0.68 * outside_temperature)
+            return curve_move - system + 44.6 - (0.00745 * outside_temperature ** 2) - (0.68 * outside_temperature)
 
         if heating_curve == 0.8:
-            return curve_move + system + 46.1 - (0.0082 * outside_temperature ** 2) - (0.74 * outside_temperature)
+            return curve_move - system + 46.1 - (0.0082 * outside_temperature ** 2) - (0.74 * outside_temperature)
 
         if heating_curve == 0.9:
-            return curve_move + system + 47.6 - (0.00895 * outside_temperature ** 2) - (0.8 * outside_temperature)
+            return curve_move - system + 47.6 - (0.00895 * outside_temperature ** 2) - (0.8 * outside_temperature)
 
         if heating_curve == 1.0:
-            return curve_move + system + 49.1 - (0.0097 * outside_temperature ** 2) - (0.86 * outside_temperature)
+            return curve_move - system + 49.1 - (0.0097 * outside_temperature ** 2) - (0.86 * outside_temperature)
 
         if heating_curve == 1.1:
-            return curve_move + system + 50.8 - (0.01095 * outside_temperature ** 2) - (0.92 * outside_temperature)
+            return curve_move - system + 50.8 - (0.01095 * outside_temperature ** 2) - (0.92 * outside_temperature)
 
         if heating_curve == 1.2:
-            return curve_move + system + 52.5 - (0.0122 * outside_temperature ** 2) - (0.98 * outside_temperature)
+            return curve_move - system + 52.5 - (0.0122 * outside_temperature ** 2) - (0.98 * outside_temperature)
 
         if heating_curve == 1.3:
-            return curve_move + system + 54.2 - (0.01345 * outside_temperature ** 2) - (1.04 * outside_temperature)
+            return curve_move - system + 54.2 - (0.01345 * outside_temperature ** 2) - (1.04 * outside_temperature)
 
         if heating_curve == 1.4:
-            return curve_move + system + 55.9 - (0.0147 * outside_temperature ** 2) - (1.1 * outside_temperature)
+            return curve_move - system + 55.9 - (0.0147 * outside_temperature ** 2) - (1.1 * outside_temperature)
 
         if heating_curve == 1.5:
-            return curve_move + system + 57.5 - (0.0157 * outside_temperature ** 2) - (1.16 * outside_temperature)
+            return curve_move - system + 57.5 - (0.0157 * outside_temperature ** 2) - (1.16 * outside_temperature)
 
         if heating_curve == 1.6:
-            return curve_move + system + 59.4 - (0.01644 * outside_temperature ** 2) - (1.24 * outside_temperature)
+            return curve_move - system + 59.4 - (0.01644 * outside_temperature ** 2) - (1.24 * outside_temperature)
 
         if heating_curve == 1.7:
-            return curve_move + system + 61.3 - (0.01718 * outside_temperature ** 2) - (1.32 * outside_temperature)
+            return curve_move - system + 61.3 - (0.01718 * outside_temperature ** 2) - (1.32 * outside_temperature)
 
         if heating_curve == 1.8:
-            return curve_move + system + 63.2 - (0.01792 * outside_temperature ** 2) - (1.4 * outside_temperature)
+            return curve_move - system + 63.2 - (0.01792 * outside_temperature ** 2) - (1.4 * outside_temperature)
 
         if heating_curve == 1.9:
-            return curve_move + system + 65.1 - (0.01866 * outside_temperature ** 2) - (1.48 * outside_temperature)
+            return curve_move - system + 65.1 - (0.01866 * outside_temperature ** 2) - (1.48 * outside_temperature)
 
         if heating_curve == 2.0:
-            return curve_move + system + 67.0 - (0.0194 * outside_temperature ** 2) - (1.56 * outside_temperature)
+            return curve_move - system + 67.0 - (0.0194 * outside_temperature ** 2) - (1.56 * outside_temperature)
 
         if heating_curve == 2.1:
-            return curve_move + system + 69.1 - (0.0197 * outside_temperature ** 2) - (1.66 * outside_temperature)
+            return curve_move - system + 69.1 - (0.0197 * outside_temperature ** 2) - (1.66 * outside_temperature)
 
         if heating_curve == 2.2:
-            return curve_move + system + 71.2 - (0.01995 * outside_temperature ** 2) - (1.76 * outside_temperature)
+            return curve_move - system + 71.2 - (0.01995 * outside_temperature ** 2) - (1.76 * outside_temperature)
 
         if heating_curve == 2.3:
-            return curve_move + system + 73.3 - (0.0202 * outside_temperature ** 2) - (1.86 * outside_temperature)
+            return curve_move - system + 73.3 - (0.0202 * outside_temperature ** 2) - (1.86 * outside_temperature)
 
         if heating_curve == 2.4:
-            return curve_move + system + 75.4 - (0.02045 * outside_temperature ** 2) - (1.96 * outside_temperature)
+            return curve_move - system + 75.4 - (0.02045 * outside_temperature ** 2) - (1.96 * outside_temperature)
 
         if heating_curve == 2.5:
-            return curve_move + system + 77.5 - (0.02007 * outside_temperature ** 2) - (2.06 * outside_temperature)
+            return curve_move - system + 77.5 - (0.02007 * outside_temperature ** 2) - (2.06 * outside_temperature)
 
         if heating_curve == 2.6:
-            return curve_move + system + 79.8 - (0.02045 * outside_temperature ** 2) - (2.18 * outside_temperature)
+            return curve_move - system + 79.8 - (0.02045 * outside_temperature ** 2) - (2.18 * outside_temperature)
 
         if heating_curve == 2.7:
-            return curve_move + system + 82.1 - (0.0202 * outside_temperature ** 2) - (2.3 * outside_temperature)
+            return curve_move - system + 82.1 - (0.0202 * outside_temperature ** 2) - (2.3 * outside_temperature)
 
         if heating_curve == 2.8:
-            return curve_move + system + 84.4 - (0.01995 * outside_temperature ** 2) - (2.42 * outside_temperature)
+            return curve_move - system + 84.4 - (0.01995 * outside_temperature ** 2) - (2.42 * outside_temperature)
 
         if heating_curve == 2.9:
-            return curve_move + system + 86.7 - (0.0197 * outside_temperature ** 2) - (2.54 * outside_temperature)
+            return curve_move - system + 86.7 - (0.0197 * outside_temperature ** 2) - (2.54 * outside_temperature)
 
         if heating_curve == 3.0:
-            return curve_move + system + 89.0 - (0.01945 * outside_temperature ** 2) - (2.66 * outside_temperature)
+            return curve_move - system + 89.0 - (0.01945 * outside_temperature ** 2) - (2.66 * outside_temperature)
 
     @staticmethod
     def calculate_control_setpoint(
