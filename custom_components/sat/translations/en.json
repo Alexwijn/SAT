@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart Autotune Thermostat (SAT)",
+        "data": {
+          "name": "Name",
+          "device": "Path or URL",
+          "gateway_id": "Gateway ID"
+        }
+      },
+      "sensors": {
+        "title": "Configure sensors",
+        "data": {
+          "inside_sensor_entity_id": "Inside Sensor Entity",
+          "outside_sensor_entity_id": "Outside Sensor Entity"
+        }
+      }
+    },
+    "error": {
+      "auth": "Unable to connect."
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "data": {
+          "simulation": "Simulation",
+          "heating_curve": "Heating Curve",
+          "heating_system": "Heating System",
+          "heating_curve_move": "Heating Curve Move"
+        }
+      }
+    }
+  }
+}

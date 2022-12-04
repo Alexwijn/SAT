@@ -1,0 +1,29 @@
+default_config:
+
+logger:
+  default: info
+  logs:
+    custom_components.sat: debug
+
+template:
+  sensor:
+    - unit_of_measurement: °C
+      name: Current Temperature
+      state: "{{ states('input_number.current_temperature_raw') }}"
+    - unit_of_measurement: °C
+      name: Outside Temperature
+      state: "{{ states('input_number.outside_temperature_raw') }}"
+
+input_number:
+  current_temperature_raw:
+    name: Current Temperature
+    initial: 21
+    min: 0
+    max: 35
+    step: 0.1
+  outside_temperature_raw:
+    name: Outside Temperature
+    initial: 10
+    min: 0
+    max: 35
+    step: 0.1
