@@ -1,9 +1,10 @@
 {
-    "name": "Smart Autotune Thermostat",
-    "hacs": "1.6.0",
-    "domains": [
-        "climate",
-        "sensor"
-    ],
-    "homeassistant": "2022.10.0"
+  "name": "Smart Autotune Thermostat",
+  "hacs": "1.6.0",
+  "domains": [
+    "climate",
+    "sensor",
+    "binary_sensor"
+  ],
+  "homeassistant": "2022.10.0"
 }

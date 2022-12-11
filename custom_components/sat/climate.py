@@ -11,8 +11,11 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.restore_state import RestoreEntity
 from simple_pid import PID
 
+from . import SatDataUpdateCoordinator
 from .const import (
     DOMAIN,
+    CLIMATE,
+    COORDINATOR,
     CONF_NAME,
     CONF_ID,
     CONF_INSIDE_SENSOR_ENTITY_ID,
@@ -20,22 +23,24 @@ from .const import (
     OPTIONS_DEFAULTS,
     CONF_HEATING_CURVE,
     CONF_HEATING_CURVE_MOVE,
-    CONF_HEATING_SYSTEM, CONF_SIMULATION
+    CONF_HEATING_SYSTEM,
+    CONF_SIMULATION
 )
-
-from . import SatDataUpdateCoordinator
 from .entity import SatEntity
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__package__)
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
     """Setup sensor platform."""
-    async_add_devices([SatClimate(
-        hass.data[DOMAIN][config_entry.entry_id],
+    climate = SatClimate(
+        hass.data[DOMAIN][config_entry.entry_id][COORDINATOR],
         config_entry,
         hass.config.units.temperature_unit
-    )])
+    )
+
+    async_add_devices([climate])
+    hass.data[DOMAIN][config_entry.entry_id][CLIMATE] = climate
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
@@ -48,6 +53,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
         self.outside_sensor_entity_id = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
 
+        if not self.inside_sensor_entity_id:
+            self.inside_sensor_entity_id = "sensor.{}_thermostat_room_temp".format(
+                config_entry.data.get(CONF_NAME)
+            )
+
         self._is_device_active = False
         self._temperature_lock = asyncio.Lock()
 
@@ -56,10 +66,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._current_temperature = None
         self._outside_temperature = None
 
+        self._heating_curve = None
+        self._setpoint = None
+
         self._simulation = options.get(CONF_SIMULATION)
         self._curve_move = options.get(CONF_HEATING_CURVE)
-        self._heating_curve = options.get(CONF_HEATING_CURVE_MOVE)
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
+        self._heating_curve_move = options.get(CONF_HEATING_CURVE_MOVE)
 
         self._attr_id = config_entry.data.get(CONF_ID)
         self._attr_name = config_entry.data.get(CONF_NAME)
@@ -86,12 +99,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        if self.outside_sensor_entity_id:
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, [self.outside_sensor_entity_id], self._async_outside_sensor_changed
-                )
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, [self.outside_sensor_entity_id], self._async_outside_sensor_changed
             )
+        )
 
         self.async_on_remove(
             async_track_time_interval(
@@ -126,6 +138,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._hvac_mode = HVACMode.OFF
 
     @property
+    def name(self):
+        """Return the friendly name of the sensor."""
+        return "Thermostat " + self._attr_name
+
+    @property
     def extra_state_attributes(self):
         """Return device state attributes."""
         proportional, integral, derivative = self._pid.components
@@ -134,6 +151,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "integral": integral,
             "derivative": derivative,
             "proportional": proportional,
+
+            "setpoint": self._setpoint,
+            "heating_curve": self._heating_curve,
             "outside_temperature": self._outside_temperature
         }
 
@@ -185,8 +205,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._pid(self.current_temperature)
 
-        too_cold = self.target_temperature >= self._current_temperature + 0.3
-        too_hot = self.current_temperature - 0.3 >= self._target_temperature
+        too_cold = self.target_temperature >= self._current_temperature - 0.3
+        too_hot = self.current_temperature >= self._target_temperature + 0.3
 
         if self._is_device_active:
             if too_hot:
@@ -212,27 +232,27 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_setpoint(self):
         proportional, integral, derivative = self._pid.components
 
-        heating_curve = self._coordinator.calculate_heating_curve_value(
+        self._heating_curve = self._coordinator.calculate_heating_curve_value(
             self._heating_system,
-            self._outside_temperature,
             self._curve_move,
-            self._heating_curve
+            self._heating_curve_move,
+            self._current_temperature
         )
 
-        _LOGGER.info("Calculated heating curve: %d", heating_curve)
+        _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
 
-        setpoint = self._coordinator.calculate_control_setpoint(
+        self._setpoint = self._coordinator.calculate_control_setpoint(
             self._heating_system,
-            heating_curve,
+            self._heating_curve,
             proportional,
             integral,
             derivative,
         )
 
-        _LOGGER.info("Setting control setpoint to %d", setpoint)
+        _LOGGER.info("Setting control setpoint to %d", self._setpoint)
 
         if not self._simulation:
-            await self._coordinator.api.set_control_setpoint(setpoint)
+            await self._coordinator.api.set_control_setpoint(self._setpoint)
 
     def set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set hvac mode."""

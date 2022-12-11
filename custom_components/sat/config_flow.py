@@ -12,16 +12,16 @@ from homeassistant.helpers import selector
 from pyotgw import OpenThermGateway
 
 from .const import (
+    DOMAIN,
     CONF_ID,
     CONF_NAME,
     CONF_DEVICE,
-    DOMAIN,
     CONF_INSIDE_SENSOR_ENTITY_ID,
     CONF_OUTSIDE_SENSOR_ENTITY_ID, CONF_HEATING_CURVE, CONF_HEATING_SYSTEM, CONF_HEATING_CURVE_MOVE, CONF_UNDERFLOOR,
     CONF_RADIATOR_LOW_TEMPERATURES, CONF_RADIATOR_HIGH_TEMPERATURES, OPTIONS_DEFAULTS, CONF_SIMULATION,
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__package__)
 
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -82,8 +82,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="sensors",
             data_schema=vol.Schema({
-                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): entity_selector,
-                vol.Optional(CONF_OUTSIDE_SENSOR_ENTITY_ID): entity_selector,
+                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): entity_selector,
+                vol.Optional(CONF_INSIDE_SENSOR_ENTITY_ID): entity_selector,
             }),
         )
 
@@ -95,7 +95,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     async def _test_gateway_connection(device: str):
         """Return true if credentials is valid."""
-        return await OpenThermGateway().connect(port=device, skip_init=True)
+        return await OpenThermGateway().connect(port=device, skip_init=True, timeout=5)
 
 
 class SatOptionsFlowHandler(config_entries.OptionsFlow):
