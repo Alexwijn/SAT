@@ -3,7 +3,7 @@
   "name": "Smart Autotune Thermostat",
   "documentation": "https://github.com/Alexwijn/SAT",
   "issue_tracker": "https://github.com/Alexwijn/SAT/issues",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "config_flow": true,
   "iot_class": "local_polling",
   "codeowners": [
