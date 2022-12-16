@@ -11,15 +11,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 from pyotgw import OpenThermGateway
 
-from .const import (
-    DOMAIN,
-    CONF_ID,
-    CONF_NAME,
-    CONF_DEVICE,
-    CONF_INSIDE_SENSOR_ENTITY_ID,
-    CONF_OUTSIDE_SENSOR_ENTITY_ID, CONF_HEATING_CURVE, CONF_HEATING_SYSTEM, CONF_HEATING_CURVE_MOVE, CONF_UNDERFLOOR,
-    CONF_RADIATOR_LOW_TEMPERATURES, CONF_RADIATOR_HIGH_TEMPERATURES, OPTIONS_DEFAULTS, CONF_SIMULATION,
-)
+from .const import *
 
 _LOGGER = logging.getLogger(__package__)
 
@@ -133,11 +125,16 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                     {"value": CONF_UNDERFLOOR, "label": "Underfloor"}
                 ])
             ),
+
+            vol.Required(CONF_PROPORTIONAL, default=defaults[CONF_PROPORTIONAL]): str,
+            vol.Required(CONF_INTEGRAL, default=defaults[CONF_INTEGRAL]): str,
+            vol.Required(CONF_DERIVATIVE, default=defaults[CONF_DERIVATIVE]): str,
         }
 
         if self.show_advanced_options:
             schema.update({
-                vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool
+                vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
+                vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION]): bool,
             })
 
         return self.async_show_form(

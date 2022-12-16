@@ -165,7 +165,10 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
         boiler_central_heating = bool(boiler.get(gw_vars.DATA_MASTER_CH_ENABLED) or 0)
         climate_hvac_action = self._climate.state_attributes.get("hvac_action") or "idle"
 
-        if climate_hvac_action == "idle" and boiler_central_heating is not True:
+        if climate_hvac_action == "off" and boiler_central_heating is not False:
+            return False
+
+        if climate_hvac_action == "idle" and boiler_central_heating is not False:
             return False
 
         if climate_hvac_action == "heating" and boiler_central_heating is True:

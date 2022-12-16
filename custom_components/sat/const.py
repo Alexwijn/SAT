@@ -4,9 +4,9 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
     UnitOfTemperature,
-    UnitOfPower,
     UnitOfPressure,
     UnitOfVolume,
+    UnitOfPower,
     TIME_MINUTES,
     PERCENTAGE
 )
@@ -36,6 +36,10 @@ CONF_NAME = "name"
 CONF_DEVICE = "device"
 CONF_ID = "gateway_id"
 CONF_SIMULATION = "simulation"
+CONF_INTEGRAL = "integral"
+CONF_DERIVATIVE = "derivative"
+CONF_PROPORTIONAL = "proportional"
+CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 
@@ -48,7 +52,13 @@ CONF_RADIATOR_LOW_TEMPERATURES = "radiator_low_temperatures"
 CONF_RADIATOR_HIGH_TEMPERATURES = "radiator_high_temperatures"
 
 OPTIONS_DEFAULTS = {
-    CONF_SIMULATION: True,
+    CONF_PROPORTIONAL: "30",
+    CONF_INTEGRAL: "0",
+    CONF_DERIVATIVE: "2500",
+
+    CONF_SIMULATION: False,
+    CONF_OVERSHOOT_PROTECTION: True,
+
     CONF_HEATING_CURVE: 1.0,
     CONF_HEATING_CURVE_MOVE: 1.0,
     CONF_HEATING_SYSTEM: CONF_RADIATOR_LOW_TEMPERATURES

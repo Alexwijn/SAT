@@ -28,7 +28,11 @@
           "simulation": "Simulation",
           "heating_curve": "Heating Curve",
           "heating_system": "Heating System",
-          "heating_curve_move": "Heating Curve Move"
+          "heating_curve_move": "Heating Curve Move",
+          "overshoot_protection": "Overshoot Protection",
+          "integral": "Integral",
+          "derivative": "Derivative",
+          "proportional": "Proportional"
         }
       }
     }
