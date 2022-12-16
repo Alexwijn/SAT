@@ -6,5 +6,5 @@
     "sensor",
     "binary_sensor"
   ],
-  "homeassistant": "2022.10.0"
+  "homeassistant": "2022.11.5"
 }
