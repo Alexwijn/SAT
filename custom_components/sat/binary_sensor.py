@@ -4,6 +4,7 @@ import logging
 import pyotgw.vars as gw_vars
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.components.binary_sensor import ENTITY_ID_FORMAT
+from homeassistant.components.climate import HVACAction
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
@@ -13,7 +14,7 @@ from .climate import SatClimate
 from .const import DOMAIN, COORDINATOR, CLIMATE, CONF_ID, TRANSLATE_SOURCE, CONF_NAME, BINARY_SENSOR_INFO
 from .entity import SatEntity
 
-_LOGGER = logging.getLogger(__package__)
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
@@ -163,15 +164,15 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
 
         boiler = self._coordinator.data[gw_vars.BOILER]
         boiler_central_heating = bool(boiler.get(gw_vars.DATA_MASTER_CH_ENABLED) or 0)
-        climate_hvac_action = self._climate.state_attributes.get("hvac_action") or "idle"
+        climate_hvac_action = self._climate.state_attributes.get("hvac_action") or HVACAction.OFF
 
-        if climate_hvac_action == "off" and boiler_central_heating is not False:
+        if climate_hvac_action in HVACAction.OFF and boiler_central_heating is False:
             return False
 
-        if climate_hvac_action == "idle" and boiler_central_heating is not False:
+        if climate_hvac_action == HVACAction.IDLE and boiler_central_heating is False:
             return False
 
-        if climate_hvac_action == "heating" and boiler_central_heating is True:
+        if climate_hvac_action == HVACAction.HEATING and boiler_central_heating is True:
             return False
 
         return True
@@ -180,6 +181,3 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
     def unique_id(self):
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_ID)}-central-heating-synchro"
-
-    def _async_hvac_action_changed(self, event):
-        self._hvac_action = event.data
