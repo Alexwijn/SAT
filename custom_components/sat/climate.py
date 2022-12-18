@@ -56,7 +56,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._current_temperature = float(inside_sensor_entity.state)
-            self._pid(self._current_temperature)
 
         self._outside_temperature = None
         if outside_sensor_entity is not None and outside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
@@ -363,14 +362,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             return
 
-        too_cold = self.target_temperature >= self._current_temperature - 0.3
+        too_cold = self.target_temperature + 0.1 >= self._current_temperature
         too_hot = self.current_temperature >= self._target_temperature + 0.3
 
         if self._is_device_active:
             if too_hot:
                 await self._async_control_heater(False)
-            else:
-                await self._async_control_setpoint()
+
+            await self._async_control_setpoint()
         else:
             if too_cold:
                 await self._async_control_heater(True)
@@ -387,7 +386,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if flow_rate is None:
             return
 
-        if self._setpoint is None:
+        if self._setpoint is None or not self._overshoot_protection:
             return
 
         if self._pid.auto_mode is True and \
@@ -401,25 +400,25 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pid.set_auto_mode(True)
 
     async def _async_control_heater(self, enabled: bool):
-        self._pid.reset()
-
-        if enabled:
-            _LOGGER.info("Turning on heater")
-        else:
-            _LOGGER.info("Turning off heater")
-
         if not self._simulation:
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
-    async def _async_control_setpoint(self):
-        self._heating_curve = round(self._calculate_heating_curve_value(), 1)
-        _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
+        _LOGGER.info("Set central heating to %d", enabled)
 
-        self._setpoint = round(self._calculate_control_setpoint(), 1)
-        _LOGGER.info("Setting control setpoint to %d", self._setpoint)
+    async def _async_control_setpoint(self):
+        if self._is_device_active:
+            self._heating_curve = round(self._calculate_heating_curve_value(), 1)
+            _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
+
+            self._setpoint = round(self._calculate_control_setpoint(), 1)
+        else:
+            self._setpoint = 10
+            self._heating_curve = None
 
         if not self._simulation:
             await self._coordinator.api.set_control_setpoint(self._setpoint)
+
+        _LOGGER.info("Set control setpoint to %d", self._setpoint)
 
     def set_temperature(self, **kwargs) -> None:
         if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:

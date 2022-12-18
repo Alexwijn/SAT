@@ -93,9 +93,6 @@ class PID(object):
         :param dt: If set, uses this value for timestep instead of real time. This can be used in
             simulations when simulation time is different from real time.
         """
-        if not self.auto_mode:
-            return self._last_output
-
         now = self.time_fn()
         if dt is None:
             dt = now - self._last_time if (now - self._last_time) else 1e-16
@@ -124,8 +121,9 @@ class PID(object):
             self._proportional -= self.Kp * d_input
 
         # Compute integral and derivative terms
-        self._integral += self.Ki * error * dt
-        self._integral = _clamp(self._integral, self.output_limits)  # Avoid integral windup
+        if self.auto_mode:
+            self._integral += self.Ki * error * dt
+            self._integral = _clamp(self._integral, self.output_limits)  # Avoid integral windup
 
         if self.differential_on_measurement:
             self._derivative = -self.Kd * d_input / dt
@@ -199,9 +197,6 @@ class PID(object):
             auto mode.
         """
         if enabled and not self._auto_mode:
-            # Switching from manual mode to auto, reset
-            self.reset()
-
             self._integral = last_output if (last_output is not None) else 0
             self._integral = _clamp(self._integral, self.output_limits)
 
