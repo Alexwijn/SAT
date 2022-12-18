@@ -354,7 +354,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         too_cold = self.target_temperature + 0.1 >= self._current_temperature
-        too_hot = self.current_temperature >= self._target_temperature + 0.3
+        too_hot = self.current_temperature >= self._target_temperature + 0.5
 
         if self._is_device_active:
             if too_hot:
