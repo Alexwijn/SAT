@@ -104,8 +104,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as exception:
             raise UpdateFailed() from exception
 
-    async def cleanup(self, event=None):
-        """Reset overrides on the gateway."""
+    async def cleanup(self):
+        """Cleanup and disconnect."""
         await self.api.set_control_setpoint(0)
         await self.api.set_max_relative_mod("-")
         await self.api.disconnect()
