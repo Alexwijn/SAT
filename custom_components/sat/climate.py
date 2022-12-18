@@ -309,11 +309,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if setpoint < 10:
             return 10.0
-        elif setpoint > 75 and self._heating_system == CONF_UNDERFLOOR:
+        elif setpoint > 75 and self._heating_system == CONF_RADIATOR_HIGH_TEMPERATURES:
             return 75.0
         elif setpoint > 55 and self._heating_system == CONF_RADIATOR_LOW_TEMPERATURES:
             return 55.0
-        elif setpoint > 50 and self._heating_system == CONF_RADIATOR_HIGH_TEMPERATURES:
+        elif setpoint > 50 and self._heating_system == CONF_UNDERFLOOR:
             return 50.0
 
         return round(setpoint, 1)
