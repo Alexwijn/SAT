@@ -145,15 +145,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         proportional, integral, derivative = self._pid.components
 
         return {
-            "Kp": self._pid.Kp,
-            "Ki": self._pid.Ki,
-            "Kd": self._pid.Kd,
-
-            "curve_move": self._curve_move,
-            "heating_system": self._heating_system,
-            "heating_curve_move": self._heating_curve_move,
-            "overshoot_protection": self._overshoot_protection,
-
             "integral": integral,
             "derivative": derivative,
             "proportional": proportional,
