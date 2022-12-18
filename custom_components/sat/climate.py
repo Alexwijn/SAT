@@ -1,11 +1,12 @@
 """Climate platform for SAT."""
+import datetime
 import logging
 
 from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN)
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
 from simple_pid import PID
 
@@ -96,6 +97,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_on_remove(
             async_track_state_change_event(
                 self.hass, [self.outside_sensor_entity_id], self._async_outside_sensor_changed
+            )
+        )
+
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass, self._async_control_heating, datetime.timedelta(seconds=30)
             )
         )
 
