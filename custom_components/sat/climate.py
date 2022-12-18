@@ -35,6 +35,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         options = OPTIONS_DEFAULTS.copy()
         options.update(config_entry.options)
 
+        self._pid = PID(
+            Kp=float(options.get(CONF_PROPORTIONAL)),
+            Ki=float(options.get(CONF_INTEGRAL)),
+            Kd=float(options.get(CONF_DERIVATIVE)),
+            sample_time=30
+        )
+
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
         inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
 
@@ -47,6 +54,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._current_temperature = float(inside_sensor_entity.state)
+            self._pid(self._current_temperature)
 
         self._outside_temperature = None
         if outside_sensor_entity is not None and outside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
@@ -71,13 +79,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._coordinator = coordinator
         self._config_entry = config_entry
-
-        self._pid = PID(
-            Kp=float(options.get(CONF_PROPORTIONAL)),
-            Ki=float(options.get(CONF_INTEGRAL)),
-            Kd=float(options.get(CONF_DERIVATIVE)),
-            sample_time=30
-        )
 
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
