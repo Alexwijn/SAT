@@ -351,12 +351,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._current_temperature is None or self._outside_temperature is None:
             return
 
-        if self.hvac_action is not HVACAction.HEATING:
-            if self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
-                await self._async_control_heater(False)
-
-            return
-
         too_cold = self.target_temperature + 0.1 >= self._current_temperature
         too_hot = self.current_temperature >= self._target_temperature + 0.5
 
@@ -369,6 +363,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if too_cold:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint()
+            elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
+                await self._async_control_heater(False)
 
     async def _async_control_pid(self):
         self._pid(self._current_temperature)
