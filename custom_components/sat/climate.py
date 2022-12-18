@@ -385,7 +385,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info("Turning off heater")
 
         if not self._simulation:
-            await self._coordinator.api.set_ch_enable_bit(enabled)
+            await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
     async def _async_control_setpoint(self):
         self._heating_curve = self._calculate_heating_curve_value()
