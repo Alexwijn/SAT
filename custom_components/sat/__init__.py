@@ -74,8 +74,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     if unloaded:
-        coordinator = hass.data[DOMAIN][entry.entry_id].COORDINATOR
-        coordinator.cleanup()
+        coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
+        await coordinator.cleanup()
 
         hass.data[DOMAIN].pop(entry.entry_id)
 
