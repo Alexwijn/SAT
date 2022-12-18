@@ -7,6 +7,7 @@ from homeassistant.core import Config, HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from pyotgw import OpenThermGateway
+from serial import SerialException
 
 from .const import (
     CONF_ID,
@@ -36,8 +37,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if hass.data.get(DOMAIN) is None:
         hass.data.setdefault(DOMAIN, {})
 
-    client = OpenThermGateway()
-    await client.connect(entry.data.get(CONF_DEVICE))
+    try:
+        client = OpenThermGateway()
+        await client.connect(port=entry.data.get(CONF_DEVICE), timeout=5)
+    except (asyncio.TimeoutError, ConnectionError, SerialException) as ex:
+        raise ConfigEntryNotReady(f"Could not connect to gateway at {entry.data.get(CONF_DEVICE)}: {ex}") from ex
 
     coordinator = SatDataUpdateCoordinator(hass, client=client)
     await coordinator.async_refresh()
@@ -70,6 +74,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     if unloaded:
+        coordinator = hass.data[DOMAIN][entry.entry_id].COORDINATOR
+        coordinator.cleanup()
+
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unloaded
@@ -96,3 +103,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             return await self.api.get_status()
         except Exception as exception:
             raise UpdateFailed() from exception
+
+    async def cleanup(self, event=None):
+        """Reset overrides on the gateway."""
+        await self.api.set_control_setpoint(0)
+        await self.api.set_max_relative_mod("-")
+        await self.api.disconnect()

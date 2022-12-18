@@ -8,11 +8,11 @@ from homeassistant.const import (ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
-from simple_pid import PID
 
 from . import SatDataUpdateCoordinator
 from .const import *
 from .entity import SatEntity
+from .pid import PID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,7 +40,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             Kp=float(options.get(CONF_PROPORTIONAL)),
             Ki=float(options.get(CONF_INTEGRAL)),
             Kd=float(options.get(CONF_DERIVATIVE)),
-            sample_time=30
+            proportional_on_measurement=False,
+            differential_on_measurement=False
         )
 
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
@@ -132,6 +133,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
+        await self._async_control_heating()
+
     @property
     def name(self):
         """Return the friendly name of the sensor."""
@@ -146,6 +149,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "Kp": self._pid.Kp,
             "Ki": self._pid.Ki,
             "Kd": self._pid.Kd,
+
+            "curve_move": self._curve_move,
+            "heating_system": self._heating_system,
+            "heating_curve_move": self._heating_curve_move,
+            "overshoot_protection": self._overshoot_protection,
 
             "integral": integral,
             "derivative": derivative,
@@ -223,95 +231,95 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._heating_system == CONF_UNDERFLOOR:
             system_offset = 8
 
-        if self._heating_curve_move == 0.1:
-            return self._curve_move - system_offset + 36.4 - (0.00495 * self._outside_temperature ** 2) - (0.32 * self._outside_temperature)
+        if self._curve_move == 0.1:
+            return self._heating_curve_move - system_offset + 36.4 - (0.00495 * self._outside_temperature ** 2) - (0.32 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.2:
-            return self._curve_move - system_offset + 37.7 - (0.0052 * self._outside_temperature ** 2) - (0.38 * self._outside_temperature)
+        if self._curve_move == 0.2:
+            return self._heating_curve_move - system_offset + 37.7 - (0.0052 * self._outside_temperature ** 2) - (0.38 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.3:
-            return self._curve_move - system_offset + 39.0 - (0.00545 * self._outside_temperature ** 2) - (0.44 * self._outside_temperature)
+        if self._curve_move == 0.3:
+            return self._heating_curve_move - system_offset + 39.0 - (0.00545 * self._outside_temperature ** 2) - (0.44 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.4:
-            return self._curve_move - system_offset + 40.3 - (0.0057 * self._outside_temperature ** 2) - (0.5 * self._outside_temperature)
+        if self._curve_move == 0.4:
+            return self._heating_curve_move - system_offset + 40.3 - (0.0057 * self._outside_temperature ** 2) - (0.5 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.5:
-            return self._curve_move - system_offset + 41.6 - (0.00595 * self._outside_temperature ** 2) - (0.56 * self._outside_temperature)
+        if self._curve_move == 0.5:
+            return self._heating_curve_move - system_offset + 41.6 - (0.00595 * self._outside_temperature ** 2) - (0.56 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.6:
-            return self._curve_move - system_offset + 43.1 - (0.0067 * self._outside_temperature ** 2) - (0.62 * self._outside_temperature)
+        if self._curve_move == 0.6:
+            return self._heating_curve_move - system_offset + 43.1 - (0.0067 * self._outside_temperature ** 2) - (0.62 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.7:
-            return self._curve_move - system_offset + 44.6 - (0.00745 * self._outside_temperature ** 2) - (0.68 * self._outside_temperature)
+        if self._curve_move == 0.7:
+            return self._heating_curve_move - system_offset + 44.6 - (0.00745 * self._outside_temperature ** 2) - (0.68 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.8:
-            return self._curve_move - system_offset + 46.1 - (0.0082 * self._outside_temperature ** 2) - (0.74 * self._outside_temperature)
+        if self._curve_move == 0.8:
+            return self._heating_curve_move - system_offset + 46.1 - (0.0082 * self._outside_temperature ** 2) - (0.74 * self._outside_temperature)
 
-        if self._heating_curve_move == 0.9:
-            return self._curve_move - system_offset + 47.6 - (0.00895 * self._outside_temperature ** 2) - (0.8 * self._outside_temperature)
+        if self._curve_move == 0.9:
+            return self._heating_curve_move - system_offset + 47.6 - (0.00895 * self._outside_temperature ** 2) - (0.8 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.0:
-            return self._curve_move - system_offset + 49.1 - (0.0097 * self._outside_temperature ** 2) - (0.86 * self._outside_temperature)
+        if self._curve_move == 1.0:
+            return self._heating_curve_move - system_offset + 49.1 - (0.0097 * self._outside_temperature ** 2) - (0.86 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.1:
-            return self._curve_move - system_offset + 50.8 - (0.01095 * self._outside_temperature ** 2) - (0.92 * self._outside_temperature)
+        if self._curve_move == 1.1:
+            return self._heating_curve_move - system_offset + 50.8 - (0.01095 * self._outside_temperature ** 2) - (0.92 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.2:
-            return self._curve_move - system_offset + 52.5 - (0.0122 * self._outside_temperature ** 2) - (0.98 * self._outside_temperature)
+        if self._curve_move == 1.2:
+            return self._heating_curve_move - system_offset + 52.5 - (0.0122 * self._outside_temperature ** 2) - (0.98 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.3:
-            return self._curve_move - system_offset + 54.2 - (0.01345 * self._outside_temperature ** 2) - (1.04 * self._outside_temperature)
+        if self._curve_move == 1.3:
+            return self._heating_curve_move - system_offset + 54.2 - (0.01345 * self._outside_temperature ** 2) - (1.04 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.4:
-            return self._curve_move - system_offset + 55.9 - (0.0147 * self._outside_temperature ** 2) - (1.1 * self._outside_temperature)
+        if self._curve_move == 1.4:
+            return self._heating_curve_move - system_offset + 55.9 - (0.0147 * self._outside_temperature ** 2) - (1.1 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.5:
-            return self._curve_move - system_offset + 57.5 - (0.0157 * self._outside_temperature ** 2) - (1.16 * self._outside_temperature)
+        if self._curve_move == 1.5:
+            return self._heating_curve_move - system_offset + 57.5 - (0.0157 * self._outside_temperature ** 2) - (1.16 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.6:
-            return self._curve_move - system_offset + 59.4 - (0.01644 * self._outside_temperature ** 2) - (1.24 * self._outside_temperature)
+        if self._curve_move == 1.6:
+            return self._heating_curve_move - system_offset + 59.4 - (0.01644 * self._outside_temperature ** 2) - (1.24 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.7:
-            return self._curve_move - system_offset + 61.3 - (0.01718 * self._outside_temperature ** 2) - (1.32 * self._outside_temperature)
+        if self._curve_move == 1.7:
+            return self._heating_curve_move - system_offset + 61.3 - (0.01718 * self._outside_temperature ** 2) - (1.32 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.8:
-            return self._curve_move - system_offset + 63.2 - (0.01792 * self._outside_temperature ** 2) - (1.4 * self._outside_temperature)
+        if self._curve_move == 1.8:
+            return self._heating_curve_move - system_offset + 63.2 - (0.01792 * self._outside_temperature ** 2) - (1.4 * self._outside_temperature)
 
-        if self._heating_curve_move == 1.9:
-            return self._curve_move - system_offset + 65.1 - (0.01866 * self._outside_temperature ** 2) - (1.48 * self._outside_temperature)
+        if self._curve_move == 1.9:
+            return self._heating_curve_move - system_offset + 65.1 - (0.01866 * self._outside_temperature ** 2) - (1.48 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.0:
-            return self._curve_move - system_offset + 67.0 - (0.0194 * self._outside_temperature ** 2) - (1.56 * self._outside_temperature)
+        if self._curve_move == 2.0:
+            return self._heating_curve_move - system_offset + 67.0 - (0.0194 * self._outside_temperature ** 2) - (1.56 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.1:
-            return self._curve_move - system_offset + 69.1 - (0.0197 * self._outside_temperature ** 2) - (1.66 * self._outside_temperature)
+        if self._curve_move == 2.1:
+            return self._heating_curve_move - system_offset + 69.1 - (0.0197 * self._outside_temperature ** 2) - (1.66 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.2:
-            return self._curve_move - system_offset + 71.2 - (0.01995 * self._outside_temperature ** 2) - (1.76 * self._outside_temperature)
+        if self._curve_move == 2.2:
+            return self._heating_curve_move - system_offset + 71.2 - (0.01995 * self._outside_temperature ** 2) - (1.76 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.3:
-            return self._curve_move - system_offset + 73.3 - (0.0202 * self._outside_temperature ** 2) - (1.86 * self._outside_temperature)
+        if self._curve_move == 2.3:
+            return self._heating_curve_move - system_offset + 73.3 - (0.0202 * self._outside_temperature ** 2) - (1.86 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.4:
-            return self._curve_move - system_offset + 75.4 - (0.02045 * self._outside_temperature ** 2) - (1.96 * self._outside_temperature)
+        if self._curve_move == 2.4:
+            return self._heating_curve_move - system_offset + 75.4 - (0.02045 * self._outside_temperature ** 2) - (1.96 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.5:
-            return self._curve_move - system_offset + 77.5 - (0.02007 * self._outside_temperature ** 2) - (2.06 * self._outside_temperature)
+        if self._curve_move == 2.5:
+            return self._heating_curve_move - system_offset + 77.5 - (0.02007 * self._outside_temperature ** 2) - (2.06 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.6:
-            return self._curve_move - system_offset + 79.8 - (0.02045 * self._outside_temperature ** 2) - (2.18 * self._outside_temperature)
+        if self._curve_move == 2.6:
+            return self._heating_curve_move - system_offset + 79.8 - (0.02045 * self._outside_temperature ** 2) - (2.18 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.7:
-            return self._curve_move - system_offset + 82.1 - (0.0202 * self._outside_temperature ** 2) - (2.3 * self._outside_temperature)
+        if self._curve_move == 2.7:
+            return self._heating_curve_move - system_offset + 82.1 - (0.0202 * self._outside_temperature ** 2) - (2.3 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.8:
-            return self._curve_move - system_offset + 84.4 - (0.01995 * self._outside_temperature ** 2) - (2.42 * self._outside_temperature)
+        if self._curve_move == 2.8:
+            return self._heating_curve_move - system_offset + 84.4 - (0.01995 * self._outside_temperature ** 2) - (2.42 * self._outside_temperature)
 
-        if self._heating_curve_move == 2.9:
-            return self._curve_move - system_offset + 86.7 - (0.0197 * self._outside_temperature ** 2) - (2.54 * self._outside_temperature)
+        if self._curve_move == 2.9:
+            return self._heating_curve_move - system_offset + 86.7 - (0.0197 * self._outside_temperature ** 2) - (2.54 * self._outside_temperature)
 
-        if self._heating_curve_move == 3.0:
-            return self._curve_move - system_offset + 89.0 - (0.01945 * self._outside_temperature ** 2) - (2.66 * self._outside_temperature)
+        if self._curve_move == 3.0:
+            return self._heating_curve_move - system_offset + 89.0 - (0.01945 * self._outside_temperature ** 2) - (2.66 * self._outside_temperature)
 
     def _calculate_control_setpoint(self):
         proportional, integral, derivative = self._pid.components
@@ -326,21 +334,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif setpoint > 50 and self._heating_system == CONF_UNDERFLOOR:
             return 50.0
 
-        return round(setpoint, 1)
+        return setpoint
 
     async def _async_inside_sensor_changed(self, event):
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
+        _LOGGER.debug("Inside Sensor Changed.")
         self._current_temperature = float(new_state.state)
-        self._pid(self._current_temperature)
+        await self._async_control_pid()
 
     async def _async_outside_sensor_changed(self, event):
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
+        _LOGGER.debug("Outside Sensor Changed.")
         self._outside_temperature = float(new_state.state)
 
     async def _async_control_heating(self, time=None):
@@ -361,28 +371,33 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 await self._async_control_heater(False)
             else:
                 await self._async_control_setpoint()
-                await self._async_control_pid()
         else:
             if too_cold:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint()
-                await self._async_control_pid()
 
     async def _async_control_pid(self):
-        self._pid(self.current_temperature)
-        boiler = self._coordinator.data[gw_vars.BOILER]
+        self._pid(self._current_temperature)
 
+        boiler = self._coordinator.data[gw_vars.BOILER]
         if boiler is None:
             return
 
+        flow_rate = boiler.get(gw_vars.DATA_DHW_FLOW_RATE)
+        if flow_rate is None:
+            return
+
+        if self._setpoint is None:
+            return
+
         if self._pid.auto_mode is True and \
-                boiler.get(gw_vars.DATA_DHW_FLOW_RATE) > self._setpoint and \
-                (self.current_temperature + 0.3) > self.target_temperature:
+                flow_rate > self._setpoint and \
+                (self._current_temperature + 0.3) > self.target_temperature:
             self._pid.set_auto_mode(False)
 
         if self._pid.auto_mode is False and \
-                boiler.get(gw_vars.DATA_DHW_FLOW_RATE) < self._setpoint and \
-                self.current_temperature < self.target_temperature:
+                flow_rate < self._setpoint and \
+                self._current_temperature < self.target_temperature:
             self._pid.set_auto_mode(True)
 
     async def _async_control_heater(self, enabled: bool):
@@ -397,10 +412,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
     async def _async_control_setpoint(self):
-        self._heating_curve = self._calculate_heating_curve_value()
+        self._heating_curve = round(self._calculate_heating_curve_value(), 1)
         _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
 
-        self._setpoint = self._calculate_control_setpoint()
+        self._setpoint = round(self._calculate_control_setpoint(), 1)
         _LOGGER.info("Setting control setpoint to %d", self._setpoint)
 
         if not self._simulation:
@@ -428,21 +443,3 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Ensure we update the current operation after changing the mode
         self.async_write_ha_state()
-
-    def set_humidity(self, humidity: int) -> None:
-        pass
-
-    def set_fan_mode(self, fan_mode: str) -> None:
-        pass
-
-    def set_swing_mode(self, swing_mode: str) -> None:
-        pass
-
-    def set_preset_mode(self, preset_mode: str) -> None:
-        pass
-
-    def turn_aux_heat_on(self) -> None:
-        pass
-
-    def turn_aux_heat_off(self) -> None:
-        pass
