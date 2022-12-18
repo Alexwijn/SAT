@@ -61,6 +61,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if outside_sensor_entity is not None and outside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._outside_temperature = float(outside_sensor_entity.state)
 
+        self._is_device_active = False
         self._heating_curve = None
         self._setpoint = None
 
@@ -197,24 +198,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def _maximum_modulation(self):
-        boiler_maximum_capacity = self._coordinator.data[gw_vars.BOILER].get(gw_vars.DATA_SLAVE_MAX_CAPACITY)
-        boiler_minimum_capacity = (100 / self._coordinator.data[gw_vars.BOILER].get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL)) * boiler_maximum_capacity
+        boiler_maximum_capacity = self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_CAPACITY)
+        boiler_minimum_capacity = (100 / self._get_boiler_value(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL)) * boiler_maximum_capacity
 
         central_heating = self.hvac_action == HVACAction.HEATING
-        central_heating_water = self._coordinator.data[gw_vars.BOILER].get(gw_vars.DATA_SLAVE_DHW_ACTIVE) is True
+        central_heating_water = self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE) is True
 
         if (self.current_temperature - self.target_temperature) > 0.04 and central_heating and central_heating_water:
             return 0
 
         return boiler_minimum_capacity + ((boiler_maximum_capacity - boiler_minimum_capacity) * 100)
 
-    @property
-    def _is_device_active(self):
+    def _get_boiler_value(self, key: str):
         boiler = self._coordinator.data[gw_vars.BOILER]
         if boiler is None:
-            return False
+            return None
 
-        return bool(boiler.get(gw_vars.DATA_MASTER_CH_ENABLED))
+        return boiler.get(key)
 
     def _calculate_heating_curve_value(self) -> float:
         system_offset = 0
@@ -343,12 +343,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         _LOGGER.debug("Outside Sensor Changed.")
         self._outside_temperature = float(new_state.state)
 
-    async def _async_control_heating(self, time=None):
+    async def _async_control_heating(self):
         if self._current_temperature is None or self._outside_temperature is None:
             return
 
         if self.hvac_action is HVACAction.OFF:
-            if self._is_device_active:
+            if self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(False)
 
             return
@@ -393,6 +393,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_heater(self, enabled: bool):
         if not self._simulation:
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
+
+        self._is_device_active = enabled
 
         _LOGGER.info("Set central heating to %d", enabled)
 
