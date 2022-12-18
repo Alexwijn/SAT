@@ -70,8 +70,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             float(options.get(CONF_PROPORTIONAL))
         )
 
-        self._pid.output_limits = (0, None)
-
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
 
