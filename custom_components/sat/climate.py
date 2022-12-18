@@ -347,7 +347,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._current_temperature is None or self._outside_temperature is None:
             return
 
-        if self.hvac_action is HVACAction.OFF:
+        if self.hvac_action is not HVACAction.HEATING:
             if self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(False)
 
