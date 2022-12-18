@@ -74,8 +74,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="sensors",
             data_schema=vol.Schema({
+                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): entity_selector,
                 vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): entity_selector,
-                vol.Optional(CONF_INSIDE_SENSOR_ENTITY_ID): entity_selector,
             }),
         )
 

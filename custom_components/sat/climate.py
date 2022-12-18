@@ -1,12 +1,11 @@
 """Climate platform for SAT."""
-import datetime
 import logging
 
 from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN)
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 from simple_pid import PID
 
@@ -14,7 +13,7 @@ from . import SatDataUpdateCoordinator
 from .const import *
 from .entity import SatEntity
 
-_LOGGER = logging.getLogger(__package__)
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
@@ -37,12 +36,21 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         options.update(config_entry.options)
 
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
+        inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
+
         self.outside_sensor_entity_id = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
+        outside_sensor_entity = coordinator.hass.states.get(self.outside_sensor_entity_id)
 
         self._hvac_mode = None
         self._target_temperature = None
+
         self._current_temperature = None
+        if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            self._current_temperature = float(inside_sensor_entity.state)
+
         self._outside_temperature = None
+        if outside_sensor_entity is not None and outside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            self._outside_temperature = float(outside_sensor_entity.state)
 
         self._heating_curve = None
         self._setpoint = None
@@ -65,9 +73,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._config_entry = config_entry
 
         self._pid = PID(
-            float(options.get(CONF_PROPORTIONAL)),
-            float(options.get(CONF_INTEGRAL)),
-            float(options.get(CONF_PROPORTIONAL))
+            Kp=float(options.get(CONF_PROPORTIONAL)),
+            Ki=float(options.get(CONF_INTEGRAL)),
+            Kd=float(options.get(CONF_DERIVATIVE)),
+            sample_time=30
         )
 
         if self._simulation:
@@ -77,22 +86,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
 
-        if self.inside_sensor_entity_id is not None:
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, [self.inside_sensor_entity_id], self._async_inside_sensor_changed
-                )
-            )
-
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass, [self.outside_sensor_entity_id], self._async_outside_sensor_changed
+                self.hass, [self.inside_sensor_entity_id], self._async_inside_sensor_changed
             )
         )
 
         self.async_on_remove(
-            async_track_time_interval(
-                self.hass, self._async_control_heating, datetime.timedelta(seconds=30)
+            async_track_state_change_event(
+                self.hass, [self.outside_sensor_entity_id], self._async_outside_sensor_changed
             )
         )
 
@@ -133,9 +135,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         proportional, integral, derivative = self._pid.components
 
         return {
+            "Kp": self._pid.Kp,
+            "Ki": self._pid.Ki,
+            "Kd": self._pid.Kd,
+
             "integral": integral,
             "derivative": derivative,
             "proportional": proportional,
+            "pid_auto_mode": self._pid.auto_mode,
 
             "setpoint": self._setpoint,
             "heating_curve": self._heating_curve,
@@ -150,10 +157,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def current_temperature(self):
         """Return the sensor temperature."""
-        if self._current_temperature is not None:
-            return self._current_temperature
-
-        return self._coordinator.data[gw_vars.THERMOSTAT].get(gw_vars.DATA_ROOM_TEMP)
+        return self._current_temperature
 
     @property
     def current_outside_temperature(self):
@@ -177,7 +181,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return self._hvac_mode
 
     @property
-    def maximum_modulation(self):
+    def target_temperature(self):
+        """Return the temperature we try to reach."""
+        return self._target_temperature
+
+    @property
+    def target_temperature_step(self):
+        return 0.5
+
+    @property
+    def _maximum_modulation(self):
         boiler_maximum_capacity = self._coordinator.data[gw_vars.BOILER].get(gw_vars.DATA_SLAVE_MAX_CAPACITY)
         boiler_minimum_capacity = (100 / self._coordinator.data[gw_vars.BOILER].get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL)) * boiler_maximum_capacity
 
@@ -188,15 +201,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return 0
 
         return boiler_minimum_capacity + ((boiler_maximum_capacity - boiler_minimum_capacity) * 100)
-
-    @property
-    def target_temperature(self):
-        """Return the temperature we try to reach."""
-        return self._target_temperature
-
-    @property
-    def target_temperature_step(self):
-        return 0.5
 
     @property
     def _is_device_active(self):
@@ -316,14 +320,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return round(setpoint, 1)
 
-    def _async_inside_sensor_changed(self, event):
+    async def _async_inside_sensor_changed(self, event):
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
         self._current_temperature = float(new_state.state)
+        self._pid(self._current_temperature)
 
-    def _async_outside_sensor_changed(self, event):
+    async def _async_outside_sensor_changed(self, event):
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
@@ -331,7 +336,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._outside_temperature = float(new_state.state)
 
     async def _async_control_heating(self, time=None):
-        if self._current_temperature is None:
+        if self._current_temperature is None or self._outside_temperature is None:
             return
 
         if self.hvac_action is HVACAction.OFF:
@@ -339,8 +344,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 await self._async_control_heater(False)
 
             return
-
-        self._pid(self.current_temperature)
 
         too_cold = self.target_temperature >= self._current_temperature - 0.3
         too_hot = self.current_temperature >= self._target_temperature + 0.3
