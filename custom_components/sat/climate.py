@@ -333,7 +333,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         _LOGGER.debug("Inside Sensor Changed.")
         self._current_temperature = float(new_state.state)
+
         await self._async_control_pid()
+        await self._async_control_heating()
 
     async def _async_outside_sensor_changed(self, event):
         new_state = event.data.get("new_state")
@@ -342,6 +344,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         _LOGGER.debug("Outside Sensor Changed.")
         self._outside_temperature = float(new_state.state)
+
+        await self._async_control_heating()
 
     async def _async_control_heating(self, time=None):
         if self._current_temperature is None or self._outside_temperature is None:
