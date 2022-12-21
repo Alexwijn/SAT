@@ -2,7 +2,17 @@
 import datetime
 import logging
 
-from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode
+from homeassistant.components.climate import (
+    ClimateEntity,
+    ClimateEntityFeature,
+    HVACAction,
+    HVACMode,
+    PRESET_AWAY,
+    PRESET_HOME,
+    PRESET_NONE,
+    PRESET_SLEEP,
+    PRESET_COMFORT,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN)
 from homeassistant.core import HomeAssistant
@@ -16,6 +26,16 @@ from .entity import SatEntity
 from .pid import PID
 
 _LOGGER = logging.getLogger(__name__)
+
+CONF_PRESETS = {
+    p: f"{p}_temperature"
+    for p in (
+        PRESET_AWAY,
+        PRESET_HOME,
+        PRESET_SLEEP,
+        PRESET_COMFORT,
+    )
+}
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
@@ -36,6 +56,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         options = OPTIONS_DEFAULTS.copy()
         options.update(config_entry.options)
+
+        presets = {
+            key: options.get(value) for key, value in CONF_PRESETS.items() if value in options
+        }
 
         sample_time = dt.parse_time(options.get(CONF_SAMPLE_TIME))
         sample_time_seconds = (sample_time.hour * 3600) + (sample_time.minute * 60) + sample_time.second
@@ -58,6 +82,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._hvac_mode = None
         self._target_temperature = None
+        self._saved_target_temperature = None
 
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
@@ -82,9 +107,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._attr_temperature_unit = unit
         self._attr_hvac_mode = HVACMode.OFF
+        self._attr_preset_mode = PRESET_NONE
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
-        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+        self._attr_preset_modes = [PRESET_NONE] + list(presets.keys())
+        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
 
+        self._presets = presets
         self._coordinator = coordinator
         self._config_entry = config_entry
 
@@ -214,6 +242,26 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return 0
 
         return boiler_minimum_capacity + ((boiler_maximum_capacity - boiler_minimum_capacity) * 100)
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set new preset mode."""
+        if preset_mode not in (self.preset_modes or []):
+            raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
+
+        if preset_mode == self._attr_preset_mode:
+            return
+
+        if preset_mode == PRESET_NONE:
+            self._attr_preset_mode = PRESET_NONE
+            self._target_temperature = self._saved_target_temperature
+        else:
+            if self._attr_preset_mode == PRESET_NONE:
+                self._saved_target_temperature = self._target_temperature
+
+            self._attr_preset_mode = preset_mode
+            self._target_temperature = self._presets[preset_mode]
+
+        self.async_write_ha_state()
 
     def _get_boiler_value(self, key: str):
         boiler = self._coordinator.data[gw_vars.BOILER]

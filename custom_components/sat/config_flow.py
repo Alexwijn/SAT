@@ -118,6 +118,20 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_HEATING_CURVE_MOVE, default=defaults[CONF_HEATING_CURVE_MOVE]): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=-15, max=15, step=0.5)
             ),
+
+            vol.Required(CONF_AWAY_TEMPERATURE, default=defaults[CONF_AWAY_TEMPERATURE]): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=5, max=35, step=0.5)
+            ),
+            vol.Required(CONF_SLEEP_TEMPERATURE, default=defaults[CONF_SLEEP_TEMPERATURE]): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=5, max=35, step=0.5)
+            ),
+            vol.Required(CONF_HOME_TEMPERATURE, default=defaults[CONF_HOME_TEMPERATURE]): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=5, max=35, step=0.5)
+            ),
+            vol.Required(CONF_COMFORT_TEMPERATURE, default=defaults[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=5, max=35, step=0.5)
+            ),
+
             vol.Required(CONF_HEATING_SYSTEM, default=defaults[CONF_HEATING_SYSTEM]): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[
                     {"value": CONF_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
