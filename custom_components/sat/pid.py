@@ -25,7 +25,7 @@ class PID(object):
             output_limits=(None, None),
             auto_mode=True,
             proportional_on_measurement=False,
-            differential_on_measurement=True,
+            differential_on_measurement=False,
             error_map=None,
     ):
         """

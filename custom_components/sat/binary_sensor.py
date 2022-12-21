@@ -92,6 +92,11 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
         return self._device_class
 
     @property
+    def available(self):
+        """Return availability of the sensor."""
+        return self._coordinator.data is not None and self._coordinator.data[self._source] is not None
+
+    @property
     def is_on(self):
         """Return the state of the device."""
         return self._coordinator.data[self._source].get(self._key)
@@ -121,11 +126,19 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
         return BinarySensorDeviceClass.PROBLEM
 
     @property
-    def is_on(self):
-        """Return the state of the sensor."""
+    def available(self):
+        """Return availability of the sensor."""
         if self._climate is None:
             return False
 
+        if self._coordinator.data is None or self._coordinator.data[gw_vars.BOILER] is None:
+            return False
+
+        return True
+
+    @property
+    def is_on(self):
+        """Return the state of the sensor."""
         boiler = self._coordinator.data[gw_vars.BOILER]
         boiler_setpoint = float(boiler.get(gw_vars.DATA_CONTROL_SETPOINT) or 0)
         climate_setpoint = float(self._climate.extra_state_attributes.get("setpoint") or boiler_setpoint)
@@ -155,6 +168,17 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
     def device_class(self):
         """Return the device class."""
         return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def available(self):
+        """Return availability of the sensor."""
+        if self._climate is None:
+            return False
+
+        if self._coordinator.data is None or self._coordinator.data[gw_vars.BOILER] is None:
+            return False
+
+        return True
 
     @property
     def is_on(self):

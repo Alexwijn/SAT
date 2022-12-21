@@ -29,6 +29,7 @@
           "heating_curve": "Heating Curve",
           "heating_system": "Heating System",
           "heating_curve_move": "Heating Curve Move",
+          "sample_time": "Sample Time",
           "overshoot_protection": "Overshoot Protection (experimental)",
           "integral": "Integral",
           "derivative": "Derivative",

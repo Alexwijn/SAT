@@ -13,7 +13,7 @@ from pyotgw import OpenThermGateway
 
 from .const import *
 
-_LOGGER = logging.getLogger(__package__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -129,6 +129,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_PROPORTIONAL, default=defaults[CONF_PROPORTIONAL]): str,
             vol.Required(CONF_INTEGRAL, default=defaults[CONF_INTEGRAL]): str,
             vol.Required(CONF_DERIVATIVE, default=defaults[CONF_DERIVATIVE]): str,
+            vol.Required(CONF_SAMPLE_TIME, default=defaults[CONF_SAMPLE_TIME]): selector.TimeSelector(),
         }
 
         if self.show_advanced_options:

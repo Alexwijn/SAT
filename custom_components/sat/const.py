@@ -39,6 +39,7 @@ CONF_SIMULATION = "simulation"
 CONF_INTEGRAL = "integral"
 CONF_DERIVATIVE = "derivative"
 CONF_PROPORTIONAL = "proportional"
+CONF_SAMPLE_TIME = "sample_time"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
@@ -57,6 +58,7 @@ OPTIONS_DEFAULTS = {
     CONF_DERIVATIVE: "6000",
 
     CONF_SIMULATION: False,
+    CONF_SAMPLE_TIME: "00:05:00",
     CONF_OVERSHOOT_PROTECTION: False,
 
     CONF_HEATING_CURVE: 1.0,

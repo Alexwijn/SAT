@@ -8,6 +8,7 @@ from homeassistant.const import (ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt
 
 from . import SatDataUpdateCoordinator
 from .const import *
@@ -36,12 +37,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         options = OPTIONS_DEFAULTS.copy()
         options.update(config_entry.options)
 
+        sample_time = dt.parse_time(options.get(CONF_SAMPLE_TIME))
+        sample_time_seconds = (sample_time.hour * 3600) + (sample_time.minute * 60) + sample_time.second
+
+        if sample_time_seconds <= 0:
+            sample_time_seconds = 0.01
+
         self._pid = PID(
             Kp=float(options.get(CONF_PROPORTIONAL)),
             Ki=float(options.get(CONF_INTEGRAL)),
             Kd=float(options.get(CONF_DERIVATIVE)),
-            proportional_on_measurement=False,
-            differential_on_measurement=False
+            sample_time=sample_time_seconds
         )
 
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
@@ -355,7 +361,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         too_hot = self.current_temperature >= self._target_temperature + 0.5
 
         if self._is_device_active:
-            if too_hot:
+            if too_hot or self.hvac_action == HVACAction.OFF:
                 await self._async_control_heater(False)
 
             await self._async_control_setpoint()

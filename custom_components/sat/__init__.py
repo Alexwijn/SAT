@@ -23,7 +23,7 @@ from .const import (
 
 SCAN_INTERVAL = timedelta(seconds=15)
 
-_LOGGER: logging.Logger = logging.getLogger(__package__)
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: Config):

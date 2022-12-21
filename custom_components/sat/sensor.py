@@ -2,8 +2,9 @@
 import logging
 
 import pyotgw.vars as gw_vars
-from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT
+from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfPower, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
@@ -11,14 +12,17 @@ from . import SatDataUpdateCoordinator
 from .const import SENSOR_INFO, DOMAIN, COORDINATOR, CONF_ID, TRANSLATE_SOURCE, CONF_NAME
 from .entity import SatEntity
 
-_LOGGER = logging.getLogger(__package__)
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
     """Setup sensor platform."""
-    sensors = []
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     has_thermostat = coordinator.data[gw_vars.OTGW].get(gw_vars.OTGW_THRM_DETECT) != "D"
+
+    sensors = [
+        SatCurrentPowerSensor(coordinator, config_entry)
+    ]
 
     for key, info in SENSOR_INFO.items():
         unit = info[1]
@@ -47,8 +51,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatSensor(SatEntity, SensorEntity):
-    _attr_should_poll = False
-
     def __init__(
             self,
             coordinator: SatDataUpdateCoordinator,
@@ -93,6 +95,11 @@ class SatSensor(SatEntity, SensorEntity):
         return self._unit
 
     @property
+    def available(self):
+        """Return availability of the sensor."""
+        return self._coordinator.data is not None and self._coordinator.data[self._source] is not None
+
+    @property
     def native_value(self):
         """Return the state of the device."""
         return self._coordinator.data[self._source].get(self._key)
@@ -101,3 +108,52 @@ class SatSensor(SatEntity, SensorEntity):
     def unique_id(self):
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_ID)}-{self._source}-{self._key}"
+
+
+class SatCurrentPowerSensor(SatEntity, SensorEntity):
+
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
+        super().__init__(coordinator, config_entry)
+
+        self._coordinator = coordinator
+
+    @property
+    def name(self) -> str | None:
+        return "Boiler Current Power"
+
+    @property
+    def device_class(self):
+        """Return the device class."""
+        return SensorDeviceClass.POWER
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return UnitOfPower.KILO_WATT
+
+    @property
+    def available(self):
+        """Return availability of the sensor."""
+        return self._coordinator.data is not None and self._coordinator.data[gw_vars.BOILER] is not None
+
+    @property
+    def native_value(self):
+        """Return the state of the device."""
+        boiler = self._coordinator.data[gw_vars.BOILER]
+        if boiler is None:
+            return STATE_UNKNOWN
+
+        if bool(boiler.get(gw_vars.DATA_SLAVE_FLAME_ON)) is False:
+            return 0
+
+        relative_modulation = boiler.get(gw_vars.DATA_REL_MOD_LEVEL)
+
+        maximum_capacity = boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY)
+        minimum_capacity = maximum_capacity / (100 / boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL))
+
+        return minimum_capacity + (((maximum_capacity - minimum_capacity) / 100) * relative_modulation)
+
+    @property
+    def unique_id(self):
+        """Return a unique ID to use for this entity."""
+        return f"{self._config_entry.data.get(CONF_ID)}-current-power"
