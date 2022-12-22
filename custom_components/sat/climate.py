@@ -82,6 +82,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._heating_curve = None
         self._setpoint = None
 
+        self._selected_climate_id = None
         self._rooms = options.get(CONF_ROOMS)
         self._simulation = options.get(CONF_SIMULATION)
         self._curve_move = options.get(CONF_HEATING_CURVE)
@@ -179,7 +180,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "setpoint": self._setpoint,
             "heating_curve": self._heating_curve,
-            "outside_temperature": self._outside_temperature
+            "outside_temperature": self._outside_temperature,
+            "selected_climate_id": self._selected_climate_id,
         }
 
     @property
@@ -264,7 +266,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _get_pid_controller(self, climate_id: str) -> SatPIDController:
         return self.hass.data[DOMAIN][self._config_entry.entry_id][PID_CONTROLLERS].get(climate_id)
 
-    def _get_selected_climate(self):
+    def _get_selected_climate_id(self):
         climate_state = None
         climate_difference = 0
 
@@ -429,14 +431,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_heating()
 
     async def _async_control_heating(self, time=None):
-        pid_controller = self._get_pid_controller(self.entity_id)
+        self._selected_climate_id = self._get_selected_climate_id()
+        pid_controller = self._get_pid_controller(self._selected_climate_id)
         if pid_controller is None:
             return
 
         if self._current_temperature is None or self._outside_temperature is None:
             return
-
-        _LOGGER.debug(self._get_selected_climate())
 
         too_cold = self.target_temperature + 0.1 >= self._current_temperature
         too_hot = self.current_temperature >= self._target_temperature + 0.5
@@ -498,12 +499,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         _LOGGER.info("Set control setpoint to %d", self._setpoint)
 
-    def set_temperature(self, **kwargs) -> None:
+    async def async_set_temperature(self, **kwargs) -> None:
         if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:
             return
 
         self._target_temperature = temperature
         self.async_write_ha_state()
+
+        await self._async_control_heating()
 
     def set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set hvac mode."""
