@@ -443,12 +443,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         too_hot = self.current_temperature >= self._target_temperature + 0.5
 
         if self._is_device_active:
-            if self.hvac_action == HVACAction.OFF or too_hot:
+            if self.hvac_mode == HVACMode.OFF or too_hot:
                 await self._async_control_heater(False)
 
             await self._async_control_setpoint(pid_controller)
         else:
-            if self.hvac_action == HVACAction.HEATING and too_cold:
+            if self.hvac_mode == HVACMode.HEAT and too_cold:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint(pid_controller)
             elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
