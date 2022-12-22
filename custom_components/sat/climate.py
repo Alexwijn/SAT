@@ -155,7 +155,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass, self._config_entry, self.entity_id
         )
 
-        self._rooms.append(self.entity_id)
         await self._async_control_heating()
 
     @property
@@ -273,7 +272,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         for entity_id in self._rooms:
             state = self.hass.states.get(entity_id)
 
-            if state is None:
+            if state is None or state.state == HVACMode.OFF:
                 continue
 
             if climate_state is None:
@@ -292,8 +291,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 climate_difference = difference
 
         if climate_state is not None:
-            _LOGGER.debug("Selected " + climate_state.entity_id)
             return climate_state.entity_id
+
+        return self.entity_id
 
     def _calculate_heating_curve_value(self) -> float:
         system_offset = 0
@@ -443,12 +443,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         too_hot = self.current_temperature >= self._target_temperature + 0.5
 
         if self._is_device_active:
-            if too_hot or self.hvac_action == HVACAction.OFF:
+            if self.hvac_action == HVACAction.OFF or too_hot:
                 await self._async_control_heater(False)
 
             await self._async_control_setpoint(pid_controller)
         else:
-            if too_cold:
+            if self.hvac_action == HVACAction.HEATING and too_cold:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint(pid_controller)
             elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):

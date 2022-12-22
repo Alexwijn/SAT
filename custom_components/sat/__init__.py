@@ -151,9 +151,10 @@ class SatPIDController(DataUpdateCoordinator):
             self.pid.reset()
 
             _LOGGER.debug(f"{new_state.name} PID: reset")
+            _LOGGER.debug(f"{new_state.name} Target: {new_state.attributes.get('temperature')}")
 
         if self.pid.setpoint != 0 and self.pid.last_input != float(new_state.attributes.get("current_temperature")):
             _LOGGER.debug(f"{new_state.name} PID: {self.pid.components}")
             _LOGGER.debug(f"{new_state.name} Temperature: {new_state.attributes.get('current_temperature')}")
 
-            self.pid(new_state.attributes.get('current_temperature'))
+            self.pid(float(new_state.attributes.get('current_temperature')))
