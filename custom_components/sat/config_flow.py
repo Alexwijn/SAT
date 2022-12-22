@@ -4,6 +4,7 @@ import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import dhcp
+from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
@@ -111,6 +112,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         defaults = OPTIONS_DEFAULTS.copy()
         defaults.update(self._options)
 
+        climate = self.hass.data[DOMAIN][self._config_entry.entry_id][CLIMATE]
+
         schema = {
             vol.Required(CONF_HEATING_CURVE, default=defaults[CONF_HEATING_CURVE]): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0.1, max=3.0, step=0.1)
@@ -144,6 +147,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_INTEGRAL, default=defaults[CONF_INTEGRAL]): str,
             vol.Required(CONF_DERIVATIVE, default=defaults[CONF_DERIVATIVE]): str,
             vol.Required(CONF_SAMPLE_TIME, default=defaults[CONF_SAMPLE_TIME]): selector.TimeSelector(),
+
+            vol.Optional(CONF_ROOMS, default=defaults[CONF_ROOMS]): selector.EntitySelector(
+                selector.EntitySelectorConfig(multiple=True, domain=CLIMATE_DOMAIN, exclude_entities=[climate.entity_id])
+            )
         }
 
         if self.show_advanced_options:

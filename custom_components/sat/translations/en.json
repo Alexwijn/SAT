@@ -25,6 +25,7 @@
     "step": {
       "user": {
         "data": {
+          "rooms": "Rooms (experimental)",
           "simulation": "Simulation",
           "away_temperature": "Away Temperature",
           "home_temperature": "Home Temperature",

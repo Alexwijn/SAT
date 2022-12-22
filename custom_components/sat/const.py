@@ -16,6 +16,7 @@ NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 VERSION = "0.0.1"
 COORDINATOR = "coordinator"
+PID_CONTROLLERS = "pid_controller"
 
 UNIT_KW = "kW"
 UNIT_L_MIN = f"L/{TIME_MINUTES}"
@@ -33,6 +34,7 @@ CLIMATE = "climate"
 
 # Configuration and options
 CONF_NAME = "name"
+CONF_ROOMS = "rooms"
 CONF_DEVICE = "device"
 CONF_ID = "gateway_id"
 CONF_SIMULATION = "simulation"
@@ -62,6 +64,7 @@ OPTIONS_DEFAULTS = {
     CONF_INTEGRAL: "0",
     CONF_DERIVATIVE: "6000",
 
+    CONF_ROOMS: [],
     CONF_SIMULATION: False,
     CONF_SAMPLE_TIME: "00:05:00",
     CONF_OVERSHOOT_PROTECTION: False,
