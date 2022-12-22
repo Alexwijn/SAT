@@ -45,6 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     )
 
     async_add_devices([climate])
+
     hass.data[DOMAIN][config_entry.entry_id][CLIMATE] = climate
 
 
@@ -81,6 +82,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._heating_curve = None
         self._setpoint = None
 
+        self._rooms = options.get(CONF_ROOMS)
         self._simulation = options.get(CONF_SIMULATION)
         self._curve_move = options.get(CONF_HEATING_CURVE)
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
@@ -148,6 +150,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
+        self.hass.data[DOMAIN][self._config_entry.entry_id][PID_CONTROLLERS][self.entity_id] = SatPIDController(
+            self.hass, self._config_entry, self.entity_id
+        )
+
+        self._rooms.append(self.entity_id)
         await self._async_control_heating()
 
     @property
@@ -256,6 +263,35 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _get_pid_controller(self, climate_id: str) -> SatPIDController:
         return self.hass.data[DOMAIN][self._config_entry.entry_id][PID_CONTROLLERS].get(climate_id)
+
+    def _get_selected_climate(self):
+        climate_state = None
+        climate_difference = 0
+
+        for entity_id in self._rooms:
+            state = self.hass.states.get(entity_id)
+
+            if state is None:
+                continue
+
+            if climate_state is None:
+                climate_state = state
+
+            current_temperature = state.attributes.get("temperature")
+            target_temperature = state.attributes.get("current_temperature")
+            if current_temperature is None or target_temperature is None:
+                continue
+
+            difference = float(state.attributes.get("temperature")) - float(state.attributes.get("current_temperature"))
+            _LOGGER.debug(f"Found {state.entity_id} with a difference of {difference}")
+
+            if difference > climate_difference:
+                climate_state = state
+                climate_difference = difference
+
+        if climate_state is not None:
+            _LOGGER.debug("Selected " + climate_state.entity_id)
+            return climate_state.entity_id
 
     def _calculate_heating_curve_value(self) -> float:
         system_offset = 0
@@ -400,6 +436,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._current_temperature is None or self._outside_temperature is None:
             return
 
+        _LOGGER.debug(self._get_selected_climate())
+
         too_cold = self.target_temperature + 0.1 >= self._current_temperature
         too_hot = self.current_temperature >= self._target_temperature + 0.5
 
@@ -465,9 +503,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         self._target_temperature = temperature
-
         self.async_write_ha_state()
-        self._async_control_heating()
 
     def set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set hvac mode."""

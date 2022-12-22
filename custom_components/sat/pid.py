@@ -177,6 +177,11 @@ class PID(object):
         """Whether the controller is currently enabled (in auto mode) or not."""
         return self._auto_mode
 
+    @property
+    def last_input(self):
+        """The last input value that has been given."""
+        return self._last_input
+
     @auto_mode.setter
     def auto_mode(self, enabled):
         """Enable or disable the PID controller."""

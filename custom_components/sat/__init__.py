@@ -68,11 +68,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, SENSOR))
     await hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, BINARY_SENSOR))
 
-    climate = hass.data[DOMAIN][entry.entry_id][CLIMATE]
-    hass.data[DOMAIN][entry.entry_id][PID_CONTROLLERS][climate.entity_id] = SatPIDController(
-        hass, entry, climate.entity_id
-    )
-
     if entry.options.get(CONF_ROOMS):
         for entity_id in entry.options.get(CONF_ROOMS):
             hass.data[DOMAIN][entry.entry_id][PID_CONTROLLERS][entity_id] = SatPIDController(
@@ -148,12 +143,17 @@ class SatPIDController(DataUpdateCoordinator):
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
-        old_state = event.data.get("old_state")
+        if new_state.attributes.get('current_temperature') is None:
+            return
 
-        if old_state.attributes.get("temperature") != new_state.attributes.get("temperature"):
+        if self.pid.setpoint != new_state.attributes.get("temperature"):
             self.pid.setpoint = new_state.attributes.get("temperature")
             self.pid.reset()
 
-        if old_state.attributes.get("current_temperature") != new_state.attributes.get("current_temperature"):
-            self.pid(new_state.attributes.get('current_temperature'))
+            _LOGGER.debug(f"{new_state.name} PID: reset")
+
+        if self.pid.setpoint != 0 and self.pid.last_input != float(new_state.attributes.get("current_temperature")):
             _LOGGER.debug(f"{new_state.name} PID: {self.pid.components}")
+            _LOGGER.debug(f"{new_state.name} Temperature: {new_state.attributes.get('current_temperature')}")
+
+            self.pid(new_state.attributes.get('current_temperature'))
