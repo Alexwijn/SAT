@@ -275,15 +275,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if state is None or state.state == HVACMode.OFF:
                 continue
 
-            if climate_state is None:
-                climate_state = state
-
             current_temperature = state.attributes.get("temperature")
             target_temperature = state.attributes.get("current_temperature")
             if current_temperature is None or target_temperature is None:
                 continue
 
             difference = float(state.attributes.get("temperature")) - float(state.attributes.get("current_temperature"))
+            if difference < 0:
+                continue
+
             _LOGGER.debug(f"Found {state.entity_id} with a difference of {difference}")
 
             if difference > climate_difference:

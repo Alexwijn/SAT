@@ -1,5 +1,7 @@
+import logging
 import time
 
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 def _clamp(value, limits):
     lower, upper = limits
@@ -108,17 +110,17 @@ class PID(object):
         d_input = input_ - (self._last_input if (self._last_input is not None) else input_)
         d_error = error - (self._last_error if (self._last_error is not None) else error)
 
-        # Check if must map the error
+        # Check if we must map the error
         if self.error_map is not None:
             error = self.error_map(error)
 
         # Compute the proportional term
-        if not self.proportional_on_measurement:
-            # Regular proportional-on-error, simply set the proportional term
-            self._proportional = self.Kp * error
-        else:
+        if self.proportional_on_measurement:
             # Add the proportional error on measurement to error_sum
             self._proportional -= self.Kp * d_input
+        else:
+            # Regular proportional-on-error, simply set the proportional term
+            self._proportional = self.Kp * error
 
         # Compute integral and derivative terms
         if self.auto_mode:
@@ -181,6 +183,11 @@ class PID(object):
     def last_input(self):
         """The last input value that has been given."""
         return self._last_input
+
+    @property
+    def last_time(self):
+        """The last time value that has been given."""
+        return self._last_time
 
     @auto_mode.setter
     def auto_mode(self, enabled):
