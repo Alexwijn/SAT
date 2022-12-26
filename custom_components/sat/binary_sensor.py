@@ -9,9 +9,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
-from . import SatDataUpdateCoordinator
+from . import SatCoordinator
 from .climate import SatClimate
-from .const import DOMAIN, COORDINATOR, CLIMATE, CONF_ID, TRANSLATE_SOURCE, CONF_NAME, BINARY_SENSOR_INFO
+from .const import DOMAIN, COORDINATOR, CONF_ID, TRANSLATE_SOURCE, CONF_NAME, BINARY_SENSOR_INFO
 from .entity import SatEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -19,13 +19,13 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
     """Setup sensor platform."""
-    climate = hass.data[DOMAIN][config_entry.entry_id][CLIMATE]
+    # climate = hass.data[DOMAIN][config_entry.entry_id][CLIMATE]
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     has_thermostat = coordinator.data[gw_vars.OTGW].get(gw_vars.OTGW_THRM_DETECT) != "D"
 
     sensors = [
-        SatControlSetpointSynchroSensor(coordinator, climate, config_entry),
-        SatCentralHeatingSynchroSensor(coordinator, climate, config_entry),
+        # SatControlSetpointSynchroSensor(coordinator, climate, config_entry),
+        # SatCentralHeatingSynchroSensor(coordinator, climate, config_entry),
     ]
 
     for key, info in BINARY_SENSOR_INFO.items():
@@ -57,7 +57,7 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
 
     def __init__(
             self,
-            coordinator: SatDataUpdateCoordinator,
+            coordinator: SatCoordinator,
             config_entry: ConfigEntry,
             key: str,
             source: str,
@@ -109,7 +109,7 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
 
 class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatCoordinator, climate: SatClimate, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
@@ -153,7 +153,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
 class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatCoordinator, climate: SatClimate, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator

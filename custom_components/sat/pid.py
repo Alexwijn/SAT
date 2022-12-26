@@ -3,6 +3,7 @@ import time
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
+
 def _clamp(value, limits):
     lower, upper = limits
     if value is None:
@@ -74,13 +75,6 @@ class PID(object):
         self._last_error = None
         self._last_input = None
 
-        try:
-            # Get monotonic time to ensure that time deltas are always positive
-            self.time_fn = time.monotonic
-        except AttributeError:
-            # time.monotonic() not available (using python < 3.3), fallback to time.time()
-            self.time_fn = time.time
-
         self.output_limits = output_limits
         self.reset()
 
@@ -95,7 +89,8 @@ class PID(object):
         :param dt: If set, uses this value for timestep instead of real time. This can be used in
             simulations when simulation time is different from real time.
         """
-        now = self.time_fn()
+        now = time.monotonic()
+
         if dt is None:
             dt = now - self._last_time if (now - self._last_time) else 1e-16
         elif dt <= 0:
@@ -254,6 +249,6 @@ class PID(object):
 
         self._integral = _clamp(self._integral, self.output_limits)
 
-        self._last_time = self.time_fn()
+        self._last_time = time.monotonic()
         self._last_output = None
         self._last_input = None

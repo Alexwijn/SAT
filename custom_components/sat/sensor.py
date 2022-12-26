@@ -8,7 +8,7 @@ from homeassistant.const import UnitOfPower, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
-from . import SatDataUpdateCoordinator
+from . import SatCoordinator
 from .const import SENSOR_INFO, DOMAIN, COORDINATOR, CONF_ID, TRANSLATE_SOURCE, CONF_NAME
 from .entity import SatEntity
 
@@ -53,7 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 class SatSensor(SatEntity, SensorEntity):
     def __init__(
             self,
-            coordinator: SatDataUpdateCoordinator,
+            coordinator: SatCoordinator,
             config_entry: ConfigEntry,
             key: str,
             source: str,
@@ -112,7 +112,7 @@ class SatSensor(SatEntity, SensorEntity):
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator

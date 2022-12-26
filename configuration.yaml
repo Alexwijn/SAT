@@ -9,9 +9,11 @@ template:
   sensor:
     - unit_of_measurement: °C
       name: Current Temperature
+      device_class: 'temperature'
       state: "{{ states('input_number.current_temperature_raw') }}"
     - unit_of_measurement: °C
       name: Outside Temperature
+      device_class: 'temperature'
       state: "{{ states('input_number.outside_temperature_raw') }}"
 
 input_number:

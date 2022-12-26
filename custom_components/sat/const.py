@@ -15,8 +15,10 @@ from homeassistant.const import (
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 VERSION = "0.0.1"
+
+BOILER = "boiler"
+CLIMATES = "climates"
 COORDINATOR = "coordinator"
-PID_CONTROLLERS = "pid_controller"
 
 UNIT_KW = "kW"
 UNIT_L_MIN = f"L/{TIME_MINUTES}"
@@ -34,7 +36,8 @@ CLIMATE = "climate"
 
 # Configuration and options
 CONF_NAME = "name"
-CONF_ROOMS = "rooms"
+CONF_SENSORS = "sensors"
+CONF_CLIMATES = "climates"
 CONF_DEVICE = "device"
 CONF_ID = "gateway_id"
 CONF_SIMULATION = "simulation"
@@ -42,6 +45,7 @@ CONF_INTEGRAL = "integral"
 CONF_DERIVATIVE = "derivative"
 CONF_PROPORTIONAL = "proportional"
 CONF_SAMPLE_TIME = "sample_time"
+CONF_SENSOR_STALL = "sensor_stall"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
@@ -64,9 +68,11 @@ OPTIONS_DEFAULTS = {
     CONF_INTEGRAL: "0",
     CONF_DERIVATIVE: "6000",
 
-    CONF_ROOMS: [],
+    CONF_SENSORS: [],
+    CONF_CLIMATES: [],
     CONF_SIMULATION: False,
     CONF_SAMPLE_TIME: "00:05:00",
+    CONF_SENSOR_STALL: "06:00:00",
     CONF_OVERSHOOT_PROTECTION: False,
 
     CONF_AWAY_TEMPERATURE: 10,
