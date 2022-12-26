@@ -112,7 +112,7 @@ class SatCoordinator(DataUpdateCoordinator):
         return data
 
     async def _async_control_heating(self, data):
-        if (climate := self._climate) is None:
+        if (climate := self.climate) is None:
             if self.is_device_active or data[gw_vars.BOILER].get(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(False)
 
@@ -157,7 +157,7 @@ class SatCoordinator(DataUpdateCoordinator):
         _LOGGER.info("Set control setpoint to %d", self.setpoint)
 
     @property
-    def _climate(self):
+    def climate(self):
         current_climate = None
         climate_difference = 0
         climates = self._climates

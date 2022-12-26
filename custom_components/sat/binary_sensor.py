@@ -10,7 +10,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
 from . import SatCoordinator
-from .climate import SatClimate
 from .const import DOMAIN, COORDINATOR, TRANSLATE_SOURCE, CONF_NAME, BINARY_SENSOR_INFO
 from .entity import SatEntity
 
@@ -19,13 +18,12 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
     """Setup sensor platform."""
-    # climate = hass.data[DOMAIN][config_entry.entry_id][CLIMATE]
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     has_thermostat = coordinator.data[gw_vars.OTGW].get(gw_vars.OTGW_THRM_DETECT) != "D"
 
     sensors = [
-        # SatControlSetpointSynchroSensor(coordinator, climate, config_entry),
-        # SatCentralHeatingSynchroSensor(coordinator, climate, config_entry),
+        SatControlSetpointSynchroSensor(coordinator, config_entry),
+        SatCentralHeatingSynchroSensor(coordinator, config_entry),
     ]
 
     for key, info in BINARY_SENSOR_INFO.items():
@@ -109,11 +107,10 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
 
 class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
-    def __init__(self, coordinator: SatCoordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
-        self._climate = climate
 
     @property
     def name(self):
@@ -128,7 +125,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        if self._climate is None:
+        if self._coordinator.climate is None:
             return False
 
         if self._coordinator.data is None or self._coordinator.data[gw_vars.BOILER] is None:
@@ -141,7 +138,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
         """Return the state of the sensor."""
         boiler = self._coordinator.data[gw_vars.BOILER]
         boiler_setpoint = float(boiler.get(gw_vars.DATA_CONTROL_SETPOINT) or 0)
-        climate_setpoint = float(self._climate.extra_state_attributes.get("setpoint") or boiler_setpoint)
+        climate_setpoint = float(self._coordinator.climate.extra_state_attributes.get("setpoint") or boiler_setpoint)
 
         return climate_setpoint != boiler_setpoint
 
@@ -153,11 +150,10 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
 class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
 
-    def __init__(self, coordinator: SatCoordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
-        self._climate = climate
 
     @property
     def name(self):
@@ -172,7 +168,7 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        if self._climate is None:
+        if self._coordinator.climate is None:
             return False
 
         if self._coordinator.data is None or self._coordinator.data[gw_vars.BOILER] is None:
@@ -183,12 +179,12 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
     @property
     def is_on(self):
         """Return the state of the sensor."""
-        if self._climate is None:
+        if self._coordinator.climate is None:
             return False
 
         boiler = self._coordinator.data[gw_vars.BOILER]
         boiler_central_heating = bool(boiler.get(gw_vars.DATA_MASTER_CH_ENABLED) or 0)
-        climate_hvac_action = self._climate.state_attributes.get("hvac_action") or HVACAction.OFF
+        climate_hvac_action = self._coordinator.climate.state_attributes.get("hvac_action") or HVACAction.OFF
 
         if climate_hvac_action in HVACAction.OFF and boiler_central_heating is False:
             return False
