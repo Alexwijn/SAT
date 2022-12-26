@@ -4,7 +4,7 @@ import logging
 import pyotgw.vars as gw_vars
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, CONF_ID
+from .const import DOMAIN, NAME, CONF_NAME
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -21,5 +21,5 @@ class SatEntity(CoordinatorEntity):
             "manufacturer": NAME,
             "name": self.coordinator.data[gw_vars.OTGW][gw_vars.OTGW_ABOUT],
             "model": self.coordinator.data[gw_vars.OTGW][gw_vars.OTGW_BUILD],
-            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_ID))},
+            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_NAME))},
         }

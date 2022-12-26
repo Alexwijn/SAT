@@ -128,8 +128,9 @@ class SatClimate(CoordinatorEntity, ClimateEntity, RestoreEntity):
         if outside_sensor_entity is not None and outside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._outside_temperature = float(outside_sensor_entity.state)
 
-        self._attr_id = config_entry.data.get(CONF_ID)
         self._attr_name = config_entry.data.get(CONF_NAME)
+        self._attr_id = config_entry.data.get(CONF_NAME).lower()
+
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
         self._sensor_stall = get_time_in_seconds(options.get(CONF_SENSOR_STALL))
 
@@ -207,13 +208,13 @@ class SatClimate(CoordinatorEntity, ClimateEntity, RestoreEntity):
             "name": NAME,
             "model": VERSION,
             "manufacturer": NAME,
-            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_ID), CLIMATES)},
+            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_NAME), CLIMATES)},
         }
 
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_ID)}-{self._domain}-{self._entity_id}"
+        return f"{self._config_entry.data.get(CONF_NAME)}-{self._domain}-{self._entity_id}"
 
     @property
     def current_temperature(self):
