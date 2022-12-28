@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
 from . import SatDataUpdateCoordinator
-from .const import SENSOR_INFO, DOMAIN, COORDINATOR, CONF_ID, TRANSLATE_SOURCE, CONF_NAME
+from .const import SENSOR_INFO, DOMAIN, COORDINATOR, TRANSLATE_SOURCE, CONF_NAME
 from .entity import SatEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class SatSensor(SatEntity, SensorEntity):
         super().__init__(coordinator, config_entry)
 
         self.entity_id = async_generate_entity_id(
-            ENTITY_ID_FORMAT, f"{config_entry.data.get(CONF_ID)}_{source}_{key}", hass=coordinator.hass
+            ENTITY_ID_FORMAT, f"{config_entry.data.get(CONF_NAME).lower()}_{source}_{key}", hass=coordinator.hass
         )
 
         self._key = key
@@ -107,7 +107,7 @@ class SatSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_ID)}-{self._source}-{self._key}"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-{self._source}-{self._key}"
 
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):
@@ -156,4 +156,4 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_ID)}-current-power"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-current-power"

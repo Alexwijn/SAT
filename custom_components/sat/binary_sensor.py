@@ -11,7 +11,7 @@ from homeassistant.helpers.entity import async_generate_entity_id
 
 from . import SatDataUpdateCoordinator
 from .climate import SatClimate
-from .const import DOMAIN, COORDINATOR, CLIMATE, CONF_ID, TRANSLATE_SOURCE, CONF_NAME, BINARY_SENSOR_INFO
+from .const import DOMAIN, COORDINATOR, CLIMATE, TRANSLATE_SOURCE, CONF_NAME, BINARY_SENSOR_INFO
 from .entity import SatEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
         super().__init__(coordinator, config_entry)
 
         self.entity_id = async_generate_entity_id(
-            ENTITY_ID_FORMAT, f"{config_entry.data.get(CONF_ID)}_{source}_{key}", hass=coordinator.hass
+            ENTITY_ID_FORMAT, f"{config_entry.data.get(CONF_NAME).lower()}_{source}_{key}", hass=coordinator.hass
         )
 
         self._key = key
@@ -104,7 +104,7 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_ID)}-{self._source}-{self._key}"
+        return f"{self._config_entry.data.get(CONF_NAME.lower())}-{self._source}-{self._key}"
 
 
 class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
@@ -148,7 +148,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_ID)}-control-setpoint-synchro"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-control-setpoint-synchro"
 
 
 class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
@@ -204,4 +204,4 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_ID)}-central-heating-synchro"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-central-heating-synchro"

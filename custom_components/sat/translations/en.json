@@ -23,21 +23,44 @@
   },
   "options": {
     "step": {
-      "user": {
+      "general": {
+        "title": "General",
         "data": {
-          "simulation": "Simulation",
+          "heating_curve": "Heating Curve",
+          "heating_system": "Heating System",
+          "heating_curve_move": "Heating Curve Move"
+        }
+      },
+      "presets": {
+        "title": "Presets",
+        "data": {
           "away_temperature": "Away Temperature",
           "home_temperature": "Home Temperature",
           "sleep_temperature": "Sleep Temperature",
-          "comfort_temperature": "Comfort Temperature",
-          "heating_curve": "Heating Curve",
-          "heating_system": "Heating System",
-          "heating_curve_move": "Heating Curve Move",
-          "sample_time": "Sample Time",
-          "overshoot_protection": "Overshoot Protection (experimental)",
+          "comfort_temperature": "Comfort Temperature"
+        }
+      },
+      "boiler": {
+        "title": "Boiler",
+        "data": {
           "integral": "Integral",
           "derivative": "Derivative",
           "proportional": "Proportional"
+        }
+      },
+      "climates": {
+        "title": "Climates",
+        "data": {
+          "climates": "Climates (rooms)",
+          "main_climates": "Climates (main)"
+        }
+      },
+      "advanced": {
+        "title": "Advanced",
+        "data": {
+          "simulation": "Simulation",
+          "sample_time": "Sample Time",
+          "sensor_max_value_age": "Sensor max value age"
         }
       }
     }

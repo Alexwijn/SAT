@@ -3,7 +3,7 @@ import logging
 
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, VERSION, CONF_ID
+from .const import DOMAIN, NAME, VERSION, CONF_NAME
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -20,5 +20,5 @@ class SatEntity(CoordinatorEntity):
             "name": NAME,
             "model": VERSION,
             "manufacturer": NAME,
-            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_ID))},
+            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_NAME))},
         }

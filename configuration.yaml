@@ -9,9 +9,11 @@ template:
   sensor:
     - unit_of_measurement: °C
       name: Current Temperature
+      device_class: 'temperature'
       state: "{{ states('input_number.current_temperature_raw') }}"
     - unit_of_measurement: °C
       name: Outside Temperature
+      device_class: 'temperature'
       state: "{{ states('input_number.outside_temperature_raw') }}"
 
 input_number:
@@ -27,3 +29,14 @@ input_number:
     min: 0
     max: 35
     step: 0.1
+
+input_boolean:
+  heater:
+    name: Heater
+    icon: mdi:heater
+
+climate:
+  - platform: generic_thermostat
+    name: Heater
+    heater: input_boolean.heater
+    target_sensor: sensor.current_temperature

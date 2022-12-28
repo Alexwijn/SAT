@@ -1,5 +1,8 @@
 import time
 
+from homeassistant.const import ATTR_TEMPERATURE
+from homeassistant.core import State
+
 
 def _clamp(value, limits):
     lower, upper = limits
@@ -67,17 +70,10 @@ class PID(object):
         self._integral = 0
         self._derivative = 0
 
-        self._last_time = None
+        self._last_update = None
         self._last_output = None
         self._last_error = None
         self._last_input = None
-
-        try:
-            # Get monotonic time to ensure that time deltas are always positive
-            self.time_fn = time.monotonic
-        except AttributeError:
-            # time.monotonic() not available (using python < 3.3), fallback to time.time()
-            self.time_fn = time.time
 
         self.output_limits = output_limits
         self.reset()
@@ -93,9 +89,9 @@ class PID(object):
         :param dt: If set, uses this value for timestep instead of real time. This can be used in
             simulations when simulation time is different from real time.
         """
-        now = self.time_fn()
+        now = time.monotonic()
         if dt is None:
-            dt = now - self._last_time if (now - self._last_time) else 1e-16
+            dt = now - self._last_update if (now - self._last_update) else 1e-16
         elif dt <= 0:
             raise ValueError('dt has negative value {}, must be positive'.format(dt))
 
@@ -108,7 +104,7 @@ class PID(object):
         d_input = input_ - (self._last_input if (self._last_input is not None) else input_)
         d_error = error - (self._last_error if (self._last_error is not None) else error)
 
-        # Check if must map the error
+        # Check if we must map the error
         if self.error_map is not None:
             error = self.error_map(error)
 
@@ -138,7 +134,7 @@ class PID(object):
         self._last_output = output
         self._last_input = input_
         self._last_error = error
-        self._last_time = now
+        self._last_update = now
 
         return output
 
@@ -153,6 +149,25 @@ class PID(object):
             'error_map={self.error_map!r}'
             ')'
         ).format(self=self)
+
+    def restore(self, state: State):
+        self.setpoint = float(state.attributes[ATTR_TEMPERATURE])
+
+        pid_auto_mode = state.attributes.get("pid_auto_mode")
+        if pid_auto_mode is not None and bool(pid_auto_mode) is False:
+            self.set_auto_mode(False)
+
+        pid_last_update = state.attributes.get("pid_last_update")
+        if pid_last_update is not None:
+            self._last_update = pid_last_update
+
+        self._proportional = state.attributes.get("proportional")
+        self._integral = state.attributes.get("integral")
+        self._derivative = state.attributes.get("derivative")
+
+    @property
+    def last_update(self):
+        return self._last_update
 
     @property
     def components(self):
@@ -242,6 +257,6 @@ class PID(object):
 
         self._integral = _clamp(self._integral, self.output_limits)
 
-        self._last_time = self.time_fn()
+        self._last_update = time.monotonic()
         self._last_output = None
         self._last_input = None

@@ -10,7 +10,6 @@ from pyotgw import OpenThermGateway
 from serial import SerialException
 
 from .const import (
-    CONF_ID,
     CONF_DEVICE,
     DOMAIN,
     SENSOR,
@@ -24,6 +23,13 @@ from .const import (
 SCAN_INTERVAL = timedelta(seconds=15)
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+
+
+def mean(values):
+    if len(values) == 0:
+        return 0
+
+    return sum(values) / len(values)
 
 
 async def async_setup(hass: HomeAssistant, config: Config):
