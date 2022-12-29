@@ -102,7 +102,11 @@ class SatSensor(SatEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the device."""
-        return self._coordinator.data[self._source].get(self._key)
+        value = self._coordinator.data[self._source].get(self._key)
+        if isinstance(value, float):
+            value = f"{value:2.1f}"
+            
+        return value
 
     @property
     def unique_id(self):
