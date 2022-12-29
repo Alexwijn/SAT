@@ -143,7 +143,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
         boiler_setpoint = float(boiler.get(gw_vars.DATA_CONTROL_SETPOINT) or 0)
         climate_setpoint = float(self._climate.extra_state_attributes.get("setpoint") or boiler_setpoint)
 
-        return climate_setpoint != boiler_setpoint
+        return round(climate_setpoint, 1) != round(boiler_setpoint, 1)
 
     @property
     def unique_id(self):
