@@ -53,8 +53,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             errors=self._errors,
             data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default="Home"): str,
-                vol.Required(CONF_DEVICE, default="socket://192.168.178.21:25238"): str,
+                vol.Required(CONF_NAME, default="Living Room"): str,
+                vol.Required(CONF_DEVICE, default="socket://otgw.local:25238"): str,
             }),
         )
 
