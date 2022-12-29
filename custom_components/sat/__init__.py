@@ -90,7 +90,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, client: OpenThermGateway) -> None:
         """Initialize."""
         self.api = client
-        self.api.subscribe(self.async_set_updated_data)
+        self.api.subscribe(self._async_coroutine)
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
@@ -101,9 +101,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as exception:
             raise UpdateFailed() from exception
 
+    async def _async_coroutine(self, data):
+        self.async_set_updated_data(data)
+
     async def cleanup(self):
         """Cleanup and disconnect."""
-        self.api.unsubscribe(self.async_set_updated_data)
+        self.api.unsubscribe(self._async_coroutine)
 
         await self.api.set_control_setpoint(0)
         await self.api.set_max_relative_mod("-")
