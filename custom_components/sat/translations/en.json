@@ -28,7 +28,8 @@
         "data": {
           "heating_curve": "Heating Curve",
           "heating_system": "Heating System",
-          "heating_curve_move": "Heating Curve Move"
+          "heating_curve_move": "Heating Curve Move",
+          "target_temperature_step": "Target Temperature Step"
         }
       },
       "presets": {

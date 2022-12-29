@@ -43,6 +43,7 @@ CONF_PROPORTIONAL = "proportional"
 CONF_SAMPLE_TIME = "sample_time"
 CONF_SENSOR_MAX_VALUE_AGE = "sensor_max_value_age"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
+CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 
@@ -68,6 +69,7 @@ OPTIONS_DEFAULTS = {
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
     CONF_SAMPLE_TIME: "00:05:00",
+    CONF_TARGET_TEMPERATURE_STEP: 0.5,
     CONF_SENSOR_MAX_VALUE_AGE: "06:00:00",
 
     CONF_AWAY_TEMPERATURE: 10,

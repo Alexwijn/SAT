@@ -116,6 +116,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
         self._heating_curve_move = options.get(CONF_HEATING_CURVE_MOVE)
         self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
+        self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
         self._sensor_max_value_age = get_time_in_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
         self._attr_name = config_entry.data.get(CONF_NAME)
@@ -254,27 +255,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def target_temperature_step(self):
-        return 0.5
+        return self._target_temperature_step
 
     @property
     def climate_differences(self):
         differences = []
         for climate in self._climates:
             state = self.hass.states.get(climate)
-
-            if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                 continue
 
-            if state.state == HVACMode.OFF:
-                continue
+            target_temperature = float(state.attributes.get("temperature"))
+            current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
 
-            target_temperature = state.attributes.get("temperature")
-            current_temperature = state.attributes.get("current_temperature")
-
-            if current_temperature is None or float(current_temperature) >= float(target_temperature) + HOT_TOLERANCE:
-                continue
-
-            differences.append(float(target_temperature) - float(current_temperature))
+            differences.append(round(target_temperature - current_temperature, 1))
 
         if len(differences) == 0:
             return [0]
@@ -414,7 +408,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return self._heating_curve_move - system_offset + 89.0 - (0.01945 * self._outside_temperature ** 2) - (2.66 * self._outside_temperature)
 
     def _calculate_control_setpoint(self):
-        if max(self.climate_differences) > COLD_TOLERANCE:
+        if max(self.climate_differences) >= COLD_TOLERANCE:
             _LOGGER.info(f"Detected difference higher than {COLD_TOLERANCE}, falling back to heating curve,")
             setpoint = self._heating_curve
         else:
