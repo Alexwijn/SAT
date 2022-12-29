@@ -535,6 +535,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             if self._attr_preset_mode == PRESET_NONE:
                 self._saved_target_temperature = self._target_temperature
+            elif self.hvac_mode == HVACMode.OFF:
+                self._hvac_mode = HVACMode.HEAT
 
             self._attr_preset_mode = preset_mode
             await self._async_set_setpoint(self._presets[preset_mode])
