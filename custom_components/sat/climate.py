@@ -481,7 +481,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             too_hot = False
 
         if self._is_device_active:
-            if too_hot or not self.valves_open or self.hvac_action == HVACAction.OFF:
+            if too_hot or not self.valves_open or self.hvac_action != HVACAction.OFF:
                 await self._async_control_heater(False)
 
             await self._async_control_setpoint()

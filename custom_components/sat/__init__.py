@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
@@ -19,8 +18,6 @@ from .const import (
     CONF_RADIATOR_LOW_TEMPERATURES,
     CONF_RADIATOR_HIGH_TEMPERATURES, COORDINATOR,
 )
-
-SCAN_INTERVAL = timedelta(seconds=15)
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -49,15 +46,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     except (asyncio.TimeoutError, ConnectionError, SerialException) as ex:
         raise ConfigEntryNotReady(f"Could not connect to gateway at {entry.data.get(CONF_DEVICE)}: {ex}") from ex
 
-    coordinator = SatDataUpdateCoordinator(hass, client=client)
-    await coordinator.async_refresh()
-
-    if not coordinator.last_update_success:
-        raise ConfigEntryNotReady
-
     hass.data[DOMAIN][entry.entry_id] = {
-        COORDINATOR: coordinator,
-        CLIMATE: None
+        COORDINATOR: SatDataUpdateCoordinator(hass, client=client),
     }
 
     await hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, CLIMATE))
@@ -100,8 +90,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, client: OpenThermGateway) -> None:
         """Initialize."""
         self.api = client
+        self.api.subscribe(self.async_set_updated_data)
 
-        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
+        super().__init__(hass, _LOGGER, name=DOMAIN)
 
     async def _async_update_data(self):
         """Update data via library."""
@@ -112,6 +103,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def cleanup(self):
         """Cleanup and disconnect."""
+        self.api.unsubscribe(self.async_set_updated_data)
+
         await self.api.set_control_setpoint(0)
         await self.api.set_max_relative_mod("-")
         await self.api.disconnect()
