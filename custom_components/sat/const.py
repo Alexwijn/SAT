@@ -82,6 +82,9 @@ OPTIONS_DEFAULTS = {
     CONF_HEATING_SYSTEM: CONF_RADIATOR_LOW_TEMPERATURES,
 }
 
+# Storage
+STORAGE_OVERSHOOT_PROTECTION_VALUE = "overshoot_protection_value"
+
 # Config steps
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"

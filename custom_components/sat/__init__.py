@@ -4,6 +4,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from pyotgw import OpenThermGateway
 from serial import SerialException
@@ -16,7 +17,7 @@ from .const import (
     BINARY_SENSOR,
     CONF_UNDERFLOOR,
     CONF_RADIATOR_LOW_TEMPERATURES,
-    CONF_RADIATOR_HIGH_TEMPERATURES, COORDINATOR,
+    CONF_RADIATOR_HIGH_TEMPERATURES, COORDINATOR, STORAGE_OVERSHOOT_PROTECTION_VALUE,
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -111,3 +112,26 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         await self.api.set_control_setpoint(0)
         await self.api.set_max_relative_mod("-")
         await self.api.disconnect()
+
+
+class SatConfigStore:
+    _STORAGE_VERSION = 1
+    _STORAGE_KEY = DOMAIN
+
+    def __init__(self, hass):
+        self._hass = hass
+        self._data = None
+        self._store = Store(hass, self._STORAGE_VERSION, self._STORAGE_KEY)
+
+    async def async_initialize(self):
+        if (data := await self._store.async_load()) is None:
+            data = {STORAGE_OVERSHOOT_PROTECTION_VALUE: None}
+
+        self._data = data
+
+    def retrieve_overshoot_protection_value(self):
+        return self._data[STORAGE_OVERSHOOT_PROTECTION_VALUE]
+
+    def store_overshoot_protection_value(self, value: float):
+        self._data[STORAGE_OVERSHOOT_PROTECTION_VALUE] = value
+        self._store.async_delay_save(lambda: self._data, 1.0)

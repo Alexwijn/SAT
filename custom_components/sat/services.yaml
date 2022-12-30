@@ -1,0 +1,3 @@
+overshoot_protection:
+  name: Overshoot Protection Calculation
+  description: "Call this service to calculate the value that will be used when determining the setpoint and prevent overshooting."

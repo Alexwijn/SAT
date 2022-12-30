@@ -61,7 +61,8 @@
         "data": {
           "simulation": "Simulation",
           "sample_time": "Sample Time",
-          "sensor_max_value_age": "Sensor max value age"
+          "sensor_max_value_age": "Sensor max value age",
+          "overshoot_protection": "Overshoot Protection (experimental)"
         }
       }
     }
