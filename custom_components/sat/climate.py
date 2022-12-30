@@ -29,7 +29,9 @@ from .pid import PID
 
 HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
-OVERSHOOT_PROTECTION_DATASET = 80
+
+OVERSHOOT_PROTECTION_SETPOINT = 60
+OVERSHOOT_PROTECTION_REQUIRED_DATASET = 80
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -206,18 +208,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         async def overshoot_protection(call: ServiceCall):
             if self._overshoot_protection_active:
-                _LOGGER.warning("[Overshoot Protection] Already running!")
+                _LOGGER.warning("[Overshoot Protection] Already running.")
                 return
 
             self._hvac_mode = HVACMode.HEAT
             self._overshoot_protection_data = []
             self._overshoot_protection_active = True
 
-            _LOGGER.warning("[Overshoot Protection] Enabled for at least 20 minutes until we found a stable return water temperature!")
+            _LOGGER.warning("[Overshoot Protection] Enabled for at least 20 minutes until we found a stable return water temperature.")
 
             await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
                 "title": "Overshoot Protection Calculation",
-                "message": "Enabled for at least 20 minutes until we found a stable return water temperature!"
+                "message": "Enabled for at least 20 minutes until we found a stable return water temperature."
             })
 
         self.hass.services.async_register(DOMAIN, "overshoot_protection", overshoot_protection)
@@ -404,7 +406,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_heating(self, time=None):
         if self._overshoot_protection_active:
-            _LOGGER.warning("[Overshoot Protection] Is active!")
             await self._async_control_overshoot_protection()
 
             return
@@ -444,7 +445,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._overshoot_protection_data.append(round(return_water_temperature, 1))
             _LOGGER.info(f"[Overshoot Protection] Return Water Temperature Collected: {return_water_temperature:2.1f}")
 
-        if len(self._overshoot_protection_data) < 3:
+        if len(self._overshoot_protection_data) < OVERSHOOT_PROTECTION_REQUIRED_DATASET:
             return
 
         value = mean(self._overshoot_protection_data[-3:])
@@ -478,7 +479,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._setpoint = round(self._calculate_control_setpoint(), 1)
             else:
                 _LOGGER.warning("[Overshoot Protection] Overwritten setpoint to 60 degrees")
-                self._setpoint = 60
+                self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
         else:
             self._setpoint = 10
             self._heating_curve = None
