@@ -2,7 +2,6 @@
 import datetime
 import logging
 import time
-
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
@@ -31,7 +30,7 @@ HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
 
 OVERSHOOT_PROTECTION_SETPOINT = 60
-OVERSHOOT_PROTECTION_REQUIRED_DATASET = 80
+OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -412,15 +411,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._current_temperature is None or self._outside_temperature is None:
             return
 
-        climates_difference = mean(self.climate_differences)
         too_cold = self.target_temperature + COLD_TOLERANCE >= self._current_temperature
         too_hot = self.current_temperature >= self._target_temperature + HOT_TOLERANCE
 
-        if not too_cold and climates_difference >= COLD_TOLERANCE:
+        # Enable the heater if one our climates needs heat
+        if not too_cold and max(self.climate_differences) >= COLD_TOLERANCE:
             too_cold = True
-
-        if too_hot and climates_difference >= -HOT_TOLERANCE:
-            too_hot = False
 
         if self._is_device_active:
             if too_hot or not self.valves_open or self.hvac_action == HVACAction.OFF:
