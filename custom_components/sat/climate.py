@@ -344,12 +344,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return boiler.get(key)
 
     def _calculate_heating_curve_value(self) -> float:
-        system_offset = 28
+        system_offset = 28 + self._heating_curve_move
         if self._heating_system == CONF_UNDERFLOOR:
-            system_offset = 20
+            system_offset = 20 + self._heating_curve_move
 
-        base = self._heating_curve_move + system_offset + self._curve_move
-        return base * (20 - (0.01 * self._outside_temperature ** 2) - (0.8 * self._outside_temperature))
+        return system_offset + (self._curve_move * (20 - (0.01 * self._outside_temperature ** 2) - (0.8 * self._outside_temperature)))
 
     def _calculate_control_setpoint(self):
         proportional, integral, derivative = self._pid.components
