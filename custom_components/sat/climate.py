@@ -400,6 +400,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         target_temperature = new_state.attributes.get("temperature")
         if target_temperature is not None and float(target_temperature) != self._target_temperature:
             _LOGGER.debug("Main Climate Changed.")
+
+            self._attr_preset_mode = PRESET_NONE
             await self._async_set_setpoint(target_temperature, False)
 
     async def _async_control_heating(self, time=None):
@@ -489,6 +491,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:
             return
 
+        self._attr_preset_mode = PRESET_NONE
         await self._async_set_setpoint(temperature)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
@@ -514,7 +517,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._target_temperature == temperature:
             return
 
-        self._attr_preset_mode = PRESET_NONE
         self._target_temperature = temperature
 
         self._pid.setpoint = temperature
