@@ -416,6 +416,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Enable the heater if one our climates needs heat
         if not too_cold and max(self.climate_differences) >= COLD_TOLERANCE:
+            too_hot = False
             too_cold = True
 
         if self._is_device_active:
