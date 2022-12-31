@@ -511,6 +511,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_set_setpoint(self._presets[preset_mode])
 
     async def _async_set_setpoint(self, temperature: float, update_main_climates: bool = True):
+        if self._target_temperature == temperature:
+            return
+
         self._attr_preset_mode = PRESET_NONE
         self._target_temperature = temperature
 
