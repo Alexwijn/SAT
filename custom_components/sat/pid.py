@@ -18,6 +18,7 @@ def _clamp(value, limits):
 class PID(object):
     """A simple PID controller."""
 
+    # noinspection PyPep8Naming
     def __init__(
             self,
             Kp=1.0,
@@ -47,7 +48,7 @@ class PID(object):
             elements, for example: (lower, upper). The output will never go below the lower limit
             or above the upper limit. Either of the limits can also be set to None to have no limit
             in that direction. Setting output limits also avoids integral windup, since the
-            integral term will never be allowed to grow outside of the limits.
+            integral term will never be allowed to grow outside the limits.
         :param auto_mode: Whether the controller should be enabled (auto mode) or not (manual mode)
         :param proportional_on_measurement: Whether the proportional term should be calculated on
             the input directly rather than on the error (which is the traditional way). Using

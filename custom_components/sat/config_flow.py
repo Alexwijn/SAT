@@ -33,11 +33,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         return await self.async_step_user()
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
+    async def async_step_user(self, _user_input=None) -> FlowResult:
         self._errors = {}
 
-        if user_input is not None:
-            self._data.update(user_input)
+        if _user_input is not None:
+            self._data.update(_user_input)
 
             if not await self._test_gateway_connection():
                 self._errors["base"] = "auth"
@@ -58,11 +58,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_sensors(self, user_input=None):
+    async def async_step_sensors(self, _user_input=None):
         self._errors = {}
 
-        if user_input is not None:
-            self._data.update(user_input)
+        if _user_input is not None:
+            self._data.update(_user_input)
             return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
 
         return await self.async_step_sensors_setup()
@@ -97,10 +97,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._config_entry = config_entry
         self._options = dict(config_entry.options)
 
-    async def async_step_init(self, user_input=None):
-        return await self.async_step_user(user_input)
+    async def async_step_init(self, _user_input=None):
+        return await self.async_step_user(_user_input)
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
+    async def async_step_user(self, _user_input=None) -> FlowResult:
         menu_options = {
             "general": "General",
             "presets": "Presets",
@@ -118,9 +118,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             menu_options=menu_options
         )
 
-    async def async_step_general(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            return await self.update_options(user_input)
+    async def async_step_general(self, _user_input=None) -> FlowResult:
+        if _user_input is not None:
+            return await self.update_options(_user_input)
 
         defaults = await self.get_options()
         return self.async_show_form(
@@ -145,9 +145,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_presets(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            return await self.update_options(user_input)
+    async def async_step_presets(self, _user_input=None) -> FlowResult:
+        if _user_input is not None:
+            return await self.update_options(_user_input)
 
         defaults = await self.get_options()
         return self.async_show_form(
@@ -168,9 +168,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_boiler(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            return await self.update_options(user_input)
+    async def async_step_boiler(self, _user_input=None) -> FlowResult:
+        if _user_input is not None:
+            return await self.update_options(_user_input)
 
         defaults = await self.get_options()
         return self.async_show_form(
@@ -182,15 +182,15 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_climates(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            if user_input.get(CONF_MAIN_CLIMATES) is None:
+    async def async_step_climates(self, _user_input=None) -> FlowResult:
+        if _user_input is not None:
+            if _user_input.get(CONF_MAIN_CLIMATES) is None:
                 self._options[CONF_MAIN_CLIMATES] = []
 
-            if user_input.get(CONF_CLIMATES) is None:
+            if _user_input.get(CONF_CLIMATES) is None:
                 self._options[CONF_CLIMATES] = []
 
-            return await self.update_options(user_input)
+            return await self.update_options(_user_input)
 
         defaults = await self.get_options()
         return self.async_show_form(
@@ -205,9 +205,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_advanced(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            return await self.update_options(user_input)
+    async def async_step_advanced(self, _user_input=None) -> FlowResult:
+        if _user_input is not None:
+            return await self.update_options(_user_input)
 
         defaults = await self.get_options()
         return self.async_show_form(
@@ -220,8 +220,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def update_options(self, user_input) -> FlowResult:
-        self._options.update(user_input)
+    async def update_options(self, _user_input) -> FlowResult:
+        self._options.update(_user_input)
         return self.async_create_entry(title=self._config_entry.data[CONF_NAME], data=self._options)
 
     async def get_options(self):

@@ -2,6 +2,7 @@
 import datetime
 import logging
 import time
+
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
@@ -11,7 +12,9 @@ from homeassistant.components.climate import (
     PRESET_HOME,
     PRESET_NONE,
     PRESET_SLEEP,
-    PRESET_COMFORT, DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE
+    PRESET_COMFORT,
+    SERVICE_SET_TEMPERATURE,
+    DOMAIN as CLIMATE_DOMAIN,
 )
 from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.config_entries import ConfigEntry
@@ -46,8 +49,8 @@ CONF_PRESETS = {
 
 
 def get_time_in_seconds(time_str: str) -> float:
-    time = dt.parse_time(time_str)
-    return (time.hour * 3600) + (time.minute * 60) + time.second
+    date_time = dt.parse_time(time_str)
+    return (date_time.hour * 3600) + (date_time.minute * 60) + date_time.second
 
 
 def create_pid_controller(options) -> PID:
@@ -205,7 +208,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
         await self._async_control_heating()
 
-        async def overshoot_protection(call: ServiceCall):
+        async def overshoot_protection(_call: ServiceCall):
             if self._overshoot_protection_active:
                 _LOGGER.warning("[Overshoot Protection] Already running.")
                 return
@@ -404,7 +407,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._attr_preset_mode = PRESET_NONE
             await self._async_set_setpoint(target_temperature, False)
 
-    async def _async_control_heating(self, time=None):
+    async def _async_control_heating(self, _time=None):
         if self._overshoot_protection_active:
             await self._async_control_overshoot_protection()
 
@@ -505,10 +508,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._attr_preset_mode = PRESET_NONE
             await self._async_set_setpoint(self._saved_target_temperature)
         else:
+            if self.hvac_mode == HVACMode.OFF:
+                self._hvac_mode = HVACMode.HEAT
+
             if self._attr_preset_mode == PRESET_NONE:
                 self._saved_target_temperature = self._target_temperature
-            elif self.hvac_mode == HVACMode.OFF:
-                self._hvac_mode = HVACMode.HEAT
 
             self._attr_preset_mode = preset_mode
             await self._async_set_setpoint(self._presets[preset_mode])

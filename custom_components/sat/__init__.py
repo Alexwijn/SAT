@@ -30,59 +30,59 @@ def mean(values):
     return sum(values) / len(values)
 
 
-async def async_setup(hass: HomeAssistant, config: Config):
+async def async_setup(_hass: HomeAssistant, __config: Config):
     """Set up this integration using YAML is not supported."""
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     """Set up this integration using UI."""
 
-    if hass.data.get(DOMAIN) is None:
-        hass.data.setdefault(DOMAIN, {})
+    if _hass.data.get(DOMAIN) is None:
+        _hass.data.setdefault(DOMAIN, {})
 
     try:
         client = OpenThermGateway()
-        await client.connect(port=entry.data.get(CONF_DEVICE), timeout=5)
+        await client.connect(port=_entry.data.get(CONF_DEVICE), timeout=5)
     except (asyncio.TimeoutError, ConnectionError, SerialException) as ex:
-        raise ConfigEntryNotReady(f"Could not connect to gateway at {entry.data.get(CONF_DEVICE)}: {ex}") from ex
+        raise ConfigEntryNotReady(f"Could not connect to gateway at {_entry.data.get(CONF_DEVICE)}: {ex}") from ex
 
-    hass.data[DOMAIN][entry.entry_id] = {
-        COORDINATOR: SatDataUpdateCoordinator(hass, client=client),
+    _hass.data[DOMAIN][_entry.entry_id] = {
+        COORDINATOR: SatDataUpdateCoordinator(_hass, client=client),
     }
 
-    await hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, CLIMATE))
-    await hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, SENSOR))
-    await hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, BINARY_SENSOR))
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE))
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, SENSOR))
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, BINARY_SENSOR))
 
-    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
 
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
     """Handle removal of an entry."""
     unloaded = all(
         await asyncio.gather(
-            hass.config_entries.async_forward_entry_unload(entry, CLIMATE),
-            hass.config_entries.async_forward_entry_unload(entry, SENSOR),
-            hass.config_entries.async_forward_entry_unload(entry, BINARY_SENSOR)
+            _hass.config_entries.async_forward_entry_unload(_entry, CLIMATE),
+            _hass.config_entries.async_forward_entry_unload(_entry, SENSOR),
+            _hass.config_entries.async_forward_entry_unload(_entry, BINARY_SENSOR)
         )
     )
 
     if unloaded:
-        coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
+        coordinator = _hass.data[DOMAIN][_entry.entry_id][COORDINATOR]
         await coordinator.cleanup()
 
-        hass.data[DOMAIN].pop(entry.entry_id)
+        _hass.data[DOMAIN].pop(_entry.entry_id)
 
     return unloaded
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_reload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    await async_unload_entry(_hass, _entry)
+    await async_setup_entry(_hass, _entry)
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
