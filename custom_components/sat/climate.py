@@ -172,6 +172,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
+        for climate_id in (self._climates + self._main_climates):
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [climate_id], self._async_main_climate_changed
+                )
+            )
+
         # Check If we have an old state
         if (old_state := await self.async_get_last_state()) is not None:
             # If we have no initial temperature, restore
@@ -390,6 +397,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
         await self._async_control_heating()
+
+    async def _async_main_climate_changed(self, event):
+        old_state = event.data.get("old_state")
+        new_state = event.data.get("new_state")
+        if new_state is None:
+            return
+
+        if old_state is None or new_state.state != old_state.state:
+            _LOGGER.debug(f"Main Climate State Changed ({new_state.entity_id}).")
+            await self._async_control_heating()
 
     async def _async_control_heating(self, _time=None):
         if self._overshoot_protection_active:
