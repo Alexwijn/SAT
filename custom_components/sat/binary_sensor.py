@@ -141,7 +141,12 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
         """Return the state of the sensor."""
         boiler = self._coordinator.data[gw_vars.BOILER]
         boiler_setpoint = float(boiler.get(gw_vars.DATA_CONTROL_SETPOINT) or 0)
+
+        climate_hvac_action = self._climate.state_attributes.get("hvac_action") or HVACAction.OFF
         climate_setpoint = float(self._climate.extra_state_attributes.get("setpoint") or boiler_setpoint)
+
+        if climate_hvac_action == HVACAction.OFF:
+            return False
 
         return round(climate_setpoint, 1) != round(boiler_setpoint, 1)
 
@@ -190,7 +195,7 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
         boiler_central_heating = bool(boiler.get(gw_vars.DATA_MASTER_CH_ENABLED) or 0)
         climate_hvac_action = self._climate.state_attributes.get("hvac_action") or HVACAction.OFF
 
-        if climate_hvac_action in HVACAction.OFF and boiler_central_heating is False:
+        if climate_hvac_action == HVACAction.OFF and boiler_central_heating is False:
             return False
 
         if climate_hvac_action == HVACAction.IDLE and boiler_central_heating is False:
