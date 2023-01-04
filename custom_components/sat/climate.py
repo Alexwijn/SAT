@@ -172,13 +172,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        for climate_id in self._main_climates:
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, [climate_id], self._async_main_climate_changed
-                )
-            )
-
         # Check If we have an old state
         if (old_state := await self.async_get_last_state()) is not None:
             # If we have no initial temperature, restore
@@ -395,18 +388,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await self._async_control_heating()
 
-    async def _async_main_climate_changed(self, event):
-        new_state = event.data.get("new_state")
-        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return
-
-        target_temperature = new_state.attributes.get("temperature")
-        if target_temperature is not None and float(target_temperature) != self._target_temperature:
-            _LOGGER.debug("Main Climate Changed.")
-
-            self._attr_preset_mode = PRESET_NONE
-            await self._async_set_setpoint(target_temperature, False)
-
     async def _async_control_heating(self, _time=None):
         if self._overshoot_protection_active:
             await self._async_control_overshoot_protection()
@@ -518,7 +499,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._attr_preset_mode = preset_mode
             await self._async_set_setpoint(self._presets[preset_mode])
 
-    async def _async_set_setpoint(self, temperature: float, update_main_climates: bool = True):
+    async def _async_set_setpoint(self, temperature: float):
         if self._target_temperature == temperature:
             return
 
@@ -527,10 +508,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._pid.setpoint = temperature
         self._pid.reset()
 
-        if update_main_climates:
-            for entity_id in self._main_climates:
-                data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
-                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+        for entity_id in self._main_climates:
+            data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
+            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
         self.async_write_ha_state()
         await self._async_control_heating()
