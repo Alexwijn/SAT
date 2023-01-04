@@ -348,10 +348,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _calculate_control_setpoint(self):
         proportional, integral, derivative = self._pid.components
         _LOGGER.info(f"Calculated pid {self._pid.components}")
-        setpoint = (self._heating_curve + proportional + integral + derivative)
+        setpoint = self._heating_curve
+
+        if self._pid.auto_mode:
+            setpoint += proportional + integral + derivative
 
         if max(self.climate_differences) >= COLD_TOLERANCE and setpoint < self._heating_curve:
-            _LOGGER.info(f"Detected difference higher than {COLD_TOLERANCE}, falling back to heating curve,")
+            _LOGGER.info(f"Detected difference higher than {COLD_TOLERANCE}, falling back to heating curve.")
             setpoint = self._heating_curve
 
         if setpoint < 10:
