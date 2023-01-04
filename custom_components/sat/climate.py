@@ -399,19 +399,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         too_cold = self.target_temperature + COLD_TOLERANCE >= self._current_temperature
         too_hot = self.current_temperature >= self._target_temperature + HOT_TOLERANCE
+        climates_requires_heat = max(self.climate_differences) >= COLD_TOLERANCE
 
-        # Enable the heater if one our climates needs heat
-        if not too_cold and max(self.climate_differences) >= COLD_TOLERANCE:
-            too_hot = False
-            too_cold = True
+        # Enable PID Controller when this climate is too cold
+        if too_cold:
+            self._pid.set_auto_mode(True)
+
+        # Disable PID Controller when this climate is too hot
+        if too_hot:
+            self._pid.set_auto_mode(False)
 
         if self._is_device_active:
-            if too_hot or not self.valves_open or self.hvac_action == HVACAction.OFF:
+            if (too_hot and not climates_requires_heat) or not self.valves_open or self.hvac_action == HVACAction.OFF:
                 await self._async_control_heater(False)
 
             await self._async_control_setpoint()
         else:
-            if too_cold and self.valves_open and self.hvac_action != HVACAction.OFF:
+            if (too_cold or climates_requires_heat) and self.valves_open and self.hvac_action != HVACAction.OFF:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint()
             elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
@@ -449,7 +453,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
         self._is_device_active = enabled
-        self._pid.set_auto_mode(enabled)
 
         _LOGGER.info("Set central heating to %d", enabled)
 
