@@ -432,6 +432,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._is_device_active:
             if (too_hot and not climates_requires_heat) or not self.valves_open or self.hvac_action == HVACAction.OFF:
                 await self._async_control_heater(False)
+            elif not self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
+                await self._async_control_heater(True)
 
             await self._async_control_setpoint()
         else:
