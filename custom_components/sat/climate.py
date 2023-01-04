@@ -468,6 +468,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
         self._is_device_active = enabled
+        self._pid.set_auto_mode(enabled)
 
         _LOGGER.info("Set central heating to %d", enabled)
 
