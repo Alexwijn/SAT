@@ -145,7 +145,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
         climate_hvac_action = self._climate.state_attributes.get("hvac_action") or HVACAction.OFF
         climate_setpoint = float(self._climate.extra_state_attributes.get("setpoint") or boiler_setpoint)
 
-        if climate_hvac_action == HVACAction.OFF:
+        if climate_hvac_action in [HVACAction.OFF, HVACAction.IDLE]:
             return False
 
         return round(climate_setpoint, 1) != round(boiler_setpoint, 1)
