@@ -14,7 +14,7 @@ from homeassistant.components.climate import (
     PRESET_SLEEP,
     PRESET_COMFORT,
     SERVICE_SET_TEMPERATURE,
-    DOMAIN as CLIMATE_DOMAIN,
+    DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, ATTR_HVAC_MODE,
 )
 from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.config_entries import ConfigEntry
@@ -175,7 +175,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         for climate_id in (self._climates + self._main_climates):
             self.async_on_remove(
                 async_track_state_change_event(
-                    self.hass, [climate_id], self._async_main_climate_changed
+                    self.hass, [climate_id], self._async_climate_changed
                 )
             )
 
@@ -398,14 +398,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await self._async_control_heating()
 
-    async def _async_main_climate_changed(self, event):
+    async def _async_climate_changed(self, event):
         old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
         if new_state is None:
             return
 
         if old_state is None or new_state.state != old_state.state:
-            _LOGGER.debug(f"Main Climate State Changed ({new_state.entity_id}).")
+            _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
             await self._async_control_heating()
 
     async def _async_control_heating(self, _time=None):
@@ -548,6 +548,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             _LOGGER.error("Unrecognized hvac mode: %s", hvac_mode)
             return
+
+        for entity_id in self._main_climates:
+            data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
+            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
         self.async_write_ha_state()
         await self._async_control_heating()
