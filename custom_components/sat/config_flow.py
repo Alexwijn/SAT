@@ -105,7 +105,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             "general": "General",
             "presets": "Presets",
             "boiler": "Boiler",
-            "climates": "Climates",
+            "climates": "Climates (multi-room)",
         }
 
         if self.show_advanced_options:
