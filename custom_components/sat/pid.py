@@ -109,13 +109,13 @@ class PID(object):
         if self.error_map is not None:
             error = self.error_map(error)
 
-        # Compute the proportional term
-        if not self.proportional_on_measurement:
-            # Regular proportional-on-error, simply set the proportional term
-            self._proportional = self.Kp * error
-        else:
+        if self.proportional_on_measurement:
             # Add the proportional error on measurement to error_sum
             self._proportional -= self.Kp * d_input
+        # Compute the proportional term
+        else:
+            # Regular proportional-on-error, simply set the proportional term
+            self._proportional = self.Kp * error
 
         # Compute integral and derivative terms
         if self.auto_mode:
@@ -123,8 +123,10 @@ class PID(object):
             self._integral = _clamp(self._integral, self.output_limits)  # Avoid integral windup
 
         if self.differential_on_measurement:
+            # Add the derivative error on measurement to error_sum
             self._derivative = -self.Kd * d_input / dt
         else:
+            # Regular derivative-on-error, simply set the proportional term
             self._derivative = self.Kd * d_error / dt
 
         # Compute final output
@@ -249,13 +251,10 @@ class PID(object):
         """
         Reset the PID controller internals.
 
-        This sets each term to 0 as well as clearing the integral, the last output and the last
+        This clears the integral, the last output and the last
         input (derivative calculation).
         """
-        self._proportional = 0
         self._integral = 0
-        self._derivative = 0
-
         self._integral = _clamp(self._integral, self.output_limits)
 
         self._last_update = time.monotonic()
