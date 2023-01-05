@@ -243,7 +243,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "derivative": derivative,
             "proportional": proportional,
             "pid_auto_mode": self._pid.auto_mode,
-            "pid_last_update": self._pid.last_update,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -467,10 +466,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info(f"[Overshoot Protection] Result: {value:2.1f}")
 
     async def _async_control_pid(self):
-        if self._sensor_max_value_age != 0 and time.monotonic() - self._pid.last_update > self._sensor_max_value_age:
+        if self._sensor_max_value_age != 0 and time.time() - self._pid.last_update > self._sensor_max_value_age:
             self._pid.reset()
 
         self._pid(self._current_temperature)
+        self.async_write_ha_state()
 
     async def _async_control_heater(self, enabled: bool):
         if not self._simulation:
