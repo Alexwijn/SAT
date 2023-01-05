@@ -50,7 +50,7 @@
         }
       },
       "climates": {
-        "title": "Climates",
+        "title": "Climates (multi-room)",
         "data": {
           "climates": "Climates (rooms)",
           "main_climates": "Climates (main)"
