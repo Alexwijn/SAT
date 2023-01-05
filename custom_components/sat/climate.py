@@ -13,8 +13,10 @@ from homeassistant.components.climate import (
     PRESET_NONE,
     PRESET_SLEEP,
     PRESET_COMFORT,
+    ATTR_HVAC_MODE,
+    SERVICE_SET_HVAC_MODE,
     SERVICE_SET_TEMPERATURE,
-    DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, ATTR_HVAC_MODE,
+    DOMAIN as CLIMATE_DOMAIN,
 )
 from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.config_entries import ConfigEntry
@@ -549,7 +551,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.error("Unrecognized hvac mode: %s", hvac_mode)
             return
 
-        for entity_id in self._main_climates:
+        for entity_id in (self._climates + self._main_climates):
             data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
             await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
