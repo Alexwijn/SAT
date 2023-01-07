@@ -468,7 +468,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pid(True)
 
         # If current temperature has changed, update the PID controller
-        if new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
+        if old_attrs and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid(False)
 
         # Update the heating control
