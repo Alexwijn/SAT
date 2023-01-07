@@ -277,6 +277,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def error(self):
         """Return the error value."""
+        if self.current_temperature is None:
+            return 0
+
         return round(self.target_temperature - self.current_temperature, 1)
 
     @property
