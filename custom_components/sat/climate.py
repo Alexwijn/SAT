@@ -452,11 +452,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         new_target_temperature = new_state.attributes.get("temperature")
         old_target_temperature = old_state.attributes.get("temperature") if old_state else None
 
+        _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
         if old_state is None or new_state.state != old_state.state or new_target_temperature != old_target_temperature:
-            _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
-
             await self._async_control_pid(True)
-            await self._async_control_heating()
+
+        await self._async_control_heating()
 
     async def _async_control_heating(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
