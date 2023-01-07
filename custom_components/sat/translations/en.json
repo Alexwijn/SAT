@@ -26,6 +26,9 @@
       "general": {
         "title": "General",
         "data": {
+          "integral": "Integral",
+          "derivative": "Derivative",
+          "proportional": "Proportional",
           "heating_curve": "Heating Curve",
           "heating_system": "Heating System",
           "heating_curve_move": "Heating Curve Move",
@@ -39,14 +42,6 @@
           "home_temperature": "Home Temperature",
           "sleep_temperature": "Sleep Temperature",
           "comfort_temperature": "Comfort Temperature"
-        }
-      },
-      "boiler": {
-        "title": "Boiler",
-        "data": {
-          "integral": "Integral",
-          "derivative": "Derivative",
-          "proportional": "Proportional"
         }
       },
       "climates": {

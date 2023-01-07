@@ -6,6 +6,7 @@ from homeassistant import config_entries
 from homeassistant.components import dhcp
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
@@ -68,15 +69,15 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_sensors_setup()
 
     async def async_step_sensors_setup(self):
-        entity_selector = selector.EntitySelector(
-            selector.EntitySelectorConfig(domain=SENSOR_DOMAIN)
-        )
-
         return self.async_show_form(
             step_id="sensors",
             data_schema=vol.Schema({
-                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): entity_selector,
-                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): entity_selector,
+                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=[SENSOR_DOMAIN])
+                ),
+                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=[SENSOR_DOMAIN, WEATHER_DOMAIN], multiple=True)
+                ),
             }),
         )
 
@@ -104,7 +105,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         menu_options = {
             "general": "General",
             "presets": "Presets",
-            "boiler": "Boiler",
             "climates": "Climates (multi-room)",
         }
 
@@ -142,6 +142,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                         {"value": CONF_UNDERFLOOR, "label": "Underfloor"}
                     ])
                 ),
+                vol.Required(CONF_PROPORTIONAL, default=defaults.get(CONF_PROPORTIONAL)): str,
+                vol.Required(CONF_INTEGRAL, default=defaults.get(CONF_INTEGRAL)): str,
+                vol.Required(CONF_DERIVATIVE, default=defaults.get(CONF_DERIVATIVE)): str,
             })
         )
 
@@ -165,20 +168,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_COMFORT_TEMPERATURE, default=defaults[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5)
                 ),
-            })
-        )
-
-    async def async_step_boiler(self, _user_input=None) -> FlowResult:
-        if _user_input is not None:
-            return await self.update_options(_user_input)
-
-        defaults = await self.get_options()
-        return self.async_show_form(
-            step_id="boiler",
-            data_schema=vol.Schema({
-                vol.Required(CONF_PROPORTIONAL, default=defaults.get(CONF_PROPORTIONAL)): str,
-                vol.Required(CONF_INTEGRAL, default=defaults.get(CONF_INTEGRAL)): str,
-                vol.Required(CONF_DERIVATIVE, default=defaults.get(CONF_DERIVATIVE)): str,
             })
         )
 

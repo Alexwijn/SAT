@@ -23,32 +23,27 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     has_thermostat = coordinator.data[gw_vars.OTGW].get(gw_vars.OTGW_THRM_DETECT) != "D"
 
+    # Create list of devices to be added
     sensors = [
         SatControlSetpointSynchroSensor(coordinator, climate, config_entry),
         SatCentralHeatingSynchroSensor(coordinator, climate, config_entry),
     ]
 
+    # Iterate through sensor information
     for key, info in BINARY_SENSOR_INFO.items():
         device_class = info[0]
         status_sources = info[2]
         friendly_name_format = info[1]
 
+        # Check if the sensor should be added based on its availability and thermostat presence
         for source in status_sources:
             if source == gw_vars.THERMOSTAT and has_thermostat is False:
                 continue
 
             if coordinator.data[source].get(key) is not None:
-                sensors.append(
-                    SatBinarySensor(
-                        coordinator,
-                        config_entry,
-                        key,
-                        source,
-                        device_class,
-                        friendly_name_format,
-                    )
-                )
+                sensors.append(SatBinarySensor(coordinator, config_entry, key, source, device_class, friendly_name_format))
 
+    # Add all devices
     async_add_entities(sensors)
 
 
@@ -139,16 +134,13 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
     @property
     def is_on(self):
         """Return the state of the sensor."""
-        boiler = self._coordinator.data[gw_vars.BOILER]
-        boiler_setpoint = float(boiler.get(gw_vars.DATA_CONTROL_SETPOINT) or 0)
-
-        climate_hvac_action = self._climate.state_attributes.get("hvac_action") or HVACAction.OFF
+        boiler_setpoint = float(self._coordinator.data[gw_vars.BOILER].get(gw_vars.DATA_CONTROL_SETPOINT) or 0)
         climate_setpoint = float(self._climate.extra_state_attributes.get("setpoint") or boiler_setpoint)
 
-        if climate_hvac_action in [HVACAction.OFF, HVACAction.IDLE]:
-            return False
-
-        return round(climate_setpoint, 1) != round(boiler_setpoint, 1)
+        return not (
+                self._climate.state_attributes.get("hvac_action") != HVACAction.HEATING or
+                round(climate_setpoint, 1) == round(boiler_setpoint, 1)
+        )
 
     @property
     def unique_id(self):
@@ -157,25 +149,25 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
 
 class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
-
-    def __init__(self, coordinator: SatDataUpdateCoordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatDataUpdateCoordinator, climate: SatClimate, config_entry: ConfigEntry) -> None:
+        """Initialize the Central Heating Synchro sensor."""
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
         self._climate = climate
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return the friendly name of the sensor."""
         return "Central Heating Synchro"
 
     @property
-    def device_class(self):
+    def device_class(self) -> str:
         """Return the device class."""
         return BinarySensorDeviceClass.PROBLEM
 
     @property
-    def available(self):
+    def available(self) -> bool:
         """Return availability of the sensor."""
         if self._climate is None:
             return False
@@ -186,27 +178,19 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
         return True
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool:
         """Return the state of the sensor."""
-        if self._climate is None:
-            return False
-
         boiler = self._coordinator.data[gw_vars.BOILER]
-        boiler_central_heating = bool(boiler.get(gw_vars.DATA_MASTER_CH_ENABLED) or 0)
-        climate_hvac_action = self._climate.state_attributes.get("hvac_action") or HVACAction.OFF
+        boiler_central_heating = bool(boiler.get(gw_vars.DATA_MASTER_CH_ENABLED))
+        climate_hvac_action = self._climate.state_attributes.get("hvac_action")
 
-        if climate_hvac_action == HVACAction.OFF and boiler_central_heating is False:
-            return False
-
-        if climate_hvac_action == HVACAction.IDLE and boiler_central_heating is False:
-            return False
-
-        if climate_hvac_action == HVACAction.HEATING and boiler_central_heating is True:
-            return False
-
-        return True
+        return not (
+                (climate_hvac_action == HVACAction.OFF and not boiler_central_heating) or
+                (climate_hvac_action == HVACAction.IDLE and not boiler_central_heating) or
+                (climate_hvac_action == HVACAction.HEATING and boiler_central_heating)
+        )
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-central-heating-synchro"

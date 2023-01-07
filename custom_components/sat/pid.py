@@ -1,231 +1,140 @@
+import logging
 import time
+from typing import Optional
 
-from homeassistant.const import ATTR_TEMPERATURE
 from homeassistant.core import State
 
-
-def _clamp(value, limits):
-    lower, upper = limits
-
-    if value is None:
-        return None
-    elif (upper is not None) and (value > upper):
-        return upper
-    elif (lower is not None) and (value < lower):
-        return lower
-
-    return value
+_LOGGER = logging.getLogger(__name__)
 
 
-class PID(object):
-    """A simple PID controller."""
+class PID:
+    """A proportional-integral-derivative (PID) controller."""
 
-    # noinspection PyPep8Naming
-    def __init__(
-            self,
-            Kp=1.0,
-            Ki=0.0,
-            Kd=0.0,
-            setpoint=0,
-            sample_time=0.01,
-            output_limits=(None, None),
-            auto_mode=True,
-    ):
+    def __init__(self, kp: float, ki: float, kd: float, sample_time_limit: Optional[float] = None):
+        """Initialize the PID controller.
+
+        Parameters:
+        kp: The proportional gain of the PID controller.
+        ki: The integral gain of the PID controller.
+        kd: The derivative gain of the PID controller.
+        sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
         """
-        Initialize a new PID controller.
-
-        :param Kp:              The value for the proportional gain Kp
-        :param Ki:              The value for the integral gain Ki
-        :param Kd:              The value for the derivative gain Kd
-        :param setpoint:        The initial setpoint that the PID will try to achieve
-        :param sample_time:     The time in seconds which the controller should wait before generating
-                                a new output value. The PID works best when it is constantly called (eg. during a
-                                loop), but with a sample time set so that the time difference between each update is
-                                (close to) constant. If set to None, the PID will compute a new output value every time
-                                it is called.
-        :param output_limits:   The initial output limits to use, given as an iterable with 2
-                                elements, for example: (lower, upper). The output will never go below the lower limit
-                                or above the upper limit. Either of the limits can also be set to None to have no limit
-                                in that direction. Setting output limits also avoids integral windup, since the
-                                integral term will never be allowed to grow outside the limits.
-        :param auto_mode:       Whether the controller should be enabled (auto mode) or not (manual mode)
-        """
-        self.Kp, self.Ki, self.Kd = Kp, Ki, Kd
-        self.setpoint = setpoint
-        self.sample_time = sample_time
-
-        self._min_output, self._max_output = None, None
-        self._auto_mode = auto_mode
-
-        self._integral = 0
-        self._last_error = None
-        self._last_d_error = None
-
-        self._last_input = None
-        self._last_time_passed = None
-        self._last_update = time.time()
-
-        self.output_limits = output_limits
+        self._kp = kp
+        self._ki = ki
+        self._kd = kd
+        self._sample_time_limit = sample_time_limit
         self.reset()
 
-    def __call__(self, input_, time_passed=None):
-        """
-        Update the PID controller.
-
-        Call the PID controller with *input_* and calculate and return a control output if
-        sample_time seconds has passed since the last update. If no new output is calculated,
-        return the previous output instead (or None if no value has been calculated yet).
-
-        :param time_passed: If set, uses this value for timestep instead of real time.
-                            This can be used in simulations when simulation time is different from real time.
-        """
-        now = time.time()
-
-        if time_passed is None:
-            time_passed = now - self._last_update if (now - self._last_update) else 1e-16
-        elif time_passed <= 0:
-            raise ValueError('time_passed has negative value {}, must be positive'.format(time_passed))
-
-        # Only update every sample_time seconds
-        if self.sample_time is not None and time_passed < self.sample_time:
-            return
-
-        # Compute error terms
-        error = self.setpoint - input_
-        d_error = error - (self._last_error if (self._last_error is not None) else error)
-
-        # Only update when enabled
-        if self.auto_mode:
-            # Compute integral
-            self._integral += self.Ki * error * time_passed
-
-            # Avoid integral windup
-            self._integral = _clamp(self._integral, self.output_limits)
-
-        # Keep track of state
-        self._last_update = now
-        self._last_input = input_
-        self._last_time_passed = time_passed
-
-        self._last_error = error
-        self._last_d_error = d_error
-
-    def __repr__(self):
-        return (
-            '{self.__class__.__name__}('
-            'Kp={self.Kp!r}, Ki={self.Ki!r}, Kd={self.Kd!r}, '
-            'setpoint={self.setpoint!r}, sample_time={self.sample_time!r}, '
-            'output_limits={self.output_limits!r}, auto_mode={self.auto_mode!r}, '
-            ')'
-        ).format(self=self)
-
-    def restore(self, state: State):
-        self.setpoint = float(state.attributes[ATTR_TEMPERATURE])
-
-    @property
-    def _proportional(self):
-        if self._last_error is None:
-            return 0
-
-        return self.Kp * self._last_error
-
-    @property
-    def _derivative(self):
-        if self._last_d_error is None or self._last_time_passed is None:
-            return 0
-
-        return self.Kd * self._last_d_error / self._last_time_passed
-
-    @property
-    def last_update(self):
-        return self._last_update
-
-    @property
-    def components(self):
-        """
-        The P-, I- and D-terms from the last computation as separate components as a tuple.
-        Useful for visualizing what the controller is doing or when tuning hard-to-tune systems.
-        """
-        return round(self._proportional, 1), round(self._integral, 1), round(self._derivative, 1)
-
-    @property
-    def tunings(self):
-        """The tunings used by the controller as a tuple: (Kp, Ki, Kd)."""
-        return self.Kp, self.Ki, self.Kd
-
-    @tunings.setter
-    def tunings(self, tunings):
-        """Set the PID tunings."""
-        self.Kp, self.Ki, self.Kd = tunings
-
-    @property
-    def auto_mode(self):
-        """Whether the controller is currently enabled (in auto mode) or not."""
-        return self._auto_mode
-
-    @auto_mode.setter
-    def auto_mode(self, enabled):
-        """Enable or disable the PID controller."""
-        self.set_auto_mode(enabled)
-
-    def set_auto_mode(self, enabled, last_integral=None):
-        """
-        Enable or disable the PID controller, optionally setting the last output value.
-
-        This is useful if some system has been manually controlled and if the PID should take over.
-        In that case, disable the PID by setting auto mode to False and later when the PID should
-        be turned back on, pass the last output variable (the control variable) and it will be set
-        as the starting I-term when the PID is set to auto mode.
-
-        :param enabled:       Whether auto mode should be enabled, True or False
-        :param last_integral: The last output, or the control variable, that the PID should start
-                              from when going from manual mode to auto mode. Has no effect if the
-                              PID is already in auto mode.
-        """
-        if enabled and not self._auto_mode:
-            self._integral = last_integral if (last_integral is not None) else 0
-            self._integral = _clamp(self._integral, self.output_limits)
-
-        self._auto_mode = enabled
-
-    @property
-    def output_limits(self):
-        """
-        The current output limits as a 2-tuple: (lower, upper).
-
-        See also the *output_limits* parameter in :meth:`PID.__init__`.
-        """
-        return self._min_output, self._max_output
-
-    @output_limits.setter
-    def output_limits(self, limits):
-        """Set the output limits."""
-        if limits is None:
-            self._min_output, self._max_output = None, None
-            return
-
-        min_output, max_output = limits
-
-        if (None not in limits) and (max_output < min_output):
-            raise ValueError('lower limit must be less than upper limit')
-
-        self._min_output = min_output
-        self._max_output = max_output
-
-        self._integral = _clamp(self._integral, self.output_limits)
-
     def reset(self):
-        """
-        Reset the PID controller internals.
+        """Reset the PID controller."""
+        self._last_error = 0
+        self._time_elapsed = 0.1
+        self._previous_error = 0
+        self._last_updated = time.time()
 
-        This clears the integral, and resets the default error values.
+        self._integral = 0
+        self._integral_enabled = True
+
+    def enable_integral(self, enabled: bool):
+        """Enable or disable the updates of the integral.
+
+        Parameters:
+        enabled: A boolean indicating whether to enable (True) or disable (False) the updates of the integral.
+        """
+        if self._integral_enabled != enabled:
+            # Reset the integral if the enabled status changes
+            self._integral = 0
+
+        self._integral_enabled = enabled
+
+    def update(self, error: float):
+        """Update the PID controller.
+
+        Parameters:
+        error: The error value for the PID controller to use in the update.
+        """
+        current_time = time.time()
+        time_elapsed = current_time - self._last_updated
+
+        if error == self._last_error:
+            _LOGGER.warning("Same error value detected")
+            return
+
+        if self._sample_time_limit and time_elapsed < self._sample_time_limit:
+            _LOGGER.warning("Sample time limited")
+            return
+
+        self._last_updated = current_time
+        self._time_elapsed = time_elapsed
+
+        if self._integral_enabled:
+            self._integral += error * time_elapsed
+
+        self._previous_error = self._last_error
+        self._last_error = error
+
+    def update_reset(self, error: float):
+        """Update the PID controller with resetting.
+
+        Parameters:
+        error: The error value for the PID controller to use in the update.
         """
         self._integral = 0
-        self._integral = _clamp(self._integral, self.output_limits)
 
-        if self._last_input is None:
-            self._last_error = None
-            self._last_d_error = None
-        else:
-            self._last_error = self.setpoint - self._last_input
-            self._last_d_error = self._last_error
+        self._time_elapsed = 0.1
+        self._previous_error = 0
+
+        self._last_error = error
+        self._last_updated = time.time()
+
+    def restore(self, state: State):
+        """Restore the PID controller from a saved state.
+
+        Parameters:
+        state: The saved state of the PID controller to restore from.
+        """
+        if last_error := state.attributes.get("error"):
+            self._last_error = last_error
+
+        if last__integral := state.attributes.get("integral"):
+            self._integral = last__integral
+
+    @property
+    def last_error(self) -> float:
+        """Return the last error value used by the PID controller."""
+        return self._last_error
+
+    @property
+    def previous_error(self) -> float:
+        """Return the previous error value used by the PID controller."""
+        return self._previous_error
+
+    @property
+    def last_updated(self) -> float:
+        """Return the timestamp of the last update to the PID controller."""
+        return self._last_updated
+
+    @property
+    def proportional(self) -> float:
+        """Return the proportional value."""
+        return round(self._kp * self._last_error, 1)
+
+    @property
+    def integral(self) -> float:
+        """Return the integral value."""
+        return round(self._ki * self._integral * self._time_elapsed, 1)
+
+    @property
+    def derivative(self) -> float:
+        """Return the derivative value."""
+        return round(self._kd * (self._last_error - self._previous_error) / self._time_elapsed, 1)
+
+    @property
+    def output(self) -> float:
+        """Return the control output value."""
+        return self.proportional + self.integral + self.derivative
+
+    @property
+    def integral_enabled(self) -> bool:
+        """Return whether the updates of the integral are enabled."""
+        return self._integral_enabled

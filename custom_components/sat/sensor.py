@@ -20,34 +20,28 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     has_thermostat = coordinator.data[gw_vars.OTGW].get(gw_vars.OTGW_THRM_DETECT) != "D"
 
-    sensors = [
-        SatCurrentPowerSensor(coordinator, config_entry)
+    # Create list of devices to be added
+    devices = [
+        SatCurrentPowerSensor(coordinator, config_entry),
     ]
 
+    # Iterate through sensor information
     for key, info in SENSOR_INFO.items():
         unit = info[1]
         device_class = info[0]
         status_sources = info[3]
         friendly_name_format = info[2]
 
+        # Check if the sensor should be added based on its availability and thermostat presence
         for source in status_sources:
             if source == gw_vars.THERMOSTAT and has_thermostat is False:
                 continue
 
             if coordinator.data[source].get(key) is not None:
-                sensors.append(
-                    SatSensor(
-                        coordinator,
-                        config_entry,
-                        key,
-                        source,
-                        device_class,
-                        unit,
-                        friendly_name_format,
-                    )
-                )
+                devices.append(SatSensor(coordinator, config_entry, key, source, device_class, unit, friendly_name_format))
 
-    async_add_entities(sensors)
+    # Add all devices
+    async_add_entities(devices)
 
 
 class SatSensor(SatEntity, SensorEntity):
@@ -105,7 +99,7 @@ class SatSensor(SatEntity, SensorEntity):
         value = self._coordinator.data[self._source].get(self._key)
         if isinstance(value, float):
             value = f"{value:2.1f}"
-            
+
         return value
 
     @property
@@ -141,23 +135,32 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
         return self._coordinator.data is not None and self._coordinator.data[gw_vars.BOILER] is not None
 
     @property
-    def native_value(self):
-        """Return the state of the device."""
+    def native_value(self) -> float:
+        """Return the state of the device in native units.
+
+        In this case, the state represents the current capacity of the boiler in kW.
+        """
+        # Get the data of the boiler from the coordinator
         boiler = self._coordinator.data[gw_vars.BOILER]
+        # If the data is not available, return unknown
         if boiler is None:
             return STATE_UNKNOWN
 
+        # If the flame is off, return 0 kW
         if bool(boiler.get(gw_vars.DATA_SLAVE_FLAME_ON)) is False:
             return 0
 
+        # Get the relative modulation level from the data
         relative_modulation = boiler.get(gw_vars.DATA_REL_MOD_LEVEL)
 
+        # Get the maximum and minimum capacity from the data
         maximum_capacity = boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY)
         minimum_capacity = maximum_capacity / (100 / boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL))
 
+        # Calculate and return the current capacity in kW
         return minimum_capacity + (((maximum_capacity - minimum_capacity) / 100) * relative_modulation)
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-current-power"

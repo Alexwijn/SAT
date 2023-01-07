@@ -2,6 +2,7 @@
 import datetime
 import logging
 import time
+from typing import List, Optional, Any
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -19,9 +20,11 @@ from homeassistant.components.climate import (
     DOMAIN as CLIMATE_DOMAIN,
 )
 from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, Event
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt
@@ -39,40 +42,40 @@ OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_PRESETS = {
-    p: f"{p}_temperature"
-    for p in (
-        PRESET_AWAY,
-        PRESET_HOME,
-        PRESET_SLEEP,
-        PRESET_COMFORT,
-    )
-}
-
 
 def get_time_in_seconds(time_str: str) -> float:
+    """Convert a time string in the format 'HH:MM:SS' to seconds.
+    Args:
+        time_str: A string representing a time in the format 'HH:MM:SS'
+
+    Returns:
+        float: The time in seconds
+    """
     date_time = dt.parse_time(time_str)
+    # Calculate the number of seconds by multiplying the hours, minutes and seconds
     return (date_time.hour * 3600) + (date_time.minute * 60) + date_time.second
 
 
 def create_pid_controller(options) -> PID:
-    sample_time = get_time_in_seconds(
-        options.get(CONF_SAMPLE_TIME)
-    )
+    """Create and return a PID controller instance with the given configuration options."""
+    # Parse the sample time string and convert it to seconds
+    sample_time = get_time_in_seconds(options.get(CONF_SAMPLE_TIME))
 
-    if sample_time <= 0:
-        sample_time = 0.01
+    # Set a default sample time of 1 second if the parsed time is invalid (e.g. less than or equal to one)
+    if sample_time <= 1:
+        sample_time = 1
 
+    # Return a new PID controller instance with the given configuration options
     return PID(
-        Kp=float(options.get(CONF_PROPORTIONAL)),
-        Ki=float(options.get(CONF_INTEGRAL)),
-        Kd=float(options.get(CONF_DERIVATIVE)),
-        sample_time=sample_time
+        kp=float(options.get(CONF_PROPORTIONAL)),
+        ki=float(options.get(CONF_INTEGRAL)),
+        kd=float(options.get(CONF_DERIVATIVE)),
+        sample_time_limit=sample_time
     )
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
-    """Setup sensor platform."""
+    """Set up the SatClimate device."""
     store = SatConfigStore(hass)
     await store.async_initialize()
 
@@ -94,15 +97,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         options = OPTIONS_DEFAULTS.copy()
         options.update(config_entry.options)
 
-        presets = {key: options.get(value) for key, value in CONF_PRESETS.items() if value in options}
+        conf_presets = {p: f"{p}_temperature" for p in (PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
+        presets = {key: options[value] for key, value in conf_presets.items() if value in options}
 
         self._pid = create_pid_controller(options)
 
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
         inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
 
-        self.outside_sensor_entity_id = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
-        outside_sensor_entity = coordinator.hass.states.get(self.outside_sensor_entity_id)
+        self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
+        if isinstance(self.outside_sensor_entities, str):
+            self.outside_sensor_entities = [self.outside_sensor_entities]
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -111,10 +116,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._current_temperature = float(inside_sensor_entity.state)
-
-        self._outside_temperature = None
-        if outside_sensor_entity is not None and outside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            self._outside_temperature = float(outside_sensor_entity.state)
 
         self._setpoint = None
         self._heating_curve = None
@@ -163,18 +164,26 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         )
 
         self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, [self.outside_sensor_entity_id], self._async_outside_sensor_changed
-            )
-        )
-
-        self.async_on_remove(
             async_track_time_interval(
                 self.hass, self._async_control_heating, datetime.timedelta(seconds=30)
             )
         )
 
-        for climate_id in (self._climates + self._main_climates):
+        for entity_id in self.outside_sensor_entities:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [entity_id], self._async_outside_entity_changed
+                )
+            )
+
+        for climate_id in self._main_climates:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [climate_id], self._async_main_climate_changed
+                )
+            )
+
+        for climate_id in self._climates:
             self.async_on_remove(
                 async_track_state_change_event(
                     self.hass, [climate_id], self._async_climate_changed
@@ -236,18 +245,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def extra_state_attributes(self):
         """Return device state attributes."""
-        proportional, integral, derivative = self._pid.components
-
         return {
-            "integral": integral,
-            "derivative": derivative,
-            "proportional": proportional,
-            "pid_auto_mode": self._pid.auto_mode,
+            "error": self._pid.last_error,
+            "integral": self._pid.integral,
+            "derivative": self._pid.derivative,
+            "proportional": self._pid.proportional,
+            "integral_enabled": self._pid.integral_enabled,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
             "heating_curve": self._heating_curve,
-            "outside_temperature": self._outside_temperature,
+            "outside_temperature": self.current_outside_temperature,
             "overshoot_protection_value": self._store.retrieve_overshoot_protection_value()
         }
 
@@ -262,11 +270,48 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return self._current_temperature
 
     @property
+    def target_temperature(self):
+        """Return the temperature we try to reach."""
+        return self._target_temperature
+
+    @property
+    def error(self):
+        """Return the error value."""
+        return round(self.target_temperature - self.current_temperature, 1)
+
+    @property
     def current_outside_temperature(self):
-        return self._outside_temperature
+        """Return the current outside temperature"""
+        self.outside_sensor_entities.sort(key=lambda x: "sensor" not in x)
+        for entity_id in self.outside_sensor_entities:
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+                continue
+
+            if SENSOR_DOMAIN in entity_id:
+                return float(state.state)
+
+            if WEATHER_DOMAIN in entity_id:
+                return float(state.attributes.get("temperature"))
+
+        return None
+
+    @property
+    def target_temperature_step(self):
+        """Return the target temperature step to control the thermostat"""
+        return self._target_temperature_step
+
+    @property
+    def hvac_mode(self):
+        """Get the current HVAC mode."""
+        if self._hvac_mode in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            return HVACMode.OFF
+
+        return self._hvac_mode
 
     @property
     def hvac_action(self):
+        """Get the current HVAC action."""
         if self._hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
 
@@ -276,107 +321,99 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return HVACAction.HEATING
 
     @property
-    def hvac_mode(self):
-        if self._hvac_mode in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            return HVACMode.OFF
-
-        return self._hvac_mode
-
-    @property
-    def target_temperature(self):
-        """Return the temperature we try to reach."""
-        return self._target_temperature
-
-    @property
-    def target_temperature_step(self):
-        return self._target_temperature_step
-
-    @property
-    def climate_differences(self):
+    def climate_errors(self) -> List[float]:
+        """Calculate the temperature difference between the current temperature and target temperature for all connected climates."""
         differences = []
         for climate in self._climates:
+            # Skip if climate state is unavailable or HVAC mode is off
             state = self.hass.states.get(climate)
             if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                 continue
 
+            # Calculate temperature difference for this climate
             target_temperature = float(state.attributes.get("temperature"))
             current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
-
             differences.append(round(target_temperature - current_temperature, 1))
-
-        if len(differences) == 0:
-            return [0]
 
         return differences
 
     @property
-    def valves_open(self):
+    def valves_open(self) -> bool:
+        """Determine if any of the controlled thermostats have open valves."""
+        # Get the list of all controlled thermostats
         climates = self._climates + self._main_climates
 
+        # If there are no thermostats, we can safely assume the valves are open
         if len(climates) == 0:
             return True
 
+        # Iterate through each controlled thermostat
         for climate in climates:
+            # Get the current state of the thermostat
             state = self.hass.states.get(climate)
 
+            # If the thermostat is unavailable or has an unknown state, skip it
             if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
                 continue
 
+            # If the thermostat is turned off, skip it
             if state.state == HVACMode.OFF:
                 continue
 
-            # If the climate hvac action report heating we can safely assume it's open
+            # If the thermostat reports that it is heating, we can assume the valves are open
             if state.attributes.get("hvac_action") == HVACAction.HEATING:
                 return True
 
-            # For climate that doesn't support hvac action, we can assume that if the temperature is not at target it's open
+            # If the thermostat does not support hvac action, we can assume the valves are
+            # open if the current temperature is not at the target temperature
             if state.attributes.get("hvac_action") is None:
                 target_temperature = state.attributes.get("temperature")
                 current_temperature = state.attributes.get("current_temperature")
 
+                # If there is a current temperature, and it is not at the
+                # target temperature within a tolerance, we can assume the valves are open
                 if current_temperature is not None and float(target_temperature) + HOT_TOLERANCE >= float(current_temperature):
                     return True
 
+        # If none of the thermostats have open valves, return False
         return False
 
-    def _get_boiler_value(self, key: str):
-        boiler = self._coordinator.data[gw_vars.BOILER]
-        if boiler is None:
-            return None
+    def _get_boiler_value(self, key: str) -> Optional[Any]:
+        """Get the value for the given `key` from the boiler data.
 
-        return boiler.get(key)
+        :param key: Key of the value to retrieve from the boiler data.
+        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
+        """
+        return self._coordinator.data[gw_vars.BOILER].get(key) if self._coordinator.data[gw_vars.BOILER] else None
 
     def _calculate_heating_curve_value(self) -> float:
+        """Calculate the heating curve value based on the outside temperature."""
         system_offset = 28 + self._heating_curve_move
         if self._heating_system == CONF_UNDERFLOOR:
             system_offset = 20 + self._heating_curve_move
 
-        return system_offset + (self._curve_move * (20 - (0.01 * self._outside_temperature ** 2) - (0.8 * self._outside_temperature)))
+        # Calculate the curve value using the outside temperature
+        curve_value = (20 - (0.01 * self.current_outside_temperature ** 2) - (0.8 * self.current_outside_temperature))
+        return system_offset + (self._curve_move * curve_value)
 
     def _calculate_control_setpoint(self):
-        proportional, integral, derivative = self._pid.components
-        _LOGGER.info(f"Calculated pid {self._pid.components}")
-        setpoint = self._heating_curve
+        """Calculate the control setpoint based on the heating curve and PID output."""
+        _LOGGER.debug(f"Calculated output {self._pid.output}")
+        setpoint = self._heating_curve + self._pid.output
 
-        if self._pid.auto_mode:
-            setpoint += proportional + integral + derivative
+        # Ensure setpoint is within allowed range for each heating system
+        if self._heating_system == CONF_RADIATOR_HIGH_TEMPERATURES:
+            setpoint = min(setpoint, 75.0)
+        elif self._heating_system == CONF_RADIATOR_LOW_TEMPERATURES:
+            setpoint = min(setpoint, 55.0)
+        elif self._heating_system == CONF_UNDERFLOOR:
+            setpoint = min(setpoint, 50.0)
 
-        if max(self.climate_differences) >= COLD_TOLERANCE and setpoint < self._heating_curve:
-            _LOGGER.info(f"Detected difference higher than {COLD_TOLERANCE}, falling back to heating curve.")
-            setpoint = self._heating_curve
+        # Ensure setpoint is at least 10
+        return max(setpoint, 10.0)
 
-        if setpoint < 10:
-            return 10.0
-        elif setpoint > 75 and self._heating_system == CONF_RADIATOR_HIGH_TEMPERATURES:
-            return 75.0
-        elif setpoint > 55 and self._heating_system == CONF_RADIATOR_LOW_TEMPERATURES:
-            return 55.0
-        elif setpoint > 50 and self._heating_system == CONF_UNDERFLOOR:
-            return 50.0
-
-        return setpoint
-
-    async def _async_inside_sensor_changed(self, event):
+    async def _async_inside_sensor_changed(self, event: Event) -> None:
+        """Handle changes to the inside temperature sensor."""
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
@@ -388,172 +425,236 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_pid()
         await self._async_control_heating()
 
-    async def _async_outside_sensor_changed(self, event):
-        new_state = event.data.get("new_state")
-        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+    async def _async_outside_entity_changed(self, event: Event) -> None:
+        """Handle changes to the outside entity."""
+        if event.data.get("new_state") is None:
             return
-
-        _LOGGER.debug("Outside Sensor Changed.")
-        self._outside_temperature = float(new_state.state)
-        self.async_write_ha_state()
 
         await self._async_control_heating()
 
-    async def _async_climate_changed(self, event):
+    async def _async_main_climate_changed(self, event: Event) -> None:
+        """Handle changes to the main climate entity."""
         old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
         if new_state is None:
             return
 
         if old_state is None or new_state.state != old_state.state:
-            _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
+            _LOGGER.debug(f"Main Climate State Changed ({new_state.entity_id}).")
             await self._async_control_heating()
 
-    async def _async_control_heating(self, _time=None):
+    async def _async_climate_changed(self, event: Event) -> None:
+        """Handle changes to the climate entity."""
+        new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
+        if new_state is None:
+            return
+
+        new_target_temperature = new_state.attributes.get("temperature")
+        old_target_temperature = old_state.attributes.get("temperature") if old_state else None
+
+        if old_state is None or new_state.state != old_state.state or new_target_temperature != old_target_temperature:
+            _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
+
+            await self._async_control_pid(True)
+            await self._async_control_heating()
+
+    async def _async_control_heating(self, _time=None) -> None:
+        """Control the heating based on current temperature, target temperature, and outside temperature."""
+        # If overshoot protection is active, run the overshoot protection control function
         if self._overshoot_protection_active:
             await self._async_control_overshoot_protection()
-
             return
 
-        if self._current_temperature is None or self._outside_temperature is None:
+        # If the current or outside temperature is not available, do nothing
+        if self.current_temperature is None or self.current_outside_temperature is None:
             return
 
+        # Check if the temperature is too cold or any climate requires heat
+        climate_errors = self.climate_errors
+        climates_require_heat = max(climate_errors) if len(climate_errors) > 0 else 0 >= COLD_TOLERANCE
         too_cold = self.target_temperature + COLD_TOLERANCE >= self._current_temperature
+
+        # Check if the temperature is too hot
         too_hot = self.current_temperature >= self._target_temperature + HOT_TOLERANCE
-        climates_requires_heat = max(self.climate_differences) >= COLD_TOLERANCE
-
-        # Enable PID Controller when this climate is too cold
-        if too_cold:
-            self._pid.set_auto_mode(True)
-
-        # Disable PID Controller when this climate is too hot
-        if too_hot:
-            self._pid.set_auto_mode(False)
 
         if self._is_device_active:
-            if (too_hot and not climates_requires_heat) or not self.valves_open or self.hvac_action == HVACAction.OFF:
+            # If the temperature is too hot or the valves are closed or HVAC is off, turn off the heater
+            if (too_hot and not climates_require_heat) or not self.valves_open or self.hvac_action == HVACAction.OFF:
                 await self._async_control_heater(False)
+            # If the central heating is not enabled, turn on the heater
             elif not self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(True)
 
+            # Set the control setpoint
             await self._async_control_setpoint()
         else:
-            if (too_cold or climates_requires_heat) and self.valves_open and self.hvac_action != HVACAction.OFF:
+            # If the temperature is too cold and the valves are open and the HVAC is not off, turn on the heater
+            if (too_cold or climates_require_heat) and self.valves_open and self.hvac_action != HVACAction.OFF:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint()
+            # If the central heating is enabled, turn off the heater
             elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(False)
 
+        self.async_write_ha_state()
+
     async def _async_control_overshoot_protection(self):
+        """Activate overshoot protection by turning on the heater and setting the control setpoint to a fixed value.
+        Then, collect return water temperature data and calculate the mean of the last 3 data points. If the difference
+        between the current return water temperature and the mean is small, deactivate overshoot protection and store
+        the calculated value.
+        """
+        # Turn on the heater if it's not already active
         if not self._is_device_active:
             await self._async_control_heater(True)
 
+        # Set the control setpoint to a fixed value for overshoot protection
         await self._async_control_setpoint()
 
+        # Collect return water temperature data
         if return_water_temperature := self._get_boiler_value(gw_vars.DATA_RETURN_WATER_TEMP):
             self._overshoot_protection_data.append(round(return_water_temperature, 1))
-            _LOGGER.info(f"[Overshoot Protection] Return Water Temperature Collected: {return_water_temperature:2.1f}")
+            _LOGGER.info("[Overshoot Protection] Return Water Temperature Collected: %2.1f", return_water_temperature)
 
+        # Calculate the mean of the last 3 data points only if there are enough data points collected
         if len(self._overshoot_protection_data) < OVERSHOOT_PROTECTION_REQUIRED_DATASET:
             return
 
         value = mean(self._overshoot_protection_data[-3:])
         difference = abs(round(return_water_temperature, 1) - mean(self._overshoot_protection_data[-3:]))
 
+        # Deactivate overshoot protection if the difference between the current return water temperature and the mean
+        # is small and store the calculated value
         if difference < 0.1:
             self._overshoot_protection_active = False
             self._store.store_overshoot_protection_value(round(value, 1))
-            _LOGGER.info(f"[Overshoot Protection] Result: {value:2.1f}")
+            _LOGGER.info("[Overshoot Protection] Result: %2.1f", value)
 
-    async def _async_control_pid(self):
-        if self._sensor_max_value_age != 0 and time.time() - self._pid.last_update > self._sensor_max_value_age:
+    async def _async_control_pid(self, reset: bool = False):
+        """Control the PID controller."""
+        # Reset the PID controller if the sensor data is too old
+        if self._sensor_max_value_age != 0 and time.time() - self._pid.last_updated > self._sensor_max_value_age:
             self._pid.reset()
 
-        self._pid(self._current_temperature)
+        # Calculate the maximum error between the current temperature and the target temperature of all climates
+        max_error = max([self.error] + self.climate_errors)
+        # Update the PID controller with the maximum error
+        if not reset:
+            self._pid.update(max_error)
+        else:
+            self._pid.update_reset(max_error)
+
         self.async_write_ha_state()
 
-    async def _async_control_heater(self, enabled: bool):
+    async def _async_control_heater(self, enabled: bool) -> None:
+        """Control the state of the central heating."""
         if not self._simulation:
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
         self._is_device_active = enabled
+        self._pid.enable_integral(enabled)
 
         _LOGGER.info("Set central heating to %d", enabled)
 
     async def _async_control_setpoint(self):
+        """Control the setpoint of the heating system."""
         if self._is_device_active:
+            # Calculate the heating curve value
             self._heating_curve = round(self._calculate_heating_curve_value(), 1)
             _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
 
-            if not self._overshoot_protection_active:
-                self._setpoint = round(self._calculate_control_setpoint(), 1)
-            else:
+            if self._overshoot_protection_active:
+                # If overshoot protection is active, set the setpoint to a fixed value
                 _LOGGER.warning("[Overshoot Protection] Overwritten setpoint to 60 degrees")
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
+            else:
+                # Calculate the control setpoint
+                self._setpoint = round(self._calculate_control_setpoint(), 1)
         else:
+            # If the device is not active, set the setpoint to a fixed value and clear the heating curve value
             self._setpoint = 10
             self._heating_curve = None
 
         if not self._simulation:
+            # Set the control setpoint on the device
             await self._coordinator.api.set_control_setpoint(self._setpoint)
 
         _LOGGER.info("Set control setpoint to %d", self._setpoint)
 
     async def async_set_temperature(self, **kwargs) -> None:
-        if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:
+        """Set the target temperature."""
+        temperature = kwargs.get(ATTR_TEMPERATURE)
+        if temperature is None:
             return
 
         self._attr_preset_mode = PRESET_NONE
+
+        await self._async_control_pid(True)  # Reset the PID controller
         await self._async_set_setpoint(temperature)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set the preset mode for the thermostat."""
+        # Check if the given preset mode is valid
         if preset_mode not in self.preset_modes:
             raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
 
+        # Return if the given preset mode is already set
         if preset_mode == self._attr_preset_mode:
             return
 
+        # Reset the preset mode if `PRESET_NONE` is given
         if preset_mode == PRESET_NONE:
             self._attr_preset_mode = PRESET_NONE
             await self._async_set_setpoint(self._saved_target_temperature)
         else:
+            # Set the HVAC mode to `HEAT` if it is currently `OFF`
             if self.hvac_mode == HVACMode.OFF:
                 self._hvac_mode = HVACMode.HEAT
 
+            # Save the current target temperature if the preset mode is being set for the first time
             if self._attr_preset_mode == PRESET_NONE:
                 self._saved_target_temperature = self._target_temperature
 
+            # Set the preset mode and target temperature
             self._attr_preset_mode = preset_mode
             await self._async_set_setpoint(self._presets[preset_mode])
 
     async def _async_set_setpoint(self, temperature: float):
+        """Set the temperature setpoint for all main climates."""
         if self._target_temperature == temperature:
             return
 
         self._target_temperature = temperature
 
-        self._pid.setpoint = temperature
-        self._pid.reset()
-
+        # Set the temperature for each main climate
         for entity_id in self._main_climates:
             data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
             await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
+        # Write the state to Home Assistant
         self.async_write_ha_state()
+
+        # Control the heating based on the new temperature setpoint
         await self._async_control_heating()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+        """Set the heating/cooling mode for the devices and update the state."""
+        # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
         elif hvac_mode == HVACMode.OFF:
             self._hvac_mode = HVACMode.OFF
         else:
+            # If an unsupported mode is passed, log an error message
             _LOGGER.error("Unrecognized hvac mode: %s", hvac_mode)
             return
 
+        # Set the hvac mode for all climate devices
         for entity_id in (self._climates + self._main_climates):
             data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
             await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
+        # Update the state and control the heating
         self.async_write_ha_state()
         await self._async_control_heating()
