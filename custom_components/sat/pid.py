@@ -28,7 +28,7 @@ class PID:
     def reset(self):
         """Reset the PID controller."""
         self._last_error = 0
-        self._time_elapsed = 0.1
+        self._time_elapsed = 0
         self._previous_error = 0
         self._last_updated = time.time()
 
@@ -81,7 +81,7 @@ class PID:
         """
         self._integral = 0
 
-        self._time_elapsed = 0.1
+        self._time_elapsed = 0
         self._previous_error = 0
 
         self._last_error = error
@@ -122,11 +122,17 @@ class PID:
     @property
     def integral(self) -> float:
         """Return the integral value."""
+        if self._time_elapsed == 0:
+            return 0
+
         return round(self._ki * self._integral * self._time_elapsed, 1)
 
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
+        if self._time_elapsed == 0:
+            return 0
+
         return round(self._kd * (self._last_error - self._previous_error) / self._time_elapsed, 1)
 
     @property
