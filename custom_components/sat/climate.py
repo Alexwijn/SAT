@@ -373,9 +373,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 target_temperature = state.attributes.get("temperature")
                 current_temperature = state.attributes.get("current_temperature")
 
-                # If there is a current temperature, and it is not at the
-                # target temperature within a tolerance, we can assume the valves are open
-                if current_temperature is not None and float(target_temperature) + HOT_TOLERANCE >= float(current_temperature):
+                # If there is a current temperature, and it is not at the target temperature, we can assume the valves are open
+                if current_temperature is not None and float(target_temperature) >= float(current_temperature):
                     return True
 
         # If none of the thermostats have open valves, return False
