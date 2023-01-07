@@ -323,7 +323,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def climate_errors(self) -> List[float]:
         """Calculate the temperature difference between the current temperature and target temperature for all connected climates."""
-        differences = []
+        errors = []
         for climate in self._climates:
             # Skip if climate state is unavailable or HVAC mode is off
             state = self.hass.states.get(climate)
@@ -333,9 +333,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Calculate temperature difference for this climate
             target_temperature = float(state.attributes.get("temperature"))
             current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
-            differences.append(round(target_temperature - current_temperature, 1))
+            errors.append(round(target_temperature - current_temperature, 1))
 
-        return differences
+        return errors
 
     @property
     def valves_open(self) -> bool:
@@ -538,11 +538,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Calculate the maximum error between the current temperature and the target temperature of all climates
         max_error = max([self.error] + self.climate_errors)
+
         # Update the PID controller with the maximum error
         if not reset:
             self._pid.update(max_error)
+            _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
         else:
             self._pid.update_reset(max_error)
+            _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
         self.async_write_ha_state()
 
