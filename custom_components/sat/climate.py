@@ -616,8 +616,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         self._attr_preset_mode = PRESET_NONE
-
-        await self._async_control_pid(True)  # Reset the PID controller
         await self._async_set_setpoint(temperature)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
@@ -652,7 +650,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._target_temperature == temperature:
             return
 
+        # Set the new target temperature
         self._target_temperature = temperature
+
+        # Reset the PID controller
+        await self._async_control_pid(True)
 
         # Set the temperature for each main climate
         for entity_id in self._main_climates:
