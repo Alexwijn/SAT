@@ -446,19 +446,32 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_heating()
 
     async def _async_climate_changed(self, event: Event) -> None:
-        """Handle changes to the climate entity."""
+        """Handle changes to the climate entity.
+        If the state, target temperature, or current temperature of the climate
+        entity has changed, update the PID controller and heating control.
+        """
         new_state = event.data.get("new_state")
-        old_state = event.data.get("old_state")
-        if new_state is None:
+        if not new_state:
             return
 
-        new_target_temperature = new_state.attributes.get("temperature")
-        old_target_temperature = old_state.attributes.get("temperature") if old_state else None
+        # Get the old state
+        old_state = event.data.get("old_state")
+
+        # Get the attributes of the new and old states
+        new_attrs = event.data.get("new_state.attributes")
+        old_attrs = event.data.get("old_state.attributes")
 
         _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
-        if old_state is None or new_state.state != old_state.state or new_target_temperature != old_target_temperature:
+
+        # If the state, target temperature, or current temperature has changed, update the PID controller
+        if not old_state or new_state.state != old_state.state or new_attrs.get("temperature") != old_attrs.get("temperature"):
             await self._async_control_pid(True)
 
+        # If current temperature has changed, update the PID controller
+        if new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
+            await self._async_control_pid(False)
+
+        # Update the heating control
         await self._async_control_heating()
 
     async def _async_control_heating(self, _time=None) -> None:
