@@ -450,25 +450,34 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         If the state, target temperature, or current temperature of the climate
         entity has changed, update the PID controller and heating control.
         """
+        # Get the new state of the climate entity
         new_state = event.data.get("new_state")
+
+        # Return if the new state is not available
         if not new_state:
             return
 
-        # Get the old state
+        # Get the old state of the climate entity
         old_state = event.data.get("old_state")
 
-        # Get the attributes of the new and old states
-        new_attrs = event.data.get("new_state.attributes")
-        old_attrs = event.data.get("old_state.attributes")
+        # Get the attributes of the new state
+        new_attrs = new_state.attributes
+
+        # Get the attributes of the old state, if available
+        old_attrs = old_state.attributes if old_state else {}
 
         _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
 
-        # If the state, target temperature, or current temperature has changed, update the PID controller
-        if not old_state or new_state.state != old_state.state or new_attrs.get("temperature") != old_attrs.get("temperature"):
+        # If the state has changed or the old state is not available, update the PID controller
+        if not old_state or new_state.state != old_state.state:
+            await self._async_control_pid(True)
+
+        # If the target temperature has changed, update the PID controller
+        elif new_attrs.get("temperature") != old_attrs.get("temperature"):
             await self._async_control_pid(True)
 
         # If current temperature has changed, update the PID controller
-        if old_attrs and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
+        elif new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid(False)
 
         # Update the heating control
