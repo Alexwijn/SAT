@@ -34,8 +34,6 @@ from .const import *
 from .entity import SatEntity
 from .pid import PID
 
-MIN_NUM_OUTPUTS = 10
-
 HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
 
@@ -105,6 +103,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Get inside sensor entity ID
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
+
         # Get inside sensor entity state
         inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
 
@@ -136,6 +135,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._simulation = options.get(CONF_SIMULATION)
         self._curve_move = options.get(CONF_HEATING_CURVE)
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
+        self._min_num_outputs = int(options.get(CONF_MIN_NUM_OUTPUTS))
         self._heating_curve_move = options.get(CONF_HEATING_CURVE_MOVE)
         self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
         self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
@@ -583,7 +583,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pid.update(max_error)
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
-            if self._pid.num_outputs >= MIN_NUM_OUTPUTS:
+            if self._pid.num_outputs >= self._min_num_outputs:
                 self._pid.autotune()
         else:
             self._pid.update_reset(max_error)

@@ -41,6 +41,7 @@ CONF_INTEGRAL = "integral"
 CONF_DERIVATIVE = "derivative"
 CONF_PROPORTIONAL = "proportional"
 CONF_SAMPLE_TIME = "sample_time"
+CONF_MIN_NUM_OUTPUTS = "min_num_outputs"
 CONF_SENSOR_MAX_VALUE_AGE = "sensor_max_value_age"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
 CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
@@ -68,6 +69,7 @@ OPTIONS_DEFAULTS = {
     CONF_CLIMATES: [],
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
+    CONF_MIN_NUM_OUTPUTS: 20,
     CONF_SAMPLE_TIME: "00:00:00",
     CONF_OVERSHOOT_PROTECTION: False,
     CONF_TARGET_TEMPERATURE_STEP: 0.5,
