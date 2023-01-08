@@ -15,6 +15,7 @@ from homeassistant.components.climate import (
     PRESET_SLEEP,
     PRESET_COMFORT,
     ATTR_HVAC_MODE,
+    ATTR_PRESET_MODE,
     SERVICE_SET_HVAC_MODE,
     SERVICE_SET_TEMPERATURE,
     DOMAIN as CLIMATE_DOMAIN,
@@ -212,6 +213,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if not self._hvac_mode and old_state.state:
                 self._hvac_mode = old_state.state
+
+            if not self._attr_preset_mode and old_state.attributes.get(ATTR_PRESET_MODE):
+                self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
         else:
             # No previous state, try and restore defaults
             if self._target_temperature is None:
@@ -563,8 +567,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._is_device_active:
             await self._async_control_heater(True)
 
-        # Collect return water temperature data
-        return_water_temperature = self._get_boiler_value(gw_vars.DATA_RETURN_WATER_TEMP)
+        # Collect central heating water temperature data
+        return_water_temperature = self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP)
         if return_water_temperature is None:
             return
 
