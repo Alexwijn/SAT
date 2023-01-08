@@ -246,6 +246,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._overshoot_protection_data = []
             self._overshoot_protection_active = True
 
+            if not self._simulation:
+                await self._coordinator.api.set_max_relative_mod(0)
+
             description = "[Overshoot Protection] Calculation started. "
             description += "This process will run for at least 20 minutes until a stable boiler water temperature is found."
 
@@ -568,22 +571,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_heater(True)
 
         # Collect central heating water temperature data
-        return_water_temperature = self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP)
-        if return_water_temperature is None:
+        central_heating_water_temperature = self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP)
+        if central_heating_water_temperature is None:
             return
 
         # Set the control setpoint to a fixed value for overshoot protection
         await self._async_control_setpoint()
 
-        self._overshoot_protection_data.append(round(return_water_temperature, 1))
-        _LOGGER.info("[Overshoot Protection] Return Water Temperature Collected: %2.1f", return_water_temperature)
+        self._overshoot_protection_data.append(round(central_heating_water_temperature, 1))
+        _LOGGER.info("[Overshoot Protection] Central Heating Water Temperature Collected: %2.1f", central_heating_water_temperature)
 
         # Calculate the mean of the last 3 data points only if there are enough data points collected
         if len(self._overshoot_protection_data) < OVERSHOOT_PROTECTION_REQUIRED_DATASET:
             return
 
         value = mean(self._overshoot_protection_data[-3:])
-        difference = abs(round(return_water_temperature, 1) - mean(self._overshoot_protection_data[-3:]))
+        difference = abs(round(central_heating_water_temperature, 1) - mean(self._overshoot_protection_data[-3:]))
 
         # Deactivate overshoot protection if the difference between the current return water temperature and the mean
         # is small and store the calculated value
@@ -591,6 +594,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._overshoot_protection_active = False
             self._store.store_overshoot_protection_value(round(value, 1))
             _LOGGER.info("[Overshoot Protection] Result: %2.1f", value)
+
+            if not self._simulation:
+                await self._coordinator.api.set_max_relative_mod(100)
 
     async def _async_control_pid(self, reset: bool = False):
         """Control the PID controller."""
