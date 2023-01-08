@@ -241,8 +241,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if self._overshoot_protection_active:
                 _LOGGER.warning("[Overshoot Protection] Calculation already in progress.")
                 return
-
-            self._hvac_mode = HVACMode.HEAT
+            
             self._overshoot_protection_data = []
             self._overshoot_protection_active = True
 
@@ -253,6 +252,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             description += "This process will run for at least 20 minutes until a stable boiler water temperature is found."
 
             _LOGGER.warning(description)
+            
+            await self.async_set_hvac_mode(HVACMode.HEAT)
 
             await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
                 "title": "Overshoot Protection Calculation",
@@ -681,7 +682,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             # Set the HVAC mode to `HEAT` if it is currently `OFF`
             if self.hvac_mode == HVACMode.OFF:
-                self._hvac_mode = HVACMode.HEAT
+                await self.async_set_hvac_mode(HVACMode.HEAT)
 
             # Save the current target temperature if the preset mode is being set for the first time
             if self._attr_preset_mode == PRESET_NONE:
