@@ -34,6 +34,8 @@ from .const import *
 from .entity import SatEntity
 from .pid import PID
 
+MIN_NUM_OUTPUTS = 20
+
 HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
 
@@ -43,13 +45,14 @@ OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_time_in_seconds(time_str: str) -> float:
+def convert_time_str_to_seconds(time_str: str) -> float:
     """Convert a time string in the format 'HH:MM:SS' to seconds.
+
     Args:
-        time_str: A string representing a time in the format 'HH:MM:SS'
+        time_str: A string representing a time in the format 'HH:MM:SS'.
 
     Returns:
-        float: The time in seconds
+        float: The time in seconds.
     """
     date_time = dt.parse_time(time_str)
     # Calculate the number of seconds by multiplying the hours, minutes and seconds
@@ -58,20 +61,14 @@ def get_time_in_seconds(time_str: str) -> float:
 
 def create_pid_controller(options) -> PID:
     """Create and return a PID controller instance with the given configuration options."""
-    # Parse the sample time string and convert it to seconds
-    sample_time = get_time_in_seconds(options.get(CONF_SAMPLE_TIME))
-
-    # Set a default sample time of 1 second if the parsed time is invalid (e.g. less than or equal to one)
-    if sample_time <= 1:
-        sample_time = 1
+    # Extract the configuration options
+    kp = float(options.get(CONF_PROPORTIONAL))
+    ki = float(options.get(CONF_INTEGRAL))
+    kd = float(options.get(CONF_DERIVATIVE))
+    sample_time_limit = convert_time_str_to_seconds(options.get(CONF_SAMPLE_TIME))
 
     # Return a new PID controller instance with the given configuration options
-    return PID(
-        kp=float(options.get(CONF_PROPORTIONAL)),
-        ki=float(options.get(CONF_INTEGRAL)),
-        kd=float(options.get(CONF_DERIVATIVE)),
-        sample_time_limit=sample_time
-    )
+    return PID(kp=kp, ki=ki, kd=kd, sample_time_limit=sample_time_limit)
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
@@ -94,25 +91,30 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, store: SatConfigStore, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
+        # Get configuration options and update with default values
         options = OPTIONS_DEFAULTS.copy()
         options.update(config_entry.options)
 
+        # Create dictionary mapping preset keys to temperature options
         conf_presets = {p: f"{p}_temperature" for p in (PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
+        # Create dictionary mapping preset keys to temperature values
         presets = {key: options[value] for key, value in conf_presets.items() if value in options}
 
+        # Create PID controller with given configuration options
         self._pid = create_pid_controller(options)
 
+        # Get inside sensor entity ID
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
+        # Get inside sensor entity state
         inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
 
+        # Get outside sensor entity IDs
         self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
+        # If outside sensor entity IDs is a string, make it a list
         if isinstance(self.outside_sensor_entities, str):
             self.outside_sensor_entities = [self.outside_sensor_entities]
 
-        self._hvac_mode = None
-        self._target_temperature = None
-        self._saved_target_temperature = None
-
+        # Get current temperature
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._current_temperature = float(inside_sensor_entity.state)
@@ -120,6 +122,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._setpoint = None
         self._heating_curve = None
         self._is_device_active = False
+
+        self._hvac_mode = None
+        self._target_temperature = None
+        self._saved_target_temperature = None
 
         self._overshoot_protection_active = False
         self._overshoot_protection_data = []
@@ -133,7 +139,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._heating_curve_move = options.get(CONF_HEATING_CURVE_MOVE)
         self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
         self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
-        self._sensor_max_value_age = get_time_in_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
+        self._sensor_max_value_age = convert_time_str_to_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
         self._attr_name = config_entry.data.get(CONF_NAME)
         self._attr_id = config_entry.data.get(CONF_NAME).lower()
@@ -251,6 +257,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "derivative": self._pid.derivative,
             "proportional": self._pid.proportional,
             "integral_enabled": self._pid.integral_enabled,
+
+            "autotune_enabled": self._pid.autotune_enabled,
+            "collected_outputs": self._pid.num_outputs,
+            "optimal_kp": self._pid.optimal_kp,
+            "optimal_ki": self._pid.optimal_ki,
+            "optimal_kd": self._pid.optimal_kd,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -532,13 +544,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._is_device_active:
             await self._async_control_heater(True)
 
+        # Collect return water temperature data
+        return_water_temperature = self._get_boiler_value(gw_vars.DATA_RETURN_WATER_TEMP)
+        if return_water_temperature is None:
+            return
+
         # Set the control setpoint to a fixed value for overshoot protection
         await self._async_control_setpoint()
 
-        # Collect return water temperature data
-        if return_water_temperature := self._get_boiler_value(gw_vars.DATA_RETURN_WATER_TEMP):
-            self._overshoot_protection_data.append(round(return_water_temperature, 1))
-            _LOGGER.info("[Overshoot Protection] Return Water Temperature Collected: %2.1f", return_water_temperature)
+        self._overshoot_protection_data.append(round(return_water_temperature, 1))
+        _LOGGER.info("[Overshoot Protection] Return Water Temperature Collected: %2.1f", return_water_temperature)
 
         # Calculate the mean of the last 3 data points only if there are enough data points collected
         if len(self._overshoot_protection_data) < OVERSHOOT_PROTECTION_REQUIRED_DATASET:
@@ -567,6 +582,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not reset:
             self._pid.update(max_error)
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
+
+            if self._pid.num_outputs >= MIN_NUM_OUTPUTS:
+                self._pid.autotune()
         else:
             self._pid.update_reset(max_error)
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
@@ -654,6 +672,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the PID controller
         await self._async_control_pid(True)
+
+        # Start auto-tuning
+        self._pid.enable_autotune(True)
 
         # Set the temperature for each main climate
         for entity_id in self._main_climates:
