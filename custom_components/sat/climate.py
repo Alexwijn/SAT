@@ -109,6 +109,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Get outside sensor entity IDs
         self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
+
         # If outside sensor entity IDs is a string, make it a list
         if isinstance(self.outside_sensor_entities, str):
             self.outside_sensor_entities = [self.outside_sensor_entities]
@@ -225,23 +226,39 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
         await self._async_control_heating()
 
-        async def overshoot_protection(_call: ServiceCall):
+        async def start_overshoot_protection_calculation(_call: ServiceCall):
+            """Service to start the overshoot protection calculation process.
+
+            This process will activate overshoot protection by turning on the heater and setting the control setpoint to
+            a fixed value. Then, it will collect return water temperature data and calculate the mean of the last 3 data
+            points. If the difference between the current return water temperature and the mean is small, it will
+            deactivate overshoot protection and store the calculated value.
+            """
             if self._overshoot_protection_active:
-                _LOGGER.warning("[Overshoot Protection] Already running.")
+                _LOGGER.warning("[Overshoot Protection] Calculation already in progress.")
                 return
 
             self._hvac_mode = HVACMode.HEAT
             self._overshoot_protection_data = []
             self._overshoot_protection_active = True
 
-            _LOGGER.warning("[Overshoot Protection] Enabled for at least 20 minutes until we found a stable return water temperature.")
+            description = "[Overshoot Protection] Calculation started. "
+            description += "This process will run for at least 20 minutes until a stable return water temperature is found."
+
+            _LOGGER.warning(description)
 
             await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
                 "title": "Overshoot Protection Calculation",
-                "message": "Enabled for at least 20 minutes until we found a stable return water temperature."
+                "message": description
             })
 
-        self.hass.services.async_register(DOMAIN, "overshoot_protection", overshoot_protection)
+        self.hass.services.async_register(DOMAIN, "start_overshoot_protection_calculation", start_overshoot_protection_calculation)
+
+        async def reset_integral(_call: ServiceCall):
+            """Service to reset the integral part of the PID controller."""
+            self._pid.reset()
+
+        self.hass.services.async_register(DOMAIN, "reset_integral", reset_integral)
 
     @property
     def name(self):
@@ -535,10 +552,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def _async_control_overshoot_protection(self):
-        """Activate overshoot protection by turning on the heater and setting the control setpoint to a fixed value.
-        Then, collect return water temperature data and calculate the mean of the last 3 data points. If the difference
-        between the current return water temperature and the mean is small, deactivate overshoot protection and store
-        the calculated value.
+        """This method handles the overshoot protection process. It will turn on the heater if it's not already active,
+        set the control setpoint to a fixed value, collect and store return water temperature data, and calculate
+        the mean of the last 3 data points. If the difference between the current return water temperature and
+        the mean is small, it will deactivate overshoot protection and store the calculated value.
+
+        Note that this method will run every 30 seconds, but it won't activate the overshoot protection if it's already running.
         """
         # Turn on the heater if it's not already active
         if not self._is_device_active:
