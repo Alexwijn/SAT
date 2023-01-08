@@ -247,7 +247,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._overshoot_protection_active = True
 
             description = "[Overshoot Protection] Calculation started. "
-            description += "This process will run for at least 20 minutes until a stable return water temperature is found."
+            description += "This process will run for at least 20 minutes until a stable boiler water temperature is found."
 
             _LOGGER.warning(description)
 
