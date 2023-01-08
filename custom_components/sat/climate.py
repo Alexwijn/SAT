@@ -34,7 +34,7 @@ from .const import *
 from .entity import SatEntity
 from .pid import PID
 
-MIN_NUM_OUTPUTS = 5
+MIN_NUM_OUTPUTS = 10
 
 HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
