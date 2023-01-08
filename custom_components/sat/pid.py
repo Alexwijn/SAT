@@ -95,7 +95,7 @@ class PID:
         self._time_elapsed = time_elapsed
 
         if self._integral_enabled:
-            self._integral += error * time_elapsed
+            self._integral += self._ki * error * time_elapsed
 
         self._previous_error = self._last_error
         self._last_error = error
