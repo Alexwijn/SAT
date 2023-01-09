@@ -99,7 +99,6 @@ class PID:
         if self._sample_time_limit and time_elapsed < self._sample_time_limit:
             return
 
-        self._num_updates += 1
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
 
@@ -110,6 +109,7 @@ class PID:
         self._last_error = error
 
         if self._autotune_enabled:
+            self._num_updates += 1
             self._inside_temperatures.append(inside_temperature)
             self._outside_temperatures.append(outside_temperature)
             self._outputs.append((self.output, heating_curve_value, time_elapsed))
