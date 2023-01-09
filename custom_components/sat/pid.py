@@ -7,7 +7,7 @@ from homeassistant.core import State
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, kp: float, ki: float, kd: float, target_temp_tolerance: Optional[float] = 0.5, sample_time_limit: Optional[float] = 0):
+    def __init__(self, kp: float, ki: float, kd: float, sample_time_limit: Optional[float] = 0):
         """Initialize the PID controller.
 
         Parameters:
@@ -21,7 +21,6 @@ class PID:
         self._ki = ki
         self._kd = kd
         self._sample_time_limit = sample_time_limit
-        self._target_temp_tolerance = target_temp_tolerance
         self.reset()
 
     def reset(self) -> None:
@@ -111,13 +110,9 @@ class PID:
         self._last_error = error
 
         if self._autotune_enabled:
-            # Check if target temperature is reached
-            if abs(error) < self._target_temp_tolerance:
-                self.enable_autotune(False)
-            elif self._autotune_enabled:
-                self._inside_temperatures.append(inside_temperature)
-                self._outside_temperatures.append(outside_temperature)
-                self._outputs.append((self.output, heating_curve_value, time_elapsed))
+            self._inside_temperatures.append(inside_temperature)
+            self._outside_temperatures.append(outside_temperature)
+            self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
     def update_reset(self, error: float) -> None:
         """Update the PID controller with resetting.
@@ -176,7 +171,7 @@ class PID:
 
         for output, heating_curve_value, time_elapsed in outputs:
             setpoint = heating_curve_value - output
-            
+
             sum_output += setpoint
             sum_time_elapsed += time_elapsed
             sum_output_squared += setpoint * setpoint
