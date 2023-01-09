@@ -76,7 +76,7 @@ class PID:
 
         self._autotune_enabled = enabled
 
-    def update(self, error: float):
+    def update(self, heating_curve_value: float, error: float):
         """Update the PID controller.
 
         Parameters:
@@ -105,7 +105,7 @@ class PID:
             if abs(error) < self._target_temp_tolerance:
                 self.enable_autotune(False)
             elif self._autotune_enabled:
-                self._outputs.append((self.output, time_elapsed))
+                self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
     def update_reset(self, error: float):
         """Update the PID controller with resetting.
@@ -153,8 +153,8 @@ class PID:
         # Iterate through the outputs
         previous_output = 0
         previous_time_elapsed = 0
-        for output, time_elapsed in outputs:
-            sum_output += output
+        for output, heating_curve_value, time_elapsed in outputs:
+            sum_output += heating_curve_value - output
             sum_time_elapsed += time_elapsed
             sum_output_squared += output * output
             sum_output_time_elapsed += output * time_elapsed

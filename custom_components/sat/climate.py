@@ -241,7 +241,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if self._overshoot_protection_active:
                 _LOGGER.warning("[Overshoot Protection] Calculation already in progress.")
                 return
-            
+
             self._overshoot_protection_data = []
             self._overshoot_protection_active = True
 
@@ -252,7 +252,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             description += "This process will run for at least 20 minutes until a stable boiler water temperature is found."
 
             _LOGGER.warning(description)
-            
+
             await self.async_set_hvac_mode(HVACMode.HEAT)
 
             await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
@@ -433,7 +433,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Calculate the curve value using the outside temperature
         curve_value = (20 - (0.01 * self.current_outside_temperature ** 2) - (0.8 * self.current_outside_temperature))
-        return system_offset + (self._curve_move * curve_value)
+        return round(system_offset + (self._curve_move * curve_value), 1)
 
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
@@ -448,7 +448,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             setpoint = min(setpoint, 50.0)
 
         # Ensure setpoint is at least 10
-        return max(setpoint, 10.0)
+        return round(max(setpoint, 10.0), 1)
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
@@ -610,7 +610,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update the PID controller with the maximum error
         if not reset:
-            self._pid.update(max_error)
+            self._pid.update(self._calculate_heating_curve_value(), max_error)
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
             if self._pid.num_outputs >= self._min_num_outputs:
@@ -635,7 +635,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the setpoint of the heating system."""
         if self._is_device_active:
             # Calculate the heating curve value
-            self._heating_curve = round(self._calculate_heating_curve_value(), 1)
+            self._heating_curve = self._calculate_heating_curve_value()
             _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
 
             if self._overshoot_protection_active:
@@ -644,7 +644,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
             else:
                 # Calculate the control setpoint
-                self._setpoint = round(self._calculate_control_setpoint(), 1)
+                self._setpoint = self._calculate_control_setpoint()
         else:
             # If the device is not active, set the setpoint to a fixed value and clear the heating curve value
             self._setpoint = 10
