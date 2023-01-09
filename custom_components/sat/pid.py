@@ -1,10 +1,7 @@
-import logging
 import time
-from typing import Optional, Tuple
+from typing import Optional
 
 from homeassistant.core import State
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class PID:
@@ -27,8 +24,9 @@ class PID:
         self._target_temp_tolerance = target_temp_tolerance
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the PID controller."""
+        self._num_updates = 0
         self._last_error = 0
         self._time_elapsed = 0
         self._previous_error = 0
@@ -40,14 +38,18 @@ class PID:
 
         # Reset list of outputs
         self._outputs = []
+        self._inside_temperatures = []
+        self._outside_temperatures = []
 
         # Reset autotune flag
         self._autotune_enabled = False
         self._optimal_kp = None
         self._optimal_ki = None
         self._optimal_kd = None
+        self._optimal_heating_curve = None
+        self._optimal_heating_curve_move = None
 
-    def enable_integral(self, enabled: bool):
+    def enable_integral(self, enabled: bool) -> None:
         """Enable or disable the updates of the integral.
 
         The integral component helps the PID controller to eliminate
@@ -72,15 +74,22 @@ class PID:
         enabled: A boolean indicating whether to enable (True) or disable (False) the autotune feature.
         """
         # Reset outputs when disabling or enabling autotune
+        self._num_updates = 0
+
         self._outputs = []
+        self._inside_temperatures = []
+        self._outside_temperatures = []
 
         self._autotune_enabled = enabled
 
-    def update(self, heating_curve_value: float, error: float):
-        """Update the PID controller.
+    def update(self, error: float, inside_temperature: float, outside_temperature: float, heating_curve_value: float) -> None:
+        """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.
 
         Parameters:
-        error: The error value for the PID controller to use in the update.
+        error: The max error between all the target temperatures and the current temperatures.
+        inside_temperature: The current inside temperature.
+        outside_temperature: The current outside temperature.
+        heating_curve_value: The current heating curve value.
         """
         current_time = time.time()
         time_elapsed = current_time - self._last_updated
@@ -91,6 +100,7 @@ class PID:
         if self._sample_time_limit and time_elapsed < self._sample_time_limit:
             return
 
+        self._num_updates += 1
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
 
@@ -105,9 +115,11 @@ class PID:
             if abs(error) < self._target_temp_tolerance:
                 self.enable_autotune(False)
             elif self._autotune_enabled:
+                self._inside_temperatures.append(inside_temperature)
+                self._outside_temperatures.append(outside_temperature)
                 self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
-    def update_reset(self, error: float):
+    def update_reset(self, error: float) -> None:
         """Update the PID controller with resetting.
 
         Parameters:
@@ -121,7 +133,7 @@ class PID:
         self._last_error = error
         self._last_updated = time.time()
 
-    def restore(self, state: State):
+    def restore(self, state: State) -> None:
         """Restore the PID controller from a saved state.
 
         Parameters:
@@ -133,8 +145,16 @@ class PID:
         if last__integral := state.attributes.get("integral"):
             self._integral = last__integral
 
-    def autotune(self) -> Tuple[float, float, float]:
-        """Calculate the optimal values for the PID gains."""
+    def autotune(self) -> None:
+        """Calculate and set the optimal PID gains and heating curve based on previous outputs and temperatures."""
+        self.determine_optimal_pid_gains()
+        self.determine_optimal_heating_curve()
+
+        # Reset autotune flag
+        self.enable_autotune(False)
+
+    def determine_optimal_pid_gains(self) -> None:
+        """Calculate the optimal PID gains based on the previous outputs."""
         # Get the list of outputs and the length of the list
         outputs = self._outputs
         num_outputs = len(outputs)
@@ -153,6 +173,7 @@ class PID:
         # Iterate through the outputs
         previous_output = 0
         previous_time_elapsed = 0
+
         for output, heating_curve_value, time_elapsed in outputs:
             setpoint = heating_curve_value - output
             
@@ -174,15 +195,53 @@ class PID:
         ki = round(sum_integral / sum_output, 2)
         kd = round(slope / (1 - y_intercept), 2)
 
-        # Reset autotune flag
-        self.enable_autotune(False)
-
         # Store the latest autotune values
         self._optimal_kp = kp
         self._optimal_ki = ki
         self._optimal_kd = kd
 
-        return kp, ki, kd
+    def determine_optimal_heating_curve(self) -> None:
+        """Calculate the optimal heating curve and heating curve move.
+
+        The heating curve is the temperature at which the heating system should turn on or off
+        based on the outside temperature. The heating curve move is an offset applied to the
+        heating curve to adjust the temperature at which the heating system should turn on or off.
+        """
+        # Check that the lists have the same length
+        if len(self._outside_temperatures) != len(self._inside_temperatures):
+            raise ValueError("The lists of outside temperatures and inside temperatures must have the same length")
+
+        # Check that the lists have at least 2 elements
+        if len(self._outside_temperatures) < 2:
+            raise ValueError("The lists must have at least 2 elements")
+
+        # Initialize variables
+        sum_x = 0
+        sum_y = 0
+        sum_xx = 0
+        sum_xy = 0
+
+        # Iterate through the outside temperatures and setpoints
+        for x, y in zip(self._outside_temperatures, self._inside_temperatures):
+            sum_x += x
+            sum_y += y
+            sum_xx += x * x
+            sum_xy += x * y
+
+        # Calculate the slope and y-intercept
+        n = len(self._outside_temperatures)
+
+        # Handle the case where the outside temperature does not change
+        if sum_xx == sum_x * sum_x:
+            self._optimal_heating_curve = sum_y / n
+            self._optimal_heating_curve_move = 0
+        else:
+            slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)
+            y_intercept = (sum_y - slope * sum_x) / n
+
+            # Calculate the heating curve and heating curve move
+            self._optimal_heating_curve = -y_intercept / slope
+            self._optimal_heating_curve_move = y_intercept
 
     @property
     def last_error(self) -> float:
@@ -236,9 +295,9 @@ class PID:
         return self._autotune_enabled
 
     @property
-    def num_outputs(self) -> int:
-        """Return the number of outputs collected."""
-        return len(self._outputs)
+    def num_updates(self) -> int:
+        """Return the number of updates collected."""
+        return self._num_updates
 
     @property
     def optimal_kp(self) -> float:
@@ -249,6 +308,16 @@ class PID:
     def optimal_ki(self) -> float:
         """Return the optimal integral gain."""
         return self._optimal_ki
+
+    @property
+    def optimal_heating_curve(self) -> float:
+        """Return the optimal heating curve value."""
+        return self._optimal_heating_curve
+
+    @property
+    def optimal_heating_curve_move(self) -> float:
+        """Return the optimal heating curve move value."""
+        return self._optimal_heating_curve_move
 
     @property
     def optimal_kd(self) -> float:

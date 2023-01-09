@@ -137,7 +137,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._simulation = options.get(CONF_SIMULATION)
         self._curve_move = options.get(CONF_HEATING_CURVE)
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
-        self._min_num_outputs = int(options.get(CONF_MIN_NUM_OUTPUTS))
+        self._min_num_updates = int(options.get(CONF_MIN_NUM_UPDATES))
         self._heating_curve_move = options.get(CONF_HEATING_CURVE_MOVE)
         self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
         self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
@@ -284,10 +284,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "integral_enabled": self._pid.integral_enabled,
 
             "autotune_enabled": self._pid.autotune_enabled,
-            "collected_outputs": self._pid.num_outputs,
+            "collected_updates": self._pid.num_updates,
+
             "optimal_kp": self._pid.optimal_kp,
             "optimal_ki": self._pid.optimal_ki,
             "optimal_kd": self._pid.optimal_kd,
+            "optimal_heating_curve": self._pid.optimal_heating_curve,
+            "optimal_heating_curve_move": self._pid.optimal_heating_curve_move,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -610,10 +613,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update the PID controller with the maximum error
         if not reset:
-            self._pid.update(self._calculate_heating_curve_value(), max_error)
+            self._pid.update(
+                error=max_error,
+                inside_temperature=self.current_temperature,
+                outside_temperature=self.current_outside_temperature,
+                heating_curve_value=self._calculate_heating_curve_value(),
+            )
+
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
-            if self._pid.num_outputs >= self._min_num_outputs:
+            if self._pid.num_updates >= self._min_num_updates:
                 self._pid.autotune()
         else:
             self._pid.update_reset(max_error)

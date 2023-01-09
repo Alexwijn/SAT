@@ -58,7 +58,7 @@
           "sample_time": "Sample Time",
           "sensor_max_value_age": "Sensor max value age",
           "overshoot_protection": "Overshoot Protection (experimental)",
-          "min_num_outputs": "Minimum number of outputs required for auto-tuning"
+          "min_num_updates": "Minimum number of updates required for auto-tuning"
         }
       }
     }
