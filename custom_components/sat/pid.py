@@ -154,13 +154,15 @@ class PID:
         previous_output = 0
         previous_time_elapsed = 0
         for output, heating_curve_value, time_elapsed in outputs:
-            sum_output += heating_curve_value - output
+            setpoint = heating_curve_value - output
+            
+            sum_output += setpoint
             sum_time_elapsed += time_elapsed
-            sum_output_squared += output * output
-            sum_output_time_elapsed += output * time_elapsed
-            sum_integral += (output + previous_output) * (time_elapsed - previous_time_elapsed) / 2
+            sum_output_squared += setpoint * setpoint
+            sum_output_time_elapsed += setpoint * time_elapsed
+            sum_integral += (setpoint + previous_output) * (time_elapsed - previous_time_elapsed) / 2
 
-            previous_output = output
+            previous_output = setpoint
             previous_time_elapsed = time_elapsed
 
         # Calculate the slope and y-intercept
