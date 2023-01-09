@@ -231,12 +231,12 @@ class PID:
             heating_curve = 0
             heating_curve_move = sum_y / n
         else:
-            slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)
+            slope = (n * sum_xy - sum_x * sum_y) / (n * (sum_xx + 1e-9) - sum_x * sum_x)
             y_intercept = (sum_y - slope * sum_x) / n
 
             # Calculate the heating curve and heating curve move
-            heating_curve = y_intercept
-            heating_curve_move = -y_intercept / slope
+            heating_curve = -y_intercept / slope
+            heating_curve_move = y_intercept
 
         # Store the latest autotune values
         self._optimal_heating_curve = round(heating_curve, 1)
