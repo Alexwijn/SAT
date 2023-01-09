@@ -186,14 +186,14 @@ class PID:
         y_intercept = (sum_time_elapsed - slope * sum_output) / num_outputs
 
         # Calculate the optimal gains
-        kp = round((1 - y_intercept) / slope, 2)
-        ki = round(sum_integral / sum_output, 2)
-        kd = round(slope / (1 - y_intercept), 2)
+        kp = (1 - y_intercept) / slope
+        ki = sum_integral / sum_output
+        kd = slope / (1 - y_intercept)
 
         # Store the latest autotune values
-        self._optimal_kp = kp
-        self._optimal_ki = ki
-        self._optimal_kd = kd
+        self._optimal_kp = round(kp, 2)
+        self._optimal_ki = round(ki, 2)
+        self._optimal_kd = round(kd, 2)
 
     def determine_optimal_heating_curve(self) -> None:
         """Calculate the optimal heating curve and heating curve move.
@@ -228,15 +228,19 @@ class PID:
 
         # Handle the case where the outside temperature does not change
         if sum_xx == sum_x * sum_x:
-            self._optimal_heating_curve = sum_y / n
-            self._optimal_heating_curve_move = 0
+            heating_curve = sum_y / n
+            heating_curve_move = 0
         else:
             slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)
             y_intercept = (sum_y - slope * sum_x) / n
 
             # Calculate the heating curve and heating curve move
-            self._optimal_heating_curve = -y_intercept / slope
-            self._optimal_heating_curve_move = y_intercept
+            heating_curve = -y_intercept / slope
+            heating_curve_move = y_intercept
+
+        # Store the latest autotune values
+        self._optimal_heating_curve = round(heating_curve, 0)
+        self._optimal_heating_curve_move = round(heating_curve_move, 0)
 
     @property
     def last_error(self) -> float:
