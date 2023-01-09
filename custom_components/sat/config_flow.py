@@ -127,7 +127,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="general",
             data_schema=vol.Schema({
                 vol.Required(CONF_HEATING_CURVE, default=defaults[CONF_HEATING_CURVE]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0.1, max=3.0, step=0.1)
+                    selector.NumberSelectorConfig(min=-15, max=15, step=0.1)
                 ),
                 vol.Required(CONF_HEATING_CURVE_MOVE, default=defaults[CONF_HEATING_CURVE_MOVE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=-15, max=15, step=0.5)

@@ -229,7 +229,7 @@ class PID:
         # Handle the case where the outside temperature does not change
         if sum_xx == sum_x * sum_x:
             heating_curve = sum_y / n
-            heating_curve_move = 0
+            heating_curve_move = 1
         else:
             slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)
             y_intercept = (sum_y - slope * sum_x) / n
@@ -239,8 +239,8 @@ class PID:
             heating_curve_move = y_intercept
 
         # Store the latest autotune values
-        self._optimal_heating_curve = round(heating_curve, 0)
-        self._optimal_heating_curve_move = round(heating_curve_move, 0)
+        self._optimal_heating_curve = round(heating_curve, 1)
+        self._optimal_heating_curve_move = round(heating_curve_move * 2) / 2
 
     @property
     def last_error(self) -> float:
