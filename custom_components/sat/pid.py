@@ -228,15 +228,15 @@ class PID:
 
         # Handle the case where the outside temperature does not change
         if sum_xx == sum_x * sum_x:
-            heating_curve = sum_y / n
-            heating_curve_move = 1
+            heating_curve = 0
+            heating_curve_move = sum_y / n
         else:
             slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)
             y_intercept = (sum_y - slope * sum_x) / n
 
             # Calculate the heating curve and heating curve move
-            heating_curve = -y_intercept / slope
-            heating_curve_move = y_intercept
+            heating_curve = y_intercept
+            heating_curve_move = -y_intercept / slope
 
         # Store the latest autotune values
         self._optimal_heating_curve = round(heating_curve, 1)
