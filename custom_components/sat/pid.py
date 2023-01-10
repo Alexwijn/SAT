@@ -195,48 +195,29 @@ class PID:
         self._optimal_ki = round(ki, 2)
         self._optimal_kd = round(kd, 2)
 
-    def determine_optimal_heating_curve(self) -> None:
-        """Calculate the optimal heating curve and heating curve move.
+    def determine_heating_curve(self) -> Tuple[float, float]:
+        """Determine the heating curve and heating curve move based on the outside and inside temperatures."""
+        # Check if there are enough temperatures
+        if len(self._outside_temperatures) < 2 or len(self._inside_temperatures) < 2:
+            raise ValueError("Not enough temperatures for heating curve calculation")
 
-        The heating curve is the temperature at which the heating system should turn on or off
-        based on the outside temperature. The heating curve move is an offset applied to the
-        heating curve to adjust the temperature at which the heating system should turn on or off.
-        """
-        # Check that the lists have the same length
-        if len(self._outside_temperatures) != len(self._inside_temperatures):
-            raise ValueError("The lists of outside temperatures and inside temperatures must have the same length")
+        # Calculate the average inside temperature
+        inside_temp_sum = 0
+        for temperature in self._inside_temperatures:
+            inside_temp_sum += temperature
+            
+        inside_temp_avg = inside_temp_sum / len(self._inside_temperatures)
 
-        # Check that the lists have at least 2 elements
-        if len(self._outside_temperatures) < 2:
-            raise ValueError("The lists must have at least 2 elements")
+        # Check if the outside temperature is not changing
+        outside_temp_diff = max(self._outside_temperatures) - min(self._outside_temperatures)
+        if outside_temp_diff == 0:
+            outside_temp_diff = 0.01
 
-        # Initialize variables
-        sum_x = 0
-        sum_y = 0
-        sum_xx = 0
-        sum_xy = 0
+        # Calculate the heating curve move
+        heating_curve_move = (inside_temp_avg - 20) / outside_temp_diff
 
-        # Iterate through the outside temperatures and setpoints
-        for x, y in zip(self._outside_temperatures, self._inside_temperatures):
-            sum_x += x
-            sum_y += y
-            sum_xx += x * x
-            sum_xy += x * y
-
-        # Calculate the slope and y-intercept
-        n = len(self._outside_temperatures)
-
-        # Handle the case where the outside temperature does not change
-        if sum_xx == sum_x * sum_x:
-            heating_curve = 0
-            heating_curve_move = sum_y / n
-        else:
-            slope = (n * sum_xy - sum_x * sum_y) / (n * (sum_xx + 1e-9) - sum_x * sum_x)
-            y_intercept = (sum_y - slope * sum_x) / n
-
-            # Calculate the heating curve and heating curve move
-            heating_curve = -y_intercept / slope
-            heating_curve_move = y_intercept
+        # Calculate the heating curve
+        heating_curve = 20 - heating_curve_move * min(self._outside_temperatures)
 
         # Store the latest autotune values
         self._optimal_heating_curve = round(heating_curve, 1)
