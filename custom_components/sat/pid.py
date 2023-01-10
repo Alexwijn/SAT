@@ -195,7 +195,7 @@ class PID:
         self._optimal_ki = round(ki, 2)
         self._optimal_kd = round(kd, 2)
 
-    def determine_heating_curve(self) -> Tuple[float, float]:
+    def determine_optimal_heating_curve(self) -> None:
         """Determine the heating curve and heating curve move based on the outside and inside temperatures."""
         # Check if there are enough temperatures
         if len(self._outside_temperatures) < 2 or len(self._inside_temperatures) < 2:
@@ -205,7 +205,7 @@ class PID:
         inside_temp_sum = 0
         for temperature in self._inside_temperatures:
             inside_temp_sum += temperature
-            
+
         inside_temp_avg = inside_temp_sum / len(self._inside_temperatures)
 
         # Check if the outside temperature is not changing

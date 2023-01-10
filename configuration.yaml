@@ -22,13 +22,13 @@ input_number:
     initial: 18
     min: 0
     max: 35
-    step: 0.1
+    step: 0.01
   outside_temperature_raw:
     name: Outside Temperature
     initial: 0
     min: 0
     max: 35
-    step: 0.1
+    step: 0.01
 
 input_boolean:
   heater:
