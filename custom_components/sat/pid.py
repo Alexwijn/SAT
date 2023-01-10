@@ -37,6 +37,7 @@ class PID:
 
         # Reset list of outputs
         self._outputs = []
+        self._boiler_temperatures = []
         self._inside_temperatures = []
         self._outside_temperatures = []
 
@@ -76,12 +77,13 @@ class PID:
         self._num_updates = 0
 
         self._outputs = []
+        self._boiler_temperatures = []
         self._inside_temperatures = []
         self._outside_temperatures = []
 
         self._autotune_enabled = enabled
 
-    def update(self, error: float, inside_temperature: float, outside_temperature: float, heating_curve_value: float) -> None:
+    def update(self, error: float, boiler_temperature: float, inside_temperature: float, outside_temperature: float, heating_curve_value: float) -> None:
         """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.
 
         Parameters:
@@ -110,8 +112,14 @@ class PID:
 
         if self._autotune_enabled:
             self._num_updates += 1
-            self._inside_temperatures.append(inside_temperature)
-            self._outside_temperatures.append(outside_temperature)
+
+            # Collect temperatures in order to calculate an optimal heating curve
+            if boiler_temperature:
+                self._boiler_temperatures.append(boiler_temperature)
+                self._inside_temperatures.append(inside_temperature)
+                self._outside_temperatures.append(outside_temperature)
+
+            # Collect the outputs in order to calculate an optimal pid gain
             self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
     def update_reset(self, error: float) -> None:
@@ -195,33 +203,47 @@ class PID:
         self._optimal_ki = round(ki, 2)
         self._optimal_kd = round(kd, 2)
 
-    def determine_optimal_heating_curve(self) -> None:
-        """Determine the heating curve and heating curve move based on the outside and inside temperatures."""
-        # Check if there are enough temperatures
-        if len(self._outside_temperatures) < 2 or len(self._inside_temperatures) < 2:
-            raise ValueError("Not enough temperatures for heating curve calculation")
+    def determine_optimal_heating_curve(self, comfort_temp: float = 20) -> None:
+        """Determine the heating curve and heating curve move based on the given data."""
+        # Initialize variables
+        sum_outside_temperature = 0
+        sum_inside_temperature = 0
+        sum_boiler_temperature = 0
+        sum_outside_temperature_squared = 0
+        sum_inside_temperature_boiler_temperature = 0
+        sum_outside_temperature_boiler_temperature = 0
+        num_values = len(self._inside_temperatures)
 
-        # Calculate the average inside temperature
-        inside_temp_sum = 0
-        for temperature in self._inside_temperatures:
-            inside_temp_sum += temperature
+        # Iterate through the data
+        for i in range(num_values):
+            inside_temperature = self._inside_temperatures[i]
+            outside_temperature = self._outside_temperatures[i]
+            boiler_temperature = self._boiler_temperatures[i]
 
-        inside_temp_avg = inside_temp_sum / len(self._inside_temperatures)
+            sum_outside_temperature += outside_temperature
+            sum_inside_temperature += inside_temperature
+            sum_boiler_temperature += boiler_temperature
+            sum_outside_temperature_squared += outside_temperature ** 2
+            sum_inside_temperature_boiler_temperature += inside_temperature * boiler_temperature
+            sum_outside_temperature_boiler_temperature += outside_temperature * boiler_temperature
 
-        # Check if the outside temperature is not changing
-        outside_temp_diff = max(self._outside_temperatures) - min(self._outside_temperatures)
+        # We are unable to calculate when it is zero degrees (for now)
+        if sum_outside_temperature == 0:
+            return
+
+        # Check if the outside temperature is not changing (division by zero)
+        outside_temp_diff = sum_outside_temperature_squared - sum_outside_temperature
         if outside_temp_diff == 0:
             outside_temp_diff = 0.01
 
-        # Calculate the heating curve move
-        heating_curve_move = (inside_temp_avg - 20) / outside_temp_diff
-
-        # Calculate the heating curve
-        heating_curve = 20 - heating_curve_move * min(self._outside_temperatures)
+        # Calculate the heating curve and heating curve move
+        a = sum_inside_temperature_boiler_temperature * sum_outside_temperature - sum_boiler_temperature * sum_outside_temperature_boiler_temperature
+        a /= (num_values * outside_temp_diff ** 2)
+        b = (sum_boiler_temperature - a * sum_outside_temperature) / num_values
 
         # Store the latest autotune values
-        self._optimal_heating_curve = round(heating_curve, 1)
-        self._optimal_heating_curve_move = round(heating_curve_move * 2) / 2
+        self._optimal_heating_curve = round(a, 1)
+        self._optimal_heating_curve_move = round((b - comfort_temp) * 2) / 2
 
     @property
     def last_error(self) -> float:

@@ -615,6 +615,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not reset:
             self._pid.update(
                 error=max_error,
+                boiler_temperature=self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP),
                 inside_temperature=self.current_temperature,
                 outside_temperature=self.current_outside_temperature,
                 heating_curve_value=self._calculate_heating_curve_value(),
