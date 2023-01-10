@@ -140,6 +140,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._min_num_updates = int(options.get(CONF_MIN_NUM_UPDATES))
         self._heating_curve_move = options.get(CONF_HEATING_CURVE_MOVE)
         self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
+        self._climate_valve_offset = options.get(CONF_CLIMATE_VALVE_OFFSET)
         self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
         self._sensor_max_value_age = convert_time_str_to_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
@@ -414,7 +415,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 current_temperature = state.attributes.get("current_temperature")
 
                 # If there is a current temperature, and it is not at the target temperature, we can assume the valves are open
-                if current_temperature is not None and float(target_temperature) >= float(current_temperature):
+                if current_temperature is not None and float(target_temperature) + self._climate_valve_offset >= float(current_temperature):
                     return True
 
         # If none of the thermostats have open valves, return False
