@@ -9,16 +9,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from pyotgw import OpenThermGateway
 from serial import SerialException
 
-from .const import (
-    CONF_DEVICE,
-    DOMAIN,
-    SENSOR,
-    CLIMATE,
-    BINARY_SENSOR,
-    CONF_UNDERFLOOR,
-    CONF_RADIATOR_LOW_TEMPERATURES,
-    CONF_RADIATOR_HIGH_TEMPERATURES, COORDINATOR, STORAGE_OVERSHOOT_PROTECTION_VALUE,
-)
+from .const import *
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -37,7 +28,6 @@ async def async_setup(_hass: HomeAssistant, __config: Config):
 
 async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     """Set up this integration using UI."""
-
     if _hass.data.get(DOMAIN) is None:
         _hass.data.setdefault(DOMAIN, {})
 

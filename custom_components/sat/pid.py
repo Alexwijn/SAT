@@ -46,8 +46,8 @@ class PID:
         self._optimal_kp = None
         self._optimal_ki = None
         self._optimal_kd = None
-        self._optimal_heating_curve = None
-        self._optimal_heating_curve_move = None
+        self._optimal_heating_curve_offset = None
+        self._optimal_heating_curve_coefficient = None
 
     def enable_integral(self, enabled: bool) -> None:
         """Enable or disable the updates of the integral.
@@ -148,10 +148,10 @@ class PID:
         if last__integral := state.attributes.get("integral"):
             self._integral = last__integral
 
-    def autotune(self) -> None:
+    def autotune(self, comfort_temp: float) -> None:
         """Calculate and set the optimal PID gains and heating curve based on previous outputs and temperatures."""
         self.determine_optimal_pid_gains()
-        self.determine_optimal_heating_curve()
+        self.determine_optimal_heating_curve(comfort_temp)
 
         # Reset autotune flag
         self.enable_autotune(False)
@@ -203,47 +203,26 @@ class PID:
         self._optimal_ki = round(ki, 2)
         self._optimal_kd = round(kd, 2)
 
-    def determine_optimal_heating_curve(self, comfort_temp: float = 20) -> None:
-        """Determine the heating curve and heating curve move based on the given data."""
-        # Initialize variables
-        sum_outside_temperature = 0
-        sum_inside_temperature = 0
-        sum_boiler_temperature = 0
-        sum_outside_temperature_squared = 0
-        sum_inside_temperature_boiler_temperature = 0
-        sum_outside_temperature_boiler_temperature = 0
-        num_values = len(self._inside_temperatures)
-
-        # Iterate through the data
-        for i in range(num_values):
-            inside_temperature = self._inside_temperatures[i]
-            outside_temperature = self._outside_temperatures[i]
-            boiler_temperature = self._boiler_temperatures[i]
-
-            sum_outside_temperature += outside_temperature
-            sum_inside_temperature += inside_temperature
-            sum_boiler_temperature += boiler_temperature
-            sum_outside_temperature_squared += outside_temperature ** 2
-            sum_inside_temperature_boiler_temperature += inside_temperature * boiler_temperature
-            sum_outside_temperature_boiler_temperature += outside_temperature * boiler_temperature
-
-        # We are unable to calculate when it is zero degrees (for now)
-        if sum_outside_temperature == 0:
+    def determine_optimal_heating_curve(self, comfort_temp: float) -> None:
+        """Determine the optimal heating curve coefficient and offset based on the given data."""
+        # check if the data is adequate
+        if self._num_updates == 0:
             return
 
-        # Check if the outside temperature is not changing (division by zero)
-        outside_temp_diff = sum_outside_temperature_squared - sum_outside_temperature
-        if outside_temp_diff == 0:
-            outside_temp_diff = 0.01
+        # calculate coefficient and offset
+        numerator = sum([self._inside_temperatures[i] * self._boiler_temperatures[i] for i in range(self._num_updates)])
+        denominator = sum([self._outside_temperatures[i] * self._boiler_temperatures[i] for i in range(self._num_updates)])
 
-        # Calculate the heating curve and heating curve move
-        a = sum_inside_temperature_boiler_temperature * sum_outside_temperature - sum_boiler_temperature * sum_outside_temperature_boiler_temperature
-        a /= (num_values * outside_temp_diff ** 2)
-        b = (sum_boiler_temperature - a * sum_outside_temperature) / num_values
+        # add a small value to denominator if the outside temperature didn't change or is zero
+        if denominator == 0:
+            denominator = 1e-6
 
-        # Store the latest autotune values
-        self._optimal_heating_curve = round(a, 1)
-        self._optimal_heating_curve_move = round((b - comfort_temp) * 2) / 2
+        offset = numerator / denominator
+        coefficient = (sum(self._boiler_temperatures) - offset * sum(self._outside_temperatures)) / self._num_updates
+
+        # store the autotune values
+        self._optimal_heating_curve_coefficient = round(coefficient, 1)
+        self._optimal_heating_curve_offset = round((offset - comfort_temp) * 2) / 2
 
     @property
     def last_error(self) -> float:
@@ -312,14 +291,14 @@ class PID:
         return self._optimal_ki
 
     @property
-    def optimal_heating_curve(self) -> float:
-        """Return the optimal heating curve value."""
-        return self._optimal_heating_curve
+    def optimal_heating_curve_coefficient(self) -> float:
+        """Return the optimal heating curve coefficient."""
+        return self._optimal_heating_curve_coefficient
 
     @property
-    def optimal_heating_curve_move(self) -> float:
-        """Return the optimal heating curve move value."""
-        return self._optimal_heating_curve_move
+    def optimal_heating_curve_offset(self) -> float:
+        """Return the optimal heating curve offset."""
+        return self._optimal_heating_curve_offset
 
     @property
     def optimal_kd(self) -> float:

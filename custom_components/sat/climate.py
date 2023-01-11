@@ -134,11 +134,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._climates = options.get(CONF_CLIMATES)
         self._main_climates = options.get(CONF_MAIN_CLIMATES)
 
+        self._heating_curve_offset = options.get(CONF_HEATING_CURVE_OFFSET)
+        self._heating_curve_coefficient = options.get(CONF_HEATING_CURVE_COEFFICIENT)
+
         self._simulation = options.get(CONF_SIMULATION)
-        self._curve_move = options.get(CONF_HEATING_CURVE)
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
         self._min_num_updates = int(options.get(CONF_MIN_NUM_UPDATES))
-        self._heating_curve_move = options.get(CONF_HEATING_CURVE_MOVE)
         self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
         self._climate_valve_offset = options.get(CONF_CLIMATE_VALVE_OFFSET)
         self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
@@ -283,6 +284,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "derivative": self._pid.derivative,
             "proportional": self._pid.proportional,
             "integral_enabled": self._pid.integral_enabled,
+            "comfort_temperature": self._presets[PRESET_COMFORT],
 
             "autotune_enabled": self._pid.autotune_enabled,
             "collected_updates": self._pid.num_updates,
@@ -290,8 +292,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "optimal_kp": self._pid.optimal_kp,
             "optimal_ki": self._pid.optimal_ki,
             "optimal_kd": self._pid.optimal_kd,
-            "optimal_heating_curve": self._pid.optimal_heating_curve,
-            "optimal_heating_curve_move": self._pid.optimal_heating_curve_move,
+            "optimal_heating_curve_offset": self._pid.optimal_heating_curve_offset,
+            "optimal_heating_curve_coefficient": self._pid.optimal_heating_curve_coefficient,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -429,30 +431,42 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """
         return self._coordinator.data[gw_vars.BOILER].get(key) if self._coordinator.data[gw_vars.BOILER] else None
 
-    def _calculate_heating_curve_value(self) -> float:
-        """Calculate the heating curve value based on the outside temperature."""
-        system_offset = 28 + self._heating_curve_move
-        if self._heating_system == CONF_UNDERFLOOR:
-            system_offset = 20 + self._heating_curve_move
+    def _calculate_heating_curve(self) -> float:
+        """Calculate the heating curve based on the outside temperature."""
+        # Define the base offset for the heating system
+        base_offset = self._get_base_offset()
 
-        # Calculate the curve value using the outside temperature
-        curve_value = (20 - (0.01 * self.current_outside_temperature ** 2) - (0.8 * self.current_outside_temperature))
-        return round(system_offset + (self._curve_move * curve_value), 1)
+        # Calculate the heating curve value using the outside temperature
+        heating_curve_value = self._get_heating_curve_value()
+
+        # Adjust the curve value using the heating_curve_coefficient and heating_curve_offset and return the final value
+        return round(base_offset + (self._heating_curve_coefficient * heating_curve_value), 1)
 
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
         setpoint = self._heating_curve + self._pid.output
 
         # Ensure setpoint is within allowed range for each heating system
-        if self._heating_system == CONF_RADIATOR_HIGH_TEMPERATURES:
+        if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
             setpoint = min(setpoint, 75.0)
-        elif self._heating_system == CONF_RADIATOR_LOW_TEMPERATURES:
+        elif self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
             setpoint = min(setpoint, 55.0)
-        elif self._heating_system == CONF_UNDERFLOOR:
+        elif self._heating_system == HEATING_SYSTEM_UNDERFLOOR:
             setpoint = min(setpoint, 50.0)
 
         # Ensure setpoint is at least 10
         return round(max(setpoint, 10.0), 1)
+
+    def _get_base_offset(self):
+        """Determine the base offset for the heating system."""
+        if self._heating_system == HEATING_SYSTEM_UNDERFLOOR:
+            return 20 + self._heating_curve_offset
+
+        return 28 + self._heating_curve_offset
+
+    def _get_heating_curve_value(self):
+        """Calculate the heating curve value based on the current outside temperature"""
+        return self._presets[PRESET_COMFORT] - (0.01 * self.current_outside_temperature ** 2) - (0.8 * self.current_outside_temperature)
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
@@ -619,13 +633,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 boiler_temperature=self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP),
                 inside_temperature=self.current_temperature,
                 outside_temperature=self.current_outside_temperature,
-                heating_curve_value=self._calculate_heating_curve_value(),
+                heating_curve_value=self._calculate_heating_curve(),
             )
 
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
             if self._pid.num_updates >= self._min_num_updates:
-                self._pid.autotune()
+                self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
             self._pid.update_reset(max_error)
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
@@ -646,7 +660,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the setpoint of the heating system."""
         if self._is_device_active:
             # Calculate the heating curve value
-            self._heating_curve = self._calculate_heating_curve_value()
+            self._heating_curve = self._calculate_heating_curve()
             _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
 
             if self._overshoot_protection_active:

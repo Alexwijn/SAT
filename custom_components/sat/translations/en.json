@@ -29,10 +29,10 @@
           "integral": "Integral",
           "derivative": "Derivative",
           "proportional": "Proportional",
-          "heating_curve": "Heating Curve",
           "heating_system": "Heating System",
-          "heating_curve_move": "Heating Curve Move",
-          "target_temperature_step": "Target Temperature Step"
+          "heating_curve_offset": "Heating Curve Offset",
+          "target_temperature_step": "Target Temperature Step",
+          "heating_curve_coefficient": "Heating Curve Coefficient"
         }
       },
       "presets": {
