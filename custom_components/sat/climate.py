@@ -118,7 +118,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Get current temperature
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            self._current_temperature = float(inside_sensor_entity.state)
+            self._current_temperature = round(float(inside_sensor_entity.state), 1)
 
         self._setpoint = None
         self._heating_curve = None
@@ -323,7 +323,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.current_temperature is None:
             return 0
 
-        return round(self.target_temperature - self.current_temperature, 2)
+        return round(self.target_temperature - self.current_temperature, 1)
 
     @property
     def current_outside_temperature(self):
@@ -379,7 +379,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Calculate temperature difference for this climate
             target_temperature = float(state.attributes.get("temperature"))
             current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
-            errors.append(round(target_temperature - current_temperature, 2))
+            errors.append(round(target_temperature - current_temperature, 1))
 
         return errors
 
@@ -475,7 +475,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         _LOGGER.debug("Inside Sensor Changed.")
-        self._current_temperature = float(new_state.state)
+        self._current_temperature = round(float(new_state.state), 1)
         self.async_write_ha_state()
 
         await self._async_control_pid()
