@@ -323,7 +323,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.current_temperature is None:
             return 0
 
-        return round(self.target_temperature - self.current_temperature, 1)
+        return round(self.target_temperature - self.current_temperature, 2)
 
     @property
     def current_outside_temperature(self):
@@ -379,7 +379,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Calculate temperature difference for this climate
             target_temperature = float(state.attributes.get("temperature"))
             current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
-            errors.append(round(target_temperature - current_temperature, 1))
+            errors.append(round(target_temperature - current_temperature, 2))
 
         return errors
 
