@@ -728,8 +728,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the PID controller
         await self._async_control_pid(True)
 
-        # Start auto-tuning
-        self._pid.enable_autotune(True)
+        # Start auto-tuning, but only if we need to heat the main climate
+        if self._target_temperature > self._current_temperature:
+            self._pid.enable_autotune(True)
 
         # Set the temperature for each main climate
         for entity_id in self._main_climates:
