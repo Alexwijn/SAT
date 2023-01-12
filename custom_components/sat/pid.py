@@ -247,10 +247,7 @@ class PID:
     @property
     def integral(self) -> float:
         """Return the integral value."""
-        if self._time_elapsed == 0:
-            return 0
-
-        return round(self._ki * self._integral * self._time_elapsed, 2)
+        return round(self._integral, 2)
 
     @property
     def derivative(self) -> float:
@@ -291,6 +288,11 @@ class PID:
         return self._optimal_ki
 
     @property
+    def optimal_kd(self) -> float:
+        """Return the optimal derivative gain."""
+        return self._optimal_kd
+    
+    @property
     def optimal_heating_curve_coefficient(self) -> float:
         """Return the optimal heating curve coefficient."""
         return self._optimal_heating_curve_coefficient
@@ -299,8 +301,3 @@ class PID:
     def optimal_heating_curve_offset(self) -> float:
         """Return the optimal heating curve offset."""
         return self._optimal_heating_curve_offset
-
-    @property
-    def optimal_kd(self) -> float:
-        """Return the optimal derivative gain."""
-        return self._optimal_kd
