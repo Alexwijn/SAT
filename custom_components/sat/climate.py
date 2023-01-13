@@ -287,13 +287,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "comfort_temperature": self._presets[PRESET_COMFORT],
 
             "autotune_enabled": self._pid.autotune_enabled,
-            "collected_updates": self._pid.num_updates,
+            "collected_updates": self._pid.num_autotune_outputs,
 
             "optimal_kp": self._pid.optimal_kp,
             "optimal_ki": self._pid.optimal_ki,
             "optimal_kd": self._pid.optimal_kd,
-            "optimal_heating_curve_offset": self._pid.optimal_heating_curve_offset,
-            "optimal_heating_curve_coefficient": self._pid.optimal_heating_curve_coefficient,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -630,15 +628,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not reset:
             self._pid.update(
                 error=max_error,
-                boiler_temperature=self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP),
-                inside_temperature=self.current_temperature,
-                outside_temperature=self.current_outside_temperature,
-                heating_curve_value=self._calculate_heating_curve(),
+                heating_curve_value=self._calculate_heating_curve()
             )
 
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
-            if self._pid.num_updates >= self._min_num_updates:
+            if self._pid.num_autotune_outputs >= self._min_num_updates:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
             self._pid.update_reset(max_error)

@@ -38,5 +38,6 @@ input_boolean:
 climate:
   - platform: generic_thermostat
     name: Heater
+    unique_id: heater
     heater: input_boolean.heater
     target_sensor: sensor.current_temperature
