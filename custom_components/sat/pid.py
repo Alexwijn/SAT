@@ -69,6 +69,7 @@ class PID:
         if self._integral_enabled != enabled:
             # Reset the integral if the enabled status changes
             self._integral = 0
+            self._derivative_errors.clear()
 
         self._integral_enabled = enabled
 
