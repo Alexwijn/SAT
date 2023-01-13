@@ -9,7 +9,7 @@ class PID:
     """A proportional-integral-derivative (PID) controller."""
 
     def __init__(self, kp: float, ki: float, kd: float,
-                 deadband: (float, float) = (-1.0, 0.4),
+                 deadband: (float, float) = (-0.1, 0.3),
                  output_average_size: int = 1,
                  derivative_average_size: int = 5,
                  sample_time_limit: Optional[float] = 0):
