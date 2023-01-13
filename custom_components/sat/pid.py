@@ -103,6 +103,8 @@ class PID:
         if self._sample_time_limit and time_elapsed < self._sample_time_limit:
             return
 
+        self._last_error = error
+        
         if self._deadband[0] <= error <= self._deadband[1]:
             self._integral = 0
             self._derivative_errors.clear()
@@ -114,7 +116,6 @@ class PID:
         if self._integral_enabled:
             self._integral += self._ki * error * time_elapsed
 
-        self._last_error = error
         self._derivative_errors.append(self._last_error)
         self._outputs.append(self.proportional + self.integral + self.derivative)
 
