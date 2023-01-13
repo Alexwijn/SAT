@@ -5,8 +5,7 @@
         "title": "Smart Autotune Thermostat (SAT)",
         "data": {
           "name": "Name",
-          "device": "Path or URL",
-          "gateway_id": "Gateway ID"
+          "device": "Path or URL"
         }
       },
       "sensors": {
@@ -23,6 +22,14 @@
   },
   "options": {
     "step": {
+      "user": {
+        "menu_options": {
+          "general": "General",
+          "presets": "Presets",
+          "areas": "Areas",
+          "advanced": "Advanced"
+        }
+      },
       "general": {
         "title": "General",
         "data": {
@@ -44,11 +51,10 @@
           "comfort_temperature": "Comfort Temperature"
         }
       },
-      "climates": {
-        "title": "Climates (multi-room)",
+      "areas": {
+        "title": "Areas",
         "data": {
-          "climates": "Climates (rooms)",
-          "main_climates": "Climates (main)"
+          "house": "House"
         }
       },
       "advanced": {
