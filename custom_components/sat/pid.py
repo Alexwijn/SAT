@@ -105,7 +105,6 @@ class PID:
 
         if self._deadband[0] <= error <= self._deadband[1]:
             self._integral = 0
-            self._last_error = 0
             self._derivative_errors.clear()
             return
 
