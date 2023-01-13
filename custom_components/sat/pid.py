@@ -10,7 +10,7 @@ class PID:
 
     def __init__(self, kp: float, ki: float, kd: float,
                  deadband: (float, float) = (-0.1, 0.3),
-                 output_average_size: int = 1,
+                 output_average_size: int = 5,
                  derivative_average_size: int = 5,
                  sample_time_limit: Optional[float] = 0):
         """Initialize the PID controller.
