@@ -37,6 +37,8 @@ from .entity import SatEntity
 from .heating_curve import HeatingCurve
 from .pid import PID
 
+SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
+
 HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
 
@@ -134,7 +136,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Get current temperature
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            self._current_temperature = round(float(inside_sensor_entity.state), 1)
+            self._current_temperature = float(inside_sensor_entity.state)
 
         self._setpoint = None
         self._is_device_active = False
@@ -207,6 +209,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
 
         for climate_id in self._climates:
+            state = self.hass.states.get(climate_id)
+            if sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID):
+                self.async_on_remove(
+                    async_track_state_change_event(
+                        self.hass, [sensor_temperature_id], self._async_temperature_change
+                    )
+                )
+
             self.async_on_remove(
                 async_track_state_change_event(
                     self.hass, [climate_id], self._async_climate_changed
@@ -334,7 +344,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.current_temperature is None:
             return 0
 
-        return round(self.target_temperature - self.current_temperature, 1)
+        return round(self.target_temperature - self.current_temperature, 2)
 
     @property
     def current_outside_temperature(self):
@@ -390,7 +400,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Calculate temperature difference for this climate
             target_temperature = float(state.attributes.get("temperature"))
             current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
-            errors.append(round(target_temperature - current_temperature, 1))
+
+            # Retrieve the overriden sensor temperature if set
+            if sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID):
+                sensor_state = self.hass.states.get(sensor_temperature_id)
+                if state is not None and state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
+                    current_temperature = float(sensor_state.state)
+
+            errors.append(round(target_temperature - current_temperature, 2))
 
         return errors
 
@@ -465,7 +482,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         _LOGGER.debug("Inside Sensor Changed.")
-        self._current_temperature = round(float(new_state.state), 1)
+        self._current_temperature = float(new_state.state)
         self.async_write_ha_state()
 
         await self._async_control_pid()
@@ -521,11 +538,30 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pid(True)
 
         # If current temperature has changed, update the PID controller
-        elif new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
+        elif not hasattr(new_state.attributes, SENSOR_TEMPERATURE_ID) and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid(False)
 
         # Update the heating control
         await self._async_control_heating()
+
+    async def _async_temperature_change(self, event: Event) -> None:
+        """Handle changes to the climate sensor entity.
+        If the current temperature of the sensor entity has changed,
+        update the PID controller and heating control.
+        """
+        # Get the new state of the climate entity
+        new_state = event.data.get("new_state")
+
+        # Return if the new state is not available
+        if not new_state:
+            return
+
+        # Get the old state of the climate entity
+        old_state = event.data.get("old_state")
+
+        # If current temperature has changed, update the PID controller
+        if new_state.state != old_state.state:
+            await self._async_control_pid(False)
 
     async def _async_control_heating(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""

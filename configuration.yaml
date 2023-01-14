@@ -5,6 +5,11 @@ logger:
   logs:
     custom_components.sat: debug
 
+homeassistant:
+  customize:
+    climate.heater:
+      sensor_temperature_id: "sensor.current_temperature_raw"
+
 template:
   sensor:
     - unit_of_measurement: °C
