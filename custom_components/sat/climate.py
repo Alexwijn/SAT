@@ -119,6 +119,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Create Heating Curve controller with given configuration options
         self._heating_curve = create_heating_curve_controller(options, presets[PRESET_COMFORT])
+        self._heating_curve_value = None
 
         # Get inside sensor entity ID
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
@@ -334,10 +335,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "optimal_kp": self._pid.optimal_kp,
             "optimal_ki": self._pid.optimal_ki,
             "optimal_kd": self._pid.optimal_kd,
+            "optimal_coefficient": self._heating_curve.optimal_coefficient,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
-            "heating_curve": self._heating_curve.value,
+            "heating_curve": self._heating_curve_value,
             "outside_temperature": self.current_outside_temperature,
             "overshoot_protection_value": self._store.retrieve_overshoot_protection_value()
         }
@@ -480,7 +482,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
-        self._outputs.append(self._heating_curve.value + self._pid.output)
+        self._outputs.append(self._heating_curve_value + self._pid.output)
         setpoint = sum(self._outputs) / len(self._outputs)
 
         # Ensure setpoint is within allowed range for each heating system
@@ -675,13 +677,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update the PID controller with the maximum error
         if not reset:
-            # Make sure we have an updated heating curve
-            self._heating_curve.update(current_outside_temperature=self.current_outside_temperature)
+            _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
+
+            # Make sure we use the latest heating curve value
+            heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
+
+            # Calculate optimal heating curve
+            if -0.1 <= max_error <= 0.3 and len(self._outputs) >= 5:
+                self._heating_curve.autotune(self._outputs, self.current_outside_temperature)
 
             # Update the pid controller
-            self._pid.update(error=max_error, heating_curve_value=self._heating_curve.value)
-
-            _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
+            self._pid.update(error=max_error, heating_curve_value=heating_curve_value)
 
             if self._pid.num_outputs >= self._min_num_updates:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
@@ -707,8 +713,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the setpoint of the heating system."""
         if self._is_device_active:
             # Calculate the heating curve value
-            self._heating_curve.update(self.current_outside_temperature)
-            _LOGGER.info("Calculated heating curve: %d", self._heating_curve.value)
+            self._heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
+            _LOGGER.info("Calculated heating curve: %d", self._heating_curve_value)
 
             if self._overshoot_protection_active:
                 # If overshoot protection is active, set the setpoint to a fixed value
@@ -721,6 +727,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # If the device is not active, set the setpoint to a fixed value and clear the heating curve value
             self._setpoint = 10
             self._heating_curve.reset()
+            self._heating_curve_value = None
 
         if not self._simulation:
             # Set the control setpoint on the device

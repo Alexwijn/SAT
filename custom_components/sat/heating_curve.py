@@ -1,3 +1,5 @@
+from collections import deque
+
 from custom_components.sat import *
 
 
@@ -14,14 +16,27 @@ class HeatingCurve:
         self.reset()
 
     def reset(self):
-        self._value = None
+        self._optimal_coefficient = None
 
-    def update(self, current_outside_temperature: float) -> None:
+    def calculate_value(self, outside_temperature: float) -> float:
         """Calculate the heating curve based on the outside temperature."""
         base_offset = self._get_base_offset()
-        heating_curve_value = self._get_heating_curve_value(current_outside_temperature)
+        heating_curve_value = self._get_heating_curve_value(outside_temperature)
 
-        self._value = round(base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
+        return round(base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
+
+    def calculate_coefficient(self, setpoint: float, outside_temperature: float) -> float:
+        """Convert a setpoint to a coefficient value"""
+        base_offset = self._get_base_offset()
+        heating_curve_value = self._get_heating_curve_value(outside_temperature)
+
+        return round(4 * (setpoint - base_offset) / heating_curve_value, 1)
+
+    def autotune(self, setpoints: deque, outside_temperature: float):
+        self._optimal_coefficient = self.calculate_coefficient(
+            setpoint=sum(setpoints) / len(setpoints),
+            outside_temperature=outside_temperature
+        )
 
     def _get_base_offset(self) -> float:
         """Determine the base offset for the heating system."""
@@ -32,5 +47,5 @@ class HeatingCurve:
         return self._comfort_temp - (0.01 * current_outside_temperature ** 2) - (0.8 * current_outside_temperature)
 
     @property
-    def value(self):
-        return self._value
+    def optimal_coefficient(self):
+        return self._optimal_coefficient

@@ -28,7 +28,7 @@ class PID:
         self._kd = kd
         self._deadband = deadband
         self._max_history = max_history
-        self._sample_time_limit = sample_time_limit
+        self._sample_time_limit = max(sample_time_limit, 10)
         self.reset()
 
     def reset(self) -> None:
