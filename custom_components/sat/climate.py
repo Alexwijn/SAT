@@ -564,8 +564,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_overshoot_protection()
             return
 
-        # If the current or outside temperature is not available, do nothing
-        if self.current_temperature is None or self.current_outside_temperature is None:
+        # If the current, target or outside temperature is not available, do nothing
+        if self.current_temperature is None or self.target_temperature is None or self.current_outside_temperature is None:
             return
 
         # Check if the temperature is too cold or any climate requires heat
