@@ -138,6 +138,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._current_temperature = float(inside_sensor_entity.state)
 
+        self._sensors = []
         self._setpoint = None
         self._is_device_active = False
         self._outputs = deque(maxlen=5)
@@ -210,12 +211,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         for climate_id in self._climates:
             state = self.hass.states.get(climate_id)
-            if sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID):
-                self.async_on_remove(
-                    async_track_state_change_event(
-                        self.hass, [sensor_temperature_id], self._async_temperature_change
-                    )
-                )
+            if state is not None and (sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID)):
+                await self.track_sensor_temperature(sensor_temperature_id)
 
             self.async_on_remove(
                 async_track_state_change_event(
@@ -292,6 +289,27 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pid(True)
 
         self.hass.services.async_register(DOMAIN, "reset_integral", reset_integral)
+
+    async def track_sensor_temperature(self, entity_id):
+        """
+        Track the temperature of the sensor specified by the given entity_id.
+
+        Parameters:
+        entity_id (str): The entity id of the sensor to track.
+
+        If the sensor is already being tracked, the method will return without doing anything.
+        Otherwise, it will register a callback for state changes on the specified sensor and start tracking its temperature.
+        """
+        if entity_id in self._sensors:
+            return
+
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, [entity_id], self._async_temperature_change
+            )
+        )
+
+        self._sensors.append(entity_id)
 
     @property
     def name(self):
@@ -529,6 +547,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         old_attrs = old_state.attributes if old_state else {}
 
         _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
+
+        # Check if the last state is None, so we can track the attached sensor if needed
+        if old_attrs is None and (sensor_temperature_id := new_attrs.get(SENSOR_TEMPERATURE_ID)):
+            await self.track_sensor_temperature(sensor_temperature_id)
 
         # If the state has changed or the old state is not available, update the PID controller
         if not old_state or new_state.state != old_state.state:
