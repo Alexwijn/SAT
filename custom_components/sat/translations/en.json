@@ -26,7 +26,7 @@
         "menu_options": {
           "general": "General",
           "presets": "Presets",
-          "areas": "Areas",
+          "climates": "Climates",
           "advanced": "Advanced"
         }
       },
@@ -37,7 +37,6 @@
           "derivative": "Derivative",
           "proportional": "Proportional",
           "heating_system": "Heating System",
-          "heating_curve_offset": "Heating Curve Offset",
           "target_temperature_step": "Target Temperature Step",
           "heating_curve_coefficient": "Heating Curve Coefficient"
         }
@@ -51,10 +50,11 @@
           "comfort_temperature": "Comfort Temperature"
         }
       },
-      "areas": {
-        "title": "Areas",
+      "climates": {
+        "title": "Climates (multi-room)",
         "data": {
-          "house": "House"
+          "climates": "Climates (rooms)",
+          "main_climates": "Climates (main)"
         }
       },
       "advanced": {

@@ -102,7 +102,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         return await self.async_step_user(_user_input)
 
     async def async_step_user(self, _user_input=None) -> FlowResult:
-        menu_options = ["general", "presets", "areas"]
+        menu_options = ["general", "presets", "climates"]
 
         if self.show_advanced_options:
             menu_options.append("advanced")

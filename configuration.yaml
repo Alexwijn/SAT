@@ -8,10 +8,14 @@ logger:
 homeassistant:
   customize:
     climate.heater:
-      sensor_temperature_id: "sensor.current_temperature_raw"
+      sensor_temperature_id: "sensor.heater_temperature"
 
 template:
   sensor:
+    - unit_of_measurement: °C
+      name: Heater Temperature
+      device_class: 'temperature'
+      state: "{{ states('input_number.heater_temperature_raw') }}"
     - unit_of_measurement: °C
       name: Current Temperature
       device_class: 'temperature'
@@ -22,6 +26,12 @@ template:
       state: "{{ states('input_number.outside_temperature_raw') }}"
 
 input_number:
+  heater_temperature_raw:
+    name: Heater Temperature
+    initial: 18
+    min: 0
+    max: 35
+    step: 0.01
   current_temperature_raw:
     name: Current Temperature
     initial: 18
@@ -45,4 +55,4 @@ climate:
     name: Heater
     unique_id: heater
     heater: input_boolean.heater
-    target_sensor: sensor.current_temperature
+    target_sensor: sensor.heater_temperature

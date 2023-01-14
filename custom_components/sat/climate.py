@@ -341,7 +341,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def error(self):
         """Return the error value."""
-        if self._current_temperature is None:
+        if self._target_temperature is None or self._current_temperature is None:
             return 0
 
         return round(self._target_temperature - self._current_temperature, 2)
@@ -404,7 +404,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Retrieve the overriden sensor temperature if set
             if sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID):
                 sensor_state = self.hass.states.get(sensor_temperature_id)
-                if state is not None and state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
+                if sensor_state is not None and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                     current_temperature = float(sensor_state.state)
 
             errors.append(round(target_temperature - current_temperature, 2))
@@ -549,19 +549,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         If the current temperature of the sensor entity has changed,
         update the PID controller and heating control.
         """
-        # Get the new state of the climate entity
         new_state = event.data.get("new_state")
-
-        # Return if the new state is not available
-        if not new_state:
+        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
-        # Get the old state of the climate entity
-        old_state = event.data.get("old_state")
-
-        # If current temperature has changed, update the PID controller
-        if new_state.state != old_state.state:
-            await self._async_control_pid(False)
+        _LOGGER.debug(f"Climate Sensor Changed ({new_state.entity_id}).")
+        await self._async_control_pid(False)
+        await self._async_control_heating()
 
     async def _async_control_heating(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
