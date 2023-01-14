@@ -78,7 +78,6 @@ class PID:
         """
         # Reset outputs when disabling or enabling autotune
         self._autotune_outputs = []
-
         self._autotune_enabled = enabled
 
     def update(self, error: float, heating_curve_value: float) -> None:
@@ -136,6 +135,9 @@ class PID:
         """
         if last_error := state.attributes.get("error"):
             self._last_error = last_error
+
+            if last_error > 0:
+                self.enable_autotune(True)
 
         if last__integral := state.attributes.get("integral"):
             self._integral = last__integral
