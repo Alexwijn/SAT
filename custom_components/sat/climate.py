@@ -609,6 +609,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_pid(self, reset: bool = False):
         """Control the PID controller."""
+        # We can't continue if we don't have a valid outside temperature
+        if self.current_outside_temperature is None:
+            return
+
         # Reset the PID controller if the sensor data is too old
         if self._sensor_max_value_age != 0 and time.time() - self._pid.last_updated > self._sensor_max_value_age:
             self._pid.reset()
