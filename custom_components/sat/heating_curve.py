@@ -8,10 +8,13 @@ class HeatingCurve:
         :param coefficient: The coefficient used to adjust the heating curve
         :param comfort_temp: The user comfort temperature of the living room
         """
-        self._value = None
         self._coefficient = coefficient
         self._comfort_temp = comfort_temp
         self._heating_system = heating_system
+        self.reset()
+
+    def reset(self):
+        self._value = None
 
     def update(self, current_outside_temperature: float) -> None:
         """Calculate the heating curve based on the outside temperature."""
