@@ -687,6 +687,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
             self._pid.update_reset(max_error)
+            self._outputs.clear()
+
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
         self.async_write_ha_state()
