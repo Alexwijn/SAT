@@ -21,7 +21,7 @@ class HeatingCurve:
         base_offset = self._get_base_offset()
         heating_curve_value = self._get_heating_curve_value(current_outside_temperature)
 
-        self._value = round(base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
+        self._value = round(base_offset + (self._coefficient / 4 * heating_curve_value), 1)
 
     def _get_base_offset(self) -> float:
         """Determine the base offset for the heating system."""
