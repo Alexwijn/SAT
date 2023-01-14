@@ -707,7 +707,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the setpoint of the heating system."""
         if self._is_device_active:
             # Calculate the heating curve value
-            self._heating_curve.update(self._current_temperature)
+            self._heating_curve.update(self.current_outside_temperature)
             _LOGGER.info("Calculated heating curve: %d", self._heating_curve.value)
 
             if self._overshoot_protection_active:
