@@ -1,6 +1,6 @@
 import time
 from collections import deque
-from typing import Optional
+from typing import Optional, Tuple
 
 from homeassistant.core import State
 
@@ -9,28 +9,26 @@ class PID:
     """A proportional-integral-derivative (PID) controller."""
 
     def __init__(self, kp: float, ki: float, kd: float,
-                 deadband: (float, float) = (-0.1, 0.3),
-                 output_average_size: int = 5,
-                 derivative_average_size: int = 5,
-                 sample_time_limit: Optional[float] = 0):
-        """Initialize the PID controller.
+                 max_history: int = 5,
+                 sample_time_limit: Optional[float] = 0,
+                 deadband: Tuple[float, float] = (-0.1, 0.3)):
+        """
+        Initialize the PID controller.
 
         Parameters:
         kp: The proportional gain of the PID controller.
         ki: The integral gain of the PID controller.
         kd: The derivative gain of the PID controller.
-        deadband: The deadband of the PID controller.
-        output_average_size: The number of output values to average.
-        derivative_average_size: The average size of the derivative errors
+        max_history: The maximum number of errors and time values to store to calculate the derivative term.
         sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
+        deadband: The deadband of the PID controller. The range of error values where the controller will not make adjustments.
         """
         self._kp = kp
         self._ki = ki
         self._kd = kd
         self._deadband = deadband
+        self._max_history = max_history
         self._sample_time_limit = sample_time_limit
-        self._output_average_size = output_average_size
-        self._derivative_average_size = derivative_average_size
         self.reset()
 
     def reset(self) -> None:
@@ -39,17 +37,14 @@ class PID:
         self._time_elapsed = 0
         self._last_updated = time.time()
 
-        # Reset the derivative
-        self._derivative_errors = deque(maxlen=self._derivative_average_size)
-
         # Reset the integral
         self._integral = 0
         self._integral_enabled = True
 
-        # Reset list of outputs
+        # Reset all lists
         self._autotune_outputs = []
-        self._outputs = deque(maxlen=self._output_average_size)
-        self._outputs.append(self.proportional + self.integral + self.derivative)
+        self._times = deque(maxlen=self._max_history)
+        self._errors = deque(maxlen=self._max_history)
 
         # Reset autotune flag
         self._autotune_enabled = False
@@ -69,7 +64,6 @@ class PID:
         if self._integral_enabled != enabled:
             # Reset the integral if the enabled status changes
             self._integral = 0
-            self._derivative_errors.clear()
 
         self._integral_enabled = enabled
 
@@ -91,8 +85,6 @@ class PID:
         """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.
         Parameters:
         error: The max error between all the target temperatures and the current temperatures.
-        inside_temperature: The current inside temperature.
-        outside_temperature: The current outside temperature.
         heating_curve_value: The current heating curve value.
         """
         current_time = time.time()
@@ -105,10 +97,11 @@ class PID:
             return
 
         self._last_error = error
-        
+
         if self._deadband[0] <= error <= self._deadband[1]:
             self._integral = 0
-            self._derivative_errors.clear()
+            self._times.clear()
+            self._errors.clear()
             return
 
         self._last_updated = current_time
@@ -117,11 +110,10 @@ class PID:
         if self._integral_enabled:
             self._integral += self._ki * error * time_elapsed
 
-        self._derivative_errors.append(self._last_error)
-        self._outputs.append(self.proportional + self.integral + self.derivative)
+        self._errors.append(error)
+        self._times.append(current_time)
 
         if self._autotune_enabled:
-            # Collect the outputs in order to calculate an optimal pid gain
             self._autotune_outputs.append((self.output, heating_curve_value, time_elapsed))
 
     def update_reset(self, error: float) -> None:
@@ -224,17 +216,24 @@ class PID:
 
     @property
     def derivative(self) -> float:
-        """Return the derivative value."""
-        if self._time_elapsed == 0 or len(self._derivative_errors) < 2:
+        """
+        Return the derivative value.
+        The derivative term represents the rate of change of the error over time.
+        """
+        if len(self._errors) < 2:
+            # Fallback to using the last error if we don't have enough data to calculate the derivative
             return 0
 
-        derivative_error = (self._derivative_errors[-1] - self._derivative_errors[0]) / (len(self._derivative_errors) - 1)
-        return round(self._kd * derivative_error / self._time_elapsed, 2)
+        num_of_errors = len(self._errors)
+        time_elapsed = self._times[num_of_errors - 1] - self._times[0]
+        derivative_error = self._errors[num_of_errors - 1] - self._errors[0]
+
+        return round(self._kd * derivative_error / time_elapsed, 2)
 
     @property
     def output(self) -> float:
         """Return the control output value."""
-        return sum(self._outputs) / len(self._outputs)
+        return self.proportional + self.integral + self.derivative
 
     @property
     def integral_enabled(self) -> bool:

@@ -2,6 +2,7 @@
 import datetime
 import logging
 import time
+from collections import deque
 from typing import List, Optional, Any
 
 from homeassistant.components.climate import (
@@ -123,6 +124,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._setpoint = None
         self._heating_curve = None
         self._is_device_active = False
+        self._outputs = deque(maxlen=5)
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -442,7 +444,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
-        setpoint = self._heating_curve + self._pid.output
+        self._outputs.append(self._heating_curve + self._pid.output)
+        setpoint = sum(self._outputs) / len(self._outputs)
 
         # Ensure setpoint is within allowed range for each heating system
         if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
