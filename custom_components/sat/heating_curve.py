@@ -25,7 +25,7 @@ class HeatingCurve:
 
     def _get_base_offset(self) -> float:
         """Determine the base offset for the heating system."""
-        return 20 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 28
+        return 28 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 20
 
     def _get_heating_curve_value(self, current_outside_temperature: float) -> float:
         """Calculate the heating curve value based on the current outside temperature"""
