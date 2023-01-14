@@ -549,7 +549,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         _LOGGER.debug(f"Climate State Changed ({new_state.entity_id}).")
 
         # Check if the last state is None, so we can track the attached sensor if needed
-        if old_attrs is None and (sensor_temperature_id := new_attrs.get(SENSOR_TEMPERATURE_ID)):
+        if old_state is None and (sensor_temperature_id := new_attrs.get(SENSOR_TEMPERATURE_ID)):
             await self.track_sensor_temperature(sensor_temperature_id)
 
         # If the state has changed or the old state is not available, update the PID controller
