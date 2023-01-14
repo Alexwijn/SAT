@@ -34,6 +34,7 @@ from homeassistant.util import dt
 from . import SatDataUpdateCoordinator, mean, SatConfigStore
 from .const import *
 from .entity import SatEntity
+from .heating_curve import HeatingCurve
 from .pid import PID
 
 HOT_TOLERANCE = 0.3
@@ -71,6 +72,16 @@ def create_pid_controller(options) -> PID:
     return PID(kp=kp, ki=ki, kd=kd, sample_time_limit=sample_time_limit)
 
 
+def create_heating_curve_controller(options, comfort_temp: float) -> HeatingCurve:
+    """Create and return a PID controller instance with the given configuration options."""
+    # Extract the configuration options
+    heating_system = options.get(CONF_HEATING_SYSTEM)
+    coefficient = float(options.get(CONF_HEATING_CURVE_COEFFICIENT))
+
+    # Return a new heating Curve controller instance with the given configuration options
+    return HeatingCurve(comfort_temp=comfort_temp, heating_system=heating_system, coefficient=coefficient)
+
+
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
     """Set up the SatClimate device."""
     store = SatConfigStore(hass)
@@ -97,11 +108,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Create dictionary mapping preset keys to temperature options
         conf_presets = {p: f"{p}_temperature" for p in (PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
+
         # Create dictionary mapping preset keys to temperature values
         presets = {key: options[value] for key, value in conf_presets.items() if value in options}
 
         # Create PID controller with given configuration options
         self._pid = create_pid_controller(options)
+
+        # Create Heating Curve controller with given configuration options
+        self._heating_curve = create_heating_curve_controller(options, presets[PRESET_COMFORT])
 
         # Get inside sensor entity ID
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
@@ -122,7 +137,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._current_temperature = round(float(inside_sensor_entity.state), 1)
 
         self._setpoint = None
-        self._heating_curve = None
         self._is_device_active = False
         self._outputs = deque(maxlen=5)
 
@@ -135,9 +149,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._climates = options.get(CONF_CLIMATES)
         self._main_climates = options.get(CONF_MAIN_CLIMATES)
-
-        self._heating_curve_offset = options.get(CONF_HEATING_CURVE_OFFSET)
-        self._heating_curve_coefficient = options.get(CONF_HEATING_CURVE_COEFFICIENT)
 
         self._simulation = options.get(CONF_SIMULATION)
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
@@ -297,7 +308,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
-            "heating_curve": self._heating_curve,
+            "heating_curve": self._heating_curve.value,
             "outside_temperature": self.current_outside_temperature,
             "overshoot_protection_value": self._store.retrieve_overshoot_protection_value()
         }
@@ -431,20 +442,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """
         return self._coordinator.data[gw_vars.BOILER].get(key) if self._coordinator.data[gw_vars.BOILER] else None
 
-    def _calculate_heating_curve(self) -> float:
-        """Calculate the heating curve based on the outside temperature."""
-        # Define the base offset for the heating system
-        base_offset = self._get_base_offset()
-
-        # Calculate the heating curve value using the outside temperature
-        heating_curve_value = self._get_heating_curve_value()
-
-        # Adjust the curve value using the heating_curve_coefficient and heating_curve_offset and return the final value
-        return round(base_offset + (self._heating_curve_coefficient * heating_curve_value), 1)
-
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
-        self._outputs.append(self._heating_curve + self._pid.output)
+        self._outputs.append(self._heating_curve.value + self._pid.output)
         setpoint = sum(self._outputs) / len(self._outputs)
 
         # Ensure setpoint is within allowed range for each heating system
@@ -457,17 +457,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Ensure setpoint is at least 10
         return round(max(setpoint, 10.0), 1)
-
-    def _get_base_offset(self):
-        """Determine the base offset for the heating system."""
-        if self._heating_system == HEATING_SYSTEM_UNDERFLOOR:
-            return 20 + self._heating_curve_offset
-
-        return 28 + self._heating_curve_offset
-
-    def _get_heating_curve_value(self):
-        """Calculate the heating curve value based on the current outside temperature"""
-        return self._presets[PRESET_COMFORT] - (0.01 * self.current_outside_temperature ** 2) - (0.8 * self.current_outside_temperature)
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
@@ -629,10 +618,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update the PID controller with the maximum error
         if not reset:
-            self._pid.update(
-                error=max_error,
-                heating_curve_value=self._calculate_heating_curve()
-            )
+            # Make sure we have an updated heating curve
+            self._heating_curve.update(current_outside_temperature=self.current_outside_temperature)
+
+            # Update the pid controller
+            self._pid.update(error=max_error, heating_curve_value=self._heating_curve.value)
 
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
@@ -658,8 +648,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the setpoint of the heating system."""
         if self._is_device_active:
             # Calculate the heating curve value
-            self._heating_curve = self._calculate_heating_curve()
-            _LOGGER.info("Calculated heating curve: %d", self._heating_curve)
+            self._heating_curve.update(self._current_temperature)
+            _LOGGER.info("Calculated heating curve: %d", self._heating_curve.value)
 
             if self._overshoot_protection_active:
                 # If overshoot protection is active, set the setpoint to a fixed value

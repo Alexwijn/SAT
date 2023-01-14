@@ -120,11 +120,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="general",
             data_schema=vol.Schema({
-                vol.Required(CONF_HEATING_CURVE_OFFSET, default=defaults[CONF_HEATING_CURVE_OFFSET]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=-15, max=15, step=0.5)
-                ),
                 vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=defaults[CONF_HEATING_CURVE_COEFFICIENT]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=-15, max=15, step=0.1)
+                    selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
                 ),
                 vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=defaults[CONF_TARGET_TEMPERATURE_STEP]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
