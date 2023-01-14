@@ -724,13 +724,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 # Calculate the control setpoint
                 self._setpoint = self._calculate_control_setpoint()
         else:
-            # If the device is not active, set the setpoint to a fixed value and clear the heating curve value
             self._setpoint = 10
+            self._outputs.clear()
+
             self._heating_curve.reset()
             self._heating_curve_value = None
 
         if not self._simulation:
-            # Set the control setpoint on the device
             await self._coordinator.api.set_control_setpoint(self._setpoint)
 
         _LOGGER.info("Set control setpoint to %d", self._setpoint)
