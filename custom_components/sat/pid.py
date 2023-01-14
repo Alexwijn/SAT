@@ -42,7 +42,7 @@ class PID:
         self._integral_enabled = True
 
         # Reset all lists
-        self._autotune_outputs = []
+        self._outputs = []
         self._times = deque(maxlen=self._max_history)
         self._errors = deque(maxlen=self._max_history)
 
@@ -77,7 +77,7 @@ class PID:
         enabled: A boolean indicating whether to enable (True) or disable (False) the autotune feature.
         """
         # Reset outputs when disabling or enabling autotune
-        self._autotune_outputs = []
+        self._outputs = []
         self._autotune_enabled = enabled
 
     def update(self, error: float, heating_curve_value: float) -> None:
@@ -113,7 +113,7 @@ class PID:
         self._times.append(current_time)
 
         if self._autotune_enabled:
-            self._autotune_outputs.append((self.output, heating_curve_value, time_elapsed))
+            self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
     def update_reset(self, error: float) -> None:
         """Update the PID controller with resetting.
@@ -152,7 +152,7 @@ class PID:
     def determine_optimal_pid_gains(self) -> None:
         """Calculate the optimal PID gains based on the previous outputs."""
         # Get the list of outputs and the length of the list
-        outputs = self._autotune_outputs
+        outputs = self._outputs
         num_outputs = len(outputs)
 
         # Check if there are enough outputs
@@ -248,9 +248,14 @@ class PID:
         return self._autotune_enabled
 
     @property
-    def num_autotune_outputs(self) -> int:
+    def num_errors(self) -> int:
+        """Return the number of errors collected."""
+        return len(self._errors)
+
+    @property
+    def num_outputs(self) -> int:
         """Return the number of updates collected."""
-        return len(self._autotune_outputs)
+        return len(self._outputs)
 
     @property
     def optimal_kp(self) -> float:

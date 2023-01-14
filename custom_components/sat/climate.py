@@ -310,7 +310,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "comfort_temperature": self._presets[PRESET_COMFORT],
 
             "autotune_enabled": self._pid.autotune_enabled,
-            "collected_updates": self._pid.num_autotune_outputs,
+            "collected_updates": self._pid.num_outputs,
+            "collected_errors": self._pid.num_errors,
 
             "optimal_kp": self._pid.optimal_kp,
             "optimal_ki": self._pid.optimal_ki,
@@ -660,7 +661,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
-            if self._pid.num_autotune_outputs >= self._min_num_updates:
+            if self._pid.num_outputs >= self._min_num_updates:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
             self._pid.update_reset(max_error)
