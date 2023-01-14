@@ -341,10 +341,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def error(self):
         """Return the error value."""
-        if self.current_temperature is None:
+        if self._current_temperature is None:
             return 0
 
-        return round(self.target_temperature - self.current_temperature, 2)
+        return round(self._target_temperature - self._current_temperature, 2)
 
     @property
     def current_outside_temperature(self):
@@ -577,10 +577,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Check if the temperature is too cold or any climate requires heat
         climate_errors = self.climate_errors
         climates_require_heat = max(climate_errors) if len(climate_errors) > 0 else 0 >= COLD_TOLERANCE
-        too_cold = self.target_temperature + COLD_TOLERANCE >= self._current_temperature
+        too_cold = self._target_temperature + COLD_TOLERANCE >= self._current_temperature
 
         # Check if the temperature is too hot
-        too_hot = self.current_temperature >= self._target_temperature + HOT_TOLERANCE
+        too_hot = self._current_temperature >= self._target_temperature + HOT_TOLERANCE
 
         if self._is_device_active:
             # If the temperature is too hot or the valves are closed or HVAC is off, turn off the heater
