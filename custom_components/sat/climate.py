@@ -142,7 +142,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors = []
         self._setpoint = None
         self._is_device_active = False
-        self._outputs = deque(maxlen=5)
+        self._outputs = deque(maxlen=10)
 
         self._hvac_mode = None
         self._target_temperature = None
