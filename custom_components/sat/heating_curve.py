@@ -55,4 +55,7 @@ class HeatingCurve:
 
     @property
     def optimal_coefficient(self):
+        if len(self._optimal_coefficients) == 0:
+            return None
+
         return sum(mean(self._optimal_coefficients), 1)
