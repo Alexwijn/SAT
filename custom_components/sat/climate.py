@@ -1,8 +1,9 @@
 """Climate platform for SAT."""
-import datetime
 import logging
-import time
 from collections import deque
+from datetime import timedelta
+from statistics import mean
+from time import time
 from typing import List, Optional, Any
 
 from homeassistant.components.climate import (
@@ -31,7 +32,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt
 
-from . import SatDataUpdateCoordinator, mean, SatConfigStore
+from . import SatDataUpdateCoordinator, SatConfigStore
 from .const import *
 from .entity import SatEntity
 from .heating_curve import HeatingCurve
@@ -191,7 +192,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(
             async_track_time_interval(
-                self.hass, self._async_control_heating, datetime.timedelta(seconds=30)
+                self.hass, self._async_control_heating, timedelta(seconds=30)
             )
         )
 
@@ -482,7 +483,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
         self._outputs.append(self._heating_curve_value + self._pid.output)
-        setpoint = sum(self._outputs) / len(self._outputs)
+        setpoint = mean(self._outputs)
 
         # Ensure setpoint is within allowed range for each heating system
         if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
@@ -668,7 +669,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Reset the PID controller if the sensor data is too old
-        if self._sensor_max_value_age != 0 and time.time() - self._pid.last_updated > self._sensor_max_value_age:
+        if self._sensor_max_value_age != 0 and time() - self._pid.last_updated > self._sensor_max_value_age:
             self._pid.reset()
 
         # Calculate the maximum error between the current temperature and the target temperature of all climates
