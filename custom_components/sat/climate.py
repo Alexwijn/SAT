@@ -156,7 +156,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._simulation = options.get(CONF_SIMULATION)
         self._heating_system = options.get(CONF_HEATING_SYSTEM)
-        self._min_num_updates = int(options.get(CONF_MIN_NUM_UPDATES))
         self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
         self._climate_valve_offset = options.get(CONF_CLIMATE_VALVE_OFFSET)
         self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
@@ -682,14 +681,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Make sure we use the latest heating curve value
             heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
 
-            # Calculate optimal heating curve
-            if -0.1 <= max_error <= 0.3 and len(self._outputs) >= 5:
+            # Calculate optimal heating curve when we are in the deadband
+            if -0.1 <= max_error <= 0.1 and len(self._outputs) >= 10:
                 self._heating_curve.autotune(self._outputs, self.current_outside_temperature)
 
             # Update the pid controller
             self._pid.update(error=max_error, heating_curve_value=heating_curve_value)
 
-            if self._pid.num_outputs >= self._min_num_updates:
+            # Calculate optimal pid gains when we reached the target
+            if max_error <= 0 and self._pid.num_outputs >= 10:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
             self._pid.update_reset(max_error)

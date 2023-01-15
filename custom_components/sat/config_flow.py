@@ -198,7 +198,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
                 ),
-                vol.Required(CONF_MIN_NUM_UPDATES, default=defaults[CONF_MIN_NUM_UPDATES]): int,
                 vol.Required(CONF_SAMPLE_TIME, default=defaults.get(CONF_SAMPLE_TIME)): selector.TimeSelector(),
                 vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=defaults.get(CONF_SENSOR_MAX_VALUE_AGE)): selector.TimeSelector(),
             })
