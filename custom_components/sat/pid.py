@@ -1,6 +1,6 @@
 import time
 from collections import deque
-from typing import Optional, Tuple
+from typing import Optional
 
 from homeassistant.core import State
 

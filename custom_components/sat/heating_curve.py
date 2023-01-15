@@ -58,4 +58,4 @@ class HeatingCurve:
         if len(self._optimal_coefficients) == 0:
             return None
 
-        return sum(mean(self._optimal_coefficients), 1)
+        return round(mean(self._optimal_coefficients), 1)
