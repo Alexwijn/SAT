@@ -10,8 +10,8 @@ class PID:
 
     def __init__(self, kp: float, ki: float, kd: float,
                  max_history: int = 5,
-                 sample_time_limit: Optional[float] = 0,
-                 deadband: Tuple[float, float] = (-0.1, 0.3)):
+                 deadband: float = 0.1,
+                 sample_time_limit: Optional[float] = 0):
         """
         Initialize the PID controller.
 
@@ -97,7 +97,7 @@ class PID:
 
         self._last_error = error
 
-        if self._deadband[0] <= error <= self._deadband[1]:
+        if self._deadband <= error <= self._deadband:
             self._integral = 0
             self._times.clear()
             self._errors.clear()
