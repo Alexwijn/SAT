@@ -98,7 +98,6 @@ class PID:
         self._last_error = error
 
         if abs(error) <= self._deadband:
-            self._integral = 0
             self._times.clear()
             self._errors.clear()
             return
