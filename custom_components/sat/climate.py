@@ -483,7 +483,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
         self._outputs.append(self._heating_curve_value + self._pid.output)
-        setpoint = mean(self._outputs[-5:])
+        setpoint = mean(list(self._outputs)[-5:])
 
         # Ensure setpoint is within allowed range for each heating system
         if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
