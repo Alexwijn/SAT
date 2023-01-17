@@ -58,6 +58,7 @@ CONF_COMFORT_TEMPERATURE = "comfort_temperature"
 
 HEATING_SYSTEM_UNDERFLOOR = "underfloor"
 HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES = "radiator_low_temperatures"
+HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES = "radiator_medium_temperatures"
 HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES = "radiator_high_temperatures"
 
 OPTIONS_DEFAULTS = {

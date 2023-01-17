@@ -488,6 +488,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Ensure setpoint is within allowed range for each heating system
         if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
             setpoint = min(setpoint, 75.0)
+        elif self._heating_system == HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES:
+            setpoint = min(setpoint, 65.0)
         elif self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
             setpoint = min(setpoint, 55.0)
         elif self._heating_system == HEATING_SYSTEM_UNDERFLOOR:

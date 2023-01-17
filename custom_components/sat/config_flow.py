@@ -129,6 +129,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_HEATING_SYSTEM, default=defaults[CONF_HEATING_SYSTEM]): selector.SelectSelector(
                     selector.SelectSelectorConfig(options=[
                         {"value": HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
+                        {"value": HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES, "label": "Radiators ( Medium Temperatures )"},
                         {"value": HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES, "label": "Radiators ( Low Temperatures )"},
                         {"value": HEATING_SYSTEM_UNDERFLOOR, "label": "Underfloor"}
                     ])
