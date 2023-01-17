@@ -143,7 +143,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors = []
         self._setpoint = None
         self._is_device_active = False
-        self._outputs = deque(maxlen=10)
+        self._outputs = deque(maxlen=50)
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -483,7 +483,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
         self._outputs.append(self._heating_curve_value + self._pid.output)
-        setpoint = mean(self._outputs)
+        setpoint = mean(self._outputs[-5:])
 
         # Ensure setpoint is within allowed range for each heating system
         if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
@@ -692,7 +692,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pid.update(error=max_error, heating_curve_value=heating_curve_value)
 
             # Calculate optimal pid gains when we reached the target
-            if max_error <= 0 and self._pid.num_outputs >= 10:
+            if max_error <= 0.05 and self._pid.num_outputs >= 10:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
             self._pid.update_reset(max_error)
