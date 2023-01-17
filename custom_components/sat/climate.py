@@ -692,7 +692,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pid.update(error=max_error, heating_curve_value=heating_curve_value)
 
             # Calculate optimal pid gains when we reached the target
-            if max_error <= 0.05 and self._pid.num_outputs >= 10:
+            if max_error <= -0.05 and self._pid.num_outputs >= 10:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
             self._pid.update_reset(max_error)
