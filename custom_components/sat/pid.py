@@ -52,21 +52,6 @@ class PID:
         self._optimal_ki = None
         self._optimal_kd = None
 
-    def enable_integral(self, enabled: bool) -> None:
-        """Enable or disable the updates of the integral.
-
-        The integral component helps the PID controller to eliminate
-        steady-state error by accumulating the error over time.
-
-        Parameters:
-        enabled: A boolean indicating whether to enable (True) or disable (False) the updates of the integral.
-        """
-        if self._integral_enabled != enabled:
-            # Reset the integral if the enabled status changes
-            self._integral = 0
-
-        self._integral_enabled = enabled
-
     def enable_autotune(self, enabled: bool) -> None:
         """Enable or disable the autotune feature.
 
@@ -100,13 +85,14 @@ class PID:
         if abs(error) <= self._deadband:
             self._times.clear()
             self._errors.clear()
+
+            self._integral += self._ki * error * time_elapsed
+
             return
 
+        self._integral = 0
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
-
-        if self._integral_enabled:
-            self._integral += self._ki * error * time_elapsed
 
         self._errors.append(error)
         self._times.append(current_time)

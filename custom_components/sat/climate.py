@@ -708,7 +708,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
         self._is_device_active = enabled
-        self._pid.enable_integral(enabled)
 
         _LOGGER.info("Set central heating to %d", enabled)
 
@@ -805,6 +804,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
+
+            # Start auto-tuning, but only if we need to heat the main climate
+            if self._target_temperature > self._current_temperature:
+                self._pid.enable_autotune(True)
         elif hvac_mode == HVACMode.OFF:
             self._hvac_mode = HVACMode.OFF
         else:
