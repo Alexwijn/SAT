@@ -90,7 +90,9 @@ class PID:
 
             return
 
-        self._integral = 0
+        if error > self._deadband:
+            self._integral = 0
+
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
 
