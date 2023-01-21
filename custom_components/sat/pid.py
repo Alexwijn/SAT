@@ -118,11 +118,8 @@ class PID:
         Parameters:
         state: The saved state of the PID controller to restore from.
         """
-        if last_error := state.attributes.get("error"):
-            self._last_error = last_error
-
-            if last_error > 0:
-                self.enable_autotune(True)
+        if self._last_error > 0:
+            self.enable_autotune(True)
 
         if last__integral := state.attributes.get("integral"):
             self._integral = last__integral

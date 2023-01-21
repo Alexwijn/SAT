@@ -250,6 +250,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
+        self._pid.update_reset(max([self.error] + self.climate_errors))
+
         self.async_write_ha_state()
         await self._async_control_heating()
 
