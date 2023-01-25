@@ -69,10 +69,11 @@ def create_pid_controller(options) -> PID:
     kp = float(options.get(CONF_PROPORTIONAL))
     ki = float(options.get(CONF_INTEGRAL))
     kd = float(options.get(CONF_DERIVATIVE))
+    automatic_gains = bool(options.get(CONF_AUTOMATIC_GAINS))
     sample_time_limit = convert_time_str_to_seconds(options.get(CONF_SAMPLE_TIME))
 
     # Return a new PID controller instance with the given configuration options
-    return PID(kp=kp, ki=ki, kd=kd, sample_time_limit=sample_time_limit)
+    return PID(kp=kp, ki=ki, kd=kd, automatic_gains=automatic_gains, sample_time_limit=sample_time_limit)
 
 
 def create_heating_curve_controller(options, comfort_temp: float) -> HeatingCurve:
@@ -250,7 +251,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
-        self._pid.update_reset(max([self.error] + self.climate_errors))
+        self._pid.update_reset(max([self.error] + self.climate_errors), self._heating_curve_value)
 
         self.async_write_ha_state()
         await self._async_control_heating()
@@ -333,6 +334,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "autotune_enabled": self._pid.autotune_enabled,
             "collected_updates": self._pid.num_outputs,
             "collected_errors": self._pid.num_errors,
+
+            "current_kp": self._pid.kp,
+            "current_ki": self._pid.ki,
+            "current_kd": self._pid.kd,
 
             "optimal_kp": self._pid.optimal_kp,
             "optimal_ki": self._pid.optimal_ki,

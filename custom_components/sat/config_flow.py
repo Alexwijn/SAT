@@ -117,28 +117,30 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             return await self.update_options(_user_input)
 
         defaults = await self.get_options()
-        return self.async_show_form(
-            step_id="general",
-            data_schema=vol.Schema({
-                vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=defaults[CONF_HEATING_CURVE_COEFFICIENT]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
-                ),
-                vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=defaults[CONF_TARGET_TEMPERATURE_STEP]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
-                ),
-                vol.Required(CONF_HEATING_SYSTEM, default=defaults[CONF_HEATING_SYSTEM]): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=[
-                        {"value": HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
-                        {"value": HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES, "label": "Radiators ( Medium Temperatures )"},
-                        {"value": HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES, "label": "Radiators ( Low Temperatures )"},
-                        {"value": HEATING_SYSTEM_UNDERFLOOR, "label": "Underfloor"}
-                    ])
-                ),
-                vol.Required(CONF_PROPORTIONAL, default=defaults.get(CONF_PROPORTIONAL)): str,
-                vol.Required(CONF_INTEGRAL, default=defaults.get(CONF_INTEGRAL)): str,
-                vol.Required(CONF_DERIVATIVE, default=defaults.get(CONF_DERIVATIVE)): str,
-            })
-        )
+
+        schema = {
+            vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=defaults[CONF_HEATING_CURVE_COEFFICIENT]): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
+            ),
+            vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=defaults[CONF_TARGET_TEMPERATURE_STEP]): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
+            ),
+            vol.Required(CONF_HEATING_SYSTEM, default=defaults[CONF_HEATING_SYSTEM]): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=[
+                    {"value": HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
+                    {"value": HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES, "label": "Radiators ( Medium Temperatures )"},
+                    {"value": HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES, "label": "Radiators ( Low Temperatures )"},
+                    {"value": HEATING_SYSTEM_UNDERFLOOR, "label": "Underfloor"}
+                ])
+            )
+        }
+
+        if not defaults.get(CONF_AUTOMATIC_GAINS):
+            schema[vol.Required(CONF_PROPORTIONAL, default=defaults.get(CONF_PROPORTIONAL))] = str
+            schema[vol.Required(CONF_INTEGRAL, default=defaults.get(CONF_INTEGRAL))] = str
+            schema[vol.Required(CONF_DERIVATIVE, default=defaults.get(CONF_DERIVATIVE))] = str
+
+        return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
     async def async_step_presets(self, _user_input=None) -> FlowResult:
         if _user_input is not None:
@@ -195,6 +197,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="advanced",
             data_schema=vol.Schema({
                 vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
+                vol.Required(CONF_AUTOMATIC_GAINS, default=defaults.get(CONF_AUTOMATIC_GAINS)): bool,
                 vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION]): bool,
                 vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=-1, max=1, step=0.1)

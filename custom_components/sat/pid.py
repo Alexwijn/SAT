@@ -11,6 +11,7 @@ class PID:
     def __init__(self, kp: float, ki: float, kd: float,
                  max_history: int = 10,
                  deadband: float = 0.1,
+                 automatic_gains: bool = False,
                  integral_time_limit: float = 300,
                  sample_time_limit: Optional[float] = 10):
         """
@@ -30,6 +31,7 @@ class PID:
         self._kd = kd
         self._deadband = deadband
         self._max_history = max_history
+        self._automatic_gains = automatic_gains
         self._sample_time_limit = max(sample_time_limit, 1)
         self._integral_time_limit = max(integral_time_limit, 1)
         self.reset()
@@ -39,6 +41,7 @@ class PID:
         self._last_error = 0
         self._time_elapsed = 0
         self._last_updated = time.time()
+        self._last_heating_curve_value = 0
 
         # Reset the integral
         self._integral = 0
@@ -87,6 +90,7 @@ class PID:
             return
 
         self._last_error = error
+        self._last_heating_curve_value = heating_curve_value
         self.update_integral(error, time_elapsed, heating_curve_value, True)
 
         if abs(error) <= self._deadband:
@@ -104,7 +108,7 @@ class PID:
         if self._autotune_enabled:
             self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
-    def update_reset(self, error: float) -> None:
+    def update_reset(self, error: float, heating_curve_value: float) -> None:
         """Update the PID controller with resetting.
 
         Parameters:
@@ -117,6 +121,7 @@ class PID:
         self._last_error = error
         self._last_updated = time.time()
         self._last_interval_updated = time.time()
+        self._last_heating_curve_value = heating_curve_value
 
         self._integral_enabled = error <= 0
 
@@ -130,7 +135,11 @@ class PID:
             return
 
         limit = heating_curve_value / 10
-        self._integral += self._ki * error * time_elapsed
+
+        if self.ki is None:
+            return
+
+        self._integral += self.ki * error * time_elapsed
         self._integral = min(self._integral, int(+limit))
         self._integral = max(self._integral, int(-limit))
 
@@ -161,6 +170,9 @@ class PID:
 
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
+
+        if last_heating_curve := state.attributes.get("heating_curve"):
+            self._last_heating_curve_value = last_heating_curve
 
     def autotune(self, comfort_temp: float) -> None:
         """Calculate and set the optimal PID gains and heating curve based on previous outputs and temperatures."""
@@ -227,9 +239,39 @@ class PID:
         return self._last_updated
 
     @property
+    def kp(self) -> float | None:
+        if self._automatic_gains:
+            return self._last_heating_curve_value
+
+        return self._kp
+
+    @property
+    def ki(self) -> float | None:
+        if self._automatic_gains:
+            if self._last_heating_curve_value is None:
+                return None
+
+            return round(self._last_heating_curve_value / 73900, 6)
+
+        return self._ki
+
+    @property
+    def kd(self) -> float | None:
+        if self._automatic_gains:
+            if self._last_heating_curve_value is None:
+                return None
+
+            return self._last_heating_curve_value * 739
+
+        return self._kd
+
+    @property
     def proportional(self) -> float:
         """Return the proportional value."""
-        return round(self._kp * self._last_error, 3)
+        if self.kp is None:
+            return 0
+
+        return round(self.kp * self._last_error, 3)
 
     @property
     def integral(self) -> float:
@@ -239,7 +281,10 @@ class PID:
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
-        return round(self._kd * self._raw_derivative, 3)
+        if self.kd is None:
+            return 0
+
+        return round(self.kd * self._raw_derivative, 3)
 
     @property
     def output(self) -> float:
