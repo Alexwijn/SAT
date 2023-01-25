@@ -613,6 +613,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             elif not self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(True)
 
+            # Control the integral (if exceeded the time limit)
+            self._pid.update_integral(self.error, time() - self._pid.last_updated, self._heating_curve_value)
+
             # Set the control setpoint
             await self._async_control_setpoint()
         else:

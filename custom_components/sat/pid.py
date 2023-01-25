@@ -9,9 +9,10 @@ class PID:
     """A proportional-integral-derivative (PID) controller."""
 
     def __init__(self, kp: float, ki: float, kd: float,
-                 max_history: int = 5,
+                 max_history: int = 10,
                  deadband: float = 0.1,
-                 sample_time_limit: Optional[float] = 0):
+                 integral_time_limit: float = 300,
+                 sample_time_limit: Optional[float] = 10):
         """
         Initialize the PID controller.
 
@@ -20,6 +21,7 @@ class PID:
         ki: The integral gain of the PID controller.
         kd: The derivative gain of the PID controller.
         max_history: The maximum number of errors and time values to store to calculate the derivative term.
+        integral_time_limit: The minimum time interval between integral updates to the PID controller, in seconds.
         sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
         deadband: The deadband of the PID controller. The range of error values where the controller will not make adjustments.
         """
@@ -28,7 +30,8 @@ class PID:
         self._kd = kd
         self._deadband = deadband
         self._max_history = max_history
-        self._sample_time_limit = max(sample_time_limit, 10)
+        self._sample_time_limit = max(sample_time_limit, 1)
+        self._integral_time_limit = max(integral_time_limit, 1)
         self.reset()
 
     def reset(self) -> None:
@@ -81,23 +84,19 @@ class PID:
             return
 
         self._last_error = error
+        self.update_integral(error, time_elapsed, heating_curve_value, True)
 
         if abs(error) <= self._deadband:
             self._times.clear()
             self._errors.clear()
-
-            self._integral += self._ki * error * time_elapsed
-
             return
-
-        if error > self._deadband:
-            self._integral = 0
 
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
 
         self._errors.append(error)
         self._times.append(current_time)
+        self._update_derivative(error)
 
         if self._autotune_enabled:
             self._outputs.append((self.output, heating_curve_value, time_elapsed))
@@ -110,9 +109,40 @@ class PID:
         """
         self._integral = 0
         self._time_elapsed = 0
+        self._raw_derivative = 0
 
         self._last_error = error
         self._last_updated = time.time()
+        self._last_interval_updated = time.time()
+
+    def update_integral(self, error: float, time_elapsed: float, heating_curve_value: float, force: bool = False):
+        if not force and time.time() - self._last_interval_updated < self._integral_time_limit:
+            return
+
+        if abs(error) > self._deadband:
+            return
+
+        if error > self._deadband:
+            self._integral = 0
+
+        limit = heating_curve_value / 10
+        self._integral += self._ki * error * time_elapsed
+        self._integral = min(self._integral, int(+limit))
+        self._integral = max(self._integral, int(-limit))
+
+        self._last_interval_updated = time.time()
+
+    def _update_derivative(self, alpha: float = 0.5):
+        if len(self._errors) < 2:
+            # Fallback to using the last error if we don't have enough data to calculate the derivative
+            return 0
+
+        num_of_errors = len(self._errors)
+        time_elapsed = self._times[num_of_errors - 1] - self._times[0]
+        derivative_error = self._errors[num_of_errors - 1] - self._errors[0]
+
+        derivative = (derivative_error / time_elapsed)
+        self._raw_derivative = alpha * derivative + (1 - alpha) * self._raw_derivative
 
     def restore(self, state: State) -> None:
         """Restore the PID controller from a saved state.
@@ -120,11 +150,14 @@ class PID:
         Parameters:
         state: The saved state of the PID controller to restore from.
         """
-        if self._last_error > 0:
-            self.enable_autotune(True)
+        if last_error := state.attributes.get("error"):
+            self._last_error = last_error
 
-        if last__integral := state.attributes.get("integral"):
-            self._integral = last__integral
+            if self._last_error > 0:
+                self.enable_autotune(True)
+
+        if last_integral := state.attributes.get("integral"):
+            self._integral = last_integral
 
     def autotune(self, comfort_temp: float) -> None:
         """Calculate and set the optimal PID gains and heating curve based on previous outputs and temperatures."""
@@ -193,28 +226,17 @@ class PID:
     @property
     def proportional(self) -> float:
         """Return the proportional value."""
-        return round(self._kp * self._last_error, 2)
+        return round(self._kp * self._last_error, 3)
 
     @property
     def integral(self) -> float:
         """Return the integral value."""
-        return round(self._integral, 2)
+        return round(self._integral, 3)
 
     @property
     def derivative(self) -> float:
-        """
-        Return the derivative value.
-        The derivative term represents the rate of change of the error over time.
-        """
-        if len(self._errors) < 2:
-            # Fallback to using the last error if we don't have enough data to calculate the derivative
-            return 0
-
-        num_of_errors = len(self._errors)
-        time_elapsed = self._times[num_of_errors - 1] - self._times[0]
-        derivative_error = self._errors[num_of_errors - 1] - self._errors[0]
-
-        return round(self._kd * derivative_error / time_elapsed, 2)
+        """Return the derivative value."""
+        return round(self._kd * self._raw_derivative, 3)
 
     @property
     def output(self) -> float:
