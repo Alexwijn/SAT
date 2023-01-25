@@ -687,12 +687,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Calculate the maximum error between the current temperature and the target temperature of all climates
         max_error = max([self.error] + self.climate_errors)
 
+        # Make sure we use the latest heating curve value
+        heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
+
         # Update the PID controller with the maximum error
         if not reset:
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
-
-            # Make sure we use the latest heating curve value
-            heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
 
             # Calculate optimal heating curve when we are in the deadband
             if -0.1 <= max_error <= 0.1 and len(self._outputs) >= 10:
@@ -705,7 +705,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if max_error <= -0.05 and self._pid.num_outputs >= 10:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
-            self._pid.update_reset(max_error)
+            self._pid.update_reset(error=max_error, heating_curve_value=heating_curve_value)
             self._outputs.clear()
 
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
