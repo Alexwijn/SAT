@@ -42,7 +42,7 @@ class PID:
 
         # Reset the integral
         self._integral = 0
-        self._integral_enabled = True
+        self._integral_enabled = False
 
         # Reset all lists
         self._outputs = []
@@ -80,6 +80,9 @@ class PID:
         if error == self._last_error:
             return
 
+        if not self._integral_enabled and error <= 0:
+            self._integral_enabled = True
+
         if self._sample_time_limit and time_elapsed < self._sample_time_limit:
             return
 
@@ -115,15 +118,16 @@ class PID:
         self._last_updated = time.time()
         self._last_interval_updated = time.time()
 
+        self._integral_enabled = error <= 0
+
     def update_integral(self, error: float, time_elapsed: float, heating_curve_value: float, force: bool = False):
+        # Make sure it is enabled
+        if not self._integral_enabled:
+            return
+
+        # Check if we are outside the limit, or we are forcing it to update
         if not force and time.time() - self._last_interval_updated < self._integral_time_limit:
             return
-
-        if abs(error) > self._deadband:
-            return
-
-        if error > self._deadband:
-            self._integral = 0
 
         limit = heating_curve_value / 10
         self._integral += self._ki * error * time_elapsed
@@ -134,8 +138,7 @@ class PID:
 
     def _update_derivative(self, alpha: float = 0.5):
         if len(self._errors) < 2:
-            # Fallback to using the last error if we don't have enough data to calculate the derivative
-            return 0
+            return
 
         num_of_errors = len(self._errors)
         time_elapsed = self._times[num_of_errors - 1] - self._times[0]
