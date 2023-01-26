@@ -96,6 +96,7 @@ class PID:
         if abs(error) <= self._deadband:
             self._times.clear()
             self._errors.clear()
+            self._raw_derivative = 0
             return
 
         self._last_updated = current_time
