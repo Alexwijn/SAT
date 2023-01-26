@@ -251,6 +251,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
+        if (current_outside_temperature := self.current_outside_temperature) is not None:
+            self._heating_curve_value = self._heating_curve.calculate_value(current_outside_temperature)
+                
         self._pid.update_reset(max([self.error] + self.climate_errors), self._heating_curve_value)
 
         self.async_write_ha_state()
