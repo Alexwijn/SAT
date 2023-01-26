@@ -150,8 +150,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._target_temperature = None
         self._saved_target_temperature = None
 
-        self._overshoot_protection_active = False
         self._overshoot_protection_data = []
+        self._overshoot_protection_calculate = False
 
         self._climates = options.get(CONF_CLIMATES)
         self._main_climates = options.get(CONF_MAIN_CLIMATES)
@@ -253,7 +253,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if (current_outside_temperature := self.current_outside_temperature) is not None:
             self._heating_curve_value = self._heating_curve.calculate_value(current_outside_temperature)
-                
+
         self._pid.update_reset(max([self.error] + self.climate_errors), self._heating_curve_value)
 
         self.async_write_ha_state()
@@ -267,12 +267,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             points. If the difference between the current return water temperature and the mean is small, it will
             deactivate overshoot protection and store the calculated value.
             """
-            if self._overshoot_protection_active:
+            if self._overshoot_protection_calculate:
                 _LOGGER.warning("[Overshoot Protection] Calculation already in progress.")
                 return
 
             self._overshoot_protection_data = []
-            self._overshoot_protection_active = True
+            self._overshoot_protection_calculate = True
 
             if not self._simulation:
                 await self._coordinator.api.set_max_relative_mod(0)
@@ -290,6 +290,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             })
 
         self.hass.services.async_register(DOMAIN, "start_overshoot_protection_calculation", start_overshoot_protection_calculation)
+
+        async def set_overshoot_protection_value(_call: ServiceCall):
+            """Service to set the overshoot protection value."""
+            self._store.store_overshoot_protection_value(_call.data.get("value"))
+
+        self.hass.services.async_register(DOMAIN, "overshoot_protection_value", set_overshoot_protection_value)
 
         async def reset_integral(_call: ServiceCall):
             """Service to reset the integral part of the PID controller."""
@@ -597,7 +603,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_heating(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         # If overshoot protection is active, run the overshoot protection control function
-        if self._overshoot_protection_active:
+        if self._overshoot_protection_calculate:
             await self._async_control_overshoot_protection()
             return
 
@@ -670,7 +676,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Deactivate overshoot protection if the difference between the current return water temperature and the mean
         # is small and store the calculated value
         if difference < 0.1:
-            self._overshoot_protection_active = False
+            self._overshoot_protection_calculate = False
             self._store.store_overshoot_protection_value(round(value, 1))
             _LOGGER.info("[Overshoot Protection] Result: %2.1f", value)
 
@@ -731,13 +737,29 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
             _LOGGER.info("Calculated heating curve: %d", self._heating_curve_value)
 
-            if self._overshoot_protection_active:
+            if self._overshoot_protection_calculate:
                 # If overshoot protection is active, set the setpoint to a fixed value
                 _LOGGER.warning("[Overshoot Protection] Overwritten setpoint to 60 degrees")
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
             else:
                 # Calculate the control setpoint
                 self._setpoint = self._calculate_control_setpoint()
+
+                # Control the max relative mod, if enabled
+                if self._overshoot_protection and (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is not None:
+                    max_error = max([self.error] + self.climate_errors)
+                    overshoot_protection_difference = overshoot_protection_value - self._setpoint
+
+                    if not self._get_boiler_value(gw_vars.DATA_MASTER_DHW_ENABLED) and overshoot_protection_difference > 2 and max_error <= 0.1:
+                        _LOGGER.debug("Set max relative mod to 0%")
+
+                        if not self._simulation:
+                            await self._coordinator.api.set_max_relative_mod(0)
+                    else:
+                        _LOGGER.debug("Set max relative mod to 100%")
+
+                        if not self._simulation:
+                            await self._coordinator.api.set_max_relative_mod(100)
         else:
             self._setpoint = 10
             self._outputs.clear()
