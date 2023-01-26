@@ -43,7 +43,7 @@ SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
 
-OVERSHOOT_PROTECTION_SETPOINT = 60
+OVERSHOOT_PROTECTION_SETPOINT = 75
 OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 
 _LOGGER = logging.getLogger(__name__)
@@ -739,7 +739,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if self._overshoot_protection_calculate:
                 # If overshoot protection is active, set the setpoint to a fixed value
-                _LOGGER.warning("[Overshoot Protection] Overwritten setpoint to 60 degrees")
+                _LOGGER.warning(f"[Overshoot Protection] Overwritten setpoint to {OVERSHOOT_PROTECTION_SETPOINT} degrees")
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
             else:
                 # Calculate the control setpoint
