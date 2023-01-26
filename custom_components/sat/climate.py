@@ -235,10 +235,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     self._pid.restore(old_state)
                     self._target_temperature = float(old_state.attributes[ATTR_TEMPERATURE])
 
-            if not self._hvac_mode and old_state.state:
+            if old_state.state:
                 self._hvac_mode = old_state.state
 
-            if not self._attr_preset_mode and old_state.attributes.get(ATTR_PRESET_MODE):
+            if old_state.attributes.get(ATTR_PRESET_MODE):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
         else:
             # No previous state, try and restore defaults
