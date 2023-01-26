@@ -93,14 +93,14 @@ class PID:
         self._last_heating_curve_value = heating_curve_value
         self.update_integral(error, time_elapsed, heating_curve_value, True)
 
+        self._last_updated = current_time
+        self._time_elapsed = time_elapsed
+        
         if abs(error) <= self._deadband:
             self._times.clear()
             self._errors.clear()
             self._raw_derivative = 0
             return
-
-        self._last_updated = current_time
-        self._time_elapsed = time_elapsed
 
         self._errors.append(error)
         self._times.append(current_time)
