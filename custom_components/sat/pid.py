@@ -40,6 +40,7 @@ class PID:
         """Reset the PID controller."""
         self._last_error = 0
         self._time_elapsed = 0
+        self._raw_derivative = 0
         self._last_updated = time.time()
         self._last_heating_curve_value = 0
 
@@ -109,7 +110,7 @@ class PID:
         if self._autotune_enabled:
             self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
-    def update_reset(self, error: float, heating_curve_value: float) -> None:
+    def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
         """Update the PID controller with resetting.
 
         Parameters:

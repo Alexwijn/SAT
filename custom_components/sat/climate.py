@@ -76,14 +76,14 @@ def create_pid_controller(options) -> PID:
     return PID(kp=kp, ki=ki, kd=kd, automatic_gains=automatic_gains, sample_time_limit=sample_time_limit)
 
 
-def create_heating_curve_controller(options, comfort_temp: float) -> HeatingCurve:
+def create_heating_curve_controller(options) -> HeatingCurve:
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
     heating_system = options.get(CONF_HEATING_SYSTEM)
     coefficient = float(options.get(CONF_HEATING_CURVE_COEFFICIENT))
 
     # Return a new heating Curve controller instance with the given configuration options
-    return HeatingCurve(comfort_temp=comfort_temp, heating_system=heating_system, coefficient=coefficient)
+    return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
@@ -119,27 +119,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Create PID controller with given configuration options
         self._pid = create_pid_controller(options)
 
-        # Create Heating Curve controller with given configuration options
-        self._heating_curve = create_heating_curve_controller(options, presets[PRESET_COMFORT])
-        self._heating_curve_value = None
-
         # Get inside sensor entity ID
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
 
         # Get inside sensor entity state
         inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
 
-        # Get outside sensor entity IDs
-        self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
-
-        # If outside sensor entity IDs is a string, make it a list
-        if isinstance(self.outside_sensor_entities, str):
-            self.outside_sensor_entities = [self.outside_sensor_entities]
-
         # Get current temperature
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._current_temperature = float(inside_sensor_entity.state)
+
+        # Get outside sensor entity IDs
+        self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
+
+        # Create Heating Curve controller with given configuration options
+        self._heating_curve = create_heating_curve_controller(options)
 
         self._sensors = []
         self._setpoint = None
@@ -251,10 +246,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
-        if (current_outside_temperature := self.current_outside_temperature) is not None:
-            self._heating_curve_value = self._heating_curve.calculate_value(current_outside_temperature)
-
-        self._pid.update_reset(max([self.error] + self.climate_errors), self._heating_curve_value)
+        if self.current_outside_temperature is not None:
+            self._heating_curve.update(
+                target_temperature=self.target_temperature,
+                outside_temperature=self.current_outside_temperature
+            )
 
         self.async_write_ha_state()
         await self._async_control_heating()
@@ -358,7 +354,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
-            "heating_curve": self._heating_curve_value,
+            "heating_curve": self._heating_curve.value,
             "outside_temperature": self.current_outside_temperature,
             "overshoot_protection_value": self._store.retrieve_overshoot_protection_value()
         }
@@ -426,6 +422,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return HVACAction.IDLE
 
         return HVACAction.HEATING
+
+    @property
+    def max_error(self):
+        return max([self.error] + self.climate_errors)
 
     @property
     def climate_errors(self) -> List[float]:
@@ -501,7 +501,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
-        self._outputs.append(self._heating_curve_value + self._pid.output)
+        self._outputs.append(self._heating_curve.value + self._pid.output)
         setpoint = mean(list(self._outputs)[-5:])
 
         # Ensure setpoint is within allowed range for each heating system
@@ -631,7 +631,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 await self._async_control_heater(True)
 
             # Control the integral (if exceeded the time limit)
-            self._pid.update_integral(self.error, time() - self._pid.last_updated, self._heating_curve_value)
+            self._pid.update_integral(self.error, time() - self._pid.last_updated, self._heating_curve.value)
 
             # Set the control setpoint
             await self._async_control_setpoint()
@@ -699,10 +699,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pid.reset()
 
         # Calculate the maximum error between the current temperature and the target temperature of all climates
-        max_error = max([self.error] + self.climate_errors)
+        max_error = self.max_error
 
         # Make sure we use the latest heating curve value
-        heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
+        self._heating_curve.update(
+            target_temperature=self.target_temperature,
+            outside_temperature=self.current_outside_temperature,
+        )
 
         # Update the PID controller with the maximum error
         if not reset:
@@ -710,16 +713,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Calculate optimal heating curve when we are in the deadband
             if -0.1 <= max_error <= 0.1 and len(self._outputs) >= 10:
-                self._heating_curve.autotune(self._outputs, self.current_outside_temperature)
+                self._heating_curve.autotune(
+                    setpoints=self._outputs,
+                    target_temperature=self.target_temperature,
+                    outside_temperature=self.current_outside_temperature
+                )
 
             # Update the pid controller
-            self._pid.update(error=max_error, heating_curve_value=heating_curve_value)
+            self._pid.update(error=max_error, heating_curve_value=self._heating_curve.value)
 
             # Calculate optimal pid gains when we reached the target
             if max_error <= -0.05 and self._pid.num_outputs >= 10:
                 self._pid.autotune(self._presets[PRESET_COMFORT])
         else:
-            self._pid.update_reset(error=max_error, heating_curve_value=heating_curve_value)
+            self._pid.update_reset(error=max_error, heating_curve_value=self._heating_curve.value)
             self._outputs.clear()
 
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
@@ -738,10 +745,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_setpoint(self):
         """Control the setpoint of the heating system."""
         if self._is_device_active:
-            # Calculate the heating curve value
-            self._heating_curve_value = self._heating_curve.calculate_value(self.current_outside_temperature)
-            _LOGGER.info("Calculated heating curve: %d", self._heating_curve_value)
-
             if self._overshoot_protection_calculate:
                 # If overshoot protection is active, set the setpoint to a fixed value
                 _LOGGER.warning(f"[Overshoot Protection] Overwritten setpoint to {OVERSHOOT_PROTECTION_SETPOINT} degrees")
@@ -752,11 +755,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
                 # Control the max relative mod, if enabled
                 if self._overshoot_protection and (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is not None:
-                    max_error = max([self.error] + self.climate_errors)
                     overshoot_protection_difference = overshoot_protection_value - self._setpoint
                     current_max_relative_mod = int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD))
 
-                    if not self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE) and overshoot_protection_difference > 2 and max_error <= 0.1:
+                    if not self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE) and overshoot_protection_difference > 2 and self.max_error <= 0.1:
                         _LOGGER.info("Set max relative mod to 0%")
 
                         if not self._simulation and current_max_relative_mod != 0:
@@ -769,9 +771,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             self._setpoint = 10
             self._outputs.clear()
-
             self._heating_curve.reset()
-            self._heating_curve_value = None
 
         if not self._simulation:
             await self._coordinator.api.set_control_setpoint(self._setpoint)
