@@ -133,6 +133,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Get outside sensor entity IDs
         self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
 
+        # If outside sensor entity IDs is a string, make it a list
+        if isinstance(self.outside_sensor_entities, str):
+            self.outside_sensor_entities = [self.outside_sensor_entities]
+
         # Create Heating Curve controller with given configuration options
         self._heating_curve = create_heating_curve_controller(options)
 
