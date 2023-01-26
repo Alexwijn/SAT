@@ -749,16 +749,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if self._overshoot_protection and (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is not None:
                     max_error = max([self.error] + self.climate_errors)
                     overshoot_protection_difference = overshoot_protection_value - self._setpoint
+                    current_max_relative_mod = int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD))
 
                     if not self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE) and overshoot_protection_difference > 2 and max_error <= 0.1:
                         _LOGGER.info("Set max relative mod to 0%")
 
-                        if not self._simulation:
+                        if not self._simulation and current_max_relative_mod != 0:
                             await self._coordinator.api.set_max_relative_mod(0)
                     else:
                         _LOGGER.info("Set max relative mod to 100%")
 
-                        if not self._simulation:
+                        if not self._simulation and current_max_relative_mod != 100:
                             await self._coordinator.api.set_max_relative_mod(100)
         else:
             self._setpoint = 10
