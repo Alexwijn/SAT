@@ -274,6 +274,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._overshoot_protection_data = []
             self._overshoot_protection_calculate = True
 
+            self._saved_target_temperature = self._target_temperature
+            await self._async_set_setpoint(30, False)
+
             if not self._simulation:
                 await self._coordinator.api.set_max_relative_mod(0)
 
@@ -680,6 +683,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._store.store_overshoot_protection_value(round(value, 1))
             _LOGGER.info("[Overshoot Protection] Result: %2.1f", value)
 
+            await self._async_set_setpoint(self._saved_target_temperature)
+
             if not self._simulation:
                 await self._coordinator.api.set_max_relative_mod(100)
 
@@ -779,6 +784,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if temperature is None:
             return
 
+        # Ignore the request when we are in calculation mode
+        if self._overshoot_protection_calculate:
+            return
+
         self._attr_preset_mode = PRESET_NONE
         await self._async_set_setpoint(temperature)
 
@@ -787,6 +796,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Check if the given preset mode is valid
         if preset_mode not in self.preset_modes:
             raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
+
+        # Ignore the request when we are in calculation mode
+        if self._overshoot_protection_calculate:
+            return
 
         # Return if the given preset mode is already set
         if preset_mode == self._attr_preset_mode:
@@ -809,7 +822,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._attr_preset_mode = preset_mode
             await self._async_set_setpoint(self._presets[preset_mode])
 
-    async def _async_set_setpoint(self, temperature: float):
+    async def _async_set_setpoint(self, temperature: float, autotune: bool = True):
         """Set the temperature setpoint for all main climates."""
         if self._target_temperature == temperature:
             return
@@ -821,7 +834,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_pid(True)
 
         # Start auto-tuning, but only if we need to heat the main climate
-        if self._target_temperature > self._current_temperature:
+        if autotune and self._target_temperature > self._current_temperature:
             self._pid.enable_autotune(True)
 
         # Set the temperature for each main climate
@@ -837,6 +850,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set the heating/cooling mode for the devices and update the state."""
+        # Ignore the request when we are in calculation mode
+        if self._overshoot_protection_calculate:
+            return
+
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
