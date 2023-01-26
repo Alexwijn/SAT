@@ -750,7 +750,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     max_error = max([self.error] + self.climate_errors)
                     overshoot_protection_difference = overshoot_protection_value - self._setpoint
 
-                    if not self._get_boiler_value(gw_vars.DATA_MASTER_DHW_ENABLED) and overshoot_protection_difference > 2 and max_error <= 0.1:
+                    if not self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE) and overshoot_protection_difference > 2 and max_error <= 0.1:
                         _LOGGER.debug("Set max relative mod to 0%")
 
                         if not self._simulation:
