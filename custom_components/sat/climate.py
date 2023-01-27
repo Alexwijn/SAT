@@ -872,6 +872,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.error("Unrecognized hvac mode: %s", hvac_mode)
             return
 
+        # Reset the PID controller
+        await self._async_control_pid(True)
+
         # Set the hvac mode for all climate devices
         for entity_id in (self._climates + self._main_climates):
             data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
