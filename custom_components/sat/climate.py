@@ -147,6 +147,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._hvac_mode = None
         self._target_temperature = None
+
+        self._saved_hvac_mode = None
         self._saved_target_temperature = None
 
         self._overshoot_protection_data = []
@@ -274,7 +276,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._overshoot_protection_data = []
             self._overshoot_protection_calculate = True
 
+            self._saved_hvac_mode = self._hvac_mode
             self._saved_target_temperature = self._target_temperature
+
+            self._hvac_mode = HVACMode.HEAT
             await self._async_set_setpoint(30, False)
 
             if not self._simulation:
@@ -284,8 +289,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             description += "This process will run for at least 20 minutes until a stable boiler water temperature is found."
 
             _LOGGER.warning(description)
-
-            await self.async_set_hvac_mode(HVACMode.HEAT)
 
             await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
                 "title": "Overshoot Protection Calculation",
@@ -687,10 +690,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._store.store_overshoot_protection_value(round(value, 1))
             _LOGGER.info("[Overshoot Protection] Result: %2.1f", value)
 
-            await self._async_set_setpoint(self._saved_target_temperature)
-
             if not self._simulation:
                 await self._coordinator.api.set_max_relative_mod(100)
+
+            await self.async_set_hvac_mode(self._saved_hvac_mode)
+            await self._async_set_setpoint(self._saved_target_temperature)
 
     async def _async_control_pid(self, reset: bool = False):
         """Control the PID controller."""
