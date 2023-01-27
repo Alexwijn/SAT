@@ -4,6 +4,8 @@ from typing import Optional
 
 from homeassistant.core import State
 
+from .const import *
+
 
 class PID:
     """A proportional-integral-derivative (PID) controller."""
@@ -13,7 +15,8 @@ class PID:
                  deadband: float = 0.1,
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
-                 sample_time_limit: Optional[float] = 10):
+                 sample_time_limit: Optional[float] = 10,
+                 heating_system: str = HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES):
         """
         Initialize the PID controller.
 
@@ -31,6 +34,7 @@ class PID:
         self._kd = kd
         self._deadband = deadband
         self._max_history = max_history
+        self._heating_system = heating_system
         self._automatic_gains = automatic_gains
         self._sample_time_limit = max(sample_time_limit, 1)
         self._integral_time_limit = max(integral_time_limit, 1)
@@ -96,7 +100,7 @@ class PID:
 
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
-        
+
         if abs(error) <= self._deadband:
             self._times.clear()
             self._errors.clear()
@@ -263,7 +267,10 @@ class PID:
             if self._last_heating_curve_value is None:
                 return None
 
-            return self._last_heating_curve_value * 739
+            if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
+                return self._last_heating_curve_value * 739
+
+            return self._last_heating_curve_value * 1000
 
         return self._kd
 
