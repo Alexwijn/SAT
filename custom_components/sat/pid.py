@@ -1,6 +1,7 @@
 import time
 from bisect import bisect_left
 from collections import deque
+from itertools import islice
 from typing import Optional
 
 from homeassistant.core import State
@@ -158,8 +159,8 @@ class PID:
 
         # Find the indices of the errors and times within the window
         window_start = bisect_left(self._times, self._times[-1] - window_size)
-        errors_in_window = self._errors[window_start:]
-        times_in_window = self._times[window_start:]
+        errors_in_window = list(islice(self._errors, window_start, None))
+        times_in_window = list(islice(self._times, window_start, None))
 
         # Calculate the derivative using the errors and times in the window
         derivative_error = errors_in_window[-1] - errors_in_window[0]
