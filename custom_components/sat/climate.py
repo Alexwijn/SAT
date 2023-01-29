@@ -797,6 +797,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._overshoot_protection_calculate:
             return
 
+        # Automatically select the preset
+        for preset in self._presets:
+            if float(self._presets[preset]) == float(temperature):
+                return await self.async_set_preset_mode(preset)
+
         self._attr_preset_mode = PRESET_NONE
         await self._async_set_setpoint(temperature)
 
