@@ -1,4 +1,5 @@
 import time
+from bisect import bisect_left
 from collections import deque
 from typing import Optional
 
@@ -151,15 +152,21 @@ class PID:
 
         self._last_interval_updated = time.time()
 
-    def _update_derivative(self, alpha: float = 0.5):
+    def _update_derivative(self, alpha: float = 0.5, window_size: int = 300):
         if len(self._errors) < 2:
             return
 
-        num_of_errors = len(self._errors)
-        time_elapsed = self._times[num_of_errors - 1] - self._times[0]
-        derivative_error = self._errors[num_of_errors - 1] - self._errors[0]
+        # Find the indices of the errors and times within the window
+        window_start = bisect_left(self._times, self._times[-1] - window_size)
+        errors_in_window = self._errors[window_start:]
+        times_in_window = self._times[window_start:]
 
-        derivative = (derivative_error / time_elapsed)
+        # Calculate the derivative using the errors and times in the window
+        derivative_error = errors_in_window[-1] - errors_in_window[0]
+        time_elapsed = times_in_window[-1] - times_in_window[0]
+        derivative = derivative_error / time_elapsed
+
+        # Apply the low-pass filter
         self._raw_derivative = alpha * derivative + (1 - alpha) * self._raw_derivative
 
     def restore(self, state: State) -> None:
