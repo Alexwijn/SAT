@@ -265,7 +265,7 @@ class PID:
             if self._last_heating_curve_value is None:
                 return None
 
-            return round(self._last_heating_curve_value / 36950, 6)
+            return round(self._last_heating_curve_value / 73900, 6)
 
         return self._ki
 
