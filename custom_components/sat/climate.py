@@ -281,7 +281,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._saved_target_temperature = self._target_temperature
 
             self._hvac_mode = HVACMode.HEAT
-            await self._async_set_setpoint(30, False)
+            await self._async_set_setpoint(30)
 
             if not self._simulation:
                 await self._coordinator.api.set_max_relative_mod(0)
@@ -344,26 +344,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "integral": self._pid.integral,
             "derivative": self._pid.derivative,
             "proportional": self._pid.proportional,
-            "integral_enabled": self._pid.integral_enabled,
-            "comfort_temperature": self._presets[PRESET_COMFORT],
-
-            "autotune_enabled": self._pid.autotune_enabled,
-            "collected_updates": self._pid.num_outputs,
             "collected_errors": self._pid.num_errors,
+            "integral_enabled": self._pid.integral_enabled,
 
             "current_kp": self._pid.kp,
             "current_ki": self._pid.ki,
             "current_kd": self._pid.kd,
 
-            "optimal_kp": self._pid.optimal_kp,
-            "optimal_ki": self._pid.optimal_ki,
-            "optimal_kd": self._pid.optimal_kd,
-            "optimal_coefficient": self._heating_curve.optimal_coefficient,
-
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
             "heating_curve": self._heating_curve.value,
             "outside_temperature": self.current_outside_temperature,
+            "optimal_coefficient": self._heating_curve.optimal_coefficient,
             "overshoot_protection_value": self._store.retrieve_overshoot_protection_value()
         }
 
@@ -836,7 +828,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._attr_preset_mode = preset_mode
             await self._async_set_setpoint(self._presets[preset_mode])
 
-    async def _async_set_setpoint(self, temperature: float, autotune: bool = True):
+    async def _async_set_setpoint(self, temperature: float):
         """Set the temperature setpoint for all main climates."""
         if self._target_temperature == temperature:
             return
@@ -846,10 +838,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the PID controller
         await self._async_control_pid(True)
-
-        # Start auto-tuning, but only if we need to heat the main climate
-        if autotune and self._target_temperature > self._current_temperature:
-            self._pid.enable_autotune(True)
 
         # Set the temperature for each main climate
         for entity_id in self._main_climates:
@@ -871,10 +859,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
-
-            # Start auto-tuning, but only if we need to heat the main climate
-            if self._target_temperature > self._current_temperature:
-                self._pid.enable_autotune(True)
         elif hvac_mode == HVACMode.OFF:
             self._hvac_mode = HVACMode.OFF
         else:

@@ -55,28 +55,8 @@ class PID:
         self._integral_enabled = False
 
         # Reset all lists
-        self._outputs = []
         self._times = deque(maxlen=self._max_history)
         self._errors = deque(maxlen=self._max_history)
-
-        # Reset autotune flag
-        self._autotune_enabled = False
-        self._optimal_kp = None
-        self._optimal_ki = None
-        self._optimal_kd = None
-
-    def enable_autotune(self, enabled: bool) -> None:
-        """Enable or disable the autotune feature.
-
-        When enabled, the autotune feature will store the outputs of the PID
-        controller for later use in calculating the optimal values for the PID gains.
-
-        Parameters:
-        enabled: A boolean indicating whether to enable (True) or disable (False) the autotune feature.
-        """
-        # Reset outputs when disabling or enabling autotune
-        self._outputs = []
-        self._autotune_enabled = enabled
 
     def update(self, error: float, heating_curve_value: float) -> None:
         """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.
@@ -112,9 +92,6 @@ class PID:
         self._errors.append(error)
         self._times.append(current_time)
         self._update_derivative(error)
-
-        if self._autotune_enabled:
-            self._outputs.append((self.output, heating_curve_value, time_elapsed))
 
     def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
         """Update the PID controller with resetting.
@@ -163,8 +140,8 @@ class PID:
         times_in_window = list(islice(self._times, window_start, None))
 
         # Calculate the derivative using the errors and times in the window
-        derivative_error = errors_in_window[-1] - errors_in_window[0]
-        time_elapsed = times_in_window[-1] - times_in_window[0]
+        derivative_error = errors_in_window[0] - errors_in_window[-1]
+        time_elapsed = times_in_window[0] - times_in_window[-1]
         derivative = derivative_error / time_elapsed
 
         # Apply the low-pass filter
@@ -179,68 +156,11 @@ class PID:
         if last_error := state.attributes.get("error"):
             self._last_error = last_error
 
-            if self._last_error > 0:
-                self.enable_autotune(True)
-
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
 
         if last_heating_curve := state.attributes.get("heating_curve"):
             self._last_heating_curve_value = last_heating_curve
-
-    def autotune(self, comfort_temp: float) -> None:
-        """Calculate and set the optimal PID gains and heating curve based on previous outputs and temperatures."""
-        self.determine_optimal_pid_gains()
-
-        # Reset autotune flag
-        self.enable_autotune(False)
-
-    def determine_optimal_pid_gains(self) -> None:
-        """Calculate the optimal PID gains based on the previous outputs."""
-        # Get the list of outputs and the length of the list
-        outputs = self._outputs
-        num_outputs = len(outputs)
-
-        # Check if there are enough outputs
-        if num_outputs < 2:
-            raise ValueError("Not enough outputs for autotune")
-
-        # Initialize variables
-        sum_output = 0
-        sum_time_elapsed = 0
-        sum_output_squared = 0
-        sum_output_time_elapsed = 0
-        sum_integral = 0
-
-        # Iterate through the outputs
-        previous_output = 0
-        previous_time_elapsed = 0
-
-        for output, heating_curve_value, time_elapsed in outputs:
-            setpoint = heating_curve_value - output
-
-            sum_output += setpoint
-            sum_time_elapsed += time_elapsed
-            sum_output_squared += setpoint * setpoint
-            sum_output_time_elapsed += setpoint * time_elapsed
-            sum_integral += (setpoint + previous_output) * (time_elapsed - previous_time_elapsed) / 2
-
-            previous_output = setpoint
-            previous_time_elapsed = time_elapsed
-
-        # Calculate the slope and y-intercept
-        slope = (num_outputs * sum_output_time_elapsed - sum_output * sum_time_elapsed) / (num_outputs * sum_output_squared - sum_output * sum_output)
-        y_intercept = (sum_time_elapsed - slope * sum_output) / num_outputs
-
-        # Calculate the optimal gains
-        kp = (1 - y_intercept) / slope
-        ki = sum_integral / sum_output
-        kd = slope / (1 - y_intercept)
-
-        # Store the latest autotune values
-        self._optimal_kp = round(kp, 2)
-        self._optimal_ki = round(ki, 2)
-        self._optimal_kd = round(kd, 2)
 
     @property
     def last_error(self) -> float:
@@ -254,6 +174,7 @@ class PID:
 
     @property
     def kp(self) -> float | None:
+        """Return the value of kp based on the current configuration."""
         if self._automatic_gains:
             return self._last_heating_curve_value
 
@@ -261,9 +182,10 @@ class PID:
 
     @property
     def ki(self) -> float | None:
+        """Return the value of ki based on the current configuration."""
         if self._automatic_gains:
             if self._last_heating_curve_value is None:
-                return None
+                return 0
 
             return round(self._last_heating_curve_value / 73900, 6)
 
@@ -271,9 +193,10 @@ class PID:
 
     @property
     def kd(self) -> float | None:
+        """Return the value of kd based on the current configuration."""
         if self._automatic_gains:
             if self._last_heating_curve_value is None:
-                return None
+                return 0
 
             if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
                 return self._last_heating_curve_value * 739
@@ -285,9 +208,6 @@ class PID:
     @property
     def proportional(self) -> float:
         """Return the proportional value."""
-        if self.kp is None:
-            return 0
-
         return round(self.kp * self._last_error, 3)
 
     @property
@@ -298,9 +218,6 @@ class PID:
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
-        if self.kd is None:
-            return 0
-
         return round(self.kd * self._raw_derivative, 3)
 
     @property
@@ -314,31 +231,6 @@ class PID:
         return self._integral_enabled
 
     @property
-    def autotune_enabled(self) -> bool:
-        """Return a boolean indicating whether autotune is enabled."""
-        return self._autotune_enabled
-
-    @property
     def num_errors(self) -> int:
         """Return the number of errors collected."""
         return len(self._errors)
-
-    @property
-    def num_outputs(self) -> int:
-        """Return the number of updates collected."""
-        return len(self._outputs)
-
-    @property
-    def optimal_kp(self) -> float:
-        """Return the optimal proportional gain."""
-        return self._optimal_kp
-
-    @property
-    def optimal_ki(self) -> float:
-        """Return the optimal integral gain."""
-        return self._optimal_ki
-
-    @property
-    def optimal_kd(self) -> float:
-        """Return the optimal derivative gain."""
-        return self._optimal_kd
