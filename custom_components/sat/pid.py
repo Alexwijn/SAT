@@ -139,10 +139,14 @@ class PID:
         errors_in_window = list(islice(self._errors, window_start, None))
         times_in_window = list(islice(self._times, window_start, None))
 
-        # Calculate the derivative using the average rate of change of errors over time within the window
-        derivative_error = errors_in_window[-1] - errors_in_window[0]
-        time_elapsed = times_in_window[-1] - times_in_window[0]
-        derivative = derivative_error / time_elapsed
+        if len(errors_in_window) < 2:
+            # Fallback to zero when there is no value in the time-window
+            derivative = 0
+        else:
+            # Calculate the derivative using the errors and times in the window
+            derivative_error = errors_in_window[0] - errors_in_window[-1]
+            time_elapsed = times_in_window[0] - times_in_window[-1]
+            derivative = derivative_error / time_elapsed
 
         # Apply the low-pass filter
         self._raw_derivative = alpha * derivative + (1 - alpha) * self._raw_derivative
