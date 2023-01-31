@@ -202,7 +202,8 @@ class PID:
         updates_per_second = len(self._times) / time_diff
 
         # Limit the history size to a maximum of 100
-        history_size = int(updates_per_second * 60)
+        history_size = int(updates_per_second * 300)
+        history_size = max(10, history_size)
         history_size = min(history_size, 100)
 
         # Calculate a weighted average of the rate of updates and the previous history size
