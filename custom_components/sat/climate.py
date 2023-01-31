@@ -733,6 +733,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_heater(self, enabled: bool) -> None:
         """Control the state of the central heating."""
+        if enabled:
+            await self._async_control_pid(True)
+
         if not self._simulation:
             await self._coordinator.api.set_ch_enable_bit(int(enabled))
 
