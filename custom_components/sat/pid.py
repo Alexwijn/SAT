@@ -91,7 +91,7 @@ class PID:
 
         self._errors.append(error)
         self._times.append(current_time)
-        self._update_derivative(error)
+        self._update_derivative()
 
     def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
         """Update the PID controller with resetting.
