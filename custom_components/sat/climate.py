@@ -344,6 +344,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "integral": self._pid.integral,
             "derivative": self._pid.derivative,
             "proportional": self._pid.proportional,
+            "history_size": self._pid.history_size,
             "collected_errors": self._pid.num_errors,
             "integral_enabled": self._pid.integral_enabled,
 
