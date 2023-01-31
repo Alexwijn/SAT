@@ -209,6 +209,10 @@ class PID:
         # Calculate a weighted average of the rate of updates and the previous history size
         self._history_size = alpha * history_size + (1 - alpha) * self._history_size
 
+        # Update our lists with the new size
+        self._errors = deque(self._errors, maxlen=int(self._history_size))
+        self._times = deque(self._times, maxlen=int(self._history_size))
+
     def restore(self, state: State) -> None:
         """Restore the PID controller from a saved state.
 
@@ -299,4 +303,4 @@ class PID:
     @property
     def history_size(self) -> int:
         """Return the number of values that we store."""
-        return self._history_size
+        return int(self._history_size)
