@@ -11,7 +11,7 @@ class PID:
     """A proportional-integral-derivative (PID) controller."""
 
     def __init__(self, kp: float, ki: float, kd: float,
-                 max_history: int = 5,
+                 max_history: int = 2,
                  deadband: float = 0.1,
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
@@ -202,8 +202,8 @@ class PID:
         updates_per_second = len(self._times) / time_diff
 
         # Limit the history size to a maximum of 100
-        history_size = int(updates_per_second * 300)
-        history_size = max(5, history_size)
+        history_size = int(updates_per_second * 3600)
+        history_size = max(2, history_size)
         history_size = min(history_size, 100)
 
         # Calculate a weighted average of the rate of updates and the previous history size
