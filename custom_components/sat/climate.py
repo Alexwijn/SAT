@@ -502,7 +502,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _calculate_control_setpoint(self):
         """Calculate the control setpoint based on the heating curve and PID output."""
-        self._outputs.append(self._heating_curve.value + self._pid.output)
+        # Combine the heating curve value and the calculated output from the pid controller
+        requested_setpoint = self._heating_curve.value + self._pid.output
+        
+        # Make sure we are above the base setpoint when we are far away from the target temperature
+        if self.max_error > 0.1:
+            requested_setpoint = max(requested_setpoint, self._heating_curve.value)
+        
+        # Add to the list outputs so we can average it
+        self._outputs.append(requested_setpoint)
+        
+        # Average it, so we don't have spikes
         setpoint = mean(list(self._outputs)[-5:])
 
         # Ensure setpoint is within allowed range for each heating system
