@@ -770,15 +770,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     current_max_relative_mod = int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD))
 
                     if not self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE) and overshoot_protection_difference > 2 and self.max_error <= 0.1:
-                        _LOGGER.info("Set max relative mod to 0%")
-
-                        if not self._simulation and current_max_relative_mod != 0:
-                            await self._coordinator.api.set_max_relative_mod(0)
-                    else:
                         _LOGGER.info("Set max relative mod to 100%")
 
                         if not self._simulation and current_max_relative_mod != 100:
                             await self._coordinator.api.set_max_relative_mod(100)
+                    else:
+                        _LOGGER.info("Set max relative mod to 0%")
+
+                        if not self._simulation and current_max_relative_mod != 0:
+                            await self._coordinator.api.set_max_relative_mod(0)
+
         else:
             self._setpoint = 10
             self._outputs.clear()
