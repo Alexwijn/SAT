@@ -241,7 +241,7 @@ class PID:
     def kp(self) -> float | None:
         """Return the value of kp based on the current configuration."""
         if self._automatic_gains:
-            return self._last_heating_curve_value
+            return self._last_heating_curve_value * 1.65
 
         return self._kp
 
@@ -266,7 +266,7 @@ class PID:
             if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
                 return self._last_heating_curve_value * 739
 
-            return self._last_heating_curve_value * 1000
+            return self._last_heating_curve_value * 1650
 
         return self._kd
 
