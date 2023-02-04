@@ -264,9 +264,9 @@ class PID:
                 return 0
 
             if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
-                return self._last_heating_curve_value * 739
+                return self._last_heating_curve_value * 1650
 
-            return self._last_heating_curve_value * 1650
+            return self._last_heating_curve_value * 2720
 
         return self._kd
 
