@@ -44,6 +44,7 @@ HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
 
 OVERSHOOT_PROTECTION_SETPOINT = 75
+OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD = 0
 OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 
 _LOGGER = logging.getLogger(__name__)
@@ -143,6 +144,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._sensors = []
         self._setpoint = None
+        self._max_relative_mod = None
         self._is_device_active = False
         self._outputs = deque(maxlen=50)
 
@@ -354,6 +356,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
+            "max_relative_mod": self._max_relative_mod,
             "heating_curve": self._heating_curve.value,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self._heating_curve.optimal_coefficient,
@@ -500,18 +503,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """
         return self._coordinator.data[gw_vars.BOILER].get(key) if self._coordinator.data[gw_vars.BOILER] else None
 
-    def _calculate_control_setpoint(self):
+    def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
         # Combine the heating curve value and the calculated output from the pid controller
         requested_setpoint = self._heating_curve.value + self._pid.output
-        
+
         # Make sure we are above the base setpoint when we are below target temperature
         if self.max_error > 0:
             requested_setpoint = max(requested_setpoint, self._heating_curve.value)
-        
+
         # Add to the list outputs so we can average it
         self._outputs.append(requested_setpoint)
-        
+
         # Average it, so we don't have spikes
         setpoint = mean(list(self._outputs)[-5:])
 
@@ -527,6 +530,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Ensure setpoint is at least 10
         return round(max(setpoint, 10.0), 1)
+
+    def _calculate_max_relative_mod(self) -> int:
+        if self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE):
+            return 100
+
+        if (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is None:
+            return 100
+
+        if abs(self.max_error) > 0.1 and self._setpoint >= (overshoot_protection_value - 2):
+            return 100
+
+        return 0
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
@@ -646,11 +661,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Set the control setpoint
             await self._async_control_setpoint()
+
+            # Set the max relative mod
+            await self._async_control_max_relative_mod()
         else:
             # If the temperature is too cold and the valves are open and the HVAC is not off, turn on the heater
             if (too_cold or climates_require_heat) and self.valves_open and self.hvac_action != HVACAction.OFF:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint()
+                await self._async_control_max_relative_mod()
             # If the central heating is enabled, turn off the heater
             elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(False)
@@ -763,32 +782,35 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             else:
                 # Calculate the control setpoint
                 self._setpoint = self._calculate_control_setpoint()
-
-                # Control the max relative mod, if enabled
-                if self._overshoot_protection and (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is not None:
-                    overshoot_protection_difference = overshoot_protection_value - self._setpoint
-                    current_max_relative_mod = int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD))
-
-                    if not self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE) and overshoot_protection_difference > 2 and self.max_error <= 0.1:
-                        _LOGGER.info("Set max relative mod to 100%")
-
-                        if not self._simulation and current_max_relative_mod != 100:
-                            await self._coordinator.api.set_max_relative_mod(100)
-                    else:
-                        _LOGGER.info("Set max relative mod to 0%")
-
-                        if not self._simulation and current_max_relative_mod != 0:
-                            await self._coordinator.api.set_max_relative_mod(0)
-
         else:
             self._setpoint = 10
             self._outputs.clear()
             self._heating_curve.reset()
 
         if not self._simulation:
-            await self._coordinator.api.set_control_setpoint(self._setpoint)
+            if float(self._get_boiler_value(gw_vars.DATA_CONTROL_SETPOINT)) != self._setpoint:
+                await self._coordinator.api.set_control_setpoint(self._setpoint)
 
         _LOGGER.info("Set control setpoint to %d", self._setpoint)
+
+    async def _async_control_max_relative_mod(self):
+        """Control the max relative mod of the heating system."""
+        if self._overshoot_protection and self._is_device_active:
+            if self._overshoot_protection_calculate:
+                # If overshoot protection is active, set the setpoint to a fixed value
+                _LOGGER.warning(f"[Overshoot Protection] Overwritten max relative mod to {OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD}%")
+                self._max_relative_mod = OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD
+            else:
+                # Calculate the max relative mod
+                self._max_relative_mod = self._calculate_max_relative_mod()
+        else:
+            self._max_relative_mod = 100
+
+        if not self._simulation:
+            if int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) != self._max_relative_mod:
+                await self._coordinator.api.set_max_relative_mod(self._max_relative_mod)
+
+        _LOGGER.info("Set max relative mod to %d", self._max_relative_mod)
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set the target temperature."""
