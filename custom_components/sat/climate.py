@@ -285,9 +285,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._hvac_mode = HVACMode.HEAT
             await self._async_set_setpoint(30)
 
-            if not self._simulation:
-                await self._coordinator.api.set_max_relative_mod(0)
-
             description = "[Overshoot Protection] Calculation started. "
             description += "This process will run for at least 20 minutes until a stable boiler water temperature is found."
 
