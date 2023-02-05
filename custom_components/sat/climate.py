@@ -710,9 +710,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._store.store_overshoot_protection_value(round(value, 1))
             _LOGGER.info("[Overshoot Protection] Result: %2.1f", value)
 
-            if not self._simulation:
-                await self._coordinator.api.set_max_relative_mod(100)
-
             await self.async_set_hvac_mode(self._saved_hvac_mode)
             await self._async_set_setpoint(self._saved_target_temperature)
 
@@ -785,8 +782,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._heating_curve.reset()
 
         if not self._simulation:
-            if float(self._get_boiler_value(gw_vars.DATA_CONTROL_SETPOINT)) != self._setpoint:
-                await self._coordinator.api.set_control_setpoint(self._setpoint)
+            await self._coordinator.api.set_control_setpoint(self._setpoint)
 
         _LOGGER.info("Set control setpoint to %d", self._setpoint)
 
