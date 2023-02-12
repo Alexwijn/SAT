@@ -155,7 +155,13 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
         # Get the maximum and minimum capacity from the data
         maximum_capacity = boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY)
-        minimum_capacity = maximum_capacity / (100 / boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL))
+        if maximum_capacity == 0:
+            return 0
+        minimum_modulation = boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL)
+        if minimum_modulation == 0:
+            minimum_capacity = 0
+        else:
+            minimum_capacity = maximum_capacity / (100 / minimum_modulation)
 
         # Calculate and return the current capacity in kW
         return minimum_capacity + (((maximum_capacity - minimum_capacity) / 100) * relative_modulation)
