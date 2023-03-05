@@ -4,7 +4,7 @@ import logging
 import pyotgw.vars as gw_vars
 from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, STATE_UNKNOWN
+from homeassistant.const import UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
@@ -142,9 +142,6 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
         """
         # Get the data of the boiler from the coordinator
         boiler = self._coordinator.data[gw_vars.BOILER]
-        # If the data is not available, return unknown
-        if boiler is None:
-            return STATE_UNKNOWN
 
         # If the flame is off, return 0 kW
         if bool(boiler.get(gw_vars.DATA_SLAVE_FLAME_ON)) is False:
@@ -153,8 +150,11 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
         # Get the relative modulation level from the data
         relative_modulation = boiler.get(gw_vars.DATA_REL_MOD_LEVEL)
 
-        # Get the maximum and minimum capacity from the data
-        maximum_capacity = boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY)
+        # Get the maximum capacity from the data
+        if (maximum_capacity := boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY)) == 0:
+            return 0
+
+        # Get and calculate the minimum capacity from the data
         minimum_capacity = maximum_capacity / (100 / boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL))
 
         # Calculate and return the current capacity in kW
