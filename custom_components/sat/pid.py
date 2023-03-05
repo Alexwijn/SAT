@@ -144,7 +144,7 @@ class PID:
         # Record the time of the latest update
         self._last_interval_updated = time.time()
 
-    def _update_derivative(self, alpha1: float = 0.4, alpha2: float = 0.3):
+    def _update_derivative(self, alpha1: float = 0.8, alpha2: float = 0.6):
         """
         Update the derivative term of the PID controller based on the latest error.
 
