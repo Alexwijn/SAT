@@ -138,8 +138,8 @@ class PID:
         self._integral += self.ki * error * time_elapsed
 
         # Clamp the integral value within the limit
-        self._integral = min(self._integral, int(+limit))
-        self._integral = max(self._integral, int(-limit))
+        self._integral = min(self._integral, float(+limit))
+        self._integral = max(self._integral, float(-limit))
 
         # Record the time of the latest update
         self._last_interval_updated = time.time()
