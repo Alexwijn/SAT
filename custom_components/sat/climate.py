@@ -346,10 +346,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "history_size": self._pid.history_size,
             "collected_errors": self._pid.num_errors,
             "integral_enabled": self._pid.integral_enabled,
+            "derivative_enabled": self._pid.derivative_enabled,
 
             "current_kp": self._pid.kp,
             "current_ki": self._pid.ki,
             "current_kd": self._pid.kd,
+
+            "derivative_raw": self._pid.raw_derivative,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -425,7 +428,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return HVACAction.HEATING
 
     @property
-    def max_error(self):
+    def max_error(self) -> float:
         return max([self.error] + self.climate_errors)
 
     @property
@@ -746,11 +749,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Update the pid controller
             self._pid.update(error=max_error, heating_curve_value=self._heating_curve.value)
-        else:
+        elif max_error != self._pid.last_error:
+            _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
+
             self._pid.update_reset(error=max_error, heating_curve_value=self._heating_curve.value)
             self._outputs.clear()
-
-            _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
         self.async_write_ha_state()
 

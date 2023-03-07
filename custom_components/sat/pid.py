@@ -12,7 +12,7 @@ class PID:
 
     def __init__(self, kp: float, ki: float, kd: float,
                  max_history: int = 2,
-                 deadband: float = 0.1,
+                 deadband: float = 0.05,
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
                  sample_time_limit: Optional[float] = 10,
@@ -36,6 +36,7 @@ class PID:
         self._history_size = max_history
         self._heating_system = heating_system
         self._automatic_gains = automatic_gains
+        self._last_interval_updated = time.time()
         self._sample_time_limit = max(sample_time_limit, 1)
         self._integral_time_limit = max(integral_time_limit, 1)
         self.reset()
@@ -44,13 +45,12 @@ class PID:
         """Reset the PID controller."""
         self._last_error = 0
         self._time_elapsed = 0
-        self._raw_derivative = 0
         self._last_updated = time.time()
         self._last_heating_curve_value = 0
 
-        # Reset the integral
+        # Reset the integral and derivative
         self._integral = 0
-        self._integral_enabled = False
+        self._raw_derivative = 0
 
         # Reset all lists
         self._times = deque(maxlen=self._history_size)
@@ -68,9 +68,6 @@ class PID:
         if error == self._last_error:
             return
 
-        if not self._integral_enabled and error <= 0:
-            self._integral_enabled = True
-
         if self._sample_time_limit and time_elapsed < self._sample_time_limit:
             return
 
@@ -81,7 +78,7 @@ class PID:
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
 
-        if abs(error) <= self._deadband:
+        if not self.derivative_enabled:
             self._times.clear()
             self._errors.clear()
             self._raw_derivative = 0
@@ -108,8 +105,6 @@ class PID:
         self._last_interval_updated = time.time()
         self._last_heating_curve_value = heating_curve_value
 
-        self._integral_enabled = error <= 0
-
     def update_integral(self, error: float, time_elapsed: float, heating_curve_value: float, force: bool = False):
         """
         Update the integral value in the PID controller.
@@ -120,7 +115,7 @@ class PID:
         :param force: Boolean flag indicating whether to force an update even if the integral time limit has not been reached.
         """
         # Make sure the integral term is enabled
-        if not self._integral_enabled:
+        if not self.integral_enabled:
             return
 
         # Check if we are within the limit for updating the integral term
@@ -224,6 +219,9 @@ class PID:
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
 
+        if last_raw_derivative := state.attributes.get("raw_derivative"):
+            self._raw_derivative = last_raw_derivative
+
         if last_heating_curve := state.attributes.get("heating_curve"):
             self._last_heating_curve_value = last_heating_curve
 
@@ -286,6 +284,11 @@ class PID:
         return round(self.kd * self._raw_derivative, 3)
 
     @property
+    def raw_derivative(self) -> float:
+        """Return the raw derivative value."""
+        return round(self._raw_derivative, 3)
+
+    @property
     def output(self) -> float:
         """Return the control output value."""
         return self.proportional + self.integral + self.derivative
@@ -293,7 +296,12 @@ class PID:
     @property
     def integral_enabled(self) -> bool:
         """Return whether the updates of the integral are enabled."""
-        return self._integral_enabled
+        return abs(self._last_error) <= self._deadband
+
+    @property
+    def derivative_enabled(self) -> bool:
+        """Return whether the updates of the derivative are enabled."""
+        return abs(self._last_error) > self._deadband
 
     @property
     def num_errors(self) -> int:
