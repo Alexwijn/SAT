@@ -43,14 +43,14 @@ class PID:
 
     def reset(self) -> None:
         """Reset the PID controller."""
-        self._last_error = 0
+        self._last_error = 0.0
         self._time_elapsed = 0
         self._last_updated = time.time()
         self._last_heating_curve_value = 0
 
         # Reset the integral and derivative
-        self._integral = 0
-        self._raw_derivative = 0
+        self._integral = 0.0
+        self._raw_derivative = 0.0
 
         # Reset all lists
         self._times = deque(maxlen=self._history_size)
@@ -105,12 +105,11 @@ class PID:
         self._last_interval_updated = time.time()
         self._last_heating_curve_value = heating_curve_value
 
-    def update_integral(self, error: float, time_elapsed: float, heating_curve_value: float, force: bool = False):
+    def update_integral(self, error: float, heating_curve_value: float, force: bool = False):
         """
         Update the integral value in the PID controller.
 
         :param error: The error value for the current iteration.
-        :param time_elapsed: The amount of time elapsed since the last update.
         :param heating_curve_value: The current value of the heating curve.
         :param force: Boolean flag indicating whether to force an update even if the integral time limit has not been reached.
         """
@@ -124,7 +123,9 @@ class PID:
         if not force and time.time() - self._last_interval_updated < self._integral_time_limit:
             return
 
+        current_time = time.time()
         limit = heating_curve_value / 10
+        time_elapsed = current_time - self._last_interval_updated
 
         # Check if the integral gain `ki` is set
         if self.ki is None:
@@ -138,7 +139,7 @@ class PID:
         self._integral = max(self._integral, float(-limit))
 
         # Record the time of the latest update
-        self._last_interval_updated = time.time()
+        self._last_interval_updated = current_time
 
     def _update_derivative(self, alpha1: float = 0.8, alpha2: float = 0.6):
         """

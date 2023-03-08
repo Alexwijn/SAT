@@ -664,7 +664,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 await self._async_control_heater(True)
 
             # Control the integral (if exceeded the time limit)
-            self._pid.update_integral(self.error, time() - self._pid.last_updated, self._heating_curve.value)
+            self._pid.update_integral(self.error, self._heating_curve.value)
 
             # Set the control setpoint
             await self._async_control_setpoint()
