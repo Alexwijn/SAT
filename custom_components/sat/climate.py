@@ -306,7 +306,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         async def reset_integral(_call: ServiceCall):
             """Service to reset the integral part of the PID controller."""
-            await self._async_control_pid(True)
+            self._pid.reset()
 
         self.hass.services.async_register(DOMAIN, "reset_integral", reset_integral)
 
