@@ -263,6 +263,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
         await self._async_control_heating()
+        await self._async_control_max_setpoint()
 
         async def start_overshoot_protection_calculation(_call: ServiceCall):
             """Service to start the overshoot protection calculation process.
@@ -518,18 +519,24 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Average it, so we don't have spikes
         setpoint = mean(list(self._outputs)[-5:])
 
-        # Ensure setpoint is within allowed range for each heating system
-        if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
-            setpoint = min(setpoint, 75.0)
-        elif self._heating_system == HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES:
-            setpoint = min(setpoint, 65.0)
-        elif self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
-            setpoint = min(setpoint, 55.0)
-        elif self._heating_system == HEATING_SYSTEM_UNDERFLOOR:
-            setpoint = min(setpoint, 50.0)
+        # Ensure setpoint is limited to our max
+        setpoint = min(setpoint, self._get_maximum_setpoint())
 
         # Ensure setpoint is at least 10
         return round(max(setpoint, 10.0), 1)
+
+    def _get_maximum_setpoint(self) -> float:
+        if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
+            return 75.0
+
+        if self._heating_system == HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES:
+            return 65.0
+
+        if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
+            return 55.0
+
+        if self._heating_system == HEATING_SYSTEM_UNDERFLOOR:
+            return 50.0
 
     def _calculate_max_relative_mod(self) -> int:
         if self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE):
