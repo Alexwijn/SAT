@@ -683,6 +683,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
+    async def _async_control_max_setpoint(self) -> None:
+        _LOGGER.info(f"Set max setpoint to {self._get_maximum_setpoint()}")
+
+        if not self._simulation:
+            await self._coordinator.api.set_max_ch_setpoint(self._get_maximum_setpoint())
+
     async def _async_control_overshoot_protection(self):
         """This method handles the overshoot protection process. It will turn on the heater if it's not already active,
         set the control setpoint to a fixed value, collect and store return water temperature data, and calculate
