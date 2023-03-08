@@ -116,6 +116,7 @@ class PID:
         """
         # Make sure the integral term is enabled
         if not self.integral_enabled:
+            self._integral = 0  
             return
 
         # Check if we are within the limit for updating the integral term
