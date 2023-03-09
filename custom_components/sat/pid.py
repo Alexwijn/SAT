@@ -96,6 +96,9 @@ class PID:
         self._last_interval_updated = time.time()
         self._last_heating_curve_value = heating_curve_value
 
+        self._errors = deque([error], maxlen=int(self._history_size))
+        self._times = deque([time.time()], maxlen=int(self._history_size))
+
     def update_integral(self, error: float, heating_curve_value: float, force: bool = False):
         """
         Update the integral value in the PID controller.
@@ -213,6 +216,8 @@ class PID:
         """
         if last_error := state.attributes.get("error"):
             self._last_error = last_error
+            self._errors = deque([last_error], maxlen=int(self._history_size))
+            self._times = deque([time.time()], maxlen=int(self._history_size))
 
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
