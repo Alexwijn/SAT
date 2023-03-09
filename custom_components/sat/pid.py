@@ -75,7 +75,7 @@ class PID:
         self._last_heating_curve_value = heating_curve_value
 
         self.update_integral(error, heating_curve_value, True)
-        self.update_derivative(error, current_time)
+        self.update_derivative(error)
         self.update_history_size()
 
         self._last_updated = current_time
@@ -216,6 +216,8 @@ class PID:
         """
         if last_error := state.attributes.get("error"):
             self._last_error = last_error
+            self._errors = deque([last_error], maxlen=int(self._history_size))
+            self._times = deque([time.time()], maxlen=int(self._history_size))
 
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
