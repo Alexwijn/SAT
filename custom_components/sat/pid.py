@@ -71,15 +71,15 @@ class PID:
         if self._sample_time_limit and time_elapsed < self._sample_time_limit:
             return
 
-        self._last_error = error
-        self._last_heating_curve_value = heating_curve_value
-
         self.update_integral(error, heating_curve_value, True)
         self.update_derivative(error)
         self.update_history_size()
 
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
+
+        self._last_error = error
+        self._last_heating_curve_value = heating_curve_value
 
     def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
         """Update the PID controller with resetting.
