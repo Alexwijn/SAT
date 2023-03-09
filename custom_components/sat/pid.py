@@ -216,8 +216,6 @@ class PID:
         """
         if last_error := state.attributes.get("error"):
             self._last_error = last_error
-            self._errors = deque([last_error], maxlen=int(self._history_size))
-            self._times = deque([time.time()], maxlen=int(self._history_size))
 
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
