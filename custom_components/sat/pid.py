@@ -73,22 +73,13 @@ class PID:
 
         self._last_error = error
         self._last_heating_curve_value = heating_curve_value
-        self.update_integral(error, time_elapsed, heating_curve_value, True)
+
+        self.update_integral(error, heating_curve_value, True)
+        self.update_derivative(error, current_time)
+        self.update_history_size()
 
         self._last_updated = current_time
         self._time_elapsed = time_elapsed
-
-        if not self.derivative_enabled:
-            self._times.clear()
-            self._errors.clear()
-            self._raw_derivative = 0
-            return
-
-        self._errors.append(error)
-        self._times.append(current_time)
-
-        self._update_derivative()
-        self._update_history_size()
 
     def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
         """Update the PID controller with resetting.
@@ -115,7 +106,7 @@ class PID:
         """
         # Make sure the integral term is enabled
         if not self.integral_enabled:
-            self._integral = 0  
+            self._integral = 0
             return
 
         # Check if we are within the limit for updating the integral term
@@ -141,7 +132,7 @@ class PID:
         # Record the time of the latest update
         self._last_interval_updated = current_time
 
-    def _update_derivative(self, alpha1: float = 0.8, alpha2: float = 0.6):
+    def update_derivative(self, error: float, alpha1: float = 0.8, alpha2: float = 0.6):
         """
         Update the derivative term of the PID controller based on the latest error.
 
@@ -149,6 +140,7 @@ class PID:
         first and last error values in the error history, and is then filtered twice
         using low-pass filters with parameters `alpha1` and `alpha2`.
 
+        :param error:  The error value for the current iteration.
         :param alpha1: The first low-pass filter parameter. It determines the weight given to
                        the new derivative value relative to the previous value.
                        A value of 1.0 corresponds to no filtering, and a value of 0.0
@@ -159,6 +151,10 @@ class PID:
                        A value of 1.0 corresponds to no filtering, and a value of 0.0
                        corresponds to only using the previous filtered value.
         """
+        # Fill the history
+        self._errors.append(error)
+        self._times.append(time.time())
+
         # If there are less than two errors in the history, we cannot calculate the derivative.
         if len(self._errors) < 2:
             return
@@ -175,7 +171,7 @@ class PID:
         # Apply the second low-pass filter to the filtered derivative.
         self._raw_derivative = alpha2 * filtered_derivative + (1 - alpha2) * self._raw_derivative
 
-    def _update_history_size(self, alpha: float = 0.8):
+    def update_history_size(self, alpha: float = 0.8):
         """
         Update the size of the history of errors and times.
 
@@ -259,6 +255,9 @@ class PID:
     @property
     def kd(self) -> float | None:
         """Return the value of kd based on the current configuration."""
+        if not self.derivative_enabled:
+            return 0
+
         if self._automatic_gains:
             if self._last_heating_curve_value is None:
                 return 0
