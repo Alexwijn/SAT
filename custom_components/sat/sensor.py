@@ -148,10 +148,10 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
             return 0
 
         # Get the relative modulation level from the data
-        relative_modulation = boiler.get(gw_vars.DATA_REL_MOD_LEVEL)
+        relative_modulation = float(boiler.get(gw_vars.DATA_REL_MOD_LEVEL) or 0)
 
         # Get the maximum capacity from the data
-        if (maximum_capacity := boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY)) == 0:
+        if (maximum_capacity := float(boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY) or 0)) == 0:
             return 0
 
         # Get and calculate the minimum capacity from the data
