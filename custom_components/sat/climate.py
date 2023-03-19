@@ -160,15 +160,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._climates = options.get(CONF_CLIMATES)
         self._main_climates = options.get(CONF_MAIN_CLIMATES)
 
-        self._simulation = options.get(CONF_SIMULATION)
-        self._heating_system = options.get(CONF_HEATING_SYSTEM)
-        self._overshoot_protection = options.get(CONF_OVERSHOOT_PROTECTION)
-        self._climate_valve_offset = options.get(CONF_CLIMATE_VALVE_OFFSET)
-        self._target_temperature_step = options.get(CONF_TARGET_TEMPERATURE_STEP)
+        self._simulation = bool(options.get(CONF_SIMULATION))
+        self._heating_system = str(options.get(CONF_HEATING_SYSTEM))
+        self._overshoot_protection = bool(options.get(CONF_OVERSHOOT_PROTECTION))
+        self._climate_valve_offset = float(options.get(CONF_CLIMATE_VALVE_OFFSET))
+        self._target_temperature_step = float(options.get(CONF_TARGET_TEMPERATURE_STEP))
         self._sensor_max_value_age = convert_time_str_to_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
-        self._attr_name = config_entry.data.get(CONF_NAME)
-        self._attr_id = config_entry.data.get(CONF_NAME).lower()
+        self._attr_name = str(config_entry.data.get(CONF_NAME))
+        self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
 
         self._attr_temperature_unit = unit
         self._attr_hvac_mode = HVACMode.OFF
@@ -815,9 +815,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             self._max_relative_mod = 100
 
+        if int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) == self._max_relative_mod:
+            return
+
         if not self._simulation:
-            if int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) != self._max_relative_mod:
-                await self._coordinator.api.set_max_relative_mod(self._max_relative_mod)
+            await self._coordinator.api.set_max_relative_mod(self._max_relative_mod)
 
         _LOGGER.info("Set max relative mod to %d", self._max_relative_mod)
 
