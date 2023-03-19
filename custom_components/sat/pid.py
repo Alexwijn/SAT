@@ -12,7 +12,7 @@ class PID:
 
     def __init__(self, kp: float, ki: float, kd: float,
                  max_history: int = 2,
-                 deadband: float = 0.05,
+                 deadband: float = 0.1,
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
                  sample_time_limit: Optional[float] = 10,
