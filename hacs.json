@@ -1,11 +1,9 @@
 {
-  "domain": "sat",
-  "homeassistant": "2023.1.0",
-  "name": "Smart Autotune Thermostat",
-  "codeowners": ["Alexwijn"],
-  "dependencies": [],
-  "documentation": "https://github.com/Alexwijn/SAT",
-  "integration_type": "hub",
-  "iot_class": "local_push",
-  "requirements": []
+  "hacs": "1.6.0",
+  "domains": [
+    "climate",
+    "sensor",
+    "binary_sensor"
+  ],
+  "homeassistant": "2023.1.0"
 }
