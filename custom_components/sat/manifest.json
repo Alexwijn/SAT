@@ -14,7 +14,7 @@
   ],
   "dhcp": [
     {
-      "hostname": "OTGW"
+      "hostname": "otgw"
     }
   ]
 }
