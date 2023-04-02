@@ -232,6 +232,14 @@ class PID:
         return self._last_error
 
     @property
+    def previous_error(self) -> float:
+        """Return the previous error value used by the PID controller."""
+        if len(self._errors) < 2:
+            return self._last_error
+
+        return self._errors[-2]
+
+    @property
     def last_updated(self) -> float:
         """Return the timestamp of the last update to the PID controller."""
         return self._last_updated
@@ -305,7 +313,7 @@ class PID:
     @property
     def derivative_enabled(self) -> bool:
         """Return whether the updates of the derivative are enabled."""
-        return abs(self._last_error) > self._deadband
+        return abs(self.last_error) > self._deadband or abs(self.previous_error) > self._deadband
 
     @property
     def num_errors(self) -> int:
