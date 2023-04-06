@@ -523,7 +523,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         duty_cycle_percent = ((setpoint - self._heating_curve.value) / (max_setpoint - self._heating_curve.value)) * self._max_cycle_time
         cycle_time = (duty_cycle_percent / 100) * self._max_cycle_time
 
-        return round(cycle_time, 0)
+        return round(max(0, cycle_time), 0)
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
