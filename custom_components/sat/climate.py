@@ -144,6 +144,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._sensors = []
         self._setpoint = None
+        self._last_cycle = time()
+        self._cycle_active = False
         self._max_relative_mod = None
         self._is_device_active = False
         self._outputs = deque(maxlen=50)
@@ -165,6 +167,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._overshoot_protection = bool(options.get(CONF_OVERSHOOT_PROTECTION))
         self._climate_valve_offset = float(options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(options.get(CONF_TARGET_TEMPERATURE_STEP))
+        self._max_cycle_time = convert_time_str_to_seconds(options.get(CONF_DUTY_CYCLE))
         self._sensor_max_value_age = convert_time_str_to_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
         self._attr_name = str(config_entry.data.get(CONF_NAME))
@@ -354,6 +357,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "current_kd": self._pid.kd,
 
             "derivative_raw": self._pid.raw_derivative,
+            "experimental_duty_cycle": self._calculate_duty_cycle(),
+            "experimental_cycle_active": self._cycle_active,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -503,6 +508,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
         """
         return self._coordinator.data[gw_vars.BOILER].get(key) if self._coordinator.data[gw_vars.BOILER] else None
+
+    def _calculate_duty_cycle(self) -> float:
+        """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
+        if self._heating_curve.value is None:
+            return 0
+
+        setpoint = self._heating_curve.value + self._pid.output
+        max_setpoint = self._store.retrieve_overshoot_protection_value()
+
+        if setpoint > max_setpoint:
+            return self._max_cycle_time
+
+        duty_cycle_percent = ((setpoint - self._heating_curve.value) / (max_setpoint - self._heating_curve.value)) * self._max_cycle_time
+        cycle_time = (duty_cycle_percent / 100) * self._max_cycle_time
+
+        return round(cycle_time, 0)
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
@@ -671,6 +692,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Set the max relative mod
             await self._async_control_max_relative_mod()
+
+            # Experimental PWM
+            await self._async_control_pwm_values()
         else:
             # If the temperature is too cold and the valves are open and the HVAC is not off, turn on the heater
             if (too_cold or climates_require_heat) and self.valves_open and self.hvac_action != HVACAction.OFF:
@@ -822,6 +846,27 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._coordinator.api.set_max_relative_mod(self._max_relative_mod)
 
         _LOGGER.info("Set max relative mod to %d", self._max_relative_mod)
+
+    async def _async_control_pwm_values(self):
+        """Turns the heating system on and off based on a calculated duty cycle."""
+        if not self._max_cycle_time or self._max_cycle_time <= 0:
+            return
+
+        now = time()
+        elapsed = now - self._last_cycle
+        duty_cycle = self._calculate_duty_cycle()
+
+        _LOGGER.debug(f"Calculated duty cycle {duty_cycle}")
+        _LOGGER.debug(f"Cycle time elapsed {elapsed}")
+
+        if self._cycle_active and elapsed >= duty_cycle:
+            self._cycle_active = False
+            self._last_cycle = now
+        elif not self._cycle_active and duty_cycle <= elapsed:
+            self._cycle_active = True
+            self._last_cycle = now
+
+        self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set the target temperature."""

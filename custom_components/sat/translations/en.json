@@ -60,6 +60,7 @@
       "advanced": {
         "title": "Advanced",
         "data": {
+          "duty_cycle": "Duty Cycle",
           "simulation": "Simulation",
           "sample_time": "Sample Time",
           "climate_valve_offset": "Climate valve offset",
