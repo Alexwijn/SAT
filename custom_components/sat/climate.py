@@ -534,14 +534,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.max_error > 0:
             requested_setpoint = max(requested_setpoint, self._heating_curve.value)
 
-        # Add to the list outputs so we can average it
-        self._outputs.append(requested_setpoint)
-
-        # Average it, so we don't have spikes
-        setpoint = mean(list(self._outputs)[-5:])
-
         # Ensure setpoint is limited to our max
-        setpoint = min(setpoint, self._get_maximum_setpoint())
+        setpoint = min(requested_setpoint, self._get_maximum_setpoint())
 
         # Ensure setpoint is at least 10
         return round(max(setpoint, 10.0), 1)
@@ -668,17 +662,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.current_temperature is None or self.target_temperature is None or self.current_outside_temperature is None:
             return
 
-        # Check if the temperature is too cold or any climate requires heat
-        climate_errors = self.climate_errors
-        climates_require_heat = max(climate_errors) if len(climate_errors) > 0 else 0 >= COLD_TOLERANCE
-        too_cold = self._target_temperature + COLD_TOLERANCE >= self._current_temperature
-
-        # Check if the temperature is too hot
-        too_hot = self._current_temperature >= self._target_temperature + HOT_TOLERANCE
+        # Get the control setpoint
+        setpoint = self._calculate_control_setpoint()
 
         if self._is_device_active:
-            # If the temperature is too hot or the valves are closed or HVAC is off, turn off the heater
-            if (too_hot and not climates_require_heat) or not self.valves_open or self.hvac_action == HVACAction.OFF:
+            # If the setpoint is too low or the valves are closed or HVAC is off, turn off the heater
+            if setpoint <= 10 or not self.valves_open or self.hvac_action == HVACAction.OFF:
                 await self._async_control_heater(False)
             # If the central heating is not enabled, turn on the heater
             elif not self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
@@ -696,10 +685,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Experimental PWM
             await self._async_control_pwm_values()
         else:
-            # If the temperature is too cold and the valves are open and the HVAC is not off, turn on the heater
-            if (too_cold or climates_require_heat) and self.valves_open and self.hvac_action != HVACAction.OFF:
+            # If the setpoint is high and the valves are open and the HVAC is not off, turn on the heater
+            if setpoint > 10 and self.valves_open and self.hvac_action != HVACAction.OFF:
                 await self._async_control_heater(True)
                 await self._async_control_setpoint()
+                await self._async_control_pwm_values()
                 await self._async_control_max_relative_mod()
             # If the central heating is enabled, turn off the heater
             elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
@@ -815,7 +805,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
             else:
                 # Calculate the control setpoint
-                self._setpoint = self._calculate_control_setpoint()
+                requested_setpoint = self._calculate_control_setpoint()
+
+                # Add to the list outputs so we can average it
+                self._outputs.append(requested_setpoint)
+
+                # Average it, so we don't have spikes
+                self._setpoint = mean(list(self._outputs)[-5:])
         else:
             self._setpoint = 10
             self._outputs.clear()
