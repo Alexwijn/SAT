@@ -517,10 +517,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         setpoint = self._heating_curve.value + self._pid.output
         max_setpoint = self._store.retrieve_overshoot_protection_value()
 
+        if max_setpoint is None:
+            return 0
+
         if setpoint > max_setpoint:
             return self._max_cycle_time
 
-        duty_cycle_percent = ((setpoint - self._heating_curve.value) / (max_setpoint - self._heating_curve.value)) * self._max_cycle_time
+        duty_cycle_percent = ((setpoint - self._heating_curve.value) / (max_setpoint - self._heating_curve.value)) * 100
         cycle_time = (duty_cycle_percent / 100) * self._max_cycle_time
 
         return round(max(0, cycle_time), 0)
