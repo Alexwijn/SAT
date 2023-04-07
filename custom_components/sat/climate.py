@@ -145,7 +145,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors = []
         self._setpoint = None
         self._last_cycle = time()
-        self._cycle_active = False
+        self._heater_active = False
         self._max_relative_mod = None
         self._is_device_active = False
         self._outputs = deque(maxlen=50)
@@ -358,7 +358,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "derivative_raw": self._pid.raw_derivative,
             "experimental_duty_cycle": self._calculate_duty_cycle(),
-            "experimental_cycle_active": self._cycle_active,
+            "experimental_cycle_active": self._heater_active,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
@@ -862,13 +862,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         _LOGGER.debug(f"Cycle time elapsed {elapsed}")
 
         if setpoint > max_setpoint:
-            self._cycle_active = True
+            self._heater_active = True
             self._last_cycle = now
-        elif self._cycle_active and elapsed >= duty_cycle:
-            self._cycle_active = False
+        elif self._heater_active and elapsed >= duty_cycle:
+            self._heater_active = False
             self._last_cycle = now
-        elif not self._cycle_active and duty_cycle <= elapsed:
-            self._cycle_active = True
+        elif not self._heater_active and elapsed >= (self._max_cycle_time - duty_cycle):
+            self._heater_active = True
             self._last_cycle = now
 
         self.async_write_ha_state()
