@@ -357,8 +357,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "current_kd": self._pid.kd,
 
             "derivative_raw": self._pid.raw_derivative,
+            "experimental_heater_active": self._heater_active,
             "experimental_duty_cycle": self._calculate_duty_cycle(),
-            "experimental_cycle_active": self._heater_active,
 
             "setpoint": self._setpoint,
             "valves_open": self.valves_open,
