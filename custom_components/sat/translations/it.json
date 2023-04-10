@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart Autotune Thermostat (SAT)",
+        "data": {
+          "name": "Nome",
+          "device": "Percorso or URL"
+        }
+      },
+      "sensors": {
+        "title": "Configura sensori",
+        "data": {
+          "inside_sensor_entity_id": "Entità sensore interno",
+          "outside_sensor_entity_id": "Entità sensore esterno"
+        }
+      }
+    },
+    "error": {
+      "auth": "Impossibile connettersi."
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "menu_options": {
+          "general": "Generale",
+          "presets": "Preset",
+          "climates": "Stanze",
+          "advanced": "Avanzate"
+        }
+      },
+      "general": {
+        "title": "Generale",
+        "data": {
+          "integral": "Integrale",
+          "derivative": "Derivativo",
+          "proportional": "Proporzionale",
+          "heating_system": "Tipo impianto",
+          "target_temperature_step": "Incremento temperatura",
+          "heating_curve_coefficient": "Coefficiente curva climatica"
+        }
+      },
+      "presets": {
+        "title": "Preset",
+        "data": {
+          "away_temperature": "Temperature fuori casa",
+          "home_temperature": "Temperatura in casa",
+          "sleep_temperature": "Temperatura notte",
+          "comfort_temperature": "Temperatura comfort"
+        }
+      },
+      "climates": {
+        "title": "Stanze (multi-stanza)",
+        "data": {
+          "climates": "Stanze aggiuntive",
+          "main_climates": "Stanze principali"
+        }
+      },
+      "advanced": {
+        "title": "Avanzate",
+        "data": {
+          "duty_cycle": "Ciclo di funzionamento",
+          "simulation": "Simulazione",
+          "sample_time": "Tempo campionamento",
+          "climate_valve_offset": "Offset valvola",
+          "sensor_max_value_age": "Timeout valore sensore",
+          "automatic_gains": "Guadagno automatico (sperimentale)",
+          "overshoot_protection": "Protezione superamento temperatura (sperimentale)",
+          "min_num_updates": "Numnero minimo di aggiornamenti richiesti per l'auto-ottimizzazione"
+        }
+      }
+    }
+  }
+}
