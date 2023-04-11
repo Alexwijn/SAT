@@ -44,6 +44,15 @@ SAT supports automatic PID gain tuning. When this feature is enabled, SAT will c
 ## Overshoot protection
 With overshoot protection enabled, SAT will automatically calculate the maximum allowed modulation value for the boiler based on the setpoint and the calculation overshoot protection value.
 
+## Tuning
+*Heating Curve Coefficient*: By adjusting the heating curve coefficient, you can balance the heating loss of your home with the energy generated from your boiler at a given setpoint based on the outside temperature. When this value is properly tuned then the room temperature should float around the setpoint.
+
+*Gains*: SAT offers two ways of tuning the PID gains - manual and automatic.
+- Manual tuning: You can fill the Proportional, Integral and Derivative fields in the General tab with your own values.
+- Automatic Gains ( Recommended ): You can enable this option in the Advanced Tab. Automatic gains dynamically change the kP, kI and kD values based on the heating curve value. So, based on the outside temperature the gains are changing from mild to aggressive without intervention.
+
+*Overshoot Protection* ( Experimental ): When this option is enabled, SAT sends the MM=0 and CS=75 commands. Then SAT tries to find the highest boiler flow water temperature that can be produced given that the boiler runs at 0 % modulation. This mechanism needs at least 20 minutes. When overshoot protection value calculation is over, SAT falls back to it's normal operation. This value is stored as attribute in the SAT climate entity and then is used in order to calculate the boiler ON/OFF times of the low load control algorithm.
+
 ## Support
 If you want to support this project, you can [**buy me a coffee here**](https://www.buymeacoffee.com/alexwijn).
 
