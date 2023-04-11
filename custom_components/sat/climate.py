@@ -166,6 +166,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._heating_system = str(options.get(CONF_HEATING_SYSTEM))
         self._overshoot_protection = bool(options.get(CONF_OVERSHOOT_PROTECTION))
         self._climate_valve_offset = float(options.get(CONF_CLIMATE_VALVE_OFFSET))
+        self._pulse_width_modulation = bool(options.get(CONF_PULSE_WIDTH_MODULATION))
         self._target_temperature_step = float(options.get(CONF_TARGET_TEMPERATURE_STEP))
         self._max_cycle_time = convert_time_str_to_seconds(options.get(CONF_DUTY_CYCLE))
         self._sensor_max_value_age = convert_time_str_to_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
@@ -518,12 +519,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         max_setpoint = self._store.retrieve_overshoot_protection_value()
 
         if max_setpoint is None:
-            return 0
+            max_setpoint = 55
 
         if setpoint > max_setpoint:
             return self._max_cycle_time
 
-        duty_cycle_percent = ((setpoint - self._heating_curve.value) / (max_setpoint - self._heating_curve.value)) * 100
+        duty_cycle_percent = ((setpoint - self._heating_curve.base_offset) / (max_setpoint - self._heating_curve.base_offset)) * 100
         cycle_time = (duty_cycle_percent / 100) * self._max_cycle_time
 
         return round(max(0, cycle_time), 0)
@@ -806,6 +807,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 # If overshoot protection is active, set the setpoint to a fixed value
                 _LOGGER.warning(f"[Overshoot Protection] Overwritten setpoint to {OVERSHOOT_PROTECTION_SETPOINT} degrees")
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
+            elif self._pulse_width_modulation:
+                if self._heater_active:
+                    self._setpoint = self._get_maximum_setpoint()
+                else:
+                    self._setpoint = 10
             else:
                 # Calculate the control setpoint
                 requested_setpoint = self._calculate_control_setpoint()
@@ -848,6 +854,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_pwm_values(self):
         """Turns the heating system on and off based on a calculated duty cycle."""
+        if self._heating_curve.value is None:
+            return
+
         if not self._max_cycle_time or self._max_cycle_time <= 0:
             return
 
