@@ -869,6 +869,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         setpoint = self._heating_curve.value + self._pid.output
         max_setpoint = self._store.retrieve_overshoot_protection_value()
+        if max_setpoint is None:
+            max_setpoint = 55
 
         _LOGGER.debug(f"Calculated duty cycle {duty_cycle}")
         _LOGGER.debug(f"Cycle time elapsed {elapsed}")
