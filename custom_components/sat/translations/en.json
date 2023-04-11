@@ -18,6 +18,9 @@
     },
     "error": {
       "auth": "Unable to connect."
+    },
+    "abort": {
+      "already_configured": "Gateway is already configured."
     }
   },
   "options": {
@@ -65,8 +68,9 @@
           "sample_time": "Sample Time",
           "climate_valve_offset": "Climate valve offset",
           "sensor_max_value_age": "Sensor max. value age",
-          "automatic_gains": "Automatic gains (experimental)",
-          "overshoot_protection": "Overshoot Protection (experimental)",
+          "automatic_gains": "Automatic gains",
+          "overshoot_protection": "Overshoot Protection",
+          "pulse_width_modulation": "Pulse Width Modulation (experimental)",
           "min_num_updates": "Minimum number of updates required for auto-tuning"
         }
       }
