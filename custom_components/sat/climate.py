@@ -531,6 +531,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
+        if self._heating_curve.value is None:
+            return 10
+
         # Combine the heating curve value and the calculated output from the pid controller
         requested_setpoint = self._heating_curve.value + self._pid.output
 
