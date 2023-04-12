@@ -29,8 +29,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_dhcp(self, discovery_info: dhcp.DhcpServiceInfo) -> FlowResult:
         """Handle dhcp discovery."""
-        self._data.update({CONF_DEVICE: discovery_info.ip})
         _LOGGER.debug("Discovered OTGW at [%s]", discovery_info.ip)
+
+        # abort if we already have exactly this gateway id/host
+        # reload the integration if the host got updated
+        await self.async_set_unique_id(discovery_info.ip)
+        self._abort_if_unique_id_configured(updates={CONF_DEVICE: discovery_info.ip}, reload_on_update=True)
 
         return await self.async_step_user()
 
@@ -43,6 +47,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not await self._test_gateway_connection():
                 self._errors["base"] = "auth"
                 return await self.async_step_gateway_setup()
+
+            await self.async_set_unique_id(self._data[CONF_DEVICE], raise_on_progress=False)
+            self._abort_if_unique_id_configured()
 
             return await self.async_step_sensors_setup()
 
@@ -199,6 +206,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
                 vol.Required(CONF_AUTOMATIC_GAINS, default=defaults.get(CONF_AUTOMATIC_GAINS)): bool,
                 vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION]): bool,
+                vol.Required(CONF_PULSE_WIDTH_MODULATION, default=defaults[CONF_PULSE_WIDTH_MODULATION]): bool,
                 vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
                 ),

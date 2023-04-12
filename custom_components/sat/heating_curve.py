@@ -21,23 +21,21 @@ class HeatingCurve:
 
     def update(self, target_temperature: float, outside_temperature: float) -> None:
         """Calculate the heating curve based on the outside temperature."""
-        base_offset = self._get_base_offset()
         heating_curve_value = self._get_heating_curve_value(
             target_temperature=target_temperature,
             outside_temperature=outside_temperature
         )
 
-        self._last_heating_curve_value = round(base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
+        self._last_heating_curve_value = round(self.base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
 
     def calculate_coefficient(self, setpoint: float, target_temperature: float, outside_temperature: float) -> float:
         """Convert a setpoint to a coefficient value"""
-        base_offset = self._get_base_offset()
         heating_curve_value = self._get_heating_curve_value(
             target_temperature=target_temperature,
             outside_temperature=outside_temperature
         )
 
-        return round(4 * (setpoint - base_offset) / heating_curve_value, 1)
+        return round(4 * (setpoint - self.base_offset) / heating_curve_value, 1)
 
     def autotune(self, setpoints: deque, target_temperature: float, outside_temperature: float):
         coefficient = self.calculate_coefficient(
@@ -51,10 +49,6 @@ class HeatingCurve:
 
         self._optimal_coefficient = coefficient
 
-    def _get_base_offset(self) -> float:
-        """Determine the base offset for the heating system."""
-        return 20 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 27.2
-
     @staticmethod
     def _get_heating_curve_value(target_temperature: float, outside_temperature: float) -> float:
         """Calculate the heating curve value based on the current outside temperature"""
@@ -66,6 +60,11 @@ class HeatingCurve:
             return None
 
         return round(mean(self._optimal_coefficients), 1)
+
+    @property
+    def base_offset(self) -> float:
+        """Determine the base offset for the heating system."""
+        return 20 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 27.2
 
     @property
     def value(self):

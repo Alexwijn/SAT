@@ -46,6 +46,7 @@ CONF_AUTOMATIC_GAINS = "automatic_gains"
 CONF_CLIMATE_VALVE_OFFSET = "climate_valve_offset"
 CONF_SENSOR_MAX_VALUE_AGE = "sensor_max_value_age"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
+CONF_PULSE_WIDTH_MODULATION = "pulse_width_modulation"
 CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
@@ -72,8 +73,10 @@ OPTIONS_DEFAULTS = {
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
     CONF_AUTOMATIC_GAINS: False,
-    CONF_SAMPLE_TIME: "00:01:00",
+    CONF_PULSE_WIDTH_MODULATION: False,
+
     CONF_DUTY_CYCLE: "00:13:00",
+    CONF_SAMPLE_TIME: "00:01:00",
     CONF_CLIMATE_VALVE_OFFSET: 0,
     CONF_OVERSHOOT_PROTECTION: False,
     CONF_TARGET_TEMPERATURE_STEP: 0.5,
