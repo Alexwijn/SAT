@@ -5,7 +5,7 @@
         "title": "Smart Autotune Thermostat (SAT)",
         "data": {
           "name": "Nome",
-          "device": "Percorso or URL"
+          "device": "Percorso o URL"
         }
       },
       "sensors": {
@@ -17,7 +17,7 @@
       }
     },
     "error": {
-      "auth": "Impossibile connettersi."
+      "auth": "Impossibile collegarsi."
     }
   },
   "options": {
@@ -44,9 +44,9 @@
       "presets": {
         "title": "Preset",
         "data": {
-          "away_temperature": "Temperature fuori casa",
+          "away_temperature": "Temperatura fuori casa",
           "home_temperature": "Temperatura in casa",
-          "sleep_temperature": "Temperatura notte",
+          "sleep_temperature": "Temperatura di notte",
           "comfort_temperature": "Temperatura comfort"
         }
       },
@@ -65,8 +65,9 @@
           "sample_time": "Tempo campionamento",
           "climate_valve_offset": "Offset valvola",
           "sensor_max_value_age": "Timeout valore sensore",
-          "automatic_gains": "Guadagno automatico (sperimentale)",
-          "overshoot_protection": "Protezione superamento temperatura (sperimentale)",
+          "automatic_gains": "Guadagno automatico",
+          "overshoot_protection": "Protezione superamento temperatura",
+          "pulse_width_modulation": "Modulazione di larghezza d'impulso PWM (sperimentale)",
           "min_num_updates": "Numnero minimo di aggiornamenti richiesti per l'auto-ottimizzazione"
         }
       }
