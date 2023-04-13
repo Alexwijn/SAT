@@ -429,7 +429,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
 
-        if not self._is_device_active:
+        if not self._is_device_active or (self._pulse_width_modulation and not self._heater_active):
             return HVACAction.IDLE
 
         return HVACAction.HEATING
@@ -564,11 +564,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE):
             return 100
 
-        if (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is None:
-            return 100
+        if not self._pulse_width_modulation:
+            if (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is None:
+                return 100
 
-        if abs(self.max_error) > 0.1 and self._setpoint >= (overshoot_protection_value - 2):
-            return 100
+            if abs(self.max_error) > 0.1 and self._setpoint >= (overshoot_protection_value - 2):
+                return 100
 
         return 0
 
@@ -811,8 +812,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 _LOGGER.warning(f"[Overshoot Protection] Overwritten setpoint to {OVERSHOOT_PROTECTION_SETPOINT} degrees")
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
             elif self._pulse_width_modulation:
+                if (max_setpoint := self._store.retrieve_overshoot_protection_value()) is None:
+                    max_setpoint = 55
+
                 if self._heater_active:
-                    self._setpoint = self._get_maximum_setpoint()
+                    self._setpoint = max_setpoint
                 else:
                     self._setpoint = 10
             else:
@@ -868,7 +872,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         duty_cycle = self._calculate_duty_cycle()
 
         setpoint = self._heating_curve.value + self._pid.output
-        max_setpoint = self._store.retrieve_overshoot_protection_value()
+        if (max_setpoint := self._store.retrieve_overshoot_protection_value()) is None:
+            max_setpoint = 55
 
         _LOGGER.debug(f"Calculated duty cycle {duty_cycle}")
         _LOGGER.debug(f"Cycle time elapsed {elapsed}")
@@ -879,7 +884,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif self._heater_active and elapsed >= duty_cycle:
             self._heater_active = False
             self._last_cycle = now
-        elif not self._heater_active and elapsed >= (self._max_cycle_time - duty_cycle):
+        elif not self._heater_active and duty_cycle > 180 and elapsed >= (self._max_cycle_time - duty_cycle):
             self._heater_active = True
             self._last_cycle = now
 
@@ -887,8 +892,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set the target temperature."""
-        temperature = kwargs.get(ATTR_TEMPERATURE)
-        if temperature is None:
+        if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:
             return
 
         # Ignore the request when we are in calculation mode
