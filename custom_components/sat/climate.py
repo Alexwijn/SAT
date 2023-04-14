@@ -852,7 +852,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._setpoint = mean(list(self._outputs)[-5:])
         else:
             self._outputs.clear()
-            self._heating_curve.reset()
             self._setpoint = MINIMUM_SETPOINT
 
         if not self._simulation:
