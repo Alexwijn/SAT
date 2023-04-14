@@ -49,14 +49,12 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
         await asyncio.gather(
             _hass.config_entries.async_forward_entry_unload(_entry, CLIMATE),
             _hass.config_entries.async_forward_entry_unload(_entry, SENSOR),
-            _hass.config_entries.async_forward_entry_unload(_entry, BINARY_SENSOR)
+            _hass.config_entries.async_forward_entry_unload(_entry, BINARY_SENSOR),
+            _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].cleanup()
         )
     )
 
     if unloaded:
-        coordinator = _hass.data[DOMAIN][_entry.entry_id][COORDINATOR]
-        await coordinator.cleanup()
-
         _hass.data[DOMAIN].pop(_entry.entry_id)
 
     return unloaded
