@@ -884,7 +884,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_pwm_values(self):
         """Turns the heating system on and off based on a calculated duty cycle."""
-        if not self._overshoot_protection or self._heating_curve.value is None:
+        if (not self._overshoot_protection and not self._force_pulse_width_modulation) or self._heating_curve.value is None:
             return
 
         if not self._max_cycle_time or self._max_cycle_time <= 0:
