@@ -205,8 +205,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
                 vol.Required(CONF_AUTOMATIC_GAINS, default=defaults.get(CONF_AUTOMATIC_GAINS)): bool,
+                vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=defaults[CONF_FORCE_PULSE_WIDTH_MODULATION]): bool,
                 vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION]): bool,
-                vol.Required(CONF_PULSE_WIDTH_MODULATION, default=defaults[CONF_PULSE_WIDTH_MODULATION]): bool,
                 vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
                 ),
