@@ -720,9 +720,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Control the integral (if exceeded the time limit)
             self._pid.update_integral(self.max_error, self._heating_curve.value)
 
-            # Set the control setpoint
-            await self._async_control_setpoint()
-
             # Set the max relative mod
             await self._async_control_max_relative_mod()
 
@@ -730,14 +727,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pwm_values()
         else:
             # If the setpoint is high and the valves are open and the HVAC is not off, turn on the heater
-            if setpoint > 10 and self.valves_open and self.hvac_action != HVACAction.OFF:
+            if setpoint > MINIMUM_SETPOINT and self.valves_open and self.hvac_action != HVACAction.OFF:
                 await self._async_control_heater(True)
-                await self._async_control_setpoint()
                 await self._async_control_pwm_values()
                 await self._async_control_max_relative_mod()
             # If the central heating is enabled, turn off the heater
             elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
                 await self._async_control_heater(False)
+
+        # Set the control setpoint to make sure we always stay in control
+        await self._async_control_setpoint()
 
         self.async_write_ha_state()
 
