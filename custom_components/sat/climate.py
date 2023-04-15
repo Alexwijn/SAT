@@ -532,7 +532,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._force_pulse_width_modulation:
             return True
 
-        if self._overshoot_protection and self.max_error > 0.1:
+        if self._overshoot_protection and self.max_error <= 0.1:
             return True
 
         return False
