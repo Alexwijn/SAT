@@ -28,8 +28,9 @@ BINARY_SENSOR_DEVICE_CLASS = "connectivity"
 
 # Platforms
 SENSOR = "sensor"
-BINARY_SENSOR = "binary_sensor"
+NUMBER = "number"
 CLIMATE = "climate"
+BINARY_SENSOR = "binary_sensor"
 
 # Configuration and options
 CONF_NAME = "name"
@@ -46,7 +47,7 @@ CONF_AUTOMATIC_GAINS = "automatic_gains"
 CONF_CLIMATE_VALVE_OFFSET = "climate_valve_offset"
 CONF_SENSOR_MAX_VALUE_AGE = "sensor_max_value_age"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
-CONF_PULSE_WIDTH_MODULATION = "pulse_width_modulation"
+CONF_FORCE_PULSE_WIDTH_MODULATION = "force_pulse_width_modulation"
 CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
@@ -73,12 +74,13 @@ OPTIONS_DEFAULTS = {
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
     CONF_AUTOMATIC_GAINS: False,
-    CONF_PULSE_WIDTH_MODULATION: False,
+
+    CONF_OVERSHOOT_PROTECTION: False,
+    CONF_FORCE_PULSE_WIDTH_MODULATION: False,
 
     CONF_DUTY_CYCLE: "00:13:00",
     CONF_SAMPLE_TIME: "00:01:00",
     CONF_CLIMATE_VALVE_OFFSET: 0,
-    CONF_OVERSHOOT_PROTECTION: False,
     CONF_TARGET_TEMPERATURE_STEP: 0.5,
     CONF_SENSOR_MAX_VALUE_AGE: "06:00:00",
 
@@ -472,12 +474,6 @@ SENSOR_INFO: dict[str, list] = {
         SensorDeviceClass.TEMPERATURE,
         UnitOfTemperature.CELSIUS,
         "Boiler Minimum Central Heating Setpoint {}",
-        [gw_vars.BOILER, gw_vars.THERMOSTAT],
-    ],
-    gw_vars.DATA_DHW_SETPOINT: [
-        SensorDeviceClass.TEMPERATURE,
-        UnitOfTemperature.CELSIUS,
-        "Hot Water Setpoint {}",
         [gw_vars.BOILER, gw_vars.THERMOSTAT],
     ],
     gw_vars.DATA_MAX_CH_SETPOINT: [
