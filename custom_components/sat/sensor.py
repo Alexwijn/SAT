@@ -117,7 +117,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str | None:
-        return "Boiler Current Power"
+        return f"Boiler Current Power {self._config_entry.data.get(CONF_NAME)} (Boiler)"
 
     @property
     def device_class(self):
@@ -163,4 +163,4 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-current-power"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-power"
