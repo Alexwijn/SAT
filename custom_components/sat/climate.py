@@ -445,7 +445,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
 
-        if not self._is_device_active or (self._pulse_width_modulation_enabled and not self._heater_active):
+        if not self._is_device_active:
             return HVACAction.IDLE
 
         return HVACAction.HEATING
