@@ -20,7 +20,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
 
     @property
     def name(self) -> str | None:
-        return "{} Hot Water Setpoint (Boiler)".format(self._config_entry.data.get(CONF_NAME).data.get(CONF_NAME))
+        return f"{self._config_entry.data.get(CONF_NAME)} Hot Water Setpoint (Boiler)"
 
     @property
     def device_class(self):
