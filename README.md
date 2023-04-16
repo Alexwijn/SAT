@@ -10,6 +10,7 @@ The Smart Autotune Thermostat (SAT) is a custom component for Home Assistant tha
 - Overshoot protection to prevent the boiler from overshooting the setpoint
 - Climate valve offset to adjust the temperature reading for your climate valve
 - Sample time for PID control to fine-tune your system's response time
+- Control DHW setpoint
 
 ## Installation
 ### Manual
