@@ -20,7 +20,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
 
     @property
     def name(self) -> str | None:
-        return "Boiler Hot Water Setpoint (Boiler)"
+        return "{} Hot Water Setpoint (Boiler)".format(self._config_entry.data.get(CONF_NAME).data.get(CONF_NAME))
 
     @property
     def device_class(self):
@@ -30,7 +30,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler_dhw_setpoint"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-dhw-setpoint"
 
     @property
     def icon(self) -> str | None:
