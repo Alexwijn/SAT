@@ -597,7 +597,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return 50.0
 
     def _calculate_max_relative_mod(self) -> int:
-        if self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE):
+        if bool(self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE)):
             return 100
 
         if self._overshoot_protection and not self._force_pulse_width_modulation:
@@ -711,10 +711,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if self._is_device_active:
             # If the setpoint is too low or the valves are closed or HVAC is off, turn off the heater
-            if setpoint <= MINIMUM_SETPOINT or not self.valves_open or self.hvac_action == HVACAction.OFF:
+            if setpoint <= MINIMUM_SETPOINT or not self.valves_open or self.hvac_mode == HVACMode.OFF:
                 await self._async_control_heater(False)
             # If the central heating is not enabled, turn on the heater
-            elif not self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
+            elif not bool(self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED)):
                 await self._async_control_heater(True)
 
             # Control the integral (if exceeded the time limit)
@@ -727,12 +727,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pwm_values()
         else:
             # If the setpoint is high and the valves are open and the HVAC is not off, turn on the heater
-            if setpoint > MINIMUM_SETPOINT and self.valves_open and self.hvac_action != HVACAction.OFF:
+            if setpoint > MINIMUM_SETPOINT and self.valves_open and self.hvac_mode != HVACMode.OFF:
                 await self._async_control_heater(True)
                 await self._async_control_pwm_values()
                 await self._async_control_max_relative_mod()
             # If the central heating is enabled, turn off the heater
-            elif self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED):
+            elif bool(self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED)):
                 await self._async_control_heater(False)
 
         # Set the control setpoint to make sure we always stay in control
@@ -759,8 +759,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_heater(True)
 
         # Collect central heating water temperature data
-        central_heating_water_temperature = self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP)
-        if central_heating_water_temperature is None:
+        if (central_heating_water_temperature := self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP)) is None:
             return
 
         # Set the control setpoint to a fixed value for overshoot protection
@@ -773,8 +772,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if len(self._overshoot_protection_data) < OVERSHOOT_PROTECTION_REQUIRED_DATASET:
             return
 
-        value = mean(self._overshoot_protection_data[-3:])
-        difference = abs(round(central_heating_water_temperature, 1) - mean(self._overshoot_protection_data[-3:]))
+        value = mean(self._overshoot_protection_data[-5:])
+        difference = abs(round(central_heating_water_temperature, 1) - value)
 
         # Deactivate overshoot protection if the difference between the current return water temperature and the mean
         # is small and store the calculated value
