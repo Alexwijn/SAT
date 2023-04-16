@@ -117,7 +117,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str | None:
-        return "Boiler Current Power"
+        return "Boiler Current Power (Boiler)"
 
     @property
     def device_class(self):

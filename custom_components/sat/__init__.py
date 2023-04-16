@@ -36,6 +36,7 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
 
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE))
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, SENSOR))
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, NUMBER))
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, BINARY_SENSOR))
 
     _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
@@ -49,6 +50,7 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
         await asyncio.gather(
             _hass.config_entries.async_forward_entry_unload(_entry, CLIMATE),
             _hass.config_entries.async_forward_entry_unload(_entry, SENSOR),
+            _hass.config_entries.async_forward_entry_unload(_entry, NUMBER),
             _hass.config_entries.async_forward_entry_unload(_entry, BINARY_SENSOR),
             _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].cleanup()
         )

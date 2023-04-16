@@ -28,8 +28,9 @@ BINARY_SENSOR_DEVICE_CLASS = "connectivity"
 
 # Platforms
 SENSOR = "sensor"
-BINARY_SENSOR = "binary_sensor"
+NUMBER = "number"
 CLIMATE = "climate"
+BINARY_SENSOR = "binary_sensor"
 
 # Configuration and options
 CONF_NAME = "name"
@@ -473,12 +474,6 @@ SENSOR_INFO: dict[str, list] = {
         SensorDeviceClass.TEMPERATURE,
         UnitOfTemperature.CELSIUS,
         "Boiler Minimum Central Heating Setpoint {}",
-        [gw_vars.BOILER, gw_vars.THERMOSTAT],
-    ],
-    gw_vars.DATA_DHW_SETPOINT: [
-        SensorDeviceClass.TEMPERATURE,
-        UnitOfTemperature.CELSIUS,
-        "Hot Water Setpoint {}",
         [gw_vars.BOILER, gw_vars.THERMOSTAT],
     ],
     gw_vars.DATA_MAX_CH_SETPOINT: [
