@@ -785,7 +785,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_NOTIFY, {
                 "title": "Overshoot Protection Calculation",
-                "message": "Finished calculating. Result: %2.1f".format(value)
+                "message": f"Finished calculating. Result: {round(value, 1)}"
             })
 
     async def _async_control_pid(self, reset: bool = False):
