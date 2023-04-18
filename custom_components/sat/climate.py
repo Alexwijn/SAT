@@ -158,6 +158,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._saved_target_temperature = None
 
         self._overshoot_protection_data = []
+        self._overshoot_protection_started = None
         self._overshoot_protection_calculate = False
 
         self._climates = options.get(CONF_CLIMATES)
@@ -299,6 +300,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 return
 
             self._overshoot_protection_data = []
+            self._overshoot_protection_started = time()
             self._overshoot_protection_calculate = True
 
             self._saved_hvac_mode = self._hvac_mode
@@ -763,6 +765,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Set the control setpoint to a fixed value for overshoot protection
         await self._async_control_setpoint()
         await self._async_control_heater(True)
+
+        # Wait at least 20 minutes before starting to collect data
+        if (time() - self._overshoot_protection_started) < 1200:
+            _LOGGER.info("[Overshoot Protection] Waiting for at least 20 minutes before continuing.")
+            return
 
         self._overshoot_protection_data.append(round(central_heating_water_temperature, 1))
         _LOGGER.info("[Overshoot Protection] Central Heating Water Temperature Collected: %2.1f", central_heating_water_temperature)
