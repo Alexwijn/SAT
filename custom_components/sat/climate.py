@@ -706,37 +706,35 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.current_temperature is None or self.target_temperature is None or self.current_outside_temperature is None:
             return
 
-        # Get the control setpoint
-        setpoint = self._calculate_control_setpoint()
+        # Make sure the boiler is off when the climate is off, and do nothing else
+        if self.hvac_mode == HVACMode.OFF and bool(self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED)):
+            await self._async_control_heater(False)
+            return
 
-        if self._is_device_active:
-            # If the setpoint is too low or the valves are closed or HVAC is off, turn off the heater
-            if setpoint <= MINIMUM_SETPOINT or not self.valves_open or self.hvac_mode == HVACMode.OFF:
-                await self._async_control_heater(False)
-            # If the central heating is not enabled, turn on the heater
-            elif not bool(self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED)):
-                await self._async_control_heater(True)
+        # Pulse Width Modulation
+        await self._async_control_pwm_values()
 
-            # Control the integral (if exceeded the time limit)
-            self._pid.update_integral(self.max_error, self._heating_curve.value)
-
-            # Set the max relative mod
-            await self._async_control_max_relative_mod()
-
-            # Experimental PWM
-            await self._async_control_pwm_values()
-        else:
-            # If the setpoint is high and the valves are open and the HVAC is not off, turn on the heater
-            if setpoint > MINIMUM_SETPOINT and self.valves_open and self.hvac_mode != HVACMode.OFF:
-                await self._async_control_heater(True)
-                await self._async_control_pwm_values()
-                await self._async_control_max_relative_mod()
-            # If the central heating is enabled, turn off the heater
-            elif bool(self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED)):
-                await self._async_control_heater(False)
+        # Set the max relative mod
+        await self._async_control_max_relative_mod()
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint()
+
+        # Control the integral (if exceeded the time limit)
+        self._pid.update_integral(self.max_error, self._heating_curve.value)
+
+        if self._is_device_active:
+            # If the setpoint is too low or the valves are closed or HVAC is off, turn off the heater
+            if self._setpoint <= MINIMUM_SETPOINT or not self.valves_open or self.hvac_mode == HVACMode.OFF:
+                await self._async_control_heater(False)
+            else:
+                await self._async_control_heater(True)
+        else:
+            # If the setpoint is high and the valves are open and the HVAC is not off, turn on the heater
+            if self._setpoint > MINIMUM_SETPOINT and self.valves_open and self.hvac_mode != HVACMode.OFF:
+                await self._async_control_heater(True)
+            else:
+                await self._async_control_heater(False)
 
         self.async_write_ha_state()
 
@@ -755,8 +753,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         Note that this method will run every 30 seconds, but it won't activate the overshoot protection if it's already running.
         """
         # Turn on the heater if it's not already active
-        if not self._is_device_active:
-            await self._async_control_heater(True)
+        if self._hvac_mode == HVACMode.OFF:
+            await self.async_set_hvac_mode(HVACMode.HEAT)
 
         # Collect central heating water temperature data
         if (central_heating_water_temperature := self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP)) is None:
@@ -840,15 +838,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_setpoint(self):
         """Control the setpoint of the heating system."""
-        if self._is_device_active:
+        if self._hvac_mode == HVACMode.HEAT:
             if self._overshoot_protection_calculate:
                 self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
                 _LOGGER.warning(f"[Overshoot Protection] Overwritten setpoint to {OVERSHOOT_PROTECTION_SETPOINT} degrees")
             elif self._pulse_width_modulation_enabled:
                 self._setpoint = self._store.retrieve_overshoot_protection_value() if self._heater_active else MINIMUM_SETPOINT
+                _LOGGER.info("Running pulse width modulation cycle.")
             else:
                 self._outputs.append(self._calculate_control_setpoint())
                 self._setpoint = mean(list(self._outputs)[-5:])
+                _LOGGER.info("Running normal cycle.")
         else:
             self._outputs.clear()
             self._setpoint = MINIMUM_SETPOINT
@@ -860,7 +860,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_max_relative_mod(self):
         """Control the max relative mod of the heating system."""
-        if self._is_device_active:
+        if self._hvac_mode == HVACMode.HEAT:
             if self._overshoot_protection_calculate:
                 # If overshoot protection is active, set the setpoint to a fixed value
                 _LOGGER.warning(f"[Overshoot Protection] Overwritten max relative mod to {OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD}%")
@@ -892,18 +892,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         duty_cycle = self._calculate_duty_cycle()
         requested_setpoint = self._get_requested_setpoint()
 
-        _LOGGER.debug(f"Calculated duty cycle {duty_cycle}")
-        _LOGGER.debug(f"Cycle time elapsed {elapsed}")
+        _LOGGER.debug(f"Cycle time elapsed {int(elapsed)}")
+        _LOGGER.debug(f"Calculated duty cycle {int(duty_cycle)}")
+        _LOGGER.debug(f"Heater active: {int(self._heater_active)}")
 
         if requested_setpoint > self._store.retrieve_overshoot_protection_value():
             self._heater_active = True
             self._last_cycle = now
+            _LOGGER.debug("Requested setpoint is higher than overshoot value.")
         elif self._heater_active and elapsed >= duty_cycle:
             self._heater_active = False
             self._last_cycle = now
+            _LOGGER.debug("Finished duty cycle.")
         elif not self._heater_active and duty_cycle > 180 and elapsed >= (self._max_cycle_time - duty_cycle):
             self._heater_active = True
             self._last_cycle = now
+            _LOGGER.debug("Starting duty cycle.")
 
         self.async_write_ha_state()
 
