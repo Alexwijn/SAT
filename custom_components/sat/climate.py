@@ -601,7 +601,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return 100
 
         if self._overshoot_protection and not self._force_pulse_width_modulation:
-            if (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is None:
+            if self._setpoint is None or (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is None:
                 return 100
 
             if abs(self.max_error) > 0.1 and self._setpoint >= (overshoot_protection_value - 2):
@@ -762,6 +762,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Set the control setpoint to a fixed value for overshoot protection
         await self._async_control_setpoint()
+        await self._async_control_heater(True)
 
         self._overshoot_protection_data.append(round(central_heating_water_temperature, 1))
         _LOGGER.info("[Overshoot Protection] Central Heating Water Temperature Collected: %2.1f", central_heating_water_temperature)
