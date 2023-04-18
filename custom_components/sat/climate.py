@@ -158,8 +158,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._saved_target_temperature = None
 
         self._overshoot_protection_data = []
-        self._overshoot_protection_started = None
         self._overshoot_protection_calculate = False
+        self._overshoot_protection_setpoint_reached = False
 
         self._climates = options.get(CONF_CLIMATES)
         self._main_climates = options.get(CONF_MAIN_CLIMATES)
@@ -300,8 +300,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 return
 
             self._overshoot_protection_data = []
-            self._overshoot_protection_started = time()
             self._overshoot_protection_calculate = True
+            self._overshoot_protection_setpoint_reached = False
 
             self._saved_hvac_mode = self._hvac_mode
             self._saved_target_temperature = self._target_temperature
@@ -766,9 +766,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_setpoint()
         await self._async_control_heater(True)
 
-        # Wait at least 20 minutes before starting to collect data
-        if (time() - self._overshoot_protection_started) < 1200:
-            _LOGGER.info("[Overshoot Protection] Waiting for at least 20 minutes before continuing.")
+        # We wait till we reached our setpoint before collecting data
+        if central_heating_water_temperature >= OVERSHOOT_PROTECTION_SETPOINT:
+            self._overshoot_protection_setpoint_reached = True
+
+        # Collect data when setpoint reached
+        if not self._overshoot_protection_setpoint_reached:
+            _LOGGER.info("[Overshoot Protection] Waiting for boiler to heat up.")
             return
 
         self._overshoot_protection_data.append(round(central_heating_water_temperature, 1))
@@ -778,7 +782,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if len(self._overshoot_protection_data) < OVERSHOOT_PROTECTION_REQUIRED_DATASET:
             return
 
-        value = mean(self._overshoot_protection_data[-5:])
+        value = mean(self._overshoot_protection_data[-10:])
         difference = abs(round(central_heating_water_temperature, 1) - value)
 
         # Deactivate overshoot protection if the difference between the current return water temperature and the mean
