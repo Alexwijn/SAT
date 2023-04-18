@@ -22,7 +22,7 @@ from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
     DOMAIN as CLIMATE_DOMAIN,
 )
-from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
+from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, SERVICE_NOTIFY
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
@@ -312,7 +312,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             _LOGGER.warning(description)
 
-            await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
+            await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_NOTIFY, {
                 "title": "Overshoot Protection Calculation",
                 "message": description
             })
@@ -782,6 +782,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             await self.async_set_hvac_mode(self._saved_hvac_mode)
             await self._async_set_setpoint(self._saved_target_temperature)
+
+            await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_NOTIFY, {
+                "title": "Overshoot Protection Calculation",
+                "message": "Finished calculating. Result: %2.1f".format(value)
+            })
 
     async def _async_control_pid(self, reset: bool = False):
         """Control the PID controller."""
