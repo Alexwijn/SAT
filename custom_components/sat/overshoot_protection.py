@@ -34,7 +34,6 @@ class OvershootProtection:
 
             if solution == SOLUTION_AUTOMATIC:
                 # First run start_with_zero_modulation for at least 2 minutes
-                _LOGGER.info("Running calculation with zero modulation")
                 start_with_zero_modulation_task = asyncio.create_task(self._calculate_with_zero_modulation())
                 await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
@@ -54,6 +53,7 @@ class OvershootProtection:
             return None
 
     async def _calculate_with_zero_modulation(self) -> float:
+        _LOGGER.info("Running calculation with zero modulation")
         await self._coordinator.api.set_max_relative_mod(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
 
         try:
@@ -65,6 +65,8 @@ class OvershootProtection:
             _LOGGER.warning("Timed out waiting for stable temperature")
 
     async def _calculate_with_modulation(self) -> float:
+        _LOGGER.info("Running calculation with modulation")
+
         try:
             return await asyncio.wait_for(
                 self._wait_for_stable_temperature(OVERSHOOT_PROTECTION_ERROR_RELATIVE_MOD),
