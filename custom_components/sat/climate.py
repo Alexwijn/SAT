@@ -295,6 +295,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 _LOGGER.warning("[Overshoot Protection] Calculation already in progress.")
                 return
 
+            self._is_device_active = True
             self._overshoot_protection_calculate = True
 
             saved_hvac_mode = self._hvac_mode
