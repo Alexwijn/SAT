@@ -338,6 +338,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     "message": f"Finished calculating. Result: {round(overshoot_protection_value, 1)}"
                 })
 
+                # Turn the overshoot protection settings back on
+                self._overshoot_protection = bool(self._config_entry.options.get(CONF_OVERSHOOT_PROTECTION))
+                self._force_pulse_width_modulation = bool(self._config_entry.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
+
         self.hass.services.async_register(DOMAIN, "start_overshoot_protection_calculation", start_overshoot_protection_calculation)
 
         async def set_overshoot_protection_value(_call: ServiceCall):
