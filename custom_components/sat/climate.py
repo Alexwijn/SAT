@@ -300,7 +300,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             saved_hvac_mode = self._hvac_mode
             saved_target_temperature = self._target_temperature
 
-            saved_target_temperatures = []
+            saved_target_temperatures = {}
             for entity_id in self._climates:
                 if state := self.hass.states.get(entity_id):
                     saved_target_temperatures[entity_id] = float(state.attributes.get("temperature"))
