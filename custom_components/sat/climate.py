@@ -4,7 +4,7 @@ from collections import deque
 from datetime import timedelta
 from statistics import mean
 from time import time
-from typing import List, Optional, Any
+from typing import List
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -36,6 +36,7 @@ from . import SatDataUpdateCoordinator, SatConfigStore
 from .const import *
 from .entity import SatEntity
 from .heating_curve import HeatingCurve
+from .overshoot_protection import OvershootProtection
 from .pid import PID
 
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
@@ -153,13 +154,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._hvac_mode = None
         self._target_temperature = None
-
-        self._saved_hvac_mode = None
         self._saved_target_temperature = None
-
-        self._overshoot_protection_data = []
         self._overshoot_protection_calculate = False
-        self._overshoot_protection_setpoint_reached = False
 
         self._climates = options.get(CONF_CLIMATES)
         self._main_climates = options.get(CONF_MAIN_CLIMATES)
@@ -299,25 +295,46 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 _LOGGER.warning("[Overshoot Protection] Calculation already in progress.")
                 return
 
-            self._overshoot_protection_data = []
             self._overshoot_protection_calculate = True
-            self._overshoot_protection_setpoint_reached = False
 
-            self._saved_hvac_mode = self._hvac_mode
-            self._saved_target_temperature = self._target_temperature
+            saved_hvac_mode = self._hvac_mode
+            saved_target_temperature = self._target_temperature
+
+            saved_target_temperatures = []
+            for entity_id in self._climates:
+                if state := self.hass.states.get(entity_id):
+                    saved_target_temperatures[entity_id] = float(state.state)
+
+                data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: 30}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
             self._hvac_mode = HVACMode.HEAT
             await self._async_set_setpoint(30)
 
-            description = "[Overshoot Protection] Calculation started. "
-            description += "This process will run for at least 20 minutes until a stable boiler water temperature is found."
-
-            _LOGGER.warning(description)
-
             await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
                 "title": "Overshoot Protection Calculation",
-                "message": description
+                "message": "Calculation started. This process will run for at least 20 minutes until a stable boiler water temperature is found."
             })
+
+            overshoot_protection_value = await OvershootProtection(self._coordinator).calculate()
+
+            await self.async_set_hvac_mode(saved_hvac_mode)
+            await self._async_set_setpoint(saved_target_temperature)
+
+            for entity_id in self._climates:
+                data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: saved_target_temperatures[entity_id]}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+
+            if overshoot_protection_value is None:
+                await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
+                    "title": "Overshoot Protection Calculation",
+                    "message": f"Timed out waiting for stable temperature"
+                })
+            else:
+                await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
+                    "title": "Overshoot Protection Calculation",
+                    "message": f"Finished calculating. Result: {round(overshoot_protection_value, 1)}"
+                })
 
         self.hass.services.async_register(DOMAIN, "start_overshoot_protection_calculation", start_overshoot_protection_calculation)
 
@@ -539,14 +556,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return False
 
-    def _get_boiler_value(self, key: str) -> Optional[Any]:
-        """Get the value for the given `key` from the boiler data.
-
-        :param key: Key of the value to retrieve from the boiler data.
-        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
-        """
-        return self._coordinator.data[gw_vars.BOILER].get(key) if self._coordinator.data[gw_vars.BOILER] else None
-
     def _calculate_duty_cycle(self) -> float:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         if (not self._overshoot_protection and not self._force_pulse_width_modulation) or self._heating_curve.value is None:
@@ -599,7 +608,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return 50.0
 
     def _calculate_max_relative_mod(self) -> int:
-        if bool(self._get_boiler_value(gw_vars.DATA_SLAVE_DHW_ACTIVE)):
+        if bool(self._coordinator.get(gw_vars.DATA_SLAVE_DHW_ACTIVE)):
+            return 100
+
+        if self._setpoint <= MINIMUM_SETPOINT:
             return 100
 
         if self._overshoot_protection and not self._force_pulse_width_modulation:
@@ -699,9 +711,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_heating(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
-        # If overshoot protection is active, run the overshoot protection control function
+        # If overshoot protection is active, we are not doing anything since we already have task running in async
         if self._overshoot_protection_calculate:
-            await self._async_control_overshoot_protection()
             return
 
         # If the current, target or outside temperature is not available, do nothing
@@ -709,18 +720,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Make sure the boiler is off when the climate is off, and do nothing else
-        if self.hvac_mode == HVACMode.OFF and bool(self._get_boiler_value(gw_vars.DATA_MASTER_CH_ENABLED)):
+        if self.hvac_mode == HVACMode.OFF and bool(self._coordinator.get(gw_vars.DATA_MASTER_CH_ENABLED)):
             await self._async_control_heater(False)
             return
 
         # Pulse Width Modulation
         await self._async_control_pwm_values()
 
-        # Set the max relative mod
-        await self._async_control_max_relative_mod()
-
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint()
+
+        # Set the max relative mod
+        await self._async_control_max_relative_mod()
 
         # Control the integral (if exceeded the time limit)
         self._pid.update_integral(self.max_error, self._heating_curve.value)
@@ -745,60 +756,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if not self._simulation:
             await self._coordinator.api.set_max_ch_setpoint(self._get_maximum_setpoint())
-
-    async def _async_control_overshoot_protection(self):
-        """This method handles the overshoot protection process. It will turn on the heater if it's not already active,
-        set the control setpoint to a fixed value, collect and store return water temperature data, and calculate
-        the mean of the last 3 data points. If the difference between the current return water temperature and
-        the mean is small, it will deactivate overshoot protection and store the calculated value.
-
-        Note that this method will run every 30 seconds, but it won't activate the overshoot protection if it's already running.
-        """
-        # Turn on the heater if it's not already active
-        if self._hvac_mode == HVACMode.OFF:
-            await self.async_set_hvac_mode(HVACMode.HEAT)
-
-        # Collect central heating water temperature data
-        if (central_heating_water_temperature := self._get_boiler_value(gw_vars.DATA_CH_WATER_TEMP)) is None:
-            return
-
-        # Set the control setpoint to a fixed value for overshoot protection
-        await self._async_control_setpoint()
-        await self._async_control_heater(True)
-
-        # We wait till we reached our setpoint before collecting data
-        if central_heating_water_temperature >= OVERSHOOT_PROTECTION_SETPOINT:
-            self._overshoot_protection_setpoint_reached = True
-
-        # Collect data when setpoint reached
-        if not self._overshoot_protection_setpoint_reached:
-            _LOGGER.info("[Overshoot Protection] Waiting for boiler to heat up.")
-            return
-
-        self._overshoot_protection_data.append(round(central_heating_water_temperature, 1))
-        _LOGGER.info("[Overshoot Protection] Central Heating Water Temperature Collected: %2.1f", central_heating_water_temperature)
-
-        # Calculate the mean of the last 3 data points only if there are enough data points collected
-        if len(self._overshoot_protection_data) < OVERSHOOT_PROTECTION_REQUIRED_DATASET:
-            return
-
-        value = mean(self._overshoot_protection_data[-10:])
-        difference = abs(round(central_heating_water_temperature, 1) - value)
-
-        # Deactivate overshoot protection if the difference between the current return water temperature and the mean
-        # is small and store the calculated value
-        if difference < 0.1:
-            self._overshoot_protection_calculate = False
-            self._store.store_overshoot_protection_value(round(value, 1))
-            _LOGGER.info("[Overshoot Protection] Result: %2.1f", value)
-
-            await self.async_set_hvac_mode(self._saved_hvac_mode)
-            await self._async_set_setpoint(self._saved_target_temperature)
-
-            await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
-                "title": "Overshoot Protection Calculation",
-                "message": f"Finished calculating. Result: {round(value, 1)}"
-            })
 
     async def _async_control_pid(self, reset: bool = False):
         """Control the PID controller."""
@@ -856,10 +813,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_setpoint(self):
         """Control the setpoint of the heating system."""
         if self._hvac_mode == HVACMode.HEAT:
-            if self._overshoot_protection_calculate:
-                self._setpoint = OVERSHOOT_PROTECTION_SETPOINT
-                _LOGGER.warning(f"[Overshoot Protection] Overwritten setpoint to {OVERSHOOT_PROTECTION_SETPOINT} degrees")
-            elif self._pulse_width_modulation_enabled:
+            if self._pulse_width_modulation_enabled:
                 self._setpoint = self._store.retrieve_overshoot_protection_value() if self._heater_active else MINIMUM_SETPOINT
                 _LOGGER.info("Running pulse width modulation cycle.")
             else:
@@ -878,17 +832,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_max_relative_mod(self):
         """Control the max relative mod of the heating system."""
         if self._hvac_mode == HVACMode.HEAT:
-            if self._overshoot_protection_calculate:
-                # If overshoot protection is active, set the setpoint to a fixed value
-                _LOGGER.warning(f"[Overshoot Protection] Overwritten max relative mod to {OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD}%")
-                self._max_relative_mod = OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD
-            else:
-                # Calculate the max relative mod
-                self._max_relative_mod = self._calculate_max_relative_mod()
+            self._max_relative_mod = self._calculate_max_relative_mod()
         else:
             self._max_relative_mod = 100
 
-        if int(self._get_boiler_value(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) == self._max_relative_mod:
+        if float(self._coordinator.get(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) == self._max_relative_mod:
             return
 
         if not self._simulation:
