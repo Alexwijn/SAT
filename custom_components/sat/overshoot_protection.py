@@ -35,7 +35,7 @@ class OvershootProtection:
             await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
             # Check if relative modulation is still zero
-            if float(self._coordinator.get(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
+            if float(self._coordinator.get(gw_vars.DATA_REL_MOD_LEVEL)) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
                 return await start_with_zero_modulation_task
             else:
                 start_with_zero_modulation_task.cancel()
@@ -74,21 +74,22 @@ class OvershootProtection:
             await asyncio.sleep(5)
 
     async def _wait_for_stable_temperature(self, max_modulation: float) -> float:
-        temps = deque(maxlen=5)
+        temps = deque(maxlen=10)
+        previous_average_temp = None
 
         while True:
             actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
-            control_setpoint = float(self._coordinator.get(gw_vars.DATA_CONTROL_SETPOINT))
 
             temps.append(actual_temp)
             average_temp = sum(temps) / len(temps)
 
-            if abs(average_temp - control_setpoint) <= 1:
-                if max_modulation != OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
-                    await self._coordinator.api.set_control_setpoint(actual_temp)
-
-                if abs(self._coordinator.get(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) <= max_modulation:
+            if previous_average_temp is not None:
+                if abs(actual_temp - previous_average_temp) <= 0.1:
                     _LOGGER.info("Stable temperature reached: %s", actual_temp)
                     return actual_temp
 
+            if max_modulation != OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
+                await self._coordinator.api.set_control_setpoint(actual_temp)
+
+            previous_average_temp = average_temp
             await asyncio.sleep(3)
