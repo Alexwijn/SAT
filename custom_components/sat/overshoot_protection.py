@@ -81,7 +81,7 @@ class OvershootProtection:
             actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
 
             temps.append(actual_temp)
-            average_temp = sum(temps) / len(temps)
+            average_temp = sum(temps) / 100
 
             if previous_average_temp is not None:
                 if abs(actual_temp - previous_average_temp) <= 0.1:
