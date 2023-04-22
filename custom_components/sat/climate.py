@@ -319,6 +319,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             overshoot_protection_value = await OvershootProtection(self._coordinator).calculate()
 
             await self.async_set_hvac_mode(saved_hvac_mode)
+
+            await self._async_control_max_setpoint()
             await self._async_set_setpoint(saved_target_temperature)
 
             for entity_id in self._climates:

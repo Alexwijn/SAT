@@ -21,6 +21,7 @@ class OvershootProtection:
     async def calculate(self) -> float | None:
         _LOGGER.info("Starting calculation")
         await self._coordinator.api.set_ch_enable_bit(1)
+        await self._coordinator.api.set_max_ch_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
         await self._coordinator.api.set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
         await self._coordinator.api.set_max_relative_mod(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
 
