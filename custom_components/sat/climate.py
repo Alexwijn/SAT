@@ -317,6 +317,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             })
 
             overshoot_protection_value = await OvershootProtection(self._coordinator).calculate()
+            self._overshoot_protection_calculate = False
 
             await self.async_set_hvac_mode(saved_hvac_mode)
 
