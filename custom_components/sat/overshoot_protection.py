@@ -65,13 +65,33 @@ class OvershootProtection:
             _LOGGER.warning("Timed out waiting for stable temperature")
 
     async def _wait_for_flame(self):
+        previous_temp = None
+
         while True:
-            if bool(self._coordinator.get(gw_vars.DATA_SLAVE_FLAME_ON)):
-                _LOGGER.info("Heating system has started to run")
-                break
+            actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
+
+            if previous_temp is not None:
+                if bool(self._coordinator.get(gw_vars.DATA_SLAVE_FLAME_ON)) and abs(actual_temp - previous_temp) >= 0.75:
+                    _LOGGER.info("Heating system has started to run")
+                    break
 
             _LOGGER.warning("Heating system is not running yet")
-            await asyncio.sleep(5)
+
+            previous_temp = actual_temp
+            await asyncio.sleep(10)
+
+    async def _wait_for_temperature_rise(self):
+        previous_temp = None
+
+        while True:
+            actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
+
+            if previous_temp is not None:
+                if abs(actual_temp - previous_temp) >= 0.5:
+                    break
+
+            previous_temp = actual_temp
+            await asyncio.sleep(30)
 
     async def _wait_for_stable_temperature(self, max_modulation: float) -> float:
         temps = deque(maxlen=10)
