@@ -29,6 +29,9 @@ class OvershootProtection:
             # First wait for a flame
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
 
+            # First wait for a temperature rise
+            await asyncio.wait_for(self._wait_for_temperature_rise(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
+
             # First run start_with_zero_modulation for at least 2 minutes
             _LOGGER.info("Running calculation with zero modulation")
             start_with_zero_modulation_task = asyncio.create_task(self._calculate_with_zero_modulation())
@@ -65,33 +68,27 @@ class OvershootProtection:
             _LOGGER.warning("Timed out waiting for stable temperature")
 
     async def _wait_for_flame(self):
-        previous_temp = None
-
         while True:
-            actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
-
-            if previous_temp is not None:
-                if bool(self._coordinator.get(gw_vars.DATA_SLAVE_FLAME_ON)) and abs(actual_temp - previous_temp) >= 0.75:
-                    _LOGGER.info("Heating system has started to run")
-                    break
+            if bool(self._coordinator.get(gw_vars.DATA_SLAVE_FLAME_ON)):
+                _LOGGER.info("Heating system has started to run")
+                break
 
             _LOGGER.warning("Heating system is not running yet")
-
-            previous_temp = actual_temp
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
 
     async def _wait_for_temperature_rise(self):
         previous_temp = None
 
         while True:
             actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
+            if previous_temp is not None and abs(actual_temp - previous_temp) >= 0.75:
+                _LOGGER.info("Boiler temperature has starting to rise")
+                break
 
-            if previous_temp is not None:
-                if abs(actual_temp - previous_temp) >= 0.5:
-                    break
+            _LOGGER.info("Boiler temperature is not rising yet")
 
             previous_temp = actual_temp
-            await asyncio.sleep(30)
+            await asyncio.sleep(10)
 
     async def _wait_for_stable_temperature(self, max_modulation: float) -> float:
         temps = deque(maxlen=10)
