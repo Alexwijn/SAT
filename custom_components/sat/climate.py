@@ -317,7 +317,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 "message": "Calculation started. This process will run for at least 20 minutes until a stable boiler water temperature is found."
             })
 
-            overshoot_protection_value = await OvershootProtection(self._coordinator).calculate()
+            overshoot_protection_value = await OvershootProtection(self._coordinator).calculate(_call.data.get("solution"))
             self._overshoot_protection_calculate = False
 
             await self.async_set_hvac_mode(saved_hvac_mode)

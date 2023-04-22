@@ -5,6 +5,10 @@ from collections import deque
 from custom_components.sat import SatDataUpdateCoordinator
 from .const import *
 
+SOLUTION_AUTOMATIC = "auto"
+SOLUTION_WITH_MODULATION = "with_modulation"
+SOLUTION_WITH_ZERO_MODULATION = "with_zero_modulation"
+
 _LOGGER = logging.getLogger(__name__)
 
 OVERSHOOT_PROTECTION_SETPOINT = 75
@@ -18,35 +22,40 @@ class OvershootProtection:
     def __init__(self, coordinator: SatDataUpdateCoordinator):
         self._coordinator = coordinator
 
-    async def calculate(self) -> float | None:
+    async def calculate(self, solution: str) -> float | None:
         _LOGGER.info("Starting calculation")
         await self._coordinator.api.set_ch_enable_bit(1)
         await self._coordinator.api.set_max_ch_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
         await self._coordinator.api.set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
-        await self._coordinator.api.set_max_relative_mod(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
 
         try:
             # First wait for a flame
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
 
-            # First run start_with_zero_modulation for at least 2 minutes
-            _LOGGER.info("Running calculation with zero modulation")
-            start_with_zero_modulation_task = asyncio.create_task(self._calculate_with_zero_modulation())
-            await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
+            if solution == SOLUTION_AUTOMATIC:
+                # First run start_with_zero_modulation for at least 2 minutes
+                _LOGGER.info("Running calculation with zero modulation")
+                start_with_zero_modulation_task = asyncio.create_task(self._calculate_with_zero_modulation())
+                await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
-            # Check if relative modulation is still zero
-            if float(self._coordinator.get(gw_vars.DATA_REL_MOD_LEVEL)) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
-                return await start_with_zero_modulation_task
-            else:
-                start_with_zero_modulation_task.cancel()
-                _LOGGER.info("Relative modulation is not zero, switching to with modulation")
+                # Check if relative modulation is still zero
+                if float(self._coordinator.get(gw_vars.DATA_REL_MOD_LEVEL)) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
+                    return await start_with_zero_modulation_task
+                else:
+                    start_with_zero_modulation_task.cancel()
+                    _LOGGER.info("Relative modulation is not zero, switching to with modulation")
+                    return await self._calculate_with_modulation()
+            elif solution == SOLUTION_WITH_MODULATION:
                 return await self._calculate_with_modulation()
-
+            elif solution == SOLUTION_WITH_ZERO_MODULATION:
+                return await self._calculate_with_zero_modulation()
         except asyncio.TimeoutError:
             _LOGGER.warning("Timed out waiting for stable temperature")
             return None
 
     async def _calculate_with_zero_modulation(self) -> float:
+        await self._coordinator.api.set_max_relative_mod(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
+
         try:
             return await asyncio.wait_for(
                 self._wait_for_stable_temperature(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD),
