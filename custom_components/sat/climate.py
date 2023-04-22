@@ -303,7 +303,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             saved_target_temperatures = []
             for entity_id in self._climates:
                 if state := self.hass.states.get(entity_id):
-                    saved_target_temperatures[entity_id] = float(state.state)
+                    saved_target_temperatures[entity_id] = float(state.attributes.get("temperature"))
 
                 data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: 30}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
