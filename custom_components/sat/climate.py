@@ -820,7 +820,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug(f"PWM State: {pwm_state}")
 
             if self._pulse_width_modulation_enabled and pwm_state != pwm_state.IDLE:
-                self._setpoint = self._store.retrieve_overshoot_protection_value() if pwm_state == pwm_state.ACTIVE else MINIMUM_SETPOINT
+                self._setpoint = self._store.retrieve_overshoot_protection_value() if pwm_state == pwm_state.OFF else MINIMUM_SETPOINT
                 _LOGGER.info("Running pulse width modulation cycle.")
             else:
                 self._outputs.append(self._calculate_control_setpoint())

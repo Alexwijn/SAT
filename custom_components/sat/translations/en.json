@@ -69,8 +69,8 @@
           "climate_valve_offset": "Climate valve offset",
           "sensor_max_value_age": "Sensor max. value age",
           "automatic_gains": "Automatic gains",
-          "automatic_duty_cycle": "Automatic duty cycle",
           "overshoot_protection": "Overshoot Protection (with PWM)",
+          "automatic_duty_cycle": "Automatic duty cycle (experimental)",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",
           "min_num_updates": "Minimum number of updates required for auto-tuning"
         }

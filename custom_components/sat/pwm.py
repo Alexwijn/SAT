@@ -9,9 +9,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PWMState(Enum):
+    ON = "on"
+    OFF = "off"
     IDLE = "idle"
-    ACTIVE = "active"
-    FINISHED = "finished"
 
 
 class PWM:
@@ -58,15 +58,15 @@ class PWM:
         _LOGGER.debug("Calculated duty cycle %.0f seconds ON", self._duty_cycle[0])
         _LOGGER.debug("Calculated duty cycle %.0f seconds OFF", self._duty_cycle[1])
 
-        if self._state != PWMState.FINISHED and self._duty_cycle[0] < 180 and (elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+        if self._state != PWMState.ON and self._duty_cycle[0] < 180 and (elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+            self._state = PWMState.ON
             self._last_update = monotonic()
-            self._state = PWMState.FINISHED
             _LOGGER.debug("Finished duty cycle.")
             return
 
-        if self._state != PWMState.ACTIVE and self._duty_cycle[0] >= 180 and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+        if self._state != PWMState.OFF and self._duty_cycle[0] >= 180 and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+            self._state = PWMState.OFF
             self._last_update = monotonic()
-            self._state = PWMState.ACTIVE
             _LOGGER.debug("Starting duty cycle.")
             return
 
@@ -85,14 +85,14 @@ class PWM:
                 on_time = 0
                 off_time = 0
             elif duty_cycle_percentage <= 0.2:
-                on_time = 3 / duty_cycle_percentage
-                off_time = 3 / (1 - duty_cycle_percentage)
+                on_time = 3
+                off_time = 3 / (1 - duty_cycle_percentage) - 3
             elif duty_cycle_percentage <= 0.8:
-                on_time = 15
-                off_time = 3
+                on_time = 15 * duty_cycle_percentage
+                off_time = 15 * (1 - duty_cycle_percentage)
             elif duty_cycle_percentage <= 0.9:
-                on_time = 3 / (1 - duty_cycle_percentage)
-                off_time = 3 / duty_cycle_percentage
+                on_time = 3 / (1 - duty_cycle_percentage) - 3
+                off_time = 3
             else:
                 return None
 
