@@ -1,11 +1,21 @@
 import logging
 from enum import Enum
 from time import monotonic
+from typing import Optional, Tuple
 
 from custom_components.sat import SatConfigStore
 from custom_components.sat.heating_curve import HeatingCurve
 
 _LOGGER = logging.getLogger(__name__)
+
+DUTY_CYCLE_20_PERCENT = 0.2
+DUTY_CYCLE_80_PERCENT = 0.8
+MIN_DUTY_CYCLE_PERCENTAGE = 0.1
+MAX_DUTY_CYCLE_PERCENTAGE = 0.9
+
+ON_TIME_20_PERCENT = 3
+ON_TIME_80_PERCENT = 15
+OFF_TIME_20_PERCENT = ON_TIME_20_PERCENT / (1 - 0.2) - ON_TIME_20_PERCENT
 
 
 class PWMState(Enum):
@@ -29,7 +39,7 @@ class PWM:
     def reset(self) -> None:
         """Reset the PWM control."""
         self._duty_cycle = None
-        self._state = PWMState.IDLE
+        self._state = PWMState.ON
         self._last_update = monotonic()
 
     async def update(self, setpoint: float) -> None:
@@ -58,24 +68,25 @@ class PWM:
         _LOGGER.debug("Calculated duty cycle %.0f seconds ON", self._duty_cycle[0])
         _LOGGER.debug("Calculated duty cycle %.0f seconds OFF", self._duty_cycle[1])
 
-        if self._state != PWMState.ON and self._duty_cycle[0] < 180 and (elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+        if self._state != PWMState.ON and self._duty_cycle[0] >= 180 and (elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
-            self._last_update = monotonic()
-            _LOGGER.debug("Finished duty cycle.")
-            return
-
-        if self._state != PWMState.OFF and self._duty_cycle[0] >= 180 and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
-            self._state = PWMState.OFF
             self._last_update = monotonic()
             _LOGGER.debug("Starting duty cycle.")
             return
 
+        if self._state != PWMState.OFF and (self._duty_cycle[0] < 180 or elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+            self._state = PWMState.OFF
+            self._last_update = monotonic()
+            _LOGGER.debug("Finished duty cycle.")
+            return
+
         _LOGGER.debug("Cycle time elapsed %.0f seconds", elapsed)
 
-    def _calculate_duty_cycle(self, setpoint: float) -> None | tuple[int, int]:
+    def _calculate_duty_cycle(self, setpoint: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
-        duty_cycle_percentage = (setpoint - base_offset) / (self._store.retrieve_overshoot_protection_value() - base_offset)
+        overshoot_protection = self._store.retrieve_overshoot_protection_value()
+        duty_cycle_percentage = (setpoint - base_offset) / (overshoot_protection - base_offset)
 
         _LOGGER.debug("Requested setpoint %.1f", setpoint)
         _LOGGER.debug("Calculated duty cycle %.0f%%", duty_cycle_percentage * 100)
@@ -83,22 +94,26 @@ class PWM:
         if not self._automatic_duty_cycle:
             return int(duty_cycle_percentage * self._max_cycle_time), int((1 - duty_cycle_percentage) * self._max_cycle_time)
 
-        if duty_cycle_percentage < 0.1:
-            on_time = 0
-            off_time = 0
-        elif duty_cycle_percentage <= 0.2:
-            on_time = 3
-            off_time = 3 / (1 - duty_cycle_percentage) - 3
-        elif duty_cycle_percentage <= 0.8:
-            on_time = 15 * duty_cycle_percentage
-            off_time = 15 * (1 - duty_cycle_percentage)
-        elif duty_cycle_percentage <= 0.9:
-            on_time = 3 / (1 - duty_cycle_percentage) - 3
-            off_time = 3
-        else:
-            return None
+        if duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE:
+            return 0, 0
 
-        return int(on_time * 60), int(off_time * 60)
+        if duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
+            return int(ON_TIME_20_PERCENT * 60), int(OFF_TIME_20_PERCENT * 60)
+
+        if duty_cycle_percentage <= DUTY_CYCLE_80_PERCENT:
+            on_time = ON_TIME_80_PERCENT * duty_cycle_percentage
+            off_time = ON_TIME_80_PERCENT * (1 - duty_cycle_percentage)
+
+            return int(on_time * 60), int(off_time * 60)
+
+        if duty_cycle_percentage <= MAX_DUTY_CYCLE_PERCENTAGE:
+            on_time = ON_TIME_20_PERCENT + (duty_cycle_percentage - 0.8) / 0.1 * (ON_TIME_80_PERCENT - ON_TIME_20_PERCENT)
+            off_time = ON_TIME_80_PERCENT - on_time
+
+            return int(on_time * 60), int(off_time * 60)
+
+        if duty_cycle_percentage > MAX_DUTY_CYCLE_PERCENTAGE:
+            return None
 
     @property
     def state(self) -> PWMState:
