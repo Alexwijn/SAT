@@ -80,25 +80,25 @@ class PWM:
         _LOGGER.debug("Requested setpoint %.1f", setpoint)
         _LOGGER.debug("Calculated duty cycle %.0f%%", duty_cycle_percentage * 100)
 
-        if self._automatic_duty_cycle:
-            if duty_cycle_percentage < 0.1:
-                on_time = 0
-                off_time = 0
-            elif duty_cycle_percentage <= 0.2:
-                on_time = 3
-                off_time = 3 / (1 - duty_cycle_percentage) - 3
-            elif duty_cycle_percentage <= 0.8:
-                on_time = 15 * duty_cycle_percentage
-                off_time = 15 * (1 - duty_cycle_percentage)
-            elif duty_cycle_percentage <= 0.9:
-                on_time = 3 / (1 - duty_cycle_percentage) - 3
-                off_time = 3
-            else:
-                return None
+        if not self._automatic_duty_cycle:
+            return int(duty_cycle_percentage * self._max_cycle_time), int((1 - duty_cycle_percentage) * self._max_cycle_time)
 
-            return int(on_time * 60), int(off_time * 60)
+        if duty_cycle_percentage < 0.1:
+            on_time = 0
+            off_time = 0
+        elif duty_cycle_percentage <= 0.2:
+            on_time = 3
+            off_time = 3 / (1 - duty_cycle_percentage) - 3
+        elif duty_cycle_percentage <= 0.8:
+            on_time = 15 * duty_cycle_percentage
+            off_time = 15 * (1 - duty_cycle_percentage)
+        elif duty_cycle_percentage <= 0.9:
+            on_time = 3 / (1 - duty_cycle_percentage) - 3
+            off_time = 3
+        else:
+            return None
 
-        return int(duty_cycle_percentage * self._max_cycle_time), int((1 - duty_cycle_percentage) * self._max_cycle_time)
+        return int(on_time * 60), int(off_time * 60)
 
     @property
     def state(self) -> PWMState:
