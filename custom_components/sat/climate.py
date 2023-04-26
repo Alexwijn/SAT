@@ -3,7 +3,7 @@ import logging
 from collections import deque
 from datetime import timedelta
 from statistics import mean
-from time import time
+from time import monotonic
 from typing import List
 
 from homeassistant.components.climate import (
@@ -38,6 +38,7 @@ from .entity import SatEntity
 from .heating_curve import HeatingCurve
 from .overshoot_protection import OvershootProtection
 from .pid import PID
+from .pwm import PWM, PWMState
 
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
@@ -90,6 +91,16 @@ def create_heating_curve_controller(options) -> HeatingCurve:
     return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
 
 
+def create_pwm_controller(heating_curve: HeatingCurve, store: SatConfigStore, options) -> PWM | None:
+    """Create and return a PWM controller instance with the given configuration options."""
+    # Extract the configuration options
+    automatic_duty_cycle = bool(options.get(CONF_AUTOMATIC_DUTY_CYCLE))
+    max_cycle_time = int(convert_time_str_to_seconds(options.get(CONF_DUTY_CYCLE)))
+
+    # Return a new PWM controller instance with the given configuration options
+    return PWM(store=store, heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle)
+
+
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
     """Set up the SatClimate device."""
     store = SatConfigStore(hass)
@@ -110,6 +121,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, store: SatConfigStore, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
+        self._store = store
+        self._coordinator = coordinator
+        self._config_entry = config_entry
+
         # Get configuration options and update with default values
         options = OPTIONS_DEFAULTS.copy()
         options.update(config_entry.options)
@@ -118,7 +133,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         conf_presets = {p: f"{p}_temperature" for p in (PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
 
         # Create dictionary mapping preset keys to temperature values
-        presets = {key: options[value] for key, value in conf_presets.items() if value in options}
+        self._presets = {key: options[value] for key, value in conf_presets.items() if value in options}
 
         # Create PID controller with given configuration options
         self._pid = create_pid_controller(options)
@@ -144,10 +159,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Create Heating Curve controller with given configuration options
         self._heating_curve = create_heating_curve_controller(options)
 
+        # Create PWM controller with given configuration options
+        self._pwm = create_pwm_controller(self._heating_curve, self._store, options)
+
         self._sensors = []
         self._setpoint = None
-        self._last_cycle = time()
-        self._heater_active = False
         self._max_relative_mod = None
         self._is_device_active = False
         self._outputs = deque(maxlen=50)
@@ -165,7 +181,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._overshoot_protection = bool(options.get(CONF_OVERSHOOT_PROTECTION))
         self._climate_valve_offset = float(options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(options.get(CONF_TARGET_TEMPERATURE_STEP))
-        self._max_cycle_time = convert_time_str_to_seconds(options.get(CONF_DUTY_CYCLE))
         self._force_pulse_width_modulation = bool(options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
         self._sensor_max_value_age = convert_time_str_to_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
@@ -176,13 +191,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_preset_mode = PRESET_NONE
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
-        self._attr_preset_modes = [PRESET_NONE] + list(presets.keys())
+        self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
-
-        self._store = store
-        self._presets = presets
-        self._coordinator = coordinator
-        self._config_entry = config_entry
 
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
@@ -410,7 +420,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self._heating_curve.optimal_coefficient,
             "pulse_width_modulation_enabled": self._pulse_width_modulation_enabled,
-            "overshoot_protection_value": self._store.retrieve_overshoot_protection_value()
+            "pulse_width_modulation_state": self._pwm.state,
+            "pulse_width_modulation_duty_cycle": self._pwm.duty_cycle,
+            "overshoot_protection_calculating": self._overshoot_protection_calculate,
+            "overshoot_protection_value": self._store.retrieve_overshoot_protection_value(),
         }
 
     @property
@@ -564,23 +577,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return False
 
-    def _calculate_duty_cycle(self) -> float:
-        """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
-        if (not self._overshoot_protection and not self._force_pulse_width_modulation) or self._heating_curve.value is None:
-            return 0
-
-        base_offset = self._heating_curve.base_offset
-        requested_setpoint = self._get_requested_setpoint()
-        overshoot_protection_value = self._store.retrieve_overshoot_protection_value()
-
-        if requested_setpoint > overshoot_protection_value:
-            return self._max_cycle_time
-
-        duty_cycle_percent = (requested_setpoint - base_offset) / (overshoot_protection_value - base_offset)
-        duty_cycle_seconds = duty_cycle_percent * self._max_cycle_time
-
-        return round(max(0, duty_cycle_seconds), 0)
-
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
         if self._heating_curve.value is None:
@@ -733,10 +729,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Pulse Width Modulation
-        await self._async_control_pwm_values()
+        await self._pwm.update(self._get_requested_setpoint())
 
         # Set the control setpoint to make sure we always stay in control
-        await self._async_control_setpoint()
+        await self._async_control_setpoint(self._pwm.state)
 
         # Set the max relative mod
         await self._async_control_max_relative_mod()
@@ -772,7 +768,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Reset the PID controller if the sensor data is too old
-        if self._sensor_max_value_age != 0 and time() - self._pid.last_updated > self._sensor_max_value_age:
+        if self._sensor_max_value_age != 0 and monotonic() - self._pid.last_updated > self._sensor_max_value_age:
             self._pid.reset()
 
         # Calculate the maximum error between the current temperature and the target temperature of all climates
@@ -818,11 +814,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         _LOGGER.info("Set central heating to %d", enabled)
 
-    async def _async_control_setpoint(self):
+    async def _async_control_setpoint(self, pwm_state: PWMState):
         """Control the setpoint of the heating system."""
         if self._hvac_mode == HVACMode.HEAT:
-            if self._pulse_width_modulation_enabled:
-                self._setpoint = self._store.retrieve_overshoot_protection_value() if self._heater_active else MINIMUM_SETPOINT
+            _LOGGER.debug(f"PWM State: {pwm_state}")
+
+            if self._pulse_width_modulation_enabled and pwm_state != pwm_state.IDLE:
+                self._setpoint = self._store.retrieve_overshoot_protection_value() if pwm_state == pwm_state.ACTIVE else MINIMUM_SETPOINT
                 _LOGGER.info("Running pulse width modulation cycle.")
             else:
                 self._outputs.append(self._calculate_control_setpoint())
@@ -851,38 +849,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._coordinator.api.set_max_relative_mod(self._max_relative_mod)
 
         _LOGGER.info("Set max relative mod to %d", self._max_relative_mod)
-
-    async def _async_control_pwm_values(self):
-        """Turns the heating system on and off based on a calculated duty cycle."""
-        if (not self._overshoot_protection and not self._force_pulse_width_modulation) or self._heating_curve.value is None:
-            return
-
-        if not self._max_cycle_time or self._max_cycle_time <= 0:
-            return
-
-        now = time()
-        elapsed = now - self._last_cycle
-        duty_cycle = self._calculate_duty_cycle()
-        requested_setpoint = self._get_requested_setpoint()
-
-        _LOGGER.debug(f"Cycle time elapsed {int(elapsed)}")
-        _LOGGER.debug(f"Calculated duty cycle {int(duty_cycle)}")
-        _LOGGER.debug(f"Heater active: {int(self._heater_active)}")
-
-        if requested_setpoint > self._store.retrieve_overshoot_protection_value():
-            self._heater_active = True
-            self._last_cycle = now
-            _LOGGER.debug("Requested setpoint is higher than overshoot value.")
-        elif self._heater_active and elapsed >= duty_cycle:
-            self._heater_active = False
-            self._last_cycle = now
-            _LOGGER.debug("Finished duty cycle.")
-        elif not self._heater_active and duty_cycle > 180 and elapsed >= (self._max_cycle_time - duty_cycle):
-            self._heater_active = True
-            self._last_cycle = now
-            _LOGGER.debug("Starting duty cycle.")
-
-        self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set the target temperature."""

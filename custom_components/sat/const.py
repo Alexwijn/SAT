@@ -44,6 +44,7 @@ CONF_PROPORTIONAL = "proportional"
 CONF_DUTY_CYCLE = "duty_cycle"
 CONF_SAMPLE_TIME = "sample_time"
 CONF_AUTOMATIC_GAINS = "automatic_gains"
+CONF_AUTOMATIC_DUTY_CYCLE = "automatic_duty_cycle"
 CONF_CLIMATE_VALVE_OFFSET = "climate_valve_offset"
 CONF_SENSOR_MAX_VALUE_AGE = "sensor_max_value_age"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
@@ -74,6 +75,7 @@ OPTIONS_DEFAULTS = {
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
     CONF_AUTOMATIC_GAINS: False,
+    CONF_AUTOMATIC_DUTY_CYCLE: False,
 
     CONF_OVERSHOOT_PROTECTION: False,
     CONF_FORCE_PULSE_WIDTH_MODULATION: False,
