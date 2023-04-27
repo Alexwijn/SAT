@@ -1,7 +1,7 @@
 from collections import deque
 from statistics import mean
 
-from custom_components.sat import *
+from custom_components.sat.const import *
 
 
 class HeatingCurve:
@@ -37,9 +37,9 @@ class HeatingCurve:
 
         return round(4 * (setpoint - self.base_offset) / heating_curve_value, 1)
 
-    def autotune(self, setpoints: deque, target_temperature: float, outside_temperature: float):
+    def autotune(self, setpoint: float, target_temperature: float, outside_temperature: float):
         coefficient = self.calculate_coefficient(
-            setpoint=sum(setpoints) / len(setpoints),
+            setpoint=setpoint,
             target_temperature=target_temperature,
             outside_temperature=outside_temperature
         )

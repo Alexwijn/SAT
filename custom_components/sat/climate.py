@@ -795,9 +795,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
             # Calculate optimal heating curve when we are in the deadband
-            if -0.1 <= max_error <= 0.1 and len(self._outputs) >= 10:
+            if -0.1 <= max_error <= 0.1:
                 self._heating_curve.autotune(
-                    setpoints=self._outputs,
+                    setpoint=self._get_requested_setpoint(),
                     target_temperature=self.target_temperature,
                     outside_temperature=self.current_outside_temperature
                 )
