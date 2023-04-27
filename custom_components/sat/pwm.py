@@ -13,8 +13,8 @@ DUTY_CYCLE_80_PERCENT = 0.8
 MIN_DUTY_CYCLE_PERCENTAGE = 0.1
 MAX_DUTY_CYCLE_PERCENTAGE = 0.9
 
-ON_TIME_20_PERCENT = 3
-ON_TIME_80_PERCENT = 15
+ON_TIME_20_PERCENT = 180
+ON_TIME_80_PERCENT = 900
 OFF_TIME_20_PERCENT = ON_TIME_20_PERCENT / (1 - 0.2) - ON_TIME_20_PERCENT
 
 
@@ -68,13 +68,13 @@ class PWM:
         _LOGGER.debug("Calculated duty cycle %.0f seconds ON", self._duty_cycle[0])
         _LOGGER.debug("Calculated duty cycle %.0f seconds OFF", self._duty_cycle[1])
 
-        if self._state != PWMState.ON and self._duty_cycle[0] >= 180 and (elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+        if self._state != PWMState.ON and self._duty_cycle[0] >= 180 and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
             self._last_update = monotonic()
             _LOGGER.debug("Starting duty cycle.")
             return
 
-        if self._state != PWMState.OFF and (self._duty_cycle[0] < 180 or elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+        if self._state != PWMState.OFF and (self._duty_cycle[0] < 180 or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
             self._state = PWMState.OFF
             self._last_update = monotonic()
             _LOGGER.debug("Finished duty cycle.")
@@ -91,26 +91,26 @@ class PWM:
         _LOGGER.debug("Requested setpoint %.1f", setpoint)
         _LOGGER.debug("Calculated duty cycle %.0f%%", duty_cycle_percentage * 100)
 
-        if not self._automatic_duty_cycle:
+        if not self._automatic_duty_cycle and duty_cycle_percentage >= 0:
             return int(duty_cycle_percentage * self._max_cycle_time), int((1 - duty_cycle_percentage) * self._max_cycle_time)
 
         if duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE:
             return 0, 0
 
         if duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
-            return int(ON_TIME_20_PERCENT * 60), int(OFF_TIME_20_PERCENT * 60)
+            return int(ON_TIME_20_PERCENT), int((DUTY_CYCLE_20_PERCENT / duty_cycle_percentage) - DUTY_CYCLE_20_PERCENT)
 
         if duty_cycle_percentage <= DUTY_CYCLE_80_PERCENT:
             on_time = ON_TIME_80_PERCENT * duty_cycle_percentage
             off_time = ON_TIME_80_PERCENT * (1 - duty_cycle_percentage)
 
-            return int(on_time * 60), int(off_time * 60)
+            return int(on_time), int(off_time)
 
         if duty_cycle_percentage <= MAX_DUTY_CYCLE_PERCENTAGE:
-            on_time = ON_TIME_20_PERCENT + (duty_cycle_percentage - 0.8) / 0.1 * (ON_TIME_80_PERCENT - ON_TIME_20_PERCENT)
+            on_time = ON_TIME_20_PERCENT / (1 - duty_cycle_percentage) - DUTY_CYCLE_20_PERCENT
             off_time = ON_TIME_80_PERCENT - on_time
 
-            return int(on_time * 60), int(off_time * 60)
+            return int(on_time), int(off_time)
 
         if duty_cycle_percentage > MAX_DUTY_CYCLE_PERCENTAGE:
             return None

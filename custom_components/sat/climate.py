@@ -729,7 +729,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Make sure the boiler is off when the climate is off, and do nothing else
         if self.hvac_mode == HVACMode.OFF and bool(self._coordinator.get(gw_vars.DATA_MASTER_CH_ENABLED)):
             await self._async_control_heater(False)
-            return
 
         # Pulse Width Modulation
         await self._pwm.update(self._get_requested_setpoint())
@@ -820,7 +819,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_setpoint(self, pwm_state: PWMState):
         """Control the setpoint of the heating system."""
-        if self._hvac_mode == HVACMode.HEAT:
+        if self.hvac_mode == HVACMode.HEAT:
             _LOGGER.debug(f"PWM State: {pwm_state}")
 
             if self._pulse_width_modulation_enabled and pwm_state != pwm_state.IDLE:
@@ -841,7 +840,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_max_relative_mod(self):
         """Control the max relative mod of the heating system."""
-        if self._hvac_mode == HVACMode.HEAT:
+        if self.hvac_mode == HVACMode.HEAT:
             self._max_relative_mod = self._calculate_max_relative_mod()
         else:
             self._max_relative_mod = 100
