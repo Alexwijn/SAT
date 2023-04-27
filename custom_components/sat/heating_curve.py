@@ -38,6 +38,9 @@ class HeatingCurve:
         return round(4 * (setpoint - self.base_offset) / heating_curve_value, 1)
 
     def autotune(self, setpoint: float, target_temperature: float, outside_temperature: float):
+        if setpoint <= MINIMUM_SETPOINT:
+            return
+
         coefficient = self.calculate_coefficient(
             setpoint=setpoint,
             target_temperature=target_temperature,
