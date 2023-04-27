@@ -45,6 +45,8 @@ SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 HOT_TOLERANCE = 0.3
 COLD_TOLERANCE = 0.1
 MINIMUM_SETPOINT = 10
+MINIMUM_RELATIVE_MOD = 0
+MAXIMUM_RELATIVE_MOD = 100
 
 OVERSHOOT_PROTECTION_SETPOINT = 75
 OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD = 0
@@ -567,15 +569,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         If an overshoot protection value is not set, pulse width modulation is disabled.
         If pulse width modulation is forced on, it is enabled.
-        If overshoot protection is enabled and the max error is greater than 0.1, it is enabled.
+        If overshoot protection is enabled, and we are below the overshoot protection value.
         """
-        if self._store.retrieve_overshoot_protection_value() is None:
+        if (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is None:
             return False
 
         if self._force_pulse_width_modulation:
             return True
 
-        if self._overshoot_protection and self.max_error <= 0.1:
+        if self._overshoot_protection and self._setpoint < (overshoot_protection_value - 2):
             return True
 
         return False
@@ -583,7 +585,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
         if self._heating_curve.value is None:
-            return 10
+            return MINIMUM_SETPOINT
 
         # Combine the heating curve value and the calculated output from the pid controller
         requested_setpoint = self._get_requested_setpoint()
@@ -596,7 +598,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         setpoint = min(requested_setpoint, self._get_maximum_setpoint())
 
         # Ensure setpoint is at least 10
-        return round(max(setpoint, 10.0), 1)
+        return round(max(setpoint, MINIMUM_SETPOINT), 1)
 
     def _get_requested_setpoint(self):
         return self._heating_curve.value + self._pid.output
@@ -616,19 +618,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _calculate_max_relative_mod(self) -> int:
         if bool(self._coordinator.get(gw_vars.DATA_SLAVE_DHW_ACTIVE)):
-            return 100
+            return MAXIMUM_RELATIVE_MOD
 
         if self._setpoint <= MINIMUM_SETPOINT:
-            return 100
+            return MAXIMUM_RELATIVE_MOD
 
         if self._overshoot_protection and not self._force_pulse_width_modulation:
             if self._setpoint is None or (overshoot_protection_value := self._store.retrieve_overshoot_protection_value()) is None:
-                return 100
+                return MAXIMUM_RELATIVE_MOD
 
             if abs(self.max_error) > 0.1 and self._setpoint >= (overshoot_protection_value - 2):
-                return 100
+                return MAXIMUM_RELATIVE_MOD
 
-        return 0
+        return MINIMUM_RELATIVE_MOD
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
