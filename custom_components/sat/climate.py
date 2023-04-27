@@ -354,6 +354,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._overshoot_protection = bool(self._config_entry.options.get(CONF_OVERSHOOT_PROTECTION))
                 self._force_pulse_width_modulation = bool(self._config_entry.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
+                # Store the new value
+                self._store.store_overshoot_protection_value(overshoot_protection_value)
+
         self.hass.services.async_register(DOMAIN, "start_overshoot_protection_calculation", start_overshoot_protection_calculation)
 
         async def set_overshoot_protection_value(_call: ServiceCall):
