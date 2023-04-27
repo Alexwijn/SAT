@@ -98,7 +98,10 @@ class PWM:
             return 0, 0
 
         if duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
-            return int(ON_TIME_20_PERCENT), int((DUTY_CYCLE_20_PERCENT / duty_cycle_percentage) - DUTY_CYCLE_20_PERCENT)
+            on_time = int(ON_TIME_20_PERCENT)
+            off_time = int((DUTY_CYCLE_20_PERCENT / duty_cycle_percentage) - DUTY_CYCLE_20_PERCENT)
+
+            return int(on_time), int(off_time)
 
         if duty_cycle_percentage <= DUTY_CYCLE_80_PERCENT:
             on_time = ON_TIME_80_PERCENT * duty_cycle_percentage
