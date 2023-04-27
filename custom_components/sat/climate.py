@@ -166,6 +166,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._sensors = []
         self._setpoint = None
+        self._warming_up = False
         self._max_relative_mod = None
         self._is_device_active = False
         self._outputs = deque(maxlen=50)
@@ -419,6 +420,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "current_kd": self._pid.kd,
 
             "setpoint": self._setpoint,
+            "warming_up": self._warming_up,
             "valves_open": self.valves_open,
             "max_relative_mod": self._max_relative_mod,
             "heating_curve": self._heating_curve.value,
@@ -577,8 +579,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._force_pulse_width_modulation:
             return True
 
-        if self._overshoot_protection and self._setpoint < (overshoot_protection_value - 2):
-            return True
+        if self._overshoot_protection:
+            if self.max_error <= 0.1:
+                return True
+
+            if self._warming_up and self._setpoint < (overshoot_protection_value - 2):
+                return True
 
         return False
 
@@ -796,6 +802,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     outside_temperature=self.current_outside_temperature
                 )
 
+            # Since we are in the deadband we can safely assume we are not warming up anymore
+            if self._warming_up and max_error <= 0.1:
+                self._warming_up = False
+                _LOGGER.info("Reached deadband, turning off warming up.")
+
             # Update the pid controller
             self._pid.update(error=max_error, heating_curve_value=self._heating_curve.value)
         elif max_error != self._pid.last_error:
@@ -804,6 +815,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pid.update_reset(error=max_error, heating_curve_value=self._heating_curve.value)
             self._outputs.clear()
             self._pwm.reset()
+
+            # Determine if we are warming up
+            if self.max_error > 0.1:
+                self._warming_up = True
+                _LOGGER.info("Outside of deadband, we are warming up")
 
         self.async_write_ha_state()
 
@@ -826,11 +842,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if self._pulse_width_modulation_enabled and pwm_state != pwm_state.IDLE:
                 self._setpoint = self._store.retrieve_overshoot_protection_value() if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
-                _LOGGER.info("Running pulse width modulation cycle.")
+                _LOGGER.info(f"Running pulse width modulation cycle: {pwm_state}")
             else:
                 self._outputs.append(self._calculate_control_setpoint())
                 self._setpoint = mean(list(self._outputs)[-5:])
-                _LOGGER.info("Running normal cycle.")
+                _LOGGER.info("Running normal cycle")
         else:
             self._outputs.clear()
             self._setpoint = MINIMUM_SETPOINT
