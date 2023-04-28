@@ -85,14 +85,14 @@ class OvershootProtection:
             await asyncio.sleep(5)
 
     async def _wait_for_stable_temperature(self, max_modulation: float) -> float:
-        temps = deque(maxlen=100)
+        temps = deque(maxlen=50)
         previous_average_temp = None
 
         while True:
             actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
 
             temps.append(actual_temp)
-            average_temp = sum(temps) / 100
+            average_temp = sum(temps) / 50
 
             if previous_average_temp is not None:
                 if abs(actual_temp - previous_average_temp) <= 0.1:
