@@ -117,7 +117,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str | None:
-        return "Boiler Current Power (Boiler)"
+        return f"Boiler Current Power {self._config_entry.data.get(CONF_NAME)} (Boiler)"
 
     @property
     def device_class(self):
@@ -155,7 +155,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
             return 0
 
         # Get and calculate the minimum capacity from the data
-        minimum_capacity = maximum_capacity / (100 / boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL))
+        minimum_capacity = maximum_capacity / (100 / float(boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL)))
 
         # Calculate and return the current capacity in kW
         return minimum_capacity + (((maximum_capacity - minimum_capacity) / 100) * relative_modulation)
@@ -163,4 +163,4 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-current-power"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-power"

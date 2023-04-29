@@ -147,6 +147,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             schema[vol.Required(CONF_INTEGRAL, default=defaults.get(CONF_INTEGRAL))] = str
             schema[vol.Required(CONF_DERIVATIVE, default=defaults.get(CONF_DERIVATIVE))] = str
 
+        if not defaults.get(CONF_AUTOMATIC_DUTY_CYCLE):
+            schema[vol.Required(CONF_DUTY_CYCLE, default=defaults.get(CONF_DUTY_CYCLE))] = selector.TimeSelector()
+
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
     async def async_step_presets(self, _user_input=None) -> FlowResult:
@@ -205,12 +208,12 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
                 vol.Required(CONF_AUTOMATIC_GAINS, default=defaults.get(CONF_AUTOMATIC_GAINS)): bool,
+                vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=defaults.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
                 vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=defaults[CONF_FORCE_PULSE_WIDTH_MODULATION]): bool,
                 vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION]): bool,
                 vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
                 ),
-                vol.Required(CONF_DUTY_CYCLE, default=defaults.get(CONF_DUTY_CYCLE)): selector.TimeSelector(),
                 vol.Required(CONF_SAMPLE_TIME, default=defaults.get(CONF_SAMPLE_TIME)): selector.TimeSelector(),
                 vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=defaults.get(CONF_SENSOR_MAX_VALUE_AGE)): selector.TimeSelector(),
             })
