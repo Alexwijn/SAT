@@ -927,6 +927,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Set the temperature for each room, when enabled
             if self._sync_climates_with_preset:
                 for entity_id in self._climates:
+                    state = self.hass.states.get(entity_id)
+                    if state is None or state.state == HVACMode.OFF:
+                        continue
+
                     target_temperature = self._presets[preset_mode]
                     if preset_mode in [PRESET_HOME, PRESET_COMFORT]:
                         target_temperature = self._rooms[entity_id]
@@ -987,9 +991,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _update_room_with_target_temperature(self):
         self._rooms = {}
         for climate in self._climates:
-            # Skip if climate state is unavailable or HVAC mode is off
             state = self.hass.states.get(climate)
-            if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
+            if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
                 continue
 
             if target_temperature := state.attributes.get("temperature"):
