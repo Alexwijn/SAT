@@ -172,6 +172,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_COMFORT_TEMPERATURE, default=defaults[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5)
                 ),
+                vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=defaults[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
             })
         )
 
