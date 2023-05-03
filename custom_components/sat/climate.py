@@ -710,7 +710,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif not hasattr(new_state.attributes, SENSOR_TEMPERATURE_ID) and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid(False)
 
-        if (self._rooms and new_state.entity_id not in self._rooms) or self.preset_mode in [PRESET_HOME, PRESET_COMFORT]:
+        if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode in [PRESET_HOME, PRESET_COMFORT]:
             self._rooms[new_state.entity_id] = float(new_state.attributes.get("temperature"))
 
         # Update the heating control
@@ -992,4 +992,5 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                 continue
 
-            self._rooms[climate] = float(state.attributes.get("temperature"))
+            if target_temperature := state.attributes.get("temperature"):
+                self._rooms[climate] = float(target_temperature)
