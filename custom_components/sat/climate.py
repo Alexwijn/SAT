@@ -711,7 +711,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pid(False)
 
         if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode in [PRESET_HOME, PRESET_COMFORT]:
-            self._rooms[new_state.entity_id] = float(new_state.attributes.get("temperature"))
+            if target_temperature := new_state.attributes.get("temperature"):
+                self._rooms[new_state.entity_id] = float(target_temperature)
 
         # Update the heating control
         await self._async_control_heating()
