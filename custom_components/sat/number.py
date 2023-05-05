@@ -3,7 +3,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import *
-from .coordinators.opentherm import SatOpenThermCoordinator
 from .entity import SatEntity
 
 
@@ -13,7 +12,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
-    def __init__(self, coordinator: SatOpenThermCoordinator, config_entry: ConfigEntry):
+    def __init__(self, coordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
