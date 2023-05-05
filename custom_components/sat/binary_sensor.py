@@ -11,7 +11,6 @@ from homeassistant.helpers.entity import async_generate_entity_id
 
 from .climate import SatClimate
 from .const import DOMAIN, COORDINATOR, CLIMATE, TRANSLATE_SOURCE, CONF_NAME, BINARY_SENSOR_INFO
-from .coordinators.opentherm import SatOpenThermCoordinator
 from .entity import SatEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
 
     def __init__(
             self,
-            coordinator: SatOpenThermCoordinator,
+            coordinator,
             config_entry: ConfigEntry,
             key: str,
             source: str,
@@ -104,7 +103,7 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
 
 class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
-    def __init__(self, coordinator: SatOpenThermCoordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
@@ -149,7 +148,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
 
 class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
-    def __init__(self, coordinator: SatOpenThermCoordinator, climate: SatClimate, config_entry: ConfigEntry) -> None:
+    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry) -> None:
         """Initialize the Central Heating Synchro sensor."""
         super().__init__(coordinator, config_entry)
 

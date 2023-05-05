@@ -7,7 +7,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
 from .const import *
-from .coordinators.opentherm import SatOpenThermCoordinator
 from .entity import SatEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,16 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatSensor(SatEntity, SensorEntity):
-    def __init__(
-            self,
-            coordinator: SatOpenThermCoordinator,
-            config_entry: ConfigEntry,
-            key: str,
-            source: str,
-            device_class: str,
-            unit: str,
-            friendly_name_format: str
-    ):
+    def __init__(self, coordinator, config_entry: ConfigEntry, key: str, source: str, device_class: str, unit: str, friendly_name_format: str):
         super().__init__(coordinator, config_entry)
 
         self.entity_id = async_generate_entity_id(
@@ -108,7 +98,7 @@ class SatSensor(SatEntity, SensorEntity):
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
-    def __init__(self, coordinator: SatOpenThermCoordinator, config_entry: ConfigEntry):
+    def __init__(self, coordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
