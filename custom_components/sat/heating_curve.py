@@ -1,7 +1,7 @@
 from collections import deque
 from statistics import mean
 
-from custom_components.sat.const import *
+from .const import *
 
 
 class HeatingCurve:

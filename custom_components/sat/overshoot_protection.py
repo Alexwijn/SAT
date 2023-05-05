@@ -2,8 +2,8 @@ import asyncio
 import logging
 from collections import deque
 
-from custom_components.sat import SatDataUpdateCoordinator
 from .const import *
+from .coordinators.opentherm import SatOpenThermCoordinator
 
 SOLUTION_AUTOMATIC = "auto"
 SOLUTION_WITH_MODULATION = "with_modulation"
@@ -19,7 +19,7 @@ OVERSHOOT_PROTECTION_INITIAL_WAIT = 120  # 2 minutes in seconds
 
 
 class OvershootProtection:
-    def __init__(self, coordinator: SatDataUpdateCoordinator):
+    def __init__(self, coordinator: SatOpenThermCoordinator):
         self._coordinator = coordinator
 
     async def calculate(self, solution: str) -> float | None:
