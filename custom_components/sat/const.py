@@ -17,6 +17,9 @@ DOMAIN = "sat"
 VERSION = "0.0.1"
 COORDINATOR = "coordinator"
 
+MODE_SWITCH = "mode_switch"
+MODE_OPENTHERM = "mode_opentherm"
+
 UNIT_KW = "kW"
 UNIT_L_MIN = f"L/{TIME_MINUTES}"
 
@@ -43,8 +46,11 @@ CLIMATE = "climate"
 BINARY_SENSOR = "binary_sensor"
 
 # Configuration and options
+CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
+CONF_SWITCH = "switch"
+CONF_SETPOINT = "setpoint"
 CONF_CLIMATES = "climates"
 CONF_MAIN_CLIMATES = "main_climates"
 CONF_SIMULATION = "simulation"
@@ -78,6 +84,7 @@ HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES = "radiator_medium_temperatures"
 HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES = "radiator_high_temperatures"
 
 OPTIONS_DEFAULTS = {
+    CONF_MODE: MODE_OPENTHERM,
     CONF_PROPORTIONAL: "45",
     CONF_INTEGRAL: "0",
     CONF_DERIVATIVE: "6000",
@@ -89,6 +96,7 @@ OPTIONS_DEFAULTS = {
     CONF_AUTOMATIC_DUTY_CYCLE: False,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 
+    CONF_SETPOINT: 80,
     CONF_OVERSHOOT_PROTECTION: False,
     CONF_FORCE_PULSE_WIDTH_MODULATION: False,
 

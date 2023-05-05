@@ -3,8 +3,9 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
-from custom_components.sat import SatConfigStore
-from custom_components.sat.heating_curve import HeatingCurve
+from .const import *
+from .heating_curve import HeatingCurve
+from .store import SatConfigStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,8 +27,9 @@ class PWMState(Enum):
 class PWM:
     """A class for implementing Pulse Width Modulation (PWM) control."""
 
-    def __init__(self, store: SatConfigStore, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool):
+    def __init__(self, store: SatConfigStore, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
         """Initialize the PWM control."""
+        self._force = force
         self._store = store
         self._heating_curve = heating_curve
         self._max_cycle_time = max_cycle_time
@@ -49,7 +51,7 @@ class PWM:
             _LOGGER.warning("Invalid heating curve value")
             return
 
-        if setpoint is None or setpoint > self._store.retrieve_overshoot_protection_value():
+        if not self._force and (setpoint is None or setpoint > self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)):
             self._state = PWMState.IDLE
             self._last_update = monotonic()
             _LOGGER.debug("Turned off PWM due exceeding the overshoot protection value")
@@ -84,8 +86,8 @@ class PWM:
     def _calculate_duty_cycle(self, setpoint: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
-        overshoot_protection = self._store.retrieve_overshoot_protection_value()
-        duty_cycle_percentage = (setpoint - base_offset) / (overshoot_protection - base_offset)
+        overshoot_protection = self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)
+        duty_cycle_percentage = min((setpoint - base_offset) / (overshoot_protection - base_offset), 1)
 
         _LOGGER.debug("Requested setpoint %.1f", setpoint)
         _LOGGER.debug("Calculated duty cycle %.0f%%", duty_cycle_percentage * 100)

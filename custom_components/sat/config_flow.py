@@ -6,6 +6,7 @@ from homeassistant import config_entries
 from homeassistant.components import dhcp
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
@@ -27,6 +28,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._data = {}
         self._errors = {}
 
+    async def async_step_user(self, _user_input=None) -> FlowResult:
+        """Handle user flow."""
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["opentherm", "switch"]
+        )
+
     async def async_step_dhcp(self, discovery_info: dhcp.DhcpServiceInfo) -> FlowResult:
         """Handle dhcp discovery."""
         _LOGGER.debug("Discovered OTGW at [%s]", discovery_info.ip)
@@ -36,33 +44,54 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(discovery_info.ip)
         self._abort_if_unique_id_configured(updates={CONF_DEVICE: discovery_info.ip}, reload_on_update=True)
 
-        return await self.async_step_user()
+        return await self.async_step_opentherm()
 
-    async def async_step_user(self, _user_input=None) -> FlowResult:
+    async def async_step_opentherm(self, _user_input=None):
         self._errors = {}
 
         if _user_input is not None:
             self._data.update(_user_input)
+            self._data[CONF_MODE] = MODE_OPENTHERM
 
             if not await self._test_gateway_connection():
                 self._errors["base"] = "auth"
-                return await self.async_step_gateway_setup()
+                return await self.async_step_opentherm()
 
             await self.async_set_unique_id(self._data[CONF_DEVICE], raise_on_progress=False)
             self._abort_if_unique_id_configured()
 
             return await self.async_step_sensors_setup()
 
-        return await self.async_step_gateway_setup()
-
-    async def async_step_gateway_setup(self):
         return self.async_show_form(
-            step_id="user",
+            step_id="opentherm",
             last_step=False,
             errors=self._errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default="Living Room"): str,
                 vol.Required(CONF_DEVICE, default="socket://otgw.local:25238"): str,
+            }),
+        )
+
+    async def async_step_switch(self, _user_input=None):
+        if _user_input is not None:
+            self._data.update(_user_input)
+            self._data[CONF_MODE] = MODE_SWITCH
+
+            await self.async_set_unique_id(self._data[CONF_SWITCH], raise_on_progress=False)
+
+            self._abort_if_unique_id_configured()
+
+            return await self.async_step_sensors_setup()
+
+        return self.async_show_form(
+            step_id="switch",
+            last_step=False,
+            errors=self._errors,
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default="Living Room"): str,
+                vol.Required(CONF_SWITCH): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN])
+                )
             }),
         )
 
@@ -104,6 +133,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: ConfigEntry):
         self._config_entry = config_entry
         self._options = dict(config_entry.options)
+        self._mode = config_entry.data.get(CONF_MODE)
 
     async def async_step_init(self, _user_input=None):
         return await self.async_step_user(_user_input)
@@ -132,7 +162,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=defaults[CONF_TARGET_TEMPERATURE_STEP]): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
             ),
-            vol.Required(CONF_HEATING_SYSTEM, default=defaults[CONF_HEATING_SYSTEM]): selector.SelectSelector(
+        }
+
+        if self._mode == MODE_OPENTHERM:
+            schema[vol.Required(CONF_HEATING_SYSTEM, default=defaults[CONF_HEATING_SYSTEM])] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[
                     {"value": HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
                     {"value": HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES, "label": "Radiators ( Medium Temperatures )"},
@@ -140,7 +173,11 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                     {"value": HEATING_SYSTEM_UNDERFLOOR, "label": "Underfloor"}
                 ])
             )
-        }
+
+        if self._mode == MODE_SWITCH:
+            schema[vol.Required(CONF_SETPOINT, default=50)] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=100, step=1)
+            )
 
         if not defaults.get(CONF_AUTOMATIC_GAINS):
             schema[vol.Required(CONF_PROPORTIONAL, default=defaults.get(CONF_PROPORTIONAL))] = str
@@ -204,20 +241,27 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             return await self.update_options(_user_input)
 
         defaults = await self.get_options()
+
+        schema = {
+            vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
+            vol.Required(CONF_AUTOMATIC_GAINS, default=defaults.get(CONF_AUTOMATIC_GAINS)): bool,
+            vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=defaults.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
+        }
+
+        if self._mode == MODE_OPENTHERM:
+            schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=defaults[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
+            schema[vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION])] = bool
+
+        schema[vol.Required(CONF_SAMPLE_TIME, default=defaults.get(CONF_SAMPLE_TIME))] = selector.TimeSelector()
+        schema[vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=defaults.get(CONF_SENSOR_MAX_VALUE_AGE))] = selector.TimeSelector()
+
+        schema[vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET])] = selector.NumberSelector(
+            selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
+        )
+
         return self.async_show_form(
             step_id="advanced",
-            data_schema=vol.Schema({
-                vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
-                vol.Required(CONF_AUTOMATIC_GAINS, default=defaults.get(CONF_AUTOMATIC_GAINS)): bool,
-                vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=defaults.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
-                vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=defaults[CONF_FORCE_PULSE_WIDTH_MODULATION]): bool,
-                vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION]): bool,
-                vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
-                ),
-                vol.Required(CONF_SAMPLE_TIME, default=defaults.get(CONF_SAMPLE_TIME)): selector.TimeSelector(),
-                vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=defaults.get(CONF_SENSOR_MAX_VALUE_AGE)): selector.TimeSelector(),
-            })
+            data_schema=vol.Schema(schema)
         )
 
     async def update_options(self, _user_input) -> FlowResult:

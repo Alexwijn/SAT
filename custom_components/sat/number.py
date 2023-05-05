@@ -1,10 +1,10 @@
-import pyotgw.vars as gw_vars
 from homeassistant.components.number import NumberEntity, NumberDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from custom_components.sat import SatDataUpdateCoordinator, CONF_NAME, COORDINATOR, DOMAIN
-from custom_components.sat.entity import SatEntity
+from .const import *
+from .coordinators.opentherm import SatOpenThermCoordinator
+from .entity import SatEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
@@ -13,7 +13,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatOpenThermCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator

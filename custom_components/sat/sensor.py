@@ -1,15 +1,13 @@
 """Sensor platform for SAT."""
 import logging
 
-import pyotgw.vars as gw_vars
-from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT, SensorDeviceClass
+from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
-from . import SatDataUpdateCoordinator
-from .const import SENSOR_INFO, DOMAIN, COORDINATOR, TRANSLATE_SOURCE, CONF_NAME
+from .const import *
+from .coordinators.opentherm import SatOpenThermCoordinator
 from .entity import SatEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 class SatSensor(SatEntity, SensorEntity):
     def __init__(
             self,
-            coordinator: SatDataUpdateCoordinator,
+            coordinator: SatOpenThermCoordinator,
             config_entry: ConfigEntry,
             key: str,
             source: str,
@@ -110,7 +108,7 @@ class SatSensor(SatEntity, SensorEntity):
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatOpenThermCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator

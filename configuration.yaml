@@ -50,6 +50,20 @@ input_boolean:
     name: Heater
     icon: mdi:heater
 
+switch:
+  - platform: template
+    switches:
+      heater:
+        value_template: "{{ is_state('input_boolean.heater', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.heater
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.heater
+
 climate:
   - platform: generic_thermostat
     name: Heater
