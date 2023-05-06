@@ -14,6 +14,11 @@ if typing.TYPE_CHECKING:
     from ..climate import SatClimate
 
 
+async def set_overshoot_protection_value(self, call: ServiceCall):
+    """Service to set the overshoot protection value."""
+    self._store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, call.data.get("value"))
+
+
 async def start_overshoot_protection_calculation(self, climate: SatClimate, call: ServiceCall):
     """Service to start the overshoot protection calculation process.
 
