@@ -26,7 +26,7 @@ async def start_overshoot_protection_calculation(self, climate: SatClimate, call
     points. If the difference between the current return water temperature and the mean is small, it will
     deactivate overshoot protection and store the calculated value.
     """
-    if self._overshoot_protection_calculate:
+    if climate.overshoot_protection_calculate:
         self.logger.warning("[Overshoot Protection] Calculation already in progress.")
         return
 
@@ -54,7 +54,7 @@ async def start_overshoot_protection_calculation(self, climate: SatClimate, call
 
     from .overshoot_protection import OvershootProtection
     overshoot_protection_value = await OvershootProtection(self).calculate(call.data.get("solution"))
-    self._overshoot_protection_calculate = False
+    climate.overshoot_protection_calculate = False
 
     await climate.async_set_hvac_mode(saved_hvac_mode)
 
