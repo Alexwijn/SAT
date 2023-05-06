@@ -51,7 +51,8 @@
           "away_temperature": "Away Temperature",
           "home_temperature": "Home Temperature",
           "sleep_temperature": "Sleep Temperature",
-          "comfort_temperature": "Comfort Temperature"
+          "comfort_temperature": "Comfort Temperature",
+          "sync_climates_with_preset": "Synchronize climates with preset (sleep / away)"
         }
       },
       "climates": {

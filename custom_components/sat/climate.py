@@ -40,6 +40,7 @@ from .overshoot_protection import OvershootProtection
 from .pid import PID
 from .pwm import PWM, PWMState
 
+ATTR_ROOMS = "rooms"
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
 _LOGGER = logging.getLogger(__name__)
@@ -155,6 +156,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._pwm = create_pwm_controller(self._heating_curve, self._store, options)
 
         self._sensors = []
+        self._rooms = None
         self._setpoint = None
         self._warming_up = False
         self._max_relative_mod = None
@@ -174,6 +176,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._overshoot_protection = bool(options.get(CONF_OVERSHOOT_PROTECTION))
         self._climate_valve_offset = float(options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(options.get(CONF_TARGET_TEMPERATURE_STEP))
+        self._sync_climates_with_preset = bool(options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
         self._force_pulse_width_modulation = bool(options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
         self._sensor_max_value_age = convert_time_str_to_seconds(options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
@@ -249,8 +252,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if old_state.attributes.get(ATTR_PRESET_MODE):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
+
+            if old_state.attributes.get(ATTR_ROOMS):
+                self._rooms = old_state.attributes.get(ATTR_ROOMS)
+            else:
+                await self._update_room_with_target_temperature()
         else:
             # No previous state, try and restore defaults
+            if self._rooms is None:
+                await self._update_room_with_target_temperature()
+
             if self._target_temperature is None:
                 self._pid.setpoint = self.min_temp
                 self._target_temperature = self.min_temp
@@ -409,6 +420,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "current_ki": self._pid.ki,
             "current_kd": self._pid.kd,
 
+            "rooms": self._rooms,
             "setpoint": self._setpoint,
             "warming_up": self._warming_up,
             "valves_open": self.valves_open,
@@ -698,6 +710,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif not hasattr(new_state.attributes, SENSOR_TEMPERATURE_ID) and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid(False)
 
+        if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode in [PRESET_HOME, PRESET_COMFORT]:
+            if target_temperature := new_state.attributes.get("temperature"):
+                self._rooms[new_state.entity_id] = float(target_temperature)
+
         # Update the heating control
         await self._async_control_heating()
 
@@ -909,6 +925,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._attr_preset_mode = preset_mode
             await self._async_set_setpoint(self._presets[preset_mode])
 
+            # Set the temperature for each room, when enabled
+            if self._sync_climates_with_preset:
+                for entity_id in self._climates:
+                    state = self.hass.states.get(entity_id)
+                    if state is None or state.state == HVACMode.OFF:
+                        continue
+
+                    target_temperature = self._presets[preset_mode]
+                    if preset_mode in [PRESET_HOME, PRESET_COMFORT]:
+                        target_temperature = self._rooms[entity_id]
+
+                    data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: target_temperature}
+                    await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+
     async def _async_set_setpoint(self, temperature: float):
         """Set the temperature setpoint for all main climates."""
         if self._target_temperature == temperature:
@@ -958,3 +988,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Update the state and control the heating
         self.async_write_ha_state()
         await self._async_control_heating()
+
+    async def _update_room_with_target_temperature(self):
+        self._rooms = {}
+        for climate in self._climates:
+            state = self.hass.states.get(climate)
+            if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+                continue
+
+            if target_temperature := state.attributes.get("temperature"):
+                self._rooms[climate] = float(target_temperature)
