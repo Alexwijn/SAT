@@ -111,6 +111,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         super().__init__(coordinator, config_entry)
 
         self._store = coordinator.store
+        self.overshoot_protection_calculate = False
 
         # Create dictionary mapping preset keys to temperature options
         conf_presets = {p: f"{p}_temperature" for p in (PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
@@ -154,7 +155,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._hvac_mode = None
         self._target_temperature = None
         self._saved_target_temperature = None
-        self._overshoot_protection_calculate = False
 
         self._climates = self._store.options.get(CONF_CLIMATES)
         self._main_climates = self._store.options.get(CONF_MAIN_CLIMATES)
@@ -612,7 +612,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_heating_loop(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         # If overshoot protection is active, we are not doing anything since we already have task running in async
-        if self._overshoot_protection_calculate:
+        if self.overshoot_protection_calculate:
             return
 
         # If the current, target or outside temperature is not available, do nothing
@@ -741,7 +741,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Ignore the request when we are in calculation mode
-        if self._overshoot_protection_calculate:
+        if self.overshoot_protection_calculate:
             return
 
         # Automatically select the preset
@@ -759,7 +759,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
 
         # Ignore the request when we are in calculation mode
-        if self._overshoot_protection_calculate:
+        if self.overshoot_protection_calculate:
             return
 
         # Return if the given preset mode is already set
@@ -822,7 +822,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set the heating/cooling mode for the devices and update the state."""
         # Ignore the request when we are in calculation mode
-        if self._overshoot_protection_calculate:
+        if self.overshoot_protection_calculate:
             return
 
         # Only allow the hvac mode to be set to heat or off
