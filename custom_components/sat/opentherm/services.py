@@ -3,7 +3,6 @@ from __future__ import annotations
 import typing
 
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, HVACMode
-from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
 from homeassistant.core import ServiceCall
 
@@ -48,10 +47,10 @@ async def start_overshoot_protection_calculation(self, climate: SatClimate, call
     await climate.async_set_target_temperature(30)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
-        "title": "Overshoot Protection Calculation",
-        "message": "Calculation started. This process will run for at least 20 minutes until a stable boiler water temperature is found."
-    })
+    await self.async_send_notification(
+        title="Overshoot Protection Calculation",
+        message="Calculation started. This process will run for at least 20 minutes until a stable boiler water temperature is found."
+    )
 
     from .overshoot_protection import OvershootProtection
     overshoot_protection_value = await OvershootProtection(self).calculate(call.data.get("solution"))
