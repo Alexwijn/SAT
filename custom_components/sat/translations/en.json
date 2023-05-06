@@ -5,7 +5,7 @@
         "title": "Smart Autotune Thermostat (SAT)",
         "description": "SAT is a smart thermostat that is capable of auto-tuning itself to optimize temperature control. Select the appropriate mode that matches your heating system.",
         "menu_options": {
-          "opentherm": "OpenTherm gateway",
+          "opentherm": "OpenTherm Gateway ( OTGW )",
           "switch": "PID Thermostat with PWM ( ON/OFF )"
         }
       },
