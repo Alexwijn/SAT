@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
@@ -24,11 +25,8 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     _hass.data[DOMAIN][_entry.entry_id] = {CONFIG_STORE: SatConfigStore(_hass, _entry)}
     await _hass.data[DOMAIN][_entry.entry_id][CONFIG_STORE].async_initialize()
 
-    if _entry.data.get(CONF_MODE) == MODE_SWITCH:
-        await _hass.async_add_job(switch.async_setup_entry(_hass, _entry))
-
-    if _entry.data.get(CONF_MODE) == MODE_OPENTHERM:
-        await _hass.async_add_job(opentherm.async_setup_entry(_hass, _entry))
+    module = getattr(sys.modules[__name__], _entry.data.get(CONF_MODE))
+    await _hass.async_add_job(module.async_setup_entry, _hass, _entry)
 
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setups(_entry, [
         CLIMATE, SENSOR, NUMBER, BINARY_SENSOR
