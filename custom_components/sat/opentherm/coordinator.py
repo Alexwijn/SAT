@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import typing
+from functools import partial
 from typing import Optional, Any
 
-from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, HVACMode
-from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.components.climate import HVACMode
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pyotgw import OpenThermGateway
 
+from .services import start_overshoot_protection_calculation
 from ..config_store import SatConfigStore
 from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
@@ -31,8 +31,35 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         self._overshoot_protection = bool(self._store.options.get(CONF_OVERSHOOT_PROTECTION))
         self._force_pulse_width_modulation = bool(self._store.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
+    async def async_added_to_hass(self, climate: SatClimate) -> None:
+        """Run when entity about to be added."""
+        await self._async_control_max_setpoint()
+
+        if self._overshoot_protection and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
+            self._overshoot_protection = False
+
+            await self.async_send_notification(
+                title="Smart Autotune Thermostat",
+                message="Disabled overshoot protection because no overshoot value has been found."
+            )
+
+        if self._force_pulse_width_modulation and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
+            self._force_pulse_width_modulation = False
+
+            await self.async_send_notification(
+                title="Smart Autotune Thermostat",
+                message="Disabled forced pulse width modulation because no overshoot value has been found."
+            )
+
+        self.hass.services.async_register(
+            DOMAIN,
+            SERVICE_OVERSHOOT_PROTECTION_CALCULATION,
+            partial(start_overshoot_protection_calculation, self, climate)
+        )
+
     @property
     def supports_setpoint_management(self):
+        """Control the setpoint temperature for the device."""
         return True
 
     def get(self, key: str) -> Optional[Any]:
@@ -42,93 +69,6 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
         """
         return self.data[gw_vars.BOILER].get(key) if self.data[gw_vars.BOILER] else None
-
-    async def async_added_to_hass(self, climate: SatClimate) -> None:
-        """Run when entity about to be added."""
-        await self._async_control_max_setpoint()
-
-        if self._overshoot_protection and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
-            self._overshoot_protection = False
-
-            await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
-                "title": "Smart Autotune Thermostat",
-                "message": "Disabled overshoot protection because no overshoot value has been found."
-            })
-
-        if self._force_pulse_width_modulation and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
-            self._force_pulse_width_modulation = False
-
-            await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
-                "title": "Smart Autotune Thermostat",
-                "message": "Disabled forced pulse width modulation because no overshoot value has been found."
-            })
-
-        async def start_overshoot_protection_calculation(_call: ServiceCall):
-            """Service to start the overshoot protection calculation process.
-
-            This process will activate overshoot protection by turning on the heater and setting the control setpoint to
-            a fixed value. Then, it will collect return water temperature data and calculate the mean of the last 3 data
-            points. If the difference between the current return water temperature and the mean is small, it will
-            deactivate overshoot protection and store the calculated value.
-            """
-            if self._overshoot_protection_calculate:
-                self.logger.warning("[Overshoot Protection] Calculation already in progress.")
-                return
-
-            self._device_state = DeviceState.ON
-            self._overshoot_protection_calculate = True
-
-            saved_hvac_mode = climate.hvac_mode
-            saved_target_temperature = climate.target_temperature
-
-            saved_target_temperatures = {}
-            for entity_id in self._store.options.get(CONF_CLIMATES):
-                if state := self.hass.states.get(entity_id):
-                    saved_target_temperatures[entity_id] = float(state.attributes.get("temperature"))
-
-                data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: 30}
-                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
-
-            await climate.async_set_target_temperature(30)
-            await climate.async_set_hvac_mode(HVACMode.HEAT)
-
-            await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
-                "title": "Overshoot Protection Calculation",
-                "message": "Calculation started. This process will run for at least 20 minutes until a stable boiler water temperature is found."
-            })
-
-            from .overshoot_protection import OvershootProtection
-            overshoot_protection_value = await OvershootProtection(self).calculate(_call.data.get("solution"))
-            self._overshoot_protection_calculate = False
-
-            await climate.async_set_hvac_mode(saved_hvac_mode)
-
-            await self._async_control_max_setpoint()
-            await climate.async_set_target_temperature(saved_target_temperature)
-
-            for entity_id in self._store.options.get(CONF_CLIMATES):
-                data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: saved_target_temperatures[entity_id]}
-                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
-
-            if overshoot_protection_value is None:
-                await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
-                    "title": "Overshoot Protection Calculation",
-                    "message": f"Timed out waiting for stable temperature"
-                })
-            else:
-                await self.hass.services.async_call(NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION, {
-                    "title": "Overshoot Protection Calculation",
-                    "message": f"Finished calculating. Result: {round(overshoot_protection_value, 1)}"
-                })
-
-                # Turn the overshoot protection settings back on
-                self._overshoot_protection = bool(self._store.options.get(CONF_OVERSHOOT_PROTECTION))
-                self._force_pulse_width_modulation = bool(self._store.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
-
-                # Store the new value
-                self._store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, overshoot_protection_value)
-
-        self.hass.services.async_register(DOMAIN, "start_overshoot_protection_calculation", start_overshoot_protection_calculation)
 
     async def cleanup(self) -> None:
         """Cleanup and disconnect."""
@@ -148,9 +88,9 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
     async def _async_coroutine(self, data):
         self.async_set_updated_data(data)
 
-    async def async_control_heating(self, climate: SatClimate, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: SatClimate, _time=None) -> None:
         """Control the max relative mod of the heating system."""
-        await super().async_control_heating(climate)
+        await super().async_control_heating_loop(climate)
 
         if climate.hvac_mode == HVACMode.OFF and bool(self.get(gw_vars.DATA_MASTER_CH_ENABLED)):
             await self.async_set_heater_state(DeviceState.OFF)
@@ -168,6 +108,7 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         self.logger.info("Set max relative mod to %d", max_relative_mod)
 
     async def _async_control_max_setpoint(self) -> None:
+        """Set a maximum temperature limit on the boiler."""
         if not self._simulation:
             await self.api.set_max_ch_setpoint(self.maximum_setpoint)
 
