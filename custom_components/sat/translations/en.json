@@ -11,7 +11,7 @@
       },
       "opentherm": {
         "title": "OpenTherm Gateway ( OTGW )",
-        "description": "Please fill in the following details to set up the OpenTherm gateway:",
+        "description": "Please fill in the following details to set up the OpenTherm Gateway:",
         "data": {
           "name": "Name",
           "device": "Path or URL"
