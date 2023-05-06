@@ -51,7 +51,6 @@ class SatSensor(SatEntity, SensorEntity):
         self._key = key
         self._unit = unit
         self._source = source
-        self._coordinator = coordinator
         self._device_class = device_class
         self._config_entry = config_entry
 
@@ -99,8 +98,6 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
     def __init__(self, coordinator: SatOpenThermCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
-
-        self._coordinator = coordinator
 
     @property
     def name(self) -> str | None:

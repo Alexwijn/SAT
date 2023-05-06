@@ -72,7 +72,6 @@ class SatBinarySensor(SatEntity, BinarySensorEntity):
 
         self._key = key
         self._source = source
-        self._coordinator = coordinator
         self._device_class = device_class
         self._config_entry = config_entry
 
@@ -111,8 +110,6 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
 
     def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
-
-        self._coordinator = coordinator
         self._climate = climate
 
     @property
@@ -157,8 +154,6 @@ class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
     def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry) -> None:
         """Initialize the Central Heating Synchro sensor."""
         super().__init__(coordinator, config_entry)
-
-        self._coordinator = coordinator
         self._climate = climate
 
     @property
