@@ -341,7 +341,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self._pwm.state,
             "pulse_width_modulation_duty_cycle": self._pwm.duty_cycle,
-            "overshoot_protection_calculating": self._overshoot_protection_calculate,
+            "overshoot_protection_calculating": self.overshoot_protection_calculate,
             "overshoot_protection_value": self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE),
         }
 
