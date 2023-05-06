@@ -3,9 +3,9 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
+from .config_store import SatConfigStore
 from .const import *
 from .heating_curve import HeatingCurve
-from .store import SatConfigStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,18 +81,21 @@ class PWM:
             _LOGGER.debug("Finished duty cycle.")
             return
 
-        _LOGGER.debug("Cycle time elapsed %.0f seconds", elapsed)
+        _LOGGER.debug("Cycle time elapsed %.0f seconds in %s", elapsed, self._state)
 
     def _calculate_duty_cycle(self, setpoint: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
         overshoot_protection = self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)
-        duty_cycle_percentage = min((setpoint - base_offset) / (overshoot_protection - base_offset), 1)
+
+        duty_cycle_percentage = (setpoint - base_offset) / (overshoot_protection - base_offset)
+        duty_cycle_percentage = min(duty_cycle_percentage, 1)
+        duty_cycle_percentage = max(duty_cycle_percentage, 0)
 
         _LOGGER.debug("Requested setpoint %.1f", setpoint)
         _LOGGER.debug("Calculated duty cycle %.0f%%", duty_cycle_percentage * 100)
 
-        if not self._automatic_duty_cycle and duty_cycle_percentage >= 0:
+        if not self._automatic_duty_cycle:
             return int(duty_cycle_percentage * self._max_cycle_time), int((1 - duty_cycle_percentage) * self._max_cycle_time)
 
         if duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE:

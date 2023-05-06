@@ -16,9 +16,10 @@ NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 VERSION = "0.0.1"
 COORDINATOR = "coordinator"
+CONFIG_STORE = "config_store"
 
-MODE_SWITCH = "mode_switch"
-MODE_OPENTHERM = "mode_opentherm"
+MODE_SWITCH = "switch"
+MODE_OPENTHERM = "opentherm"
 
 UNIT_KW = "kW"
 UNIT_L_MIN = f"L/{TIME_MINUTES}"

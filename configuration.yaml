@@ -10,6 +10,20 @@ homeassistant:
     climate.heater:
       sensor_temperature_id: "sensor.heater_temperature"
 
+switch:
+  - platform: template
+    switches:
+      heater:
+        value_template: "{{ is_state('input_boolean.heater', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.heater
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.heater
+
 template:
   sensor:
     - unit_of_measurement: °C
@@ -49,24 +63,3 @@ input_boolean:
   heater:
     name: Heater
     icon: mdi:heater
-
-switch:
-  - platform: template
-    switches:
-      heater:
-        value_template: "{{ is_state('input_boolean.heater', 'on') }}"
-        turn_on:
-          service: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.heater
-        turn_off:
-          service: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.heater
-
-climate:
-  - platform: generic_thermostat
-    name: Heater
-    unique_id: heater
-    heater: input_boolean.heater
-    target_sensor: sensor.heater_temperature

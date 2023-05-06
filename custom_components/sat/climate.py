@@ -1,4 +1,6 @@
 """Climate platform for SAT."""
+from __future__ import annotations
+
 import logging
 from collections import deque
 from datetime import timedelta
@@ -27,17 +29,18 @@ from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant, ServiceCall, Event
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt
 
+from .config_store import SatConfigStore
 from .const import *
-from .device import DeviceState
+from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .heating_curve import HeatingCurve
 from .pid import PID
 from .pwm import PWM, PWMState
-from .store import SatConfigStore
 
 ATTR_ROOMS = "rooms"
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
@@ -94,17 +97,17 @@ def create_pwm_controller(heating_curve: HeatingCurve, store: SatConfigStore, op
     return PWM(store=store, heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
+async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_devices: AddEntitiesCallback):
     """Set up the SatClimate device."""
-    coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
-    climate = SatClimate(coordinator, config_entry, hass.config.units.temperature_unit)
+    coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
+    climate = SatClimate(coordinator, _config_entry, _hass.config.units.temperature_unit)
 
-    async_add_devices([climate])
-    hass.data[DOMAIN][config_entry.entry_id][CLIMATE] = climate
+    _async_add_devices([climate])
+    _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE] = climate
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
-    def __init__(self, coordinator, config_entry: ConfigEntry, unit: str):
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
         self._coordinator = coordinator
@@ -506,13 +509,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             requested_setpoint = max(requested_setpoint, self._heating_curve.value)
 
         # Ensure setpoint is limited to our max
-        setpoint = min(requested_setpoint, self._coordinator.maximum_setpoint)
-
-        # Ensure setpoint is at least 10
-        return round(max(setpoint, MINIMUM_SETPOINT), 1)
+        return min(requested_setpoint, self._coordinator.maximum_setpoint)
 
     def _get_requested_setpoint(self):
-        return self._heating_curve.value + self._pid.output
+        return max(self._heating_curve.value + self._pid.output, MINIMUM_SETPOINT)
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""

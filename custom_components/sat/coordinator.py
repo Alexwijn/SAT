@@ -1,14 +1,24 @@
+from __future__ import annotations
+
 import logging
+import typing
+from enum import Enum
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from ..climate import SatClimate
-from ..const import *
-from ..device import DeviceState
-from ..store import SatConfigStore
+from .config_store import SatConfigStore
+from .const import *
+
+if typing.TYPE_CHECKING:
+    from .climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+
+
+class DeviceState(Enum):
+    ON = "on"
+    OFF = "off"
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
