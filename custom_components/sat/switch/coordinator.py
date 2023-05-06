@@ -23,9 +23,9 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         super().__init__(hass, store)
         self._entity_id = self._store.options.get(CONF_SWITCH)
 
-    async def async_control_heating(self, climate: SatClimate, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: SatClimate, _time=None) -> None:
         """Control the max relative mod of the heating system."""
-        await super().async_control_heating(climate)
+        await super().async_control_heating_loop(climate)
 
         if climate.hvac_mode == HVACMode.OFF and self.hass.states.get(self._entity_id).state != "OFF":
             await self.async_set_heater_state(DeviceState.OFF)

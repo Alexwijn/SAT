@@ -119,6 +119,11 @@ OPTIONS_DEFAULTS = {
 # Storage
 STORAGE_OVERSHOOT_PROTECTION_VALUE = "overshoot_protection_value"
 
+# Services
+SERVICE_RESET_INTEGRAL = "reset_integral"
+SERVICE_SET_OVERSHOOT_PROTECTION = "overshoot_protection_value"
+SERVICE_OVERSHOOT_PROTECTION_CALCULATION = "overshoot_protection_calculation"
+
 # Config steps
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"
