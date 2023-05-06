@@ -1,22 +1,21 @@
+from __future__ import annotations
+
+import typing
 from typing import Optional, Any
 
-from homeassistant.components.climate import (
-    HVACMode,
-    SERVICE_SET_TEMPERATURE,
-    DOMAIN as CLIMATE_DOMAIN,
-)
+from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, HVACMode
 from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pyotgw import OpenThermGateway
 
-from . import SatDataUpdateCoordinator
-from ..climate import SatClimate
+from ..config_store import SatConfigStore
 from ..const import *
-from ..device import DeviceState
-from ..overshoot_protection import OvershootProtection
-from ..store import SatConfigStore
+from ..coordinator import DeviceState, SatDataUpdateCoordinator
+
+if typing.TYPE_CHECKING:
+    from ..climate import SatClimate
 
 
 class SatOpenThermCoordinator(SatDataUpdateCoordinator):
@@ -98,6 +97,7 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
                 "message": "Calculation started. This process will run for at least 20 minutes until a stable boiler water temperature is found."
             })
 
+            from .overshoot_protection import OvershootProtection
             overshoot_protection_value = await OvershootProtection(self).calculate(_call.data.get("solution"))
             self._overshoot_protection_calculate = False
 

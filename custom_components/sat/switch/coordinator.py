@@ -1,13 +1,18 @@
+from __future__ import annotations
+
+import typing
+
 from homeassistant.components.climate import HVACMode
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
-from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON, ATTR_ENTITY_ID
+from homeassistant.const import SERVICE_TURN_ON, SERVICE_TURN_OFF, ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 
-from . import SatDataUpdateCoordinator
-from ..climate import SatClimate
+from ..config_store import SatConfigStore
 from ..const import *
-from ..device import DeviceState
-from ..store import SatConfigStore
+from ..coordinator import DeviceState, SatDataUpdateCoordinator
+
+if typing.TYPE_CHECKING:
+    from ..climate import SatClimate
 
 
 class SatSwitchCoordinator(SatDataUpdateCoordinator):
