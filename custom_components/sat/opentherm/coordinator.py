@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pyotgw import OpenThermGateway
 
-from .services import start_overshoot_protection_calculation
+from .services import start_overshoot_protection_calculation, set_overshoot_protection_value
 from ..config_store import SatConfigStore
 from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
@@ -55,6 +55,12 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
             DOMAIN,
             SERVICE_OVERSHOOT_PROTECTION_CALCULATION,
             partial(start_overshoot_protection_calculation, self, climate)
+        )
+
+        self.hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
+            partial(set_overshoot_protection_value, self)
         )
 
     @property
