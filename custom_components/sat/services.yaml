@@ -17,7 +17,7 @@ start_overshoot_protection_calculation:
             - label: "With Zero Modulation"
               value: "with_zero_modulation"
 
-overshoot_protection_value:
+set_overshoot_protection_value:
   name: Overshoot Protection Value
   description: "Override the stored overshoot protection value without doing a calculation."
   fields:
