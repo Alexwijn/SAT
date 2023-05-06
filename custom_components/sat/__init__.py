@@ -63,7 +63,7 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
     unloaded = all(
         await asyncio.gather(
             _hass.config_entries.async_forward_entry_unload(_entry, _entry.data.get(CONF_MODE)),
-            _hass.config_entries.async_forward_entry_unload(_entry, CLIMATE),
+            _hass.config_entries.async_unload_platforms(_entry, [CLIMATE, SENSOR, NUMBER, BINARY_SENSOR]),
         )
     )
 
