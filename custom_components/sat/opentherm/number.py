@@ -16,6 +16,8 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     def __init__(self, coordinator: SatOpenThermCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
+        self._coordinator = coordinator
+
     @property
     def name(self) -> str | None:
         return f"Hot Water Setpoint {self._config_entry.data.get(CONF_NAME)} (Boiler)"
