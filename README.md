@@ -1,5 +1,5 @@
 # Smart Autotune Thermostat (SAT)
-The Smart Autotune Thermostat (SAT) is a custom component for Home Assistant that works with an [OpenTherm Gateway (OTGW)](https://otgw.tclcode.com/) in order to provide advanced temperature control functionality based on the Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficient, which means it can determine the optimal setpoint for your boiler without any manual intervention.
+The Smart Autotune Thermostat (SAT) is a custom component for Home Assistant that works with an [OpenTherm Gateway (OTGW)](https://otgw.tclcode.com/) in order to provide advanced temperature control functionality based on an advanced Outside Temperature compensation and Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficient, which means it can determine the optimal setpoint for your boiler without any manual intervention.
 
 ## Features
 - Multi-room temperature control with support for temperature synchronization for main climates
@@ -7,6 +7,7 @@ The Smart Autotune Thermostat (SAT) is a custom component for Home Assistant tha
 - Target temperature step for adjusting the temperature in smaller increments
 - Presets for different modes such as Away, Sleep, Home, Comfort
 - Automatic gains for PID control
+- PWM and Automatic duty cycle
 - Overshoot protection to prevent the boiler from overshooting the setpoint
 - Climate valve offset to adjust the temperature reading for your climate valve
 - Sample time for PID control to fine-tune your system's response time
@@ -53,6 +54,8 @@ With overshoot protection enabled, SAT will automatically calculate the maximum 
 - Automatic Gains ( Recommended ): You can enable this option in the Advanced Tab. Automatic gains dynamically change the kP, kI and kD values based on the heating curve value. So, based on the outside temperature the gains are changing from mild to aggressive without intervention.
 
 *Overshoot Protection* ( Experimental ): When this option is enabled, SAT sends the MM=0 and CS=75 commands. Then SAT tries to find the highest boiler flow water temperature that can be produced given that the boiler runs at 0 % modulation. This mechanism needs at least 20 minutes. When overshoot protection value calculation is over, SAT falls back to it's normal operation. This value is stored as attribute in the SAT climate entity and then is used in order to calculate the boiler ON/OFF times of the low load control algorithm.
+
+*Automatic Duty Cucle* ( Experimental ): When this option is enabled, SAT calculates the ON and OFF times of the boiler, in 15 minutes intervals, given that the kW needed to heat the home are less than the minimun boiler capacity. Moreover using this feature SAT is able to regulate efficiently the room temperature even in mild weather.
 
 ## Support
 If you want to support this project, you can [**buy me a coffee here**](https://www.buymeacoffee.com/alexwijn).
