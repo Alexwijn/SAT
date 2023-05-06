@@ -28,9 +28,9 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     module = getattr(sys.modules[__name__], _entry.data.get(CONF_MODE))
     await _hass.async_add_job(module.async_setup_entry, _hass, _entry)
 
-    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setups(_entry, [
-        CLIMATE, SENSOR, NUMBER, BINARY_SENSOR
-    ]))
+    # Make sure the climate is available and loaded before loading the other platforms
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE))
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setups(_entry, [SENSOR, NUMBER, BINARY_SENSOR]))
 
     _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
 

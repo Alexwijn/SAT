@@ -110,7 +110,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
-        self._coordinator = coordinator
         self._store = coordinator.store
 
         # Create dictionary mapping preset keys to temperature options
