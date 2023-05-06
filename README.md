@@ -55,7 +55,7 @@ With overshoot protection enabled, SAT will automatically calculate the maximum 
 
 *Overshoot Protection* ( Experimental ): When this option is enabled, SAT sends the MM=0 and CS=75 commands. Then SAT tries to find the highest boiler flow water temperature that can be produced given that the boiler runs at 0 % modulation. This mechanism needs at least 20 minutes. When overshoot protection value calculation is over, SAT falls back to it's normal operation. This value is stored as attribute in the SAT climate entity and then is used in order to calculate the boiler ON/OFF times of the low load control algorithm.
 
-*Automatic Duty Cucle* ( Experimental ): When this option is enabled, SAT calculates the ON and OFF times of the boiler, in 15 minutes intervals, given that the kW needed to heat the home are less than the minimun boiler capacity. Moreover using this feature SAT is able to regulate efficiently the room temperature even in mild weather.
+*Automatic Duty Cycle* ( Experimental ): When this option is enabled, SAT calculates the ON and OFF times of the boiler, in 15 minutes intervals, given that the kW needed to heat the home are less than the minimun boiler capacity. Moreover using this feature SAT is able to regulate efficiently the room temperature even in mild weather by automatically adjusting the duty cycle.
 
 ## Support
 If you want to support this project, you can [**buy me a coffee here**](https://www.buymeacoffee.com/alexwijn).
