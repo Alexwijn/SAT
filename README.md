@@ -1,5 +1,5 @@
 # Smart Autotune Thermostat (SAT)
-The Smart Autotune Thermostat (SAT) is a custom component for Home Assistant that works with an [OpenTherm Gateway (OTGW)](https://otgw.tclcode.com/) in order to provide advanced temperature control functionality based on an advanced Outside Temperature compensation and Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficient, which means it can determine the optimal setpoint for your boiler without any manual intervention.
+The Smart Autotune Thermostat (SAT) is a custom component for Home Assistant that works with an [OpenTherm Gateway (OTGW)](https://otgw.tclcode.com/) in order to provide advanced temperature control functionality based Outside Temperature compensation and Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficient, which means it can determine the optimal setpoint for your boiler without any manual intervention.
 
 ## Features
 - Multi-room temperature control with support for temperature synchronization for main climates
