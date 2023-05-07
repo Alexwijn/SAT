@@ -4,7 +4,7 @@ start_overshoot_protection_calculation:
   fields:
     solution:
       name: Solution
-      required: true,
+      required: true
       default: auto
       description: Select the solution for calculation
       selector:
