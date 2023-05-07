@@ -27,6 +27,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self._store = store
         self._device_state = DeviceState.OFF
+        self._setpoint = float(self._store.options.get(CONF_SETPOINT))
         self._simulation = bool(self._store.options.get(CONF_SIMULATION))
         self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
 
@@ -56,6 +57,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         if self._heating_system == HEATING_SYSTEM_UNDERFLOOR:
             return 50.0
+
+    @property
+    def minimum_setpoint(self) -> float:
+        return self._setpoint
 
     @property
     def supports_setpoint_management(self):

@@ -64,6 +64,10 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         )
 
     @property
+    def minimum_setpoint(self):
+        return self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE, self._setpoint)
+
+    @property
     def supports_setpoint_management(self):
         """Control the setpoint temperature for the device."""
         return True

@@ -34,7 +34,6 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt
 
-from .config_store import SatConfigStore
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
@@ -86,7 +85,7 @@ def create_heating_curve_controller(options) -> HeatingCurve:
     return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
 
 
-def create_pwm_controller(heating_curve: HeatingCurve, store: SatConfigStore, options) -> PWM | None:
+def create_pwm_controller(heating_curve: HeatingCurve, options) -> PWM | None:
     """Create and return a PWM controller instance with the given configuration options."""
     # Extract the configuration options
     force = bool(options.get(CONF_MODE) == MODE_SWITCH)
@@ -94,7 +93,7 @@ def create_pwm_controller(heating_curve: HeatingCurve, store: SatConfigStore, op
     max_cycle_time = int(convert_time_str_to_seconds(options.get(CONF_DUTY_CYCLE)))
 
     # Return a new PWM controller instance with the given configuration options
-    return PWM(store=store, heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
+    return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
 
 
 async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_devices: AddEntitiesCallback):
@@ -144,7 +143,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._heating_curve = create_heating_curve_controller(self._store.options)
 
         # Create PWM controller with given configuration options
-        self._pwm = create_pwm_controller(self._heating_curve, self._store, self._store.options)
+        self._pwm = create_pwm_controller(self._heating_curve, self._store.options)
 
         self._sensors = []
         self._rooms = None
@@ -336,13 +335,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "warming_up": self._warming_up,
             "valves_open": self.valves_open,
             "heating_curve": self._heating_curve.value,
+            "minimum_setpoint": self._coordinator.minimum_setpoint,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self._heating_curve.optimal_coefficient,
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self._pwm.state,
             "pulse_width_modulation_duty_cycle": self._pwm.duty_cycle,
             "overshoot_protection_calculating": self.overshoot_protection_calculate,
-            "overshoot_protection_value": self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE),
         }
 
     @property
@@ -481,16 +480,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def pulse_width_modulation_enabled(self) -> bool:
         """Return True if pulse width modulation is enabled, False otherwise.
 
-        If an overshoot protection value is not set, pulse width modulation is disabled.
         If we are a coordinator that doesn't support it, it is enabled.
+        If an overshoot protection value is not set, pulse width modulation is disabled.
         If pulse width modulation is forced on, it is enabled.
         If overshoot protection is enabled, and we are below the overshoot protection value.
         """
-        if (overshoot_protection_value := self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)) is None:
-            return False
-
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
+
+        if (overshoot_protection_value := self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)) is None:
+            return False
 
         if self._overshoot_protection:
             if self.max_error <= 0.1:
@@ -623,8 +622,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._coordinator.async_control_heating_loop(self)
 
         # Pulse Width Modulation
-        if self._overshoot_protection or self._force_pulse_width_modulation:
-            await self._pwm.update(self._get_requested_setpoint())
+        await self._pwm.update(self._get_requested_setpoint(), self._coordinator.minimum_setpoint)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self._pwm.state)
@@ -704,7 +702,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the setpoint of the heating system."""
         if self.hvac_mode == HVACMode.HEAT:
             if self.pulse_width_modulation_enabled and pwm_state != pwm_state.IDLE:
-                self._setpoint = self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
+                self._setpoint = self._coordinator.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
                 _LOGGER.info(f"Running pulse width modulation cycle: {pwm_state}")
             else:
                 self._outputs.append(self._calculate_control_setpoint())
