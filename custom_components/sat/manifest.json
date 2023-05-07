@@ -1,5 +1,6 @@
 {
    "domain": "sat",
+   "version": "1.0.0",
    "name": "Smart Autotune Thermostat",
    "codeowners": [
       "@Alexwijn"
@@ -15,6 +16,5 @@
    "issue_tracker": "https://github.com/Alexwijn/SAT/issues",
    "requirements": [
       "pyotgw==2.1.3"
-   ],
-   "version": "0.0.1"
+   ]
 }
