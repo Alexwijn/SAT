@@ -25,6 +25,10 @@ switch:
             entity_id: input_boolean.heater
 
 template:
+  binary_sensor:
+    name: "Window"
+    device_class: "window"
+    state: "{{ is_state('input_boolean.window_sensor', 'on') }}"
   sensor:
     - unit_of_measurement: °C
       name: Heater Temperature
@@ -62,4 +66,5 @@ input_number:
 input_boolean:
   heater:
     name: Heater
-    icon: mdi:heater
+  window_sensor:
+    name: Window Sensor

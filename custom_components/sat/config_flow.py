@@ -4,6 +4,7 @@ import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import dhcp
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
@@ -139,7 +140,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         return await self.async_step_user(_user_input)
 
     async def async_step_user(self, _user_input=None) -> FlowResult:
-        menu_options = ["general", "presets", "climates"]
+        menu_options = ["general", "presets", "climates", "contact_sensors"]
 
         if self.show_advanced_options:
             menu_options.append("advanced")
@@ -197,6 +198,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="presets",
             data_schema=vol.Schema({
+                vol.Required(CONF_ACTIVITY_TEMPERATURE, default=defaults[CONF_ACTIVITY_TEMPERATURE]): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=5, max=35, step=0.5)
+                ),
                 vol.Required(CONF_AWAY_TEMPERATURE, default=defaults[CONF_AWAY_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5)
                 ),
@@ -236,6 +240,20 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
+    async def async_step_contact_sensors(self, _user_input=None) -> FlowResult:
+        if _user_input is not None:
+            return await self.update_options(_user_input)
+
+        defaults = await self.get_options()
+        return self.async_show_form(
+            step_id="contact_sensors",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_WINDOW_SENSOR, default=defaults[CONF_WINDOW_SENSOR]): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=BINARY_SENSOR_DOMAIN, device_class=BinarySensorDeviceClass.WINDOW)
+                ),
+            })
+        )
+
     async def async_step_advanced(self, _user_input=None) -> FlowResult:
         if _user_input is not None:
             return await self.update_options(_user_input)
@@ -254,6 +272,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         schema[vol.Required(CONF_SAMPLE_TIME, default=defaults.get(CONF_SAMPLE_TIME))] = selector.TimeSelector()
         schema[vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=defaults.get(CONF_SENSOR_MAX_VALUE_AGE))] = selector.TimeSelector()
+        schema[vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=defaults.get(CONF_WINDOW_MINIMUM_OPEN_TIME))] = selector.TimeSelector()
 
         schema[vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET])] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
