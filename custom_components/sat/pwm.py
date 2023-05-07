@@ -3,8 +3,6 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
-from .config_store import SatConfigStore
-from .const import *
 from .heating_curve import HeatingCurve
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,10 +25,9 @@ class PWMState(Enum):
 class PWM:
     """A class for implementing Pulse Width Modulation (PWM) control."""
 
-    def __init__(self, store: SatConfigStore, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
+    def __init__(self, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
         """Initialize the PWM control."""
         self._force = force
-        self._store = store
         self._heating_curve = heating_curve
         self._max_cycle_time = max_cycle_time
         self._automatic_duty_cycle = automatic_duty_cycle
@@ -43,7 +40,7 @@ class PWM:
         self._state = PWMState.IDLE
         self._last_update = monotonic()
 
-    async def update(self, setpoint: float) -> None:
+    async def update(self, requested_setpoint: float, minimum_setpoint: float) -> None:
         """Update the PWM state based on the output of a PID controller."""
         if not self._heating_curve.value:
             self._state = PWMState.IDLE
@@ -51,14 +48,14 @@ class PWM:
             _LOGGER.warning("Invalid heating curve value")
             return
 
-        if not self._force and (setpoint is None or setpoint > self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)):
+        if requested_setpoint is None or (not self._force and requested_setpoint > minimum_setpoint):
             self._state = PWMState.IDLE
             self._last_update = monotonic()
             _LOGGER.debug("Turned off PWM due exceeding the overshoot protection value")
             return
 
         elapsed = monotonic() - self._last_update
-        self._duty_cycle = self._calculate_duty_cycle(setpoint)
+        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, minimum_setpoint)
 
         if self._duty_cycle is None:
             self._state = PWMState.IDLE
@@ -83,16 +80,15 @@ class PWM:
 
         _LOGGER.debug("Cycle time elapsed %.0f seconds in %s", elapsed, self._state)
 
-    def _calculate_duty_cycle(self, setpoint: float) -> Optional[Tuple[int, int]]:
+    def _calculate_duty_cycle(self, requested_setpoint: float, minimum_setpoint: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
-        overshoot_protection = self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)
 
-        duty_cycle_percentage = (setpoint - base_offset) / (overshoot_protection - base_offset)
+        duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset)
         duty_cycle_percentage = min(duty_cycle_percentage, 1)
         duty_cycle_percentage = max(duty_cycle_percentage, 0)
 
-        _LOGGER.debug("Requested setpoint %.1f", setpoint)
+        _LOGGER.debug("Requested setpoint %.1f", requested_setpoint)
         _LOGGER.debug("Calculated duty cycle %.0f%%", duty_cycle_percentage * 100)
 
         if not self._automatic_duty_cycle:
