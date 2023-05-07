@@ -745,7 +745,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_heater(False)
 
         # Pulse Width Modulation
-        await self._pwm.update(self._get_requested_setpoint())
+        if self._overshoot_protection or self._force_pulse_width_modulation:
+            await self._pwm.update(self._get_requested_setpoint())
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self._pwm.state)
@@ -844,8 +845,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_setpoint(self, pwm_state: PWMState):
         """Control the setpoint of the heating system."""
         if self.hvac_mode == HVACMode.HEAT:
-            _LOGGER.debug(f"PWM State: {pwm_state}")
-
             if self._pulse_width_modulation_enabled and pwm_state != pwm_state.IDLE:
                 self._setpoint = self._store.retrieve_overshoot_protection_value() if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
                 _LOGGER.info(f"Running pulse width modulation cycle: {pwm_state}")

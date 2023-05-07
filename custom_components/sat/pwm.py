@@ -38,7 +38,7 @@ class PWM:
     def reset(self) -> None:
         """Reset the PWM control."""
         self._duty_cycle = None
-        self._state = PWMState.ON
+        self._state = PWMState.IDLE
         self._last_update = monotonic()
 
     async def update(self, setpoint: float) -> None:
