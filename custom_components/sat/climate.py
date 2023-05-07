@@ -1,6 +1,7 @@
 """Climate platform for SAT."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import deque
 from datetime import timedelta
@@ -13,6 +14,7 @@ from homeassistant.components.climate import (
     ClimateEntityFeature,
     HVACAction,
     HVACMode,
+    PRESET_ACTIVITY,
     PRESET_AWAY,
     PRESET_HOME,
     PRESET_NONE,
@@ -27,7 +29,7 @@ from homeassistant.components.climate import (
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID
+from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF
 from homeassistant.core import HomeAssistant, ServiceCall, Event
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -113,7 +115,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.overshoot_protection_calculate = False
 
         # Create dictionary mapping preset keys to temperature options
-        conf_presets = {p: f"{p}_temperature" for p in (PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
+        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
 
         # Create dictionary mapping preset keys to temperature values
         self._presets = {key: self._store.options[value] for key, value in conf_presets.items() if value in self._store.options}
@@ -153,10 +155,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._hvac_mode = None
         self._target_temperature = None
-        self._saved_target_temperature = None
+        self._window_sensor_handle = None
+        self._saved_target_temperature_before_custom = None
+        self._saved_target_temperature_before_activity = None
 
         self._climates = self._store.options.get(CONF_CLIMATES)
         self._main_climates = self._store.options.get(CONF_MAIN_CLIMATES)
+        self._window_sensor_id = self._store.options.get(CONF_WINDOW_SENSOR)
 
         self._simulation = bool(self._store.options.get(CONF_SIMULATION))
         self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
@@ -166,6 +171,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sync_climates_with_preset = bool(self._store.options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
         self._force_pulse_width_modulation = bool(self._store.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
         self._sensor_max_value_age = convert_time_str_to_seconds(self._store.options.get(CONF_SENSOR_MAX_VALUE_AGE))
+        self._window_minimum_open_time = convert_time_str_to_seconds(self._store.options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
 
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
@@ -239,6 +245,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.async_on_remove(
                 async_track_state_change_event(
                     self.hass, [climate_id], self._async_climate_changed
+                )
+            )
+
+        if self._window_sensor_id is not None:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [self._window_sensor_id], self._async_window_sensor_changed
                 )
             )
 
@@ -608,6 +621,40 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_pid(False)
         await self._async_control_heating_loop()
 
+    async def _async_window_sensor_changed(self, event: Event) -> None:
+        """Handle changes to the contact sensor entity."""
+        new_state = event.data.get("new_state")
+        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+
+        _LOGGER.debug(f"Window Sensor Changed to {new_state.state} ({new_state.entity_id}).")
+
+        if new_state.state == STATE_ON:
+            if self.preset_mode == PRESET_ACTIVITY:
+                return
+
+            try:
+                self._window_sensor_handle = asyncio.create_task(asyncio.sleep(self._window_minimum_open_time))
+                self._saved_target_temperature_before_activity = self.target_temperature
+
+                await self._window_sensor_handle
+                await self.async_set_preset_mode(PRESET_ACTIVITY)
+            except asyncio.CancelledError:
+                _LOGGER.debug("Window closed before minimum open time.")
+
+            return
+
+        if new_state.state == STATE_OFF:
+            if self._window_sensor_handle is not None:
+                self._window_sensor_handle.cancel()
+                self._window_sensor_handle = None
+
+            if self.preset_mode == PRESET_ACTIVITY:
+                _LOGGER.debug(f"Restoring original target temperature.")
+                await self.async_set_temperature(temperature=self._saved_target_temperature_before_activity)
+
+            return
+
     async def _async_control_heating_loop(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         # If overshoot protection is active, we are not doing anything since we already have task running in async
@@ -767,7 +814,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the preset mode if `PRESET_NONE` is given
         if preset_mode == PRESET_NONE:
             self._attr_preset_mode = PRESET_NONE
-            await self.async_set_target_temperature(self._saved_target_temperature)
+            await self.async_set_target_temperature(self._saved_target_temperature_before_custom)
         else:
             # Set the HVAC mode to `HEAT` if it is currently `OFF`
             if self.hvac_mode == HVACMode.OFF:
@@ -775,7 +822,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Save the current target temperature if the preset mode is being set for the first time
             if self._attr_preset_mode == PRESET_NONE:
-                self._saved_target_temperature = self._target_temperature
+                self._saved_target_temperature_before_custom = self._target_temperature
 
             # Set the preset mode and target temperature
             self._attr_preset_mode = preset_mode

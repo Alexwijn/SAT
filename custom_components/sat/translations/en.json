@@ -47,6 +47,7 @@
           "general": "General",
           "presets": "Presets",
           "climates": "Climates",
+          "contact_sensors": "Contact Sensors",
           "advanced": "Advanced"
         }
       },
@@ -70,6 +71,7 @@
           "home_temperature": "Home Temperature",
           "sleep_temperature": "Sleep Temperature",
           "comfort_temperature": "Comfort Temperature",
+          "activity_temperature": "Activity Temperature",
           "sync_climates_with_preset": "Synchronize climates with preset (sleep / away)"
         }
       },
@@ -80,18 +82,25 @@
           "main_climates": "Climates (main)"
         }
       },
+      "contact_sensors": {
+        "title": "Contact Sensors",
+        "data": {
+          "window_sensor": "Window"
+        }
+      },
       "advanced": {
         "title": "Advanced",
         "data": {
           "simulation": "Simulation",
-          "sample_time": "Sample Time",
-          "climate_valve_offset": "Climate valve offset",
-          "sensor_max_value_age": "Sensor max. value age",
           "automatic_gains": "Automatic gains",
+          "climate_valve_offset": "Climate valve offset",
           "overshoot_protection": "Overshoot Protection (with PWM)",
           "automatic_duty_cycle": "Automatic duty cycle (experimental)",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",
-          "min_num_updates": "Minimum number of updates required for auto-tuning"
+          "min_num_updates": "Minimum number of updates required for auto-tuning",
+          "sample_time": "Minimum time interval between updates to the PID controller",
+          "sensor_max_value_age": "Temperature Sensor maximum value age (before considering stall)",
+          "contact_sensor_minimum_open_time": "Minimum time for contact sensors to be open before reacting"
         }
       }
     }
