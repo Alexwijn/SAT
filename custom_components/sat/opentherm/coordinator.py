@@ -155,7 +155,7 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         """
         setpoint = float(self.get(gw_vars.DATA_CONTROL_SETPOINT))
 
-        if climate.hvac_mode == HVACMode.HEAT or bool(self.get(gw_vars.DATA_SLAVE_DHW_ACTIVE)) or setpoint <= MINIMUM_SETPOINT:
+        if climate.hvac_mode != HVACMode.HEAT or bool(self.get(gw_vars.DATA_SLAVE_DHW_ACTIVE)) or setpoint <= MINIMUM_SETPOINT:
             return MAXIMUM_RELATIVE_MOD
 
         if self._overshoot_protection and not self._force_pulse_width_modulation:
