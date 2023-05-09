@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Optional, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
@@ -95,6 +96,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         await self.api.set_control_setpoint(0)
         await self.api.set_max_relative_mod("-")
         await self.api.disconnect()
+
+    def get(self, key: str) -> Optional[Any]:
+        """Get the value for the given `key` from the boiler data.
+
+        :param key: Key of the value to retrieve from the boiler data.
+        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
+        """
+        return self.data[gw_vars.BOILER].get(key) if self.data[gw_vars.BOILER] else None
 
 
 class SatConfigStore:

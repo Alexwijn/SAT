@@ -1,6 +1,21 @@
-overshoot_protection:
+start_overshoot_protection_calculation:
   name: Overshoot Protection Calculation
   description: "This service calculates the value that will be used to determine the setpoint and prevent overshooting."
+  fields:
+    solution:
+      name: Solution
+      required: true
+      default: auto
+      description: Select the solution for calculation
+      selector:
+        select:
+          options:
+            - label: "Automatic"
+              value: "auto"
+            - label: "With Modulation"
+              value: "with_modulation"
+            - label: "With Zero Modulation"
+              value: "with_zero_modulation"
 
 overshoot_protection_value:
   name: Overshoot Protection Value

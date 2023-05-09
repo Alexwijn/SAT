@@ -1,5 +1,5 @@
-import time
 from collections import deque
+from time import monotonic
 from typing import Optional
 
 from homeassistant.core import State
@@ -36,7 +36,7 @@ class PID:
         self._history_size = max_history
         self._heating_system = heating_system
         self._automatic_gains = automatic_gains
-        self._last_interval_updated = time.time()
+        self._last_interval_updated = monotonic()
         self._sample_time_limit = max(sample_time_limit, 1)
         self._integral_time_limit = max(integral_time_limit, 1)
         self.reset()
@@ -45,7 +45,7 @@ class PID:
         """Reset the PID controller."""
         self._last_error = 0.0
         self._time_elapsed = 0
-        self._last_updated = time.time()
+        self._last_updated = monotonic()
         self._last_heating_curve_value = 0
 
         # Reset the integral and derivative
@@ -62,7 +62,7 @@ class PID:
         :param error: The max error between all the target temperatures and the current temperatures.
         :param heating_curve_value: The current heating curve value.
         """
-        current_time = time.time()
+        current_time = monotonic()
         time_elapsed = current_time - self._last_updated
 
         if error == self._last_error:
@@ -92,12 +92,12 @@ class PID:
         self._raw_derivative = 0
 
         self._last_error = error
-        self._last_updated = time.time()
-        self._last_interval_updated = time.time()
+        self._last_updated = monotonic()
+        self._last_interval_updated = monotonic()
         self._last_heating_curve_value = heating_curve_value
 
         self._errors = deque([error], maxlen=int(self._history_size))
-        self._times = deque([time.time()], maxlen=int(self._history_size))
+        self._times = deque([monotonic()], maxlen=int(self._history_size))
 
     def update_integral(self, error: float, heating_curve_value: float, force: bool = False):
         """
@@ -114,10 +114,10 @@ class PID:
 
         # Check if we are within the limit for updating the integral term
         # or if we are forcing an update
-        if not force and time.time() - self._last_interval_updated < self._integral_time_limit:
+        if not force and monotonic() - self._last_interval_updated < self._integral_time_limit:
             return
 
-        current_time = time.time()
+        current_time = monotonic()
         limit = heating_curve_value / 10
         time_elapsed = current_time - self._last_interval_updated
 
@@ -156,7 +156,7 @@ class PID:
         """
         # Fill the history
         self._errors.append(error)
-        self._times.append(time.time())
+        self._times.append(monotonic())
 
         # If there are less than two errors in the history, we cannot calculate the derivative.
         if len(self._errors) < 2:
