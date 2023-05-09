@@ -9,7 +9,7 @@
         }
       },
       "sensors": {
-        "title": "Configura sensori",
+        "title": "Configura i sensori",
         "data": {
           "inside_sensor_entity_id": "Entità sensore interno",
           "outside_sensor_entity_id": "Entità sensore esterno"
@@ -18,6 +18,9 @@
     },
     "error": {
       "auth": "Impossibile collegarsi."
+    },
+    "abort": {
+      "already_configured": "Il gateway è già configurato."
     }
   },
   "options": {
@@ -25,8 +28,8 @@
       "user": {
         "menu_options": {
           "general": "Generale",
-          "presets": "Preset",
-          "climates": "Stanze",
+          "presets": "Presets",
+          "climates": "Termostati / Termostatiche",
           "advanced": "Avanzate"
         }
       },
@@ -36,38 +39,40 @@
           "integral": "Integrale",
           "derivative": "Derivativo",
           "proportional": "Proporzionale",
+          "duty_cycle": "Ciclo di funzionamento",
           "heating_system": "Tipo impianto",
-          "target_temperature_step": "Incremento temperatura",
+          "target_temperature_step": "Step incremento temperatura",
           "heating_curve_coefficient": "Coefficiente curva climatica"
         }
       },
       "presets": {
-        "title": "Preset",
+        "title": "Presets",
         "data": {
           "away_temperature": "Temperatura fuori casa",
           "home_temperature": "Temperatura in casa",
           "sleep_temperature": "Temperatura di notte",
-          "comfort_temperature": "Temperatura comfort"
+          "comfort_temperature": "Temperatura comfort",
+          "sync_climates_with_preset": "Sincronizza i termostati o le valvole termostatiche coi preset (sleep / away)"
         }
       },
       "climates": {
-        "title": "Stanze (multi-stanza)",
+        "title": "Termostati (multi-stanza)",
         "data": {
-          "climates": "Stanze aggiuntive",
-          "main_climates": "Stanze principali"
+          "climates": "Termostati aggiuntivi",
+          "main_climates": "Termostati principali"
         }
       },
       "advanced": {
         "title": "Avanzate",
         "data": {
-          "duty_cycle": "Ciclo di funzionamento",
           "simulation": "Simulazione",
           "sample_time": "Tempo campionamento",
           "climate_valve_offset": "Offset valvola",
           "sensor_max_value_age": "Timeout valore sensore",
           "automatic_gains": "Guadagno automatico",
           "overshoot_protection": "Protezione superamento temperatura",
-          "pulse_width_modulation": "Modulazione di larghezza d'impulso PWM (sperimentale)",
+          "automatic_duty_cycle": "Cicli di funzionamento automatico (sperimentale)",
+          "force_pulse_width_modulation": "Forza modulazione di larghezza d'impulso PWM",
           "min_num_updates": "Numnero minimo di aggiornamenti richiesti per l'auto-ottimizzazione"
         }
       }
