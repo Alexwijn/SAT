@@ -3,7 +3,7 @@ from pyotgw.vars import *
 # Base component constants
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
-VERSION = "2.0.2"
+VERSION = "2.0.3"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 

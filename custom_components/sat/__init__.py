@@ -63,10 +63,14 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
     This function is called by Home Assistant when the integration is being removed.
     """
 
+    # Retrieve the defaults and override it with the user options
+    options = OPTIONS_DEFAULTS.copy()
+    options.update(_entry.data)
+
     # Unload the entry and its dependent components
     unloaded = all(
         await asyncio.gather(
-            _hass.config_entries.async_forward_entry_unload(_entry, _entry.data.get(CONF_MODE)),
+            _hass.config_entries.async_forward_entry_unload(_entry, options.get(CONF_MODE)),
             _hass.config_entries.async_unload_platforms(_entry, [CLIMATE, SENSOR, NUMBER, BINARY_SENSOR]),
         )
     )

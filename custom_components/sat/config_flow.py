@@ -134,7 +134,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: ConfigEntry):
         self._config_entry = config_entry
         self._options = dict(config_entry.options)
-        self._mode = config_entry.data.get(CONF_MODE)
 
     async def async_step_init(self, _user_input=None):
         return await self.async_step_user(_user_input)
@@ -154,19 +153,19 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
-        defaults = await self.get_options()
+        options = await self.get_options()
 
         schema = {
-            vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=defaults[CONF_HEATING_CURVE_COEFFICIENT]): selector.NumberSelector(
+            vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=options[CONF_HEATING_CURVE_COEFFICIENT]): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
             ),
-            vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=defaults[CONF_TARGET_TEMPERATURE_STEP]): selector.NumberSelector(
+            vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=options[CONF_TARGET_TEMPERATURE_STEP]): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
             ),
         }
 
-        if self._mode == MODE_OPENTHERM:
-            schema[vol.Required(CONF_HEATING_SYSTEM, default=defaults[CONF_HEATING_SYSTEM])] = selector.SelectSelector(
+        if options.get(CONF_MODE) == MODE_OPENTHERM:
+            schema[vol.Required(CONF_HEATING_SYSTEM, default=options[CONF_HEATING_SYSTEM])] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[
                     {"value": HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
                     {"value": HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES, "label": "Radiators ( Medium Temperatures )"},
@@ -175,18 +174,18 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 ])
             )
 
-        if self._mode == MODE_SWITCH:
+        if options.get(CONF_MODE) == MODE_SWITCH:
             schema[vol.Required(CONF_SETPOINT, default=50)] = selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=100, step=1)
             )
 
-        if not defaults.get(CONF_AUTOMATIC_GAINS):
-            schema[vol.Required(CONF_PROPORTIONAL, default=defaults.get(CONF_PROPORTIONAL))] = str
-            schema[vol.Required(CONF_INTEGRAL, default=defaults.get(CONF_INTEGRAL))] = str
-            schema[vol.Required(CONF_DERIVATIVE, default=defaults.get(CONF_DERIVATIVE))] = str
+        if not options.get(CONF_AUTOMATIC_GAINS):
+            schema[vol.Required(CONF_PROPORTIONAL, default=options.get(CONF_PROPORTIONAL))] = str
+            schema[vol.Required(CONF_INTEGRAL, default=options.get(CONF_INTEGRAL))] = str
+            schema[vol.Required(CONF_DERIVATIVE, default=options.get(CONF_DERIVATIVE))] = str
 
-        if not defaults.get(CONF_AUTOMATIC_DUTY_CYCLE):
-            schema[vol.Required(CONF_DUTY_CYCLE, default=defaults.get(CONF_DUTY_CYCLE))] = selector.TimeSelector()
+        if not options.get(CONF_AUTOMATIC_DUTY_CYCLE):
+            schema[vol.Required(CONF_DUTY_CYCLE, default=options.get(CONF_DUTY_CYCLE))] = selector.TimeSelector()
 
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
@@ -260,23 +259,23 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
-        defaults = await self.get_options()
+        options = await self.get_options()
 
         schema = {
-            vol.Required(CONF_SIMULATION, default=defaults[CONF_SIMULATION]): bool,
-            vol.Required(CONF_AUTOMATIC_GAINS, default=defaults.get(CONF_AUTOMATIC_GAINS)): bool,
-            vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=defaults.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
+            vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]): bool,
+            vol.Required(CONF_AUTOMATIC_GAINS, default=options.get(CONF_AUTOMATIC_GAINS)): bool,
+            vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
         }
 
-        if self._mode == MODE_OPENTHERM:
-            schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=defaults[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
-            schema[vol.Required(CONF_OVERSHOOT_PROTECTION, default=defaults[CONF_OVERSHOOT_PROTECTION])] = bool
+        if options.get(CONF_MODE) == MODE_OPENTHERM:
+            schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
+            schema[vol.Required(CONF_OVERSHOOT_PROTECTION, default=options[CONF_OVERSHOOT_PROTECTION])] = bool
 
-        schema[vol.Required(CONF_SAMPLE_TIME, default=defaults.get(CONF_SAMPLE_TIME))] = selector.TimeSelector()
-        schema[vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=defaults.get(CONF_SENSOR_MAX_VALUE_AGE))] = selector.TimeSelector()
-        schema[vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=defaults.get(CONF_WINDOW_MINIMUM_OPEN_TIME))] = selector.TimeSelector()
+        schema[vol.Required(CONF_SAMPLE_TIME, default=options.get(CONF_SAMPLE_TIME))] = selector.TimeSelector()
+        schema[vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options.get(CONF_SENSOR_MAX_VALUE_AGE))] = selector.TimeSelector()
+        schema[vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))] = selector.TimeSelector()
 
-        schema[vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=defaults[CONF_CLIMATE_VALVE_OFFSET])] = selector.NumberSelector(
+        schema[vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=options[CONF_CLIMATE_VALVE_OFFSET])] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
         )
 
