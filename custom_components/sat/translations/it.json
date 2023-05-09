@@ -97,9 +97,9 @@
           "overshoot_protection": "Protezione superamento temperatura (con PWM)",
           "automatic_duty_cycle": "Ciclo di funzionamento automatico (sperimentale)",
           "force_pulse_width_modulation": "Forza modulazione di larghezza d'impulso ( PWM )",
-          "min_num_updates": "Numnero minimo di aggiornamenti richiesti per l'auto-ottimizzazione",
-          "sample_time": "Minimo intervallo di tempo tra un aggiornamento del controller PID e l'altro",
-          "window_minimum_open_time": "Minimum time for window to be open before reacting",
+          "min_num_updates": "Numero minimo di aggiornamenti richiesti per l'auto-ottimizzazione",
+          "sample_time": "Intervallo di tempo minimo tra un aggiornamento del controller PID e l'altro",
+          "window_minimum_open_time": "Intervallo di tempo minimo tra l'apertura della finestra e la disabilitazione del riscaldamento",
           "sensor_max_value_age": "Età del valore massimo del sensore di temperatura (prima di considerarlo non più valido)"
         }
       }
