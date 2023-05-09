@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart Autotune Thermostat (SAT)",
+        "description": "SAT è un termostato smart capace di auto-ottimizzarsi per migliorare il controllo della temperatura. Seleziona la modalità più appropriata per il tuo impianto di riscaldamento.",
+        "menu_options": {
+          "opentherm": "OpenTherm Gateway ( OTGW )",
+          "switch": "Termostato PID con PWM ( ON/OFF )"
+        }
+      },
+      "opentherm": {
+        "title": "OpenTherm Gateway ( OTGW )",
+        "description": "Compilare i dettagli per procedere alla configurazione del gateway OpenTherm:",
+        "data": {
+          "name": "Nome",
+          "device": "Percorso o URL"
+        }
+      },
+      "switch": {
+        "title": "Termostato PID con PWM ( ON/OFF )",
+        "description": "Compilare i dettagli per procedere alla configurazione dello switch:",
+        "data": {
+          "name": "Nome",
+          "switch": "Switch"
+        }
+      },
+      "sensors": {
+        "title": "Configura i sensori",
+        "data": {
+          "inside_sensor_entity_id": "Entità sensore interno",
+          "outside_sensor_entity_id": "Entità sensore esterno"
+        }
+      }
+    },
+    "error": {
+      "auth": "Impossibile collegarsi."
+    },
+    "abort": {
+      "already_configured": "Il gateway è già configurato."
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "menu_options": {
+          "general": "Generale",
+          "presets": "Presets",
+          "climates": "Termostati / Termostatiche",
+          "contact_sensors": "Sensori a contatto",
+          "advanced": "Avanzate"
+        }
+      },
+      "general": {
+        "title": "Generale",
+        "data": {
+          "setpoint": "Setpoint",
+          "integral": "Integrale",
+          "derivative": "Derivativo",
+          "proportional": "Proporzionale",
+          "duty_cycle": "Ciclo di funzionamento",
+          "heating_system": "Tipo impianto",
+          "target_temperature_step": "Step incremento temperatura",
+          "heating_curve_coefficient": "Coefficiente curva climatica"
+        }
+      },
+      "presets": {
+        "title": "Presets",
+        "data": {
+          "away_temperature": "Temperatura fuori casa",
+          "home_temperature": "Temperatura in casa",
+          "sleep_temperature": "Temperatura di notte",
+          "comfort_temperature": "Temperatura comfort",
+          "activity_temperature": "Temperatura attività",
+          "sync_climates_with_preset": "Sincronizza i termostati o le valvole termostatiche coi preset (sleep / away)"
+        }
+      },
+      "climates": {
+        "title": "Termostati (multi-stanza)",
+        "data": {
+          "climates": "Termostati aggiuntivi",
+          "main_climates": "Termostati principali"
+        }
+      },
+      "contact_sensors": {
+        "title": "Sensori a contatto",
+        "data": {
+          "window_sensor": "Finestra"
+        }
+      },
+      "advanced": {
+        "title": "Advanzate",
+        "data": {
+          "simulation": "Simulazione",
+          "automatic_gains": "Guadagno automatico",
+          "climate_valve_offset": "Offset valvola termostatica",
+          "overshoot_protection": "Protezione superamento temperatura (con PWM)",
+          "automatic_duty_cycle": "Ciclo di funzionamento automatico (sperimentale)",
+          "force_pulse_width_modulation": "Forza modulazione di larghezza d'impulso ( PWM )",
+          "min_num_updates": "Numnero minimo di aggiornamenti richiesti per l'auto-ottimizzazione",
+          "sample_time": "Minimo intervallo di tempo tra un aggiornamento del controller PID e l'altro",
+          "window_minimum_open_time": "Minimum time for window to be open before reacting",
+          "sensor_max_value_age": "Età del valore massimo del sensore di temperatura (prima di considerarlo non più valido)"
+        }
+      }
+    }
+  }
+}
