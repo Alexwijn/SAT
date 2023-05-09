@@ -70,10 +70,10 @@
           "climate_valve_offset": "Offset valvola",
           "sensor_max_value_age": "Timeout valore sensore",
           "automatic_gains": "Guadagno automatico",
-          "overshoot_protection": "Protezione superamento temperatura",
-          "automatic_duty_cycle": "Cicli di funzionamento automatico (sperimentale)",
-          "force_pulse_width_modulation": "Forza modulazione di larghezza d'impulso PWM",
-          "min_num_updates": "Numnero minimo di aggiornamenti richiesti per l'auto-ottimizzazione"
+          "overshoot_protection": "Protezione superamento temperatura (con PWM)",
+          "automatic_duty_cycle": "Ciclo di funzionamento automatico (sperimentale)",
+          "force_pulse_width_modulation": "Forza modulazione di larghezza d'impulso (PWM)",
+          "min_num_updates": "Numero minimo di aggiornamenti richiesti per l'auto-ottimizzazione"
         }
       }
     }
