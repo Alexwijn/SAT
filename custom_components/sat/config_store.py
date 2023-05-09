@@ -26,7 +26,7 @@ class SatConfigStore:
         self._options.update(self._config_entry.options)
 
     def get(self, key: str, default=None):
-        return self._data.get(key, default)
+        return self._data.get(key) or default
 
     def update(self, key: str, value: float):
         self._data[key] = value

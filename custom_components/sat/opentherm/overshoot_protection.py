@@ -38,7 +38,7 @@ class OvershootProtection:
                 await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
                 # Check if relative modulation is still zero
-                if float(self._coordinator.get(gw_vars.DATA_REL_MOD_LEVEL)) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
+                if float(self._coordinator.get(DATA_REL_MOD_LEVEL)) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
                     return await start_with_zero_modulation_task
                 else:
                     start_with_zero_modulation_task.cancel()
@@ -77,7 +77,7 @@ class OvershootProtection:
 
     async def _wait_for_flame(self):
         while True:
-            if bool(self._coordinator.get(gw_vars.DATA_SLAVE_FLAME_ON)):
+            if bool(self._coordinator.get(DATA_SLAVE_FLAME_ON)):
                 _LOGGER.info("Heating system has started to run")
                 break
 
@@ -89,7 +89,7 @@ class OvershootProtection:
         previous_average_temp = None
 
         while True:
-            actual_temp = float(self._coordinator.get(gw_vars.DATA_CH_WATER_TEMP))
+            actual_temp = float(self._coordinator.get(DATA_CH_WATER_TEMP))
 
             temps.append(actual_temp)
             average_temp = sum(temps) / 50

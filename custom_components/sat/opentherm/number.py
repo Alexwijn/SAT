@@ -39,7 +39,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._coordinator.data is not None and self._coordinator.data[gw_vars.BOILER] is not None
+        return self._coordinator.data is not None and self._coordinator.data[BOILER] is not None
 
     @property
     def native_unit_of_measurement(self):
@@ -49,17 +49,17 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def native_value(self):
         """Return the state of the device in native units."""
-        return self._coordinator.data[gw_vars.BOILER][gw_vars.DATA_DHW_SETPOINT]
+        return self._coordinator.data[BOILER][DATA_DHW_SETPOINT]
 
     @property
     def native_min_value(self) -> float:
         """Return the minimum accepted temperature."""
-        return self._coordinator.data[gw_vars.BOILER][gw_vars.DATA_SLAVE_DHW_MIN_SETP]
+        return self._coordinator.data[BOILER][DATA_SLAVE_DHW_MIN_SETP]
 
     @property
     def native_max_value(self) -> float:
         """Return the maximum accepted temperature."""
-        return self._coordinator.data[gw_vars.BOILER][gw_vars.DATA_SLAVE_DHW_MAX_SETP]
+        return self._coordinator.data[BOILER][DATA_SLAVE_DHW_MAX_SETP]
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the setpoint."""

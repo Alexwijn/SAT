@@ -36,8 +36,12 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     _hass.data[DOMAIN][_entry.entry_id] = {CONFIG_STORE: SatConfigStore(_hass, _entry)}
     await _hass.data[DOMAIN][_entry.entry_id][CONFIG_STORE].async_initialize()
 
+    # Retrieve the defaults and override it with the user options
+    options = OPTIONS_DEFAULTS.copy()
+    options.update(_entry.data)
+
     # Get the module name from the config entry data and import it dynamically
-    module = getattr(sys.modules[__name__], _entry.data.get(CONF_MODE))
+    module = getattr(sys.modules[__name__], options.get(CONF_MODE))
 
     # Call the async_setup_entry function of the module
     await _hass.async_add_job(module.async_setup_entry, _hass, _entry)

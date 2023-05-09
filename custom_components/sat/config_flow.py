@@ -4,7 +4,7 @@ import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import dhcp
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
@@ -245,11 +245,13 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             return await self.update_options(_user_input)
 
         defaults = await self.get_options()
+        device_class = [BinarySensorDeviceClass.WINDOW, BinarySensorDeviceClass.DOOR, BinarySensorDeviceClass.GARAGE_DOOR]
+
         return self.async_show_form(
             step_id="contact_sensors",
             data_schema=vol.Schema({
                 vol.Optional(CONF_WINDOW_SENSOR, default=defaults[CONF_WINDOW_SENSOR]): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=BINARY_SENSOR_DOMAIN, device_class=BinarySensorDeviceClass.WINDOW)
+                    selector.EntitySelectorConfig(domain=BINARY_SENSOR_DOMAIN, device_class=device_class)
                 ),
             })
         )

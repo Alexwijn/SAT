@@ -78,7 +78,7 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         :param key: Key of the value to retrieve from the boiler data.
         :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
         """
-        return self.data[gw_vars.BOILER].get(key) if self.data[gw_vars.BOILER] else None
+        return self.data[BOILER].get(key) if self.data[BOILER] else None
 
     async def cleanup(self) -> None:
         """Cleanup and disconnect."""
@@ -102,14 +102,14 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         """Control the max relative mod of the heating system."""
         await super().async_control_heating_loop(climate)
 
-        if climate.hvac_mode == HVACMode.OFF and bool(self.get(gw_vars.DATA_MASTER_CH_ENABLED)):
+        if climate.hvac_mode == HVACMode.OFF and bool(self.get(DATA_MASTER_CH_ENABLED)):
             await self.async_set_heater_state(DeviceState.OFF)
 
         await self._async_control_max_relative_mod(climate)
 
     async def _async_control_max_relative_mod(self, climate: SatClimate, _time=None) -> None:
         max_relative_mod = self._calculate_max_relative_mod(climate)
-        if float(self.get(gw_vars.DATA_SLAVE_MAX_RELATIVE_MOD)) == max_relative_mod:
+        if float(self.get(DATA_SLAVE_MAX_RELATIVE_MOD)) == max_relative_mod:
             return
 
         if not self._simulation:
@@ -153,9 +153,9 @@ class SatOpenThermCoordinator(SatDataUpdateCoordinator):
         Returns:
             An integer representing the maximum relative modulation for the heating system.
         """
-        setpoint = float(self.get(gw_vars.DATA_CONTROL_SETPOINT))
+        setpoint = float(self.get(DATA_CONTROL_SETPOINT))
 
-        if climate.hvac_mode != HVACMode.HEAT or bool(self.get(gw_vars.DATA_SLAVE_DHW_ACTIVE)) or setpoint <= MINIMUM_SETPOINT:
+        if climate.hvac_mode != HVACMode.HEAT or bool(self.get(DATA_SLAVE_DHW_ACTIVE)) or setpoint <= MINIMUM_SETPOINT:
             return MAXIMUM_RELATIVE_MOD
 
         if self._overshoot_protection and not self._force_pulse_width_modulation:

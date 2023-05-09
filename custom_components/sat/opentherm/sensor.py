@@ -1,8 +1,10 @@
 """Sensor platform for SAT."""
 import logging
+from typing import Optional, List
 
-from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT
+from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfPower, UnitOfTemperature, PERCENTAGE, UnitOfPressure, UnitOfVolume, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 
@@ -16,25 +18,20 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
     """Setup sensor platform."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
-    has_thermostat = coordinator.data[gw_vars.OTGW].get(gw_vars.OTGW_THRM_DETECT) != "D"
+    has_thermostat = coordinator.data[OTGW].get(OTGW_THRM_DETECT) != "D"
 
     # Create list of devices to be added
     devices = [SatCurrentPowerSensor(coordinator, config_entry)]
 
     # Iterate through sensor information
     for key, info in SENSOR_INFO.items():
-        unit = info[1]
-        device_class = info[0]
-        status_sources = info[3]
-        friendly_name_format = info[2]
-
         # Check if the sensor should be added based on its availability and thermostat presence
-        for source in status_sources:
-            if source == gw_vars.THERMOSTAT and has_thermostat is False:
+        for source in info.status_sources:
+            if source == THERMOSTAT and has_thermostat is False:
                 continue
 
             if coordinator.data[source].get(key) is not None:
-                devices.append(SatSensor(coordinator, config_entry, key, source, device_class, unit, friendly_name_format))
+                devices.append(SatSensor(coordinator, config_entry, key, source, info.device_class, info.unit, info.friendly_name_format))
 
     # Add all devices
     async_add_entities(devices)
@@ -116,7 +113,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._coordinator.data is not None and self._coordinator.data[gw_vars.BOILER] is not None
+        return self._coordinator.data is not None and self._coordinator.data[BOILER] is not None
 
     @property
     def native_value(self) -> float:
@@ -125,21 +122,21 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
         In this case, the state represents the current capacity of the boiler in kW.
         """
         # Get the data of the boiler from the coordinator
-        boiler = self._coordinator.data[gw_vars.BOILER]
+        boiler = self._coordinator.data[BOILER]
 
         # If the flame is off, return 0 kW
-        if bool(boiler.get(gw_vars.DATA_SLAVE_FLAME_ON)) is False:
+        if bool(boiler.get(DATA_SLAVE_FLAME_ON)) is False:
             return 0
 
         # Get the relative modulation level from the data
-        relative_modulation = float(boiler.get(gw_vars.DATA_REL_MOD_LEVEL) or 0)
+        relative_modulation = float(boiler.get(DATA_REL_MOD_LEVEL) or 0)
 
         # Get the maximum capacity from the data
-        if (maximum_capacity := float(boiler.get(gw_vars.DATA_SLAVE_MAX_CAPACITY) or 0)) == 0:
+        if (maximum_capacity := float(boiler.get(DATA_SLAVE_MAX_CAPACITY) or 0)) == 0:
             return 0
 
         # Get and calculate the minimum capacity from the data
-        minimum_capacity = maximum_capacity / (100 / float(boiler.get(gw_vars.DATA_SLAVE_MIN_MOD_LEVEL)))
+        minimum_capacity = maximum_capacity / (100 / float(boiler.get(DATA_SLAVE_MIN_MOD_LEVEL)))
 
         # Calculate and return the current capacity in kW
         return minimum_capacity + (((maximum_capacity - minimum_capacity) / 100) * relative_modulation)
@@ -148,3 +145,70 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-power"
+
+
+class SatSensorInfo:
+    def __init__(self, device_class: Optional[str], unit: Optional[str], friendly_name_format: str, status_sources: List[str]):
+        self.unit = unit
+        self.device_class = device_class
+        self.status_sources = status_sources
+        self.friendly_name_format = friendly_name_format
+
+
+SENSOR_INFO: dict[str, SatSensorInfo] = {
+    DATA_CONTROL_SETPOINT: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Control Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_MASTER_MEMBERID: SatSensorInfo(None, None, "Thermostat Member ID {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MEMBERID: SatSensorInfo(None, None, "Boiler Member ID {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_OEM_FAULT: SatSensorInfo(None, None, "Boiler OEM Fault Code {}", [BOILER, THERMOSTAT]),
+    DATA_COOLING_CONTROL: SatSensorInfo(None, PERCENTAGE, "Cooling Control Signal {}", [BOILER, THERMOSTAT]),
+    DATA_CONTROL_SETPOINT_2: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Control Setpoint 2 {}", [BOILER, THERMOSTAT]),
+    DATA_ROOM_SETPOINT_OVRD: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Room Setpoint Override {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MAX_RELATIVE_MOD: SatSensorInfo(None, PERCENTAGE, "Boiler Maximum Relative Modulation {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MAX_CAPACITY: SatSensorInfo(SensorDeviceClass.POWER, UnitOfPower.KILO_WATT, "Boiler Maximum Capacity {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MIN_MOD_LEVEL: SatSensorInfo(None, PERCENTAGE, "Boiler Minimum Modulation Level {}", [BOILER, THERMOSTAT]),
+    DATA_ROOM_SETPOINT: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Room Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_REL_MOD_LEVEL: SatSensorInfo(None, PERCENTAGE, "Relative Modulation Level {}", [BOILER, THERMOSTAT], ),
+    DATA_CH_WATER_PRESS: SatSensorInfo(SensorDeviceClass.PRESSURE, UnitOfPressure.BAR, "Central Heating Water Pressure {}", [BOILER, THERMOSTAT]),
+    DATA_DHW_FLOW_RATE: SatSensorInfo(None, f"{UnitOfVolume.LITERS}/{UnitOfTime.MINUTES}", "Hot Water Flow Rate {}", [BOILER, THERMOSTAT]),
+    DATA_ROOM_SETPOINT_2: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Room Setpoint 2 {}", [BOILER, THERMOSTAT]),
+    DATA_ROOM_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Room Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_CH_WATER_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Central Heating Water Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_DHW_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Hot Water Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_OUTSIDE_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Outside Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_RETURN_WATER_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Return Water Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_SOLAR_STORAGE_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Solar Storage Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_SOLAR_COLL_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Solar Collector Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_CH_WATER_TEMP_2: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Central Heating 2 Water Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_DHW_TEMP_2: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Hot Water 2 Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_EXHAUST_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Exhaust Temperature {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_DHW_MAX_SETP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Hot Water Maximum Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_DHW_MIN_SETP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Hot Water Minimum Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CH_MAX_SETP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Boiler Maximum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CH_MIN_SETP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Boiler Minimum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_MAX_CH_SETPOINT: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Maximum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_OEM_DIAG: SatSensorInfo(None, None, "OEM Diagnostic Code {}", [BOILER, THERMOSTAT]),
+    DATA_TOTAL_BURNER_STARTS: SatSensorInfo(None, None, "Total Burner Starts {}", [BOILER, THERMOSTAT]),
+    DATA_CH_PUMP_STARTS: SatSensorInfo(None, None, "Central Heating Pump Starts {}", [BOILER, THERMOSTAT]),
+    DATA_DHW_PUMP_STARTS: SatSensorInfo(None, None, "Hot Water Pump Starts {}", [BOILER, THERMOSTAT]),
+    DATA_DHW_BURNER_STARTS: SatSensorInfo(None, None, "Hot Water Burner Starts {}", [BOILER, THERMOSTAT]),
+    DATA_TOTAL_BURNER_HOURS: SatSensorInfo(SensorDeviceClass.DURATION, UnitOfTime.HOURS, "Total Burner Hours {}", [BOILER, THERMOSTAT]),
+    DATA_CH_PUMP_HOURS: SatSensorInfo(SensorDeviceClass.DURATION, UnitOfTime.HOURS, "Central Heating Pump Hours {}", [BOILER, THERMOSTAT]),
+    DATA_DHW_PUMP_HOURS: SatSensorInfo(SensorDeviceClass.DURATION, UnitOfTime.HOURS, "Hot Water Pump Hours {}", [BOILER, THERMOSTAT]),
+    DATA_DHW_BURNER_HOURS: SatSensorInfo(SensorDeviceClass.DURATION, UnitOfTime.HOURS, "Hot Water Burner Hours {}", [BOILER, THERMOSTAT]),
+    DATA_MASTER_OT_VERSION: SatSensorInfo(None, None, "Thermostat OpenTherm Version {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_OT_VERSION: SatSensorInfo(None, None, "Boiler OpenTherm Version {}", [BOILER, THERMOSTAT]),
+    DATA_MASTER_PRODUCT_TYPE: SatSensorInfo(None, None, "Thermostat Product Type {}", [BOILER, THERMOSTAT]),
+    DATA_MASTER_PRODUCT_VERSION: SatSensorInfo(None, None, "Thermostat Product Version {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_PRODUCT_TYPE: SatSensorInfo(None, None, "Boiler Product Type {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_PRODUCT_VERSION: SatSensorInfo(None, None, "Boiler Product Version {}", [BOILER, THERMOSTAT]),
+
+    OTGW_MODE: SatSensorInfo(None, None, "Gateway/Monitor Mode {}", [OTGW]),
+    OTGW_DHW_OVRD: SatSensorInfo(None, None, "Gateway Hot Water Override Mode {}", [OTGW]),
+    OTGW_ABOUT: SatSensorInfo(None, None, "Gateway Firmware Version {}", [OTGW]),
+    OTGW_BUILD: SatSensorInfo(None, None, "Gateway Firmware Build {}", [OTGW]),
+    OTGW_SB_TEMP: SatSensorInfo(SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Gateway Setback Temperature {}", [OTGW]),
+    OTGW_SETP_OVRD_MODE: SatSensorInfo(None, None, "Gateway Room Setpoint Override Mode {}", [OTGW]),
+    OTGW_SMART_PWR: SatSensorInfo(None, None, "Gateway Smart Power Mode {}", [OTGW]),
+    OTGW_THRM_DETECT: SatSensorInfo(None, None, "Gateway Thermostat Detection {}", [OTGW]),
+    OTGW_VREF: SatSensorInfo(None, None, "Gateway Reference Voltage Setting {}", [OTGW]),
+}
