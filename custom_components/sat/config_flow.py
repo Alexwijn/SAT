@@ -13,7 +13,7 @@ from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import selector
+from homeassistant.helpers import selector, entity_registry
 from pyotgw import OpenThermGateway
 
 from .const import *
@@ -255,17 +255,21 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
             return await self.update_options(_user_input)
 
-        defaults = await self.get_options()
+        entities = entity_registry.async_get(self.hass)
+        device_name = self._config_entry.data.get(CONF_NAME)
+        climate_id = entities.async_get_entity_id(CLIMATE_DOMAIN, DOMAIN, str(device_name).lower())
+
+        entity_selector = selector.EntitySelector(selector.EntitySelectorConfig(
+            exclude_entities=[climate_id], domain=CLIMATE_DOMAIN, multiple=True
+        ))
+
+        options = await self.get_options()
         return self.async_show_form(
             step_id="climates",
             data_schema=vol.Schema({
-                vol.Optional(CONF_MAIN_CLIMATES, default=defaults[CONF_MAIN_CLIMATES]): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
-                ),
-                vol.Optional(CONF_CLIMATES, default=defaults[CONF_CLIMATES]): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
-                ),
-                vol.Required(CONF_SYNC_WITH_THERMOSTAT, default=defaults[CONF_SYNC_WITH_THERMOSTAT]): bool,
+                vol.Optional(CONF_MAIN_CLIMATES, default=options[CONF_MAIN_CLIMATES]): entity_selector,
+                vol.Optional(CONF_CLIMATES, default=options[CONF_CLIMATES]): entity_selector,
+                vol.Required(CONF_SYNC_WITH_THERMOSTAT, default=options[CONF_SYNC_WITH_THERMOSTAT]): bool,
             })
         )
 
