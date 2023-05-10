@@ -90,9 +90,9 @@ def create_heating_curve_controller(options) -> HeatingCurve:
 def create_pwm_controller(heating_curve: HeatingCurve, options) -> PWM | None:
     """Create and return a PWM controller instance with the given configuration options."""
     # Extract the configuration options
-    force = bool(options.get(CONF_MODE) == MODE_SWITCH)
     automatic_duty_cycle = bool(options.get(CONF_AUTOMATIC_DUTY_CYCLE))
     max_cycle_time = int(convert_time_str_to_seconds(options.get(CONF_DUTY_CYCLE)))
+    force = bool(options.get(CONF_MODE) == MODE_SWITCH) or bool(options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
     # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
@@ -759,7 +759,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._outputs.clear()
             self._setpoint = MINIMUM_SETPOINT
 
-        await self._coordinator.async_control_setpoint(self._setpoint)
+        await self._coordinator.async_set_control_setpoint(self._setpoint)
 
     async def _async_update_rooms_from_climates(self):
         """Update the temperature setpoint for each room based on their associated climate entity."""

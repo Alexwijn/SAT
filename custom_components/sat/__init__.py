@@ -5,7 +5,7 @@ import sys
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
 
-from . import opentherm, switch
+from . import mqtt, serial, switch
 from .config_store import SatConfigStore
 from .const import *
 
@@ -70,7 +70,6 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
     # Unload the entry and its dependent components
     unloaded = all(
         await asyncio.gather(
-            _hass.config_entries.async_forward_entry_unload(_entry, options.get(CONF_MODE)),
             _hass.config_entries.async_unload_platforms(_entry, [CLIMATE, SENSOR, NUMBER, BINARY_SENSOR]),
         )
     )

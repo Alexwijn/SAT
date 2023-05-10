@@ -5,16 +5,25 @@
         "title": "Smart Autotune Thermostat (SAT)",
         "description": "SAT is a smart thermostat that is capable of auto-tuning itself to optimize temperature control. Select the appropriate mode that matches your heating system.",
         "menu_options": {
-          "opentherm": "OpenTherm Gateway ( OTGW )",
+          "mqtt": "OpenTherm Gateway ( MQTT )",
+          "serial": "OpenTherm Gateway ( SERIAL )",
           "switch": "PID Thermostat with PWM ( ON/OFF )"
         }
       },
-      "opentherm": {
-        "title": "OpenTherm Gateway ( OTGW )",
-        "description": "Please fill in the following details to set up the OpenTherm Gateway:",
+      "mqtt": {
+        "title": "OpenTherm Gateway ( MQTT )",
+        "description": "Please fill in the following details to set up the OpenTherm Gateway.",
         "data": {
           "name": "Name",
-          "device": "Path or URL"
+          "device": "Device"
+        }
+      },
+      "serial": {
+        "title": "OpenTherm Gateway ( SERIAL )",
+        "description": "Please fill in the following details to set up the OpenTherm Gateway.",
+        "data": {
+          "name": "Name",
+          "device": "URL"
         }
       },
       "switch": {
@@ -34,7 +43,8 @@
       }
     },
     "error": {
-      "auth": "Unable to connect."
+      "connection": "Unable to connect.",
+      "mqtt_component": "MQTT component is not enabled."
     },
     "abort": {
       "already_configured": "Gateway is already configured."

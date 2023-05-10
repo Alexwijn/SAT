@@ -5,6 +5,9 @@
     "@Alexwijn"
   ],
   "config_flow": true,
+  "dependencies": [
+    "mqtt"
+  ],
   "dhcp": [
     {
       "hostname": "otgw"
@@ -16,5 +19,5 @@
   "requirements": [
     "pyotgw==2.1.3"
   ],
-  "version": "2.0.0"
+  "version": "2.1.0"
 }

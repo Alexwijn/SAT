@@ -1,17 +1,14 @@
-from pyotgw.vars import *
-
 # Base component constants
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
-VERSION = "2.0.3"
+VERSION = "2.1.0"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 
+MODE_MQTT = "mqtt"
 MODE_SWITCH = "switch"
-MODE_OPENTHERM = "opentherm"
+MODE_SERIAL = "serial"
 
-HOT_TOLERANCE = 0.3
-COLD_TOLERANCE = 0.1
 MINIMUM_SETPOINT = 10
 MINIMUM_RELATIVE_MOD = 0
 MAXIMUM_RELATIVE_MOD = 100
@@ -74,7 +71,7 @@ HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES = "radiator_medium_temperatures"
 HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES = "radiator_high_temperatures"
 
 OPTIONS_DEFAULTS = {
-    CONF_MODE: MODE_OPENTHERM,
+    CONF_MODE: MODE_SERIAL,
     CONF_PROPORTIONAL: "45",
     CONF_INTEGRAL: "0",
     CONF_DERIVATIVE: "6000",
@@ -119,13 +116,3 @@ SERVICE_OVERSHOOT_PROTECTION_CALCULATION = "overshoot_protection_calculation"
 # Config steps
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"
-
-# Defaults
-DEFAULT_NAME = DOMAIN
-
-# Sensors
-TRANSLATE_SOURCE = {
-    OTGW: None,
-    BOILER: "Boiler",
-    THERMOSTAT: "Thermostat",
-}

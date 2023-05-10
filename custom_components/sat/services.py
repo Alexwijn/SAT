@@ -6,11 +6,10 @@ from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, SERVICE_S
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
 from homeassistant.core import ServiceCall
 
-from ..const import *
-from ..coordinator import DeviceState
+from .const import *
 
 if typing.TYPE_CHECKING:
-    from ..climate import SatClimate
+    from .climate import SatClimate
 
 
 async def set_overshoot_protection_value(self, call: ServiceCall):
@@ -30,6 +29,7 @@ async def start_overshoot_protection_calculation(self, climate: SatClimate, call
         self.logger.warning("[Overshoot Protection] Calculation already in progress.")
         return
 
+    from .coordinator import DeviceState
     self._device_state = DeviceState.ON
     self._overshoot_protection_calculate = True
 

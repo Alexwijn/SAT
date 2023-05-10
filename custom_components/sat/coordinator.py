@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import logging
 import typing
+from abc import abstractmethod
 from enum import Enum
+from functools import partial
 
+from homeassistant.components.climate import HVACMode
 from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .config_store import SatConfigStore
 from .const import *
+from .services import start_overshoot_protection_calculation, set_overshoot_protection_value
 
 if typing.TYPE_CHECKING:
     from .climate import SatClimate
@@ -26,10 +30,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, store: SatConfigStore) -> None:
         """Initialize."""
         self._store = store
+        self._requested_setpoint = None
         self._device_state = DeviceState.OFF
-        self._setpoint = float(self._store.options.get(CONF_SETPOINT))
         self._simulation = bool(self._store.options.get(CONF_SIMULATION))
+        self._minimum_setpoint = float(self._store.options.get(CONF_SETPOINT))
         self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
+        self._overshoot_protection = bool(self._store.options.get(CONF_OVERSHOOT_PROTECTION))
+        self._force_pulse_width_modulation = bool(self._store.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
@@ -59,40 +66,172 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             return 50.0
 
     @property
+    @abstractmethod
+    def setpoint(self) -> float | None:
+        pass
+
+    @property
+    @abstractmethod
+    def device_active(self) -> bool:
+        pass
+
+    @property
+    def flame_active(self) -> bool:
+        return True
+
+    @property
+    def hot_water_active(self) -> bool:
+        return False
+
+    @property
+    def hot_water_setpoint(self) -> float | None:
+        return None
+
+    @property
+    def boiler_temperature(self) -> float | None:
+        return None
+
+    @property
+    def minimum_hot_water_setpoint(self) -> float:
+        return 30
+
+    @property
+    def maximum_hot_water_setpoint(self) -> float:
+        return 60
+
+    @property
+    def relative_modulation_value(self) -> float | None:
+        return None
+
+    @property
+    def boiler_capacity(self) -> float | None:
+        return None
+
+    @property
+    def minimum_relative_modulation_value(self) -> float | None:
+        return None
+
+    @property
     def minimum_setpoint(self) -> float:
-        return self._setpoint
+        return self._minimum_setpoint
 
     @property
     def supports_setpoint_management(self):
-        """Returns whether the device supports setting a setpoint.
+        """Returns whether the device supports setting a boiler setpoint.
 
         This property is used to determine whether the coordinator can send a setpoint to the device.
-        If a device doesn't support setpoint management, the coordinator won't be able to control
-        the temperature or other properties of the device.
+        If a device doesn't support setpoint management, the coordinator won't be able to control the temperature.
+        """
+        return False
 
-        Returns:
-            A boolean indicating whether the device supports setpoint management. True indicates
-            that the device supports it, while False indicates that it does not.
+    @property
+    def supports_hot_water_setpoint_management(self):
+        """Returns whether the device supports setting a hot water setpoint.
+
+        This property is used to determine whether the coordinator can send a setpoint to the device.
+        If a device doesn't support setpoint management, the coordinator won't be able to control the temperature.
+        """
+        return False
+
+    @property
+    def support_relative_modulation_management(self):
+        """Returns whether the device supports setting a relative modulation value.
+
+        This property is used to determine whether the coordinator can send a relative modulation value to the device.
+        If a device doesn't support relative modulation management, the coordinator won't be able to control the value.
+        """
+        return False
+
+    @property
+    def supports_maximum_setpoint_management(self):
+        """Returns whether the device supports setting a maximum setpoint.
+
+        This property is used to determine whether the coordinator can send a maximum setpoint to the device.
+        If a device doesn't support maximum setpoint management, the coordinator won't be able to control the value.
         """
         return False
 
     async def async_added_to_hass(self, climate: SatClimate) -> None:
         """Perform setup when the integration is added to Home Assistant."""
-        pass
+        await self.async_set_control_max_setpoint(self.maximum_setpoint)
+
+        if self.supports_setpoint_management:
+            if self._overshoot_protection and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
+                self._overshoot_protection = False
+
+                await self.async_send_notification(
+                    title="Smart Autotune Thermostat",
+                    message="Disabled overshoot protection because no overshoot value has been found."
+                )
+
+            if self._force_pulse_width_modulation and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
+                self._force_pulse_width_modulation = False
+
+                await self.async_send_notification(
+                    title="Smart Autotune Thermostat",
+                    message="Disabled forced pulse width modulation because no overshoot value has been found."
+                )
+
+            self.hass.services.async_register(
+                DOMAIN,
+                SERVICE_OVERSHOOT_PROTECTION_CALCULATION,
+                partial(start_overshoot_protection_calculation, self, climate)
+            )
+
+            self.hass.services.async_register(
+                DOMAIN,
+                SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
+                partial(set_overshoot_protection_value, self)
+            )
 
     async def async_control_heating_loop(self, climate: SatClimate, _time=None) -> None:
         """Control the heating loop for the device."""
-        pass
+        if climate.hvac_mode == HVACMode.OFF and self.device_active:
+            # Send out a new command to turn off the device
+            await self.async_set_heater_state(DeviceState.OFF)
 
-    async def async_control_setpoint(self, value: float) -> None:
-        """Control the setpoint temperature for the device."""
-        if self.supports_setpoint_management:
-            self.logger.info("Set control setpoint to %d", value)
+        if self.support_relative_modulation_management:
+            # Check if the climate control is not in heating mode
+            not_in_heating_mode = climate.hvac_mode != HVACMode.HEAT
+
+            # Check if the setpoint is below the minimum allowed value (or basically off)
+            is_below_min_setpoint = self.setpoint is not None and self.setpoint <= MINIMUM_SETPOINT
+
+            # Check if the setpoint is close to or above the overshoot protection value
+            is_overshooting = self.setpoint is not None and abs(climate.max_error) > 0.1 and self.setpoint >= (self.minimum_setpoint - 2)
+
+            # Determine whether to enable maximum or minimum relative modulation value based on the conditions
+            relative_modulation_enabled = not_in_heating_mode or self.hot_water_active or is_below_min_setpoint or is_overshooting
+
+            # Control the relative modulation value based on the conditions
+            await self.async_set_control_max_relative_modulation(
+                MAXIMUM_RELATIVE_MOD if relative_modulation_enabled else MINIMUM_RELATIVE_MOD
+            )
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
         self._device_state = state
         self.logger.info("Set central heater state %s", state)
+
+    async def async_set_control_setpoint(self, value: float) -> None:
+        """Control the boiler setpoint temperature for the device."""
+        if self.supports_setpoint_management:
+            self.logger.info("Set control boiler setpoint to %d", value)
+
+    async def async_set_control_hot_water_setpoint(self, value: float) -> None:
+        """Control the DHW setpoint temperature for the device."""
+        if self.supports_hot_water_setpoint_management:
+            self.logger.info("Set control hot water setpoint to %d", value)
+
+    async def async_set_control_max_setpoint(self, value: float):
+        """Control the maximum setpoint temperature for the device."""
+        if self.supports_maximum_setpoint_management:
+            self.logger.info("Set maximum setpoint to %d", value)
+
+    async def async_set_control_max_relative_modulation(self, value: float) -> None:
+        """Control the maximum relative modulation for the device."""
+        if self.support_relative_modulation_management:
+            self.logger.info("Set maximum relative modulation to %d", value)
 
     async def async_send_notification(self, title: str, message: str, service: str = SERVICE_PERSISTENT_NOTIFICATION):
         """Send a notification to the user."""

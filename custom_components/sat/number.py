@@ -1,21 +1,67 @@
+from homeassistant.components.number import NumberEntity, NumberDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_MODE, MODE_OPENTHERM, OPTIONS_DEFAULTS
-from .opentherm import number as opentherm_number
+from .const import *
+from .coordinator import SatDataUpdateCoordinator
+from .entity import SatEntity
 
 
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_entities: AddEntitiesCallback):
-    """
-    Add sensors for the OpenTherm protocol if the integration is set to use it.
-    """
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
+    coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
 
-    # Retrieve the defaults and override it with the user options
-    options = OPTIONS_DEFAULTS.copy()
-    options.update(_config_entry.data)
+    if coordinator.supports_hot_water_setpoint_management:
+        async_add_entities([SatHotWaterSetpointEntity(coordinator, config_entry)])
 
-    # Check if integration is set to use the OpenTherm protocol
-    if options.get(CONF_MODE) == MODE_OPENTHERM:
-        # Call function to set up OpenTherm numbers
-        await opentherm_number.async_setup_entry(_hass, _config_entry, _async_add_entities)
+
+class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
+        super().__init__(coordinator, config_entry)
+        self._name = self._config_entry.data.get(CONF_NAME)
+
+    @property
+    def name(self) -> str | None:
+        return f"Hot Water Setpoint {self._name} (Boiler)"
+
+    @property
+    def device_class(self):
+        """Return the device class."""
+        return NumberDeviceClass.TEMPERATURE
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._name.lower()}-boiler-dhw-setpoint"
+
+    @property
+    def icon(self) -> str | None:
+        return "mdi:thermometer"
+
+    @property
+    def available(self):
+        """Return availability of the sensor."""
+        return self._coordinator.hot_water_setpoint is not None
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement in native units."""
+        return "°C"
+
+    @property
+    def native_value(self):
+        """Return the state of the device in native units."""
+        return self._coordinator.hot_water_setpoint
+
+    @property
+    def native_min_value(self) -> float:
+        """Return the minimum accepted temperature."""
+        return self._coordinator.minimum_hot_water_setpoint
+
+    @property
+    def native_max_value(self) -> float:
+        """Return the maximum accepted temperature."""
+        return self._coordinator.maximum_hot_water_setpoint
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update the setpoint."""
+        await self._coordinator.async_set_control_hot_water_setpoint(value)

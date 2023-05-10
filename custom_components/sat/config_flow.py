@@ -3,9 +3,10 @@ import logging
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.components import dhcp
+from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
+from homeassistant.components.dhcp import DhcpServiceInfo
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
@@ -16,6 +17,8 @@ from homeassistant.helpers import selector
 from pyotgw import OpenThermGateway
 
 from .const import *
+
+DEFAULT_NAME = "Living Room"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,30 +36,31 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle user flow."""
         return self.async_show_menu(
             step_id="user",
-            menu_options=["opentherm", "switch"]
+            menu_options=["mqtt", "serial", "switch"]
         )
 
-    async def async_step_dhcp(self, discovery_info: dhcp.DhcpServiceInfo) -> FlowResult:
+    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
         """Handle dhcp discovery."""
-        _LOGGER.debug("Discovered OTGW at [%s]", discovery_info.ip)
+        _LOGGER.debug("Discovered OTGW at [%s]", discovery_info.hostname)
+        self._data[CONF_DEVICE] = f"socket://{discovery_info.hostname}:25238"
 
         # abort if we already have exactly this gateway id/host
         # reload the integration if the host got updated
-        await self.async_set_unique_id(discovery_info.ip)
-        self._abort_if_unique_id_configured(updates={CONF_DEVICE: discovery_info.ip}, reload_on_update=True)
+        await self.async_set_unique_id(discovery_info.hostname)
+        self._abort_if_unique_id_configured(updates=self._data, reload_on_update=True)
 
-        return await self.async_step_opentherm()
+        return await self.async_step_serial()
 
-    async def async_step_opentherm(self, _user_input=None):
+    async def async_step_mqtt(self, _user_input=None):
         self._errors = {}
 
         if _user_input is not None:
             self._data.update(_user_input)
-            self._data[CONF_MODE] = MODE_OPENTHERM
+            self._data[CONF_MODE] = MODE_MQTT
 
-            if not await self._test_gateway_connection():
-                self._errors["base"] = "auth"
-                return await self.async_step_opentherm()
+            if not await mqtt.async_wait_for_mqtt_client(self.hass):
+                self._errors["base"] = "mqtt_component"
+                return await self.async_step_serial()
 
             await self.async_set_unique_id(self._data[CONF_DEVICE], raise_on_progress=False)
             self._abort_if_unique_id_configured()
@@ -64,11 +68,39 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_sensors_setup()
 
         return self.async_show_form(
-            step_id="opentherm",
+            step_id="mqtt",
             last_step=False,
             errors=self._errors,
             data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default="Living Room"): str,
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+                vol.Required(CONF_DEVICE): selector.DeviceSelector(
+                    selector.DeviceSelectorConfig(model="otgw-nodo")
+                ),
+            }),
+        )
+
+    async def async_step_serial(self, _user_input=None):
+        self._errors = {}
+
+        if _user_input is not None:
+            self._data.update(_user_input)
+            self._data[CONF_MODE] = MODE_SERIAL
+
+            if not await OpenThermGateway().connect(port=self._data[CONF_DEVICE], skip_init=True, timeout=5):
+                self._errors["base"] = "connection"
+                return await self.async_step_serial()
+
+            await self.async_set_unique_id(self._data[CONF_DEVICE], raise_on_progress=False)
+            self._abort_if_unique_id_configured()
+
+            return await self.async_step_sensors_setup()
+
+        return self.async_show_form(
+            step_id="serial",
+            last_step=False,
+            errors=self._errors,
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_DEVICE, default="socket://otgw.local:25238"): str,
             }),
         )
@@ -89,7 +121,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             errors=self._errors,
             data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default="Living Room"): str,
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_SWITCH): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN])
                 )
@@ -117,10 +149,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
             }),
         )
-
-    async def _test_gateway_connection(self):
-        """Return true if credentials is valid."""
-        return await OpenThermGateway().connect(port=self._data[CONF_DEVICE], skip_init=True, timeout=5)
 
     @staticmethod
     @callback
@@ -164,7 +192,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             ),
         }
 
-        if options.get(CONF_MODE) == MODE_OPENTHERM:
+        if options.get(CONF_MODE) == MODE_SERIAL:
             schema[vol.Required(CONF_HEATING_SYSTEM, default=options[CONF_HEATING_SYSTEM])] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[
                     {"value": HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
@@ -267,7 +295,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
         }
 
-        if options.get(CONF_MODE) == MODE_OPENTHERM:
+        if options.get(CONF_MODE) == MODE_SERIAL:
             schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
             schema[vol.Required(CONF_OVERSHOOT_PROTECTION, default=options[CONF_OVERSHOOT_PROTECTION])] = bool
 

@@ -2,8 +2,8 @@ import asyncio
 import logging
 from collections import deque
 
-from .coordinator import SatOpenThermCoordinator
-from ..const import *
+from custom_components.sat.const import *
+from custom_components.sat.coordinator import DeviceState, SatDataUpdateCoordinator
 
 SOLUTION_AUTOMATIC = "auto"
 SOLUTION_WITH_MODULATION = "with_modulation"
@@ -19,14 +19,15 @@ OVERSHOOT_PROTECTION_INITIAL_WAIT = 120  # 2 minutes in seconds
 
 
 class OvershootProtection:
-    def __init__(self, coordinator: SatOpenThermCoordinator):
+    def __init__(self, coordinator: SatDataUpdateCoordinator):
         self._coordinator = coordinator
 
     async def calculate(self, solution: str) -> float | None:
         _LOGGER.info("Starting calculation")
-        await self._coordinator.api.set_ch_enable_bit(1)
-        await self._coordinator.api.set_max_ch_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
-        await self._coordinator.api.set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
+
+        await self._coordinator.async_set_heater_state(DeviceState.ON)
+        await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
+        await self._coordinator.async_set_control_max_relative_modulation(OVERSHOOT_PROTECTION_SETPOINT)
 
         try:
             # First wait for a flame
@@ -38,7 +39,7 @@ class OvershootProtection:
                 await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
                 # Check if relative modulation is still zero
-                if float(self._coordinator.get(DATA_REL_MOD_LEVEL)) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
+                if float(self._coordinator.relative_modulation_value) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
                     return await start_with_zero_modulation_task
                 else:
                     start_with_zero_modulation_task.cancel()
@@ -54,7 +55,9 @@ class OvershootProtection:
 
     async def _calculate_with_zero_modulation(self) -> float:
         _LOGGER.info("Running calculation with zero modulation")
-        await self._coordinator.api.set_max_relative_mod(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
+        await self._coordinator.async_set_control_max_relative_modulation(
+            OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD
+        )
 
         try:
             return await asyncio.wait_for(
@@ -77,7 +80,7 @@ class OvershootProtection:
 
     async def _wait_for_flame(self):
         while True:
-            if bool(self._coordinator.get(DATA_SLAVE_FLAME_ON)):
+            if bool(self._coordinator.flame_active):
                 _LOGGER.info("Heating system has started to run")
                 break
 
@@ -89,7 +92,7 @@ class OvershootProtection:
         previous_average_temp = None
 
         while True:
-            actual_temp = float(self._coordinator.get(DATA_CH_WATER_TEMP))
+            actual_temp = float(self._coordinator.boiler_temperature)
 
             temps.append(actual_temp)
             average_temp = sum(temps) / 50
@@ -100,7 +103,7 @@ class OvershootProtection:
                     return actual_temp
 
             if max_modulation != OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
-                await self._coordinator.api.set_control_setpoint(actual_temp)
+                await self._coordinator.async_set_control_setpoint(actual_temp)
 
             previous_average_temp = average_temp
             await asyncio.sleep(3)
