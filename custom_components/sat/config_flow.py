@@ -73,6 +73,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=self._errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+                vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
                 vol.Required(CONF_DEVICE): selector.DeviceSelector(
                     selector.DeviceSelectorConfig(model="otgw-nodo")
                 ),
@@ -192,7 +193,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             ),
         }
 
-        if options.get(CONF_MODE) == MODE_SERIAL:
+        if options.get(CONF_MODE) in [MODE_MQTT, MODE_SERIAL]:
             schema[vol.Required(CONF_HEATING_SYSTEM, default=options[CONF_HEATING_SYSTEM])] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[
                     {"value": HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES, "label": "Radiators ( High Temperatures )"},
@@ -264,6 +265,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(CONF_CLIMATES, default=defaults[CONF_CLIMATES]): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
                 ),
+                vol.Required(CONF_SYNC_WITH_THERMOSTAT, default=defaults[CONF_SYNC_WITH_THERMOSTAT]): bool,
             })
         )
 
@@ -295,7 +297,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
         }
 
-        if options.get(CONF_MODE) == MODE_SERIAL:
+        if options.get(CONF_MODE) in [MODE_MQTT, MODE_SERIAL]:
             schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
             schema[vol.Required(CONF_OVERSHOOT_PROTECTION, default=options[CONF_OVERSHOOT_PROTECTION])] = bool
 

@@ -89,7 +89,8 @@
         "title": "Climates (multi-room)",
         "data": {
           "climates": "Climates (rooms)",
-          "main_climates": "Climates (main)"
+          "main_climates": "Climates (main)",
+          "sync_with_thermostat": "Synchronize setpoint with thermostat"
         }
       },
       "contact_sensors": {

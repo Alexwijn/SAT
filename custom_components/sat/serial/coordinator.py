@@ -133,6 +133,18 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_setpoint(value)
 
+    async def async_set_control_hot_water_setpoint(self, value: float) -> None:
+        if not self._simulation:
+            await self.api.set_dhw_setpoint(value)
+
+        await super().async_set_control_thermostat_setpoint(value)
+
+    async def async_set_control_thermostat_setpoint(self, value: float) -> None:
+        if not self._simulation:
+            await self.api.set_target_temp(value)
+
+        await super().async_set_control_thermostat_setpoint(value)
+
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Control the state of the central heating."""
         if not self._simulation:

@@ -222,7 +222,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.supports_hot_water_setpoint_management:
             self.logger.info("Set control hot water setpoint to %d", value)
 
-    async def async_set_control_max_setpoint(self, value: float):
+    async def async_set_control_thermostat_setpoint(self, value: float) -> None:
+        """Control the setpoint temperature for the thermostat."""
+        pass
+
+    async def async_set_control_max_setpoint(self, value: float) -> None:
         """Control the maximum setpoint temperature for the device."""
         if self.supports_maximum_setpoint_management:
             self.logger.info("Set maximum setpoint to %d", value)

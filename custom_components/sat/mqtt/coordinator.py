@@ -52,9 +52,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         self._device = device_registry.async_get(hass).async_get(device_id)
         self._node_id = list(self._device.identifiers)[0][1]
+        self._topic = store.options.get(CONF_MQTT_TOPIC)
 
-        self.entity_registry = entity_registry.async_get(hass)
-        self._entities = entity_registry.async_entries_for_device(self.entity_registry, self._device.id)
+        self._entity_registry = entity_registry.async_get(hass)
+        self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
 
     @property
     def supports_setpoint_management(self):
@@ -177,6 +178,16 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_setpoint(value)
 
+    async def async_set_control_hot_water_setpoint(self, value: float) -> None:
+        await self._send_command(f"SW={value}")
+
+        await super().async_set_control_hot_water_setpoint(value)
+
+    async def async_set_control_thermostat_setpoint(self, value: float) -> None:
+        await self._send_command(f"TC={value}")
+
+        await super().async_set_control_thermostat_setpoint(value)
+
     async def async_set_heater_state(self, state: DeviceState) -> None:
         await self._send_command(f"CH={1 if state == DeviceState.ON else 0}")
 
@@ -193,7 +204,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         await super().async_set_control_max_setpoint(value)
 
     def _get_entity_id(self, key: str):
-        return self.entity_registry.async_get_entity_id(SENSOR, MQTT_DOMAIN, f"{self._node_id}-{key}")
+        return self._entity_registry.async_get_entity_id(SENSOR, MQTT_DOMAIN, f"{self._node_id}-{key}")
 
     async def _on_state_change(self, entity_id: str, state: State):
         key = entity_id_to_opentherm_key(self.hass, self._node_id, entity_id)
@@ -212,4 +223,4 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     async def _send_command(self, command: str):
         if not self._simulation:
-            await mqtt.async_publish(self.hass, f"OTGW/set/{self._node_id}/command", command)
+            await mqtt.async_publish(self.hass, f"{self._topic}/set/{self._node_id}/command", command)

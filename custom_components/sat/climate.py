@@ -165,6 +165,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._simulation = bool(self._store.options.get(CONF_SIMULATION))
         self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
+        self._sync_with_thermostat = bool(self._store.options.get(CONF_SYNC_WITH_THERMOSTAT))
         self._overshoot_protection = bool(self._store.options.get(CONF_OVERSHOOT_PROTECTION))
         self._climate_valve_offset = float(self._store.options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(self._store.options.get(CONF_TARGET_TEMPERATURE_STEP))
@@ -853,10 +854,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the PID controller
         await self._async_control_pid(True)
 
-        # Set the temperature for each main climate
+        # Set the target temperature for each main climate
         for entity_id in self._main_climates:
             data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
             await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+
+        if self._sync_with_thermostat:
+            # Set the target temperature for the connected boiler
+            await self._coordinator.async_set_control_thermostat_setpoint(temperature)
 
         # Write the state to Home Assistant
         self.async_write_ha_state()
