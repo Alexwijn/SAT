@@ -30,7 +30,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, store: SatConfigStore) -> None:
         """Initialize."""
         self._store = store
-        self._requested_setpoint = None
         self._device_state = DeviceState.OFF
         self._simulation = bool(self._store.options.get(CONF_SIMULATION))
         self._minimum_setpoint = float(self._store.options.get(CONF_SETPOINT))
