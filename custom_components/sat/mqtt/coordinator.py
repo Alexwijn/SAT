@@ -152,7 +152,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
             self._get_entity_id(DATA_CONTROL_SETPOINT),
             self._get_entity_id(DATA_DHW_ENABLE),
             self._get_entity_id(DATA_REL_MOD_LEVEL),
+            self._get_entity_id(DATA_BOILER_TEMPERATURE),
             self._get_entity_id(DATA_CENTRAL_HEATING),
+            self._get_entity_id(DATA_BOILER_CAPACITY),
+            self._get_entity_id(DATA_REL_MIN_MOD_LEVEL),
             self._get_entity_id(DATA_DHW_SETPOINT_MINIMUM),
             self._get_entity_id(DATA_DHW_SETPOINT_MAXIMUM),
         ]))
