@@ -15,7 +15,8 @@
         "description": "Please fill in the following details to set up the OpenTherm Gateway.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "mqtt_topic": "Top Topic"
         }
       },
       "serial": {
