@@ -173,6 +173,8 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         async_track_state_change_event(self.hass, entities, async_coroutine)
 
+        await super().async_added_to_hass(climate)
+
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._send_command(f"CS={value}")
 
