@@ -44,8 +44,8 @@
       }
     },
     "error": {
-      "connection": "Unable to connect.",
-      "mqtt_component": "MQTT component is not enabled."
+      "connection": "Unable to connect to the gateway.",
+      "mqtt_component": "The MQTT component is unavailable."
     },
     "abort": {
       "already_configured": "Gateway is already configured."
