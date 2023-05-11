@@ -191,7 +191,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
             self.hass.services.async_register(
                 DOMAIN,
-                SERVICE_OVERSHOOT_PROTECTION_CALCULATION,
+                SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION,
                 partial(start_overshoot_protection_calculation, self, climate)
             )
 
