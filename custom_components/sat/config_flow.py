@@ -60,7 +60,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not await mqtt.async_wait_for_mqtt_client(self.hass):
                 self._errors["base"] = "mqtt_component"
-                return await self.async_step_serial()
+                return await self.async_step_mqtt()
 
             await self.async_set_unique_id(self._data[CONF_DEVICE], raise_on_progress=False)
             self._abort_if_unique_id_configured()
