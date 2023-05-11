@@ -172,6 +172,18 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Perform setup when the integration is added to Home Assistant."""
         await self.async_set_control_max_setpoint(self.maximum_setpoint)
 
+        self.hass.services.async_register(
+            DOMAIN,
+            SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION,
+            partial(start_overshoot_protection_calculation, self, climate)
+        )
+
+        self.hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
+            partial(set_overshoot_protection_value, self)
+        )
+
         if self.supports_setpoint_management:
             if self._overshoot_protection and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
                 self._overshoot_protection = False
@@ -188,18 +200,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                     title="Smart Autotune Thermostat",
                     message="Disabled forced pulse width modulation because no overshoot value has been found."
                 )
-
-            self.hass.services.async_register(
-                DOMAIN,
-                SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION,
-                partial(start_overshoot_protection_calculation, self, climate)
-            )
-
-            self.hass.services.async_register(
-                DOMAIN,
-                SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
-                partial(set_overshoot_protection_value, self)
-            )
 
     async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
         """Run when entity will be removed from hass."""
