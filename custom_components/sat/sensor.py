@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
@@ -9,13 +10,15 @@ from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CONF_MODE, MODE_SERIAL, OPTIONS_DEFAULTS, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .serial import sensor as serial_sensor
 
 if typing.TYPE_CHECKING:
     from .climate import SatClimate
+
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_entities: AddEntitiesCallback):
@@ -25,13 +28,8 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     climate = _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE]
     coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
 
-    # Retrieve the defaults and override it with the user options
-    options = OPTIONS_DEFAULTS.copy()
-    options.update(_config_entry.data)
-
     # Check if integration is set to use the serial protocol
-    if options.get(CONF_MODE) == MODE_SERIAL:
-        # Call function to set up OpenTherm sensors
+    if coordinator.store.options.get(CONF_MODE) == MODE_SERIAL:
         await serial_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     _async_add_entities([

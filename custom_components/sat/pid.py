@@ -176,7 +176,7 @@ class PID:
 
     def update_history_size(self, alpha: float = 0.8):
         """
-        Update the size of the history of errors and times.
+        Update the history of errors and times.
 
         The size of the history is updated based on the frequency of updates to the sensor value.
         If the frequency of updates is high, the history size is increased, and if the frequency of updates is low,
@@ -202,7 +202,7 @@ class PID:
         history_size = max(2, history_size)
         history_size = min(history_size, 100)
 
-        # Calculate a weighted average of the rate of updates and the previous history size
+        # Calculate an average weighted rate of updates and the previous history size
         self._history_size = alpha * history_size + (1 - alpha) * self._history_size
 
         # Update our lists with the new size

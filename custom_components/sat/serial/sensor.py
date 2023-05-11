@@ -9,8 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from pyotgw.vars import *
 
-from . import TRANSLATE_SOURCE
-from .coordinator import SatSerialCoordinator
+from . import TRANSLATE_SOURCE, SatSerialCoordinator
 from ..const import *
 from ..entity import SatEntity
 
@@ -89,7 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     has_thermostat = coordinator.data[OTGW].get(OTGW_THRM_DETECT) != "D"
 
-    # Create list of entities to be added
+    # Create a list of entities to be added
     entities = []
 
     # Iterate through sensor information
@@ -144,7 +143,7 @@ class SatSensor(SatEntity, SensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._coordinator.data is not None and self._coordinator.data[self._source] is not None
+        return self._coordinator.data[self._source].get(self._key) is not None
 
     @property
     def native_value(self):

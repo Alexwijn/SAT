@@ -2,6 +2,7 @@
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 VERSION = "2.1.0"
+CLIMATE = "climate"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 
@@ -17,23 +18,10 @@ OVERSHOOT_PROTECTION_SETPOINT = 75
 OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD = 0
 OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 
-# Icons
-ICON = "mdi:format-quote-close"
-
-# Device classes
-BINARY_SENSOR_DEVICE_CLASS = "connectivity"
-
-# Platforms
-SENSOR = "sensor"
-NUMBER = "number"
-CLIMATE = "climate"
-BINARY_SENSOR = "binary_sensor"
-
 # Configuration and options
 CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
-CONF_SWITCH = "switch"
 CONF_SETPOINT = "setpoint"
 CONF_CLIMATES = "climates"
 CONF_MQTT_TOPIC = "mqtt_topic"

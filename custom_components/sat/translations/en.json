@@ -32,7 +32,7 @@
         "description": "Please fill in the following details to setup the switch:",
         "data": {
           "name": "Name",
-          "switch": "Switch"
+          "device": "Switch"
         }
       },
       "sensors": {

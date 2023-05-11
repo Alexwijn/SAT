@@ -197,7 +197,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Restore previous state if available, or set default values
         await self._restore_previous_state_or_set_defaults()
 
-        # Update heating curve if outside temperature is available
+        # Update a heating curve if outside temperature is available
         if self.current_outside_temperature is not None:
             self._heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
@@ -427,6 +427,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return max([self.error] + self.climate_errors)
 
     @property
+    def setpoint(self) -> float | None:
+        return self._setpoint
+
+    @property
     def climate_errors(self) -> List[float]:
         """Calculate the temperature difference between the current temperature and target temperature for all connected climates."""
         errors = []
@@ -515,6 +519,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return False
 
     def _get_requested_setpoint(self):
+        if self._heating_curve.value is None:
+            return MINIMUM_SETPOINT
+
         return max(self._heating_curve.value + self._pid.output, MINIMUM_SETPOINT)
 
     def _calculate_control_setpoint(self) -> float:
@@ -525,7 +532,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Combine the heating curve value and the calculated output from the pid controller
         requested_setpoint = self._get_requested_setpoint()
 
-        # Make sure we are above the base setpoint when we are below target temperature
+        # Make sure we are above the base setpoint when we are below the target temperature
         if self.max_error > 0:
             requested_setpoint = max(requested_setpoint, self._heating_curve.value)
 
@@ -598,7 +605,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif new_attrs.get("temperature") != old_attrs.get("temperature"):
             await self._async_control_pid(True)
 
-        # If current temperature has changed, update the PID controller
+        # If the current temperature has changed, update the PID controller
         elif not hasattr(new_state.attributes, SENSOR_TEMPERATURE_ID) and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid(False)
 
@@ -658,7 +665,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_heating_loop(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
-        # If overshoot protection is active, we are not doing anything since we already have task running in async
+        # If overshoot protection is active, we are not doing anything since we already have a task running in async
         if self.overshoot_protection_calculate:
             return
 
@@ -717,7 +724,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not reset:
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
-            # Calculate optimal heating curve when we are in the deadband
+            # Calculate an optimal heating curve when we are in the deadband
             if -0.1 <= max_error <= 0.1:
                 self._heating_curve.autotune(
                     setpoint=self._get_requested_setpoint(),
@@ -725,7 +732,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     outside_temperature=self.current_outside_temperature
                 )
 
-            # Since we are in the deadband we can safely assume we are not warming up anymore
+            # Since we are in the deadband, we can safely assume we are not warming up anymore
             if self._warming_up and max_error <= 0.1:
                 self._warming_up = False
                 _LOGGER.info("Reached deadband, turning off warming up.")

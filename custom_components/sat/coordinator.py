@@ -26,6 +26,24 @@ class DeviceState(Enum):
     OFF = "off"
 
 
+class SatDataUpdateCoordinatorFactory:
+    @staticmethod
+    async def resolve(hass: HomeAssistant, store: SatConfigStore, mode: str, device: str) -> DataUpdateCoordinator:
+        if mode == MODE_MQTT:
+            from .mqtt import SatMqttCoordinator
+            return SatMqttCoordinator(hass, store, device)
+
+        if mode == MODE_SERIAL:
+            from .serial import SatSerialCoordinator
+            return await SatSerialCoordinator(hass, store, device).async_connect()
+
+        if mode == MODE_SWITCH:
+            from .switch import SatSwitchCoordinator
+            return SatSwitchCoordinator(hass, store, device)
+
+        raise Exception(f'Invalid mode[{mode}]')
+
+
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, store: SatConfigStore) -> None:
         """Initialize."""
@@ -76,7 +94,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def flame_active(self) -> bool:
-        return True
+        return self.device_active
 
     @property
     def hot_water_active(self) -> bool:
@@ -182,6 +200,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
                 partial(set_overshoot_protection_value, self)
             )
+
+    async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
+        """Run when entity will be removed from hass."""
+        pass
 
     async def async_control_heating_loop(self, climate: SatClimate, _time=None) -> None:
         """Control the heating loop for the device."""

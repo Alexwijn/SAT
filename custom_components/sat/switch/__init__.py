@@ -1,16 +1,37 @@
-import logging
+from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.const import SERVICE_TURN_ON, SERVICE_TURN_OFF, ATTR_ENTITY_ID, STATE_ON
 from homeassistant.core import HomeAssistant
 
-from .coordinator import SatSwitchCoordinator
-from ..const import *
-
-_LOGGER: logging.Logger = logging.getLogger(__name__)
+from ..config_store import SatConfigStore
+from ..coordinator import DeviceState, SatDataUpdateCoordinator
 
 
-async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
-    _LOGGER.debug("Setting up Switch integration")
+class SatSwitchCoordinator(SatDataUpdateCoordinator):
+    """Class to manage the Switch."""
 
-    store = _hass.data[DOMAIN][_entry.entry_id][CONFIG_STORE]
-    _hass.data[DOMAIN][_entry.entry_id] = {COORDINATOR: SatSwitchCoordinator(_hass, store)}
+    def __init__(self, hass: HomeAssistant, store: SatConfigStore, entity_id: str) -> None:
+        """Initialize."""
+        super().__init__(hass, store)
+
+        self._entity_id = entity_id
+
+    @property
+    def setpoint(self) -> float:
+        return self.minimum_setpoint
+
+    @property
+    def maximum_setpoint(self) -> float:
+        return self.minimum_setpoint
+
+    @property
+    def device_active(self) -> bool:
+        return self.hass.states.get(self._entity_id).state == STATE_ON
+
+    async def async_set_heater_state(self, state: DeviceState) -> None:
+        if not self._simulation:
+            service = SERVICE_TURN_ON if state == DeviceState.ON else SERVICE_TURN_OFF
+            await self.hass.services.async_call(SWITCH_DOMAIN, service, {ATTR_ENTITY_ID: self._entity_id}, blocking=True)
+
+        await super().async_set_heater_state(state)

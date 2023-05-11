@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import typing
 
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.components.climate import HVACAction
@@ -9,12 +8,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_MODE, MODE_SERIAL, OPTIONS_DEFAULTS, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE
-from .entity import SatEntity
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE
+from .entity import SatClimateEntity
 from .serial import binary_sensor as serial_binary_sensor
-
-if typing.TYPE_CHECKING:
-    from .climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -26,26 +22,17 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     climate = _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE]
     coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
 
-    # Retrieve the defaults and override it with the user options
-    options = OPTIONS_DEFAULTS.copy()
-    options.update(_config_entry.data)
-
     # Check if integration is set to use the serial protocol
-    if options.get(CONF_MODE) == MODE_SERIAL:
-        # Call function to set up OpenTherm binary sensors
+    if coordinator.store.options.get(CONF_MODE) == MODE_SERIAL:
         await serial_binary_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
-    _async_add_entities([
-        SatControlSetpointSynchroSensor(coordinator, climate, _config_entry),
-        SatCentralHeatingSynchroSensor(coordinator, climate, _config_entry),
-    ])
+    if coordinator.supports_setpoint_management:
+        _async_add_entities([SatControlSetpointSynchroSensor(coordinator, climate, _config_entry)])
+
+    _async_add_entities([SatCentralHeatingSynchroSensor(coordinator, climate, _config_entry)])
 
 
-class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
-
-    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry):
-        super().__init__(coordinator, config_entry)
-        self._climate = climate
+class SatControlSetpointSynchroSensor(SatClimateEntity, BinarySensorEntity):
 
     @property
     def name(self):
@@ -60,18 +47,12 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._climate is not None and self._coordinator.setpoint is not None
+        return self._climate.setpoint is not None and self._coordinator.setpoint is not None
 
     @property
     def is_on(self):
         """Return the state of the sensor."""
-        coordinator_setpoint = self._coordinator.setpoint
-        climate_setpoint = float(self._climate.extra_state_attributes.get("setpoint") or coordinator_setpoint)
-
-        return not (
-                self._climate.state_attributes.get("hvac_action") != HVACAction.HEATING or
-                round(climate_setpoint, 1) == round(coordinator_setpoint, 1)
-        )
+        return round(self._climate.setpoint, 1) != round(self._coordinator.setpoint, 1)
 
     @property
     def unique_id(self):
@@ -79,11 +60,7 @@ class SatControlSetpointSynchroSensor(SatEntity, BinarySensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-control-setpoint-synchro"
 
 
-class SatCentralHeatingSynchroSensor(SatEntity, BinarySensorEntity):
-    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry) -> None:
-        """Initialize the Central Heating Synchro sensor."""
-        super().__init__(coordinator, config_entry)
-        self._climate = climate
+class SatCentralHeatingSynchroSensor(SatClimateEntity, BinarySensorEntity):
 
     @property
     def name(self) -> str:

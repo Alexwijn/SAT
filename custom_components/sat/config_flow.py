@@ -111,7 +111,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             self._data.update(_user_input)
             self._data[CONF_MODE] = MODE_SWITCH
 
-            await self.async_set_unique_id(self._data[CONF_SWITCH], raise_on_progress=False)
+            await self.async_set_unique_id(self._data[CONF_DEVICE], raise_on_progress=False)
 
             self._abort_if_unique_id_configured()
 
@@ -123,7 +123,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=self._errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                vol.Required(CONF_SWITCH): selector.EntitySelector(
+                vol.Required(CONF_DEVICE): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN])
                 )
             }),
