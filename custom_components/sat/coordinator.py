@@ -212,17 +212,17 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             await self.async_set_heater_state(DeviceState.OFF)
 
         if self.support_relative_modulation_management:
-            # Check if the climate control is not in heating mode
-            not_in_heating_mode = climate.hvac_mode != HVACMode.HEAT
+            # Determine whether to enable maximum relative modulation value based on the conditions
+            relative_modulation_enabled = (
+                    # If the climate control is not in heating mode or hot water is requested
+                    climate.hvac_mode != HVACMode.HEAT or self.hot_water_active
 
-            # Check if the setpoint is below the minimum allowed value (or basically off)
-            is_below_min_setpoint = self.setpoint is not None and self.setpoint <= MINIMUM_SETPOINT
+                    # If the setpoint is below the minimum allowed value (or basically off)
+                    or (self.setpoint is not None and self.setpoint <= MINIMUM_SETPOINT)
 
-            # Check if the setpoint is close to or above the overshoot protection value
-            is_overshooting = self.setpoint is not None and abs(climate.max_error) > 0.1 and self.setpoint >= (self.minimum_setpoint - 2)
-
-            # Determine whether to enable maximum or minimum relative modulation value based on the conditions
-            relative_modulation_enabled = not_in_heating_mode or self.hot_water_active or is_below_min_setpoint or is_overshooting
+                    # If the pulse width modulation is enabled (in deadband or warming up, and we are above minimum setpoint)
+                    and climate.pulse_width_modulation_enabled
+            )
 
             # Control the relative modulation value based on the conditions
             await self.async_set_control_max_relative_modulation(
