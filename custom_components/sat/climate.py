@@ -44,6 +44,8 @@ from .pid import PID
 from .pwm import PWM, PWMState
 
 ATTR_ROOMS = "rooms"
+ATTR_WARMING_UP = "warming_up"
+ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,6 +63,24 @@ def convert_time_str_to_seconds(time_str: str) -> float:
     date_time = dt.parse_time(time_str)
     # Calculate the number of seconds by multiplying the hours, minutes and seconds
     return (date_time.hour * 3600) + (date_time.minute * 60) + date_time.second
+
+
+def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: float):
+    """
+    Calculates the derivative per hour based on the temperature error and time taken.
+
+    Args:
+        temperature_error (float): The temperature error or difference.
+        time_taken_seconds (float): The time taken in seconds.
+
+    Returns:
+        float: The derivative per hour.
+
+    """
+    # Convert time taken from seconds to hours
+    time_taken_hours = time_taken_seconds / 3600
+    # Calculate the derivative per hour by dividing temperature error by time taken
+    return round(temperature_error / time_taken_hours, 2)
 
 
 def create_pid_controller(options) -> PID:
@@ -107,6 +127,12 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE] = climate
 
 
+class SatWarmingUp:
+    def __init__(self, error: float, started: int = None):
+        self.error = error
+        self.started = started if started is not None else monotonic()
+
+
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
@@ -150,8 +176,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors = []
         self._rooms = None
         self._setpoint = None
-        self._warming_up = False
         self._outputs = deque(maxlen=50)
+
+        self._warming_up = None
+        self._warming_up_derivative = None
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -276,6 +304,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if old_state.attributes.get(ATTR_PRESET_MODE):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
 
+            if warming_up := old_state.attributes.get(ATTR_WARMING_UP):
+                self._warming_up = SatWarmingUp(warming_up["error"], warming_up["started"])
+
+            if old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE):
+                self._warming_up_derivative = old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE)
+
             if old_state.attributes.get(ATTR_ROOMS):
                 self._rooms = old_state.attributes.get(ATTR_ROOMS)
             else:
@@ -291,6 +325,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
+
+        self.async_write_ha_state()
 
     async def _register_services(self):
         async def reset_integral(_call: ServiceCall):
@@ -346,7 +382,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "rooms": self._rooms,
             "setpoint": self._setpoint,
-            "warming_up": self._warming_up,
+            "warming_up_derivative": self._warming_up_derivative,
+            "warming_up": vars(self._warming_up) if self._warming_up is not None else None,
             "valves_open": self.valves_open,
             "heating_curve": self._heating_curve.value,
             "minimum_setpoint": self._coordinator.minimum_setpoint,
@@ -513,7 +550,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if self.max_error <= 0.1:
                 return True
 
-            if self._warming_up and self._setpoint < (overshoot_protection_value - 2):
+            if self._warming_up is not None and self._setpoint < (overshoot_protection_value - 2):
                 return True
 
         return False
@@ -734,8 +771,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Since we are in the deadband, we can safely assume we are not warming up anymore
             if self._warming_up and max_error <= 0.1:
-                self._warming_up = False
+                # Calculate the derivative per hour
+                time_taken_seconds = monotonic() - self._warming_up.started
+                self._warming_up_derivative = calculate_derivative_per_hour(self._warming_up.error, time_taken_seconds)
+
+                # Notify that we are not warming anymore
                 _LOGGER.info("Reached deadband, turning off warming up.")
+                self._warming_up = None
 
             # Update the pid controller
             self._pid.update(error=max_error, heating_curve_value=self._heating_curve.value)
@@ -748,7 +790,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Determine if we are warming up
             if self.max_error > 0.1:
-                self._warming_up = True
+                self._warming_up = SatWarmingUp(self.max_error)
                 _LOGGER.info("Outside of deadband, we are warming up")
 
         self.async_write_ha_state()
