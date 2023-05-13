@@ -37,6 +37,7 @@
       },
       "sensors": {
         "title": "Configure sensors",
+        "description": "Please select the sensors that will be used to track the temperature.",
         "data": {
           "inside_sensor_entity_id": "Inside Sensor Entity",
           "outside_sensor_entity_id": "Outside Sensor Entity"
@@ -64,12 +65,10 @@
       },
       "general": {
         "title": "General",
+        "description": "General settings and configurations.",
         "data": {
           "setpoint": "Setpoint",
-          "integral": "Integral",
-          "derivative": "Derivative",
-          "proportional": "Proportional",
-          "duty_cycle": "Duty Cycle",
+          "automatic_gains": "Tuning",
           "heating_system": "Heating System",
           "target_temperature_step": "Target Temperature Step",
           "heating_curve_coefficient": "Heating Curve Coefficient"
@@ -77,6 +76,7 @@
       },
       "presets": {
         "title": "Presets",
+        "description": "Predefined temperature settings for different scenarios or activities.",
         "data": {
           "away_temperature": "Away Temperature",
           "home_temperature": "Home Temperature",
@@ -88,6 +88,7 @@
       },
       "climates": {
         "title": "Climates (multi-room)",
+        "description": "Settings related to multi-room climates and temperature control.",
         "data": {
           "climates": "Climates (rooms)",
           "main_climates": "Climates (main)",
@@ -96,20 +97,24 @@
       },
       "contact_sensors": {
         "title": "Contact Sensors",
+        "description": "Settings for contact sensors, particularly window sensors.",
         "data": {
           "window_sensor": "Window"
         }
       },
       "advanced": {
         "title": "Advanced",
+        "description": "For fine-tuning and customization.",
         "data": {
           "simulation": "Simulation",
-          "automatic_gains": "Automatic gains",
+          "integral": "Integral (kI)",
+          "derivative": "Derivative (kD)",
+          "proportional": "Proportional (kP)",
           "climate_valve_offset": "Climate valve offset",
+          "automatic_duty_cycle": "Automatic duty cycle",
           "overshoot_protection": "Overshoot Protection (with PWM)",
-          "automatic_duty_cycle": "Automatic duty cycle (experimental)",
+          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",
-          "min_num_updates": "Minimum number of updates required for auto-tuning",
           "sample_time": "Minimum time interval between updates to the PID controller",
           "window_minimum_open_time": "Minimum time for window to be open before reacting",
           "sensor_max_value_age": "Temperature Sensor maximum value age (before considering stall)"
