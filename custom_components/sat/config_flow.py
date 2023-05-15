@@ -11,7 +11,7 @@ from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_ON, STATE_OFF
+from homeassistant.const import STATE_ON, STATE_OFF, MAJOR_VERSION, MINOR_VERSION
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector, entity_registry
@@ -35,10 +35,16 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, _user_input=None) -> FlowResult:
         """Handle user flow."""
-        return self.async_show_menu(
-            step_id="user",
-            menu_options=["mqtt", "serial", "switch"]
-        )
+        menu_options = []
+
+        # Since we rely on the availability logic in 2023.5, we do not support it below it.
+        if MAJOR_VERSION >= 2023 and MINOR_VERSION >= 5:
+            menu_options.append("mqtt")
+
+        menu_options.append("serial")
+        menu_options.append("switch")
+
+        return self.async_show_menu(step_id="user", menu_options=menu_options)
 
     async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
         """Handle dhcp discovery."""
