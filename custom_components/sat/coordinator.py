@@ -220,8 +220,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                     # If the setpoint is below the minimum allowed value (or basically off)
                     or (self.setpoint is not None and self.setpoint <= MINIMUM_SETPOINT)
 
-                    # If the pulse width modulation is enabled (in deadband or warming up, and we are above minimum setpoint)
-                    or climate.pulse_width_modulation_enabled
+                    # If the pulse width modulation is disabled (not in deadband or warming up, and we are above minimum setpoint)
+                    or not climate.pulse_width_modulation_enabled
             )
 
             # Control the relative modulation value based on the conditions
