@@ -142,8 +142,11 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         return super().boiler_capacity
 
     @property
-    def minimum_setpoint(self):
-        return self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE, self._minimum_setpoint)
+    def minimum_setpoint(self) -> float:
+        if (value := self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)) is not None:
+            return float(value)
+
+        return super().minimum_setpoint
 
     async def async_added_to_hass(self, climate: SatClimate) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)

@@ -51,7 +51,7 @@ class PWM:
         if requested_setpoint is None or (not self._force and requested_setpoint > minimum_setpoint):
             self._state = PWMState.IDLE
             self._last_update = monotonic()
-            _LOGGER.debug("Turned off PWM due exceeding the overshoot protection value")
+            _LOGGER.debug("Turned off PWM due exceeding the overshoot protection value.")
             return
 
         elapsed = monotonic() - self._last_update

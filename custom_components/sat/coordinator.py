@@ -4,16 +4,13 @@ import logging
 import typing
 from abc import abstractmethod
 from enum import Enum
-from functools import partial
 
 from homeassistant.components.climate import HVACMode
-from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .config_store import SatConfigStore
 from .const import *
-from .services import start_overshoot_protection_calculation, set_overshoot_protection_value
 
 if typing.TYPE_CHECKING:
     from .climate import SatClimate
@@ -52,8 +49,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._simulation = bool(self._store.options.get(CONF_SIMULATION))
         self._minimum_setpoint = float(self._store.options.get(CONF_SETPOINT))
         self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
-        self._overshoot_protection = bool(self._store.options.get(CONF_OVERSHOOT_PROTECTION))
-        self._force_pulse_width_modulation = bool(self._store.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
@@ -172,35 +167,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Perform setup when the integration is added to Home Assistant."""
         await self.async_set_control_max_setpoint(self.maximum_setpoint)
 
-        if self.supports_setpoint_management:
-            if self._overshoot_protection and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
-                self._overshoot_protection = False
-
-                await self.async_send_notification(
-                    title="Smart Autotune Thermostat",
-                    message="Disabled overshoot protection because no overshoot value has been found."
-                )
-
-            if self._force_pulse_width_modulation and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
-                self._force_pulse_width_modulation = False
-
-                await self.async_send_notification(
-                    title="Smart Autotune Thermostat",
-                    message="Disabled forced pulse width modulation because no overshoot value has been found."
-                )
-
-            self.hass.services.async_register(
-                DOMAIN,
-                SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION,
-                partial(start_overshoot_protection_calculation, self, climate)
-            )
-
-            self.hass.services.async_register(
-                DOMAIN,
-                SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
-                partial(set_overshoot_protection_value, self)
-            )
-
     async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
         """Run when entity will be removed from hass."""
         pass
@@ -210,24 +176,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if climate.hvac_mode == HVACMode.OFF and self.device_active:
             # Send out a new command to turn off the device
             await self.async_set_heater_state(DeviceState.OFF)
-
-        if self.support_relative_modulation_management:
-            # Determine whether to enable maximum relative modulation value based on the conditions
-            relative_modulation_enabled = (
-                    # If the climate control is not in heating mode or hot water is requested
-                    climate.hvac_mode != HVACMode.HEAT or self.hot_water_active
-
-                    # If the setpoint is below the minimum allowed value (or basically off)
-                    or (self.setpoint is not None and self.setpoint <= MINIMUM_SETPOINT)
-
-                    # If the system is not in pulse width modulation mode
-                    or not climate.pulse_width_modulation_enabled
-            )
-
-            # Control the relative modulation value based on the conditions
-            await self.async_set_control_max_relative_modulation(
-                MAXIMUM_RELATIVE_MOD if relative_modulation_enabled else MINIMUM_RELATIVE_MOD
-            )
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
@@ -244,10 +192,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.supports_hot_water_setpoint_management:
             self.logger.info("Set control hot water setpoint to %d", value)
 
-    async def async_set_control_thermostat_setpoint(self, value: float) -> None:
-        """Control the setpoint temperature for the thermostat."""
-        pass
-
     async def async_set_control_max_setpoint(self, value: float) -> None:
         """Control the maximum setpoint temperature for the device."""
         if self.supports_maximum_setpoint_management:
@@ -258,7 +202,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.support_relative_modulation_management:
             self.logger.info("Set maximum relative modulation to %d", value)
 
-    async def async_send_notification(self, title: str, message: str, service: str = SERVICE_PERSISTENT_NOTIFICATION):
-        """Send a notification to the user."""
-        data = {"title": title, "message": message}
-        await self.hass.services.async_call(NOTIFY_DOMAIN, service, data)
+    async def async_set_control_thermostat_setpoint(self, value: float) -> None:
+        """Control the setpoint temperature for the thermostat."""
+        pass

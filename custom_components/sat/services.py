@@ -1,23 +1,21 @@
 from __future__ import annotations
 
-import typing
-
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, HVACMode
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
 from homeassistant.core import ServiceCall
 
+from . import async_reload_entry
+from .climate import SatClimate
 from .const import *
-
-if typing.TYPE_CHECKING:
-    from .climate import SatClimate
+from .coordinator import SatDataUpdateCoordinator
 
 
-async def set_overshoot_protection_value(self, call: ServiceCall):
+async def set_overshoot_protection_value(coordinator: SatDataUpdateCoordinator, call: ServiceCall):
     """Service to set the overshoot protection value."""
-    self._store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, call.data.get("value"))
+    coordinator.store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, call.data.get("value"))
 
 
-async def start_overshoot_protection_calculation(self, climate: SatClimate, call: ServiceCall):
+async def start_overshoot_protection_calculation(climate: SatClimate, coordinator: SatDataUpdateCoordinator, call: ServiceCall):
     """Service to start the overshoot protection calculation process.
 
     This process will activate overshoot protection by turning on the heater and setting the control setpoint to
@@ -26,61 +24,60 @@ async def start_overshoot_protection_calculation(self, climate: SatClimate, call
     deactivate overshoot protection and store the calculated value.
     """
     if climate.overshoot_protection_calculate:
-        self.logger.warning("[Overshoot Protection] Calculation already in progress.")
+        coordinator.logger.warning("[Overshoot Protection] Calculation already in progress.")
         return
 
     from .coordinator import DeviceState
-    self._device_state = DeviceState.ON
-    self._overshoot_protection_calculate = True
+    climate._device_state = DeviceState.ON
+    climate._overshoot_protection_calculate = True
 
     saved_hvac_mode = climate.hvac_mode
     saved_target_temperature = climate.target_temperature
 
     saved_target_temperatures = {}
-    for entity_id in self._store.options.get(CONF_CLIMATES):
-        if state := self.hass.states.get(entity_id):
+    for entity_id in coordinator.store.options.get(CONF_CLIMATES):
+        if state := climate.hass.states.get(entity_id):
             saved_target_temperatures[entity_id] = float(state.attributes.get(ATTR_TEMPERATURE))
 
         data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: 30}
-        await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+        await climate.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
     await climate.async_set_target_temperature(30)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    await self.async_send_notification(
+    await climate.async_send_notification(
         title="Overshoot Protection Calculation",
         message="Calculation started. This process will run for at least 20 minutes until a stable boiler water temperature is found."
     )
 
     from .overshoot_protection import OvershootProtection
-    overshoot_protection_value = await OvershootProtection(self).calculate(call.data.get("solution"))
+    overshoot_protection_value = await OvershootProtection(coordinator).calculate(call.data.get("solution"))
     climate.overshoot_protection_calculate = False
 
     await climate.async_set_hvac_mode(saved_hvac_mode)
-
-    await self._async_control_max_setpoint()
     await climate.async_set_target_temperature(saved_target_temperature)
 
-    for entity_id in self._store.options.get(CONF_CLIMATES):
+    await coordinator.async_set_control_max_setpoint(coordinator.maximum_setpoint)
+
+    for entity_id in coordinator.store.options.get(CONF_CLIMATES):
         data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: saved_target_temperatures[entity_id]}
-        await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+        await climate.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
     if overshoot_protection_value is None:
-        await self.async_send_notification(
+        await climate.async_send_notification(
             title="Overshoot Protection Calculation",
             message=f"Timed out waiting for stable temperature"
         )
 
         return
 
-    await self.async_send_notification(
+    await climate.async_send_notification(
         title="Overshoot Protection Calculation",
         message=f"Finished calculating. Result: {round(overshoot_protection_value, 1)}"
     )
 
-    # Turn the overshoot protection settings back on
-    self._overshoot_protection = bool(self._store.options.get(CONF_OVERSHOOT_PROTECTION))
-    self._force_pulse_width_modulation = bool(self._store.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
-
     # Store the new value
-    self._store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, overshoot_protection_value)
+    coordinator.store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, overshoot_protection_value)
+
+    # Reload the system
+    await async_reload_entry(coordinator.hass, coordinator.config_entry)

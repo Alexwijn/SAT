@@ -5,6 +5,7 @@ import asyncio
 import logging
 from collections import deque
 from datetime import timedelta
+from functools import partial
 from statistics import mean
 from time import monotonic
 from typing import List
@@ -26,6 +27,7 @@ from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
     DOMAIN as CLIMATE_DOMAIN,
 )
+from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
@@ -42,9 +44,10 @@ from .entity import SatEntity
 from .heating_curve import HeatingCurve
 from .pid import PID
 from .pwm import PWM, PWMState
+from .services import start_overshoot_protection_calculation, set_overshoot_protection_value
 
 ATTR_ROOMS = "rooms"
-ATTR_WARMING_UP = "warming_up"
+ATTR_WARMING_UP = "warming_up_data"
 ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
@@ -67,16 +70,7 @@ def convert_time_str_to_seconds(time_str: str) -> float:
 
 def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: float):
     """
-    Calculates the derivative per hour based on the temperature error and time taken.
-
-    Args:
-        temperature_error (float): The temperature error or difference.
-        time_taken_seconds (float): The time taken in seconds.
-
-    Returns:
-        float: The derivative per hour.
-
-    """
+    Calculates the derivative per hour based on the temperature error and time taken."""
     # Convert time taken from seconds to hours
     time_taken_hours = time_taken_seconds / 3600
     # Calculate the derivative per hour by dividing temperature error by time taken
@@ -178,7 +172,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._setpoint = None
         self._outputs = deque(maxlen=50)
 
-        self._warming_up = None
+        self._warming_up_data = None
         self._warming_up_derivative = None
 
         self._hvac_mode = None
@@ -305,7 +299,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
 
             if warming_up := old_state.attributes.get(ATTR_WARMING_UP):
-                self._warming_up = SatWarmingUp(warming_up["error"], warming_up["started"])
+                self._warming_up_data = SatWarmingUp(warming_up["error"], warming_up["started"])
 
             if old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE):
                 self._warming_up_derivative = old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE)
@@ -334,6 +328,35 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pid.reset()
 
         self.hass.services.async_register(DOMAIN, SERVICE_RESET_INTEGRAL, reset_integral)
+
+        if self._coordinator.supports_setpoint_management:
+            if self._overshoot_protection and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
+                self._overshoot_protection = False
+
+                await self.async_send_notification(
+                    title="Smart Autotune Thermostat",
+                    message="Disabled overshoot protection because no overshoot value has been found."
+                )
+
+            if self._force_pulse_width_modulation and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
+                self._force_pulse_width_modulation = False
+
+                await self.async_send_notification(
+                    title="Smart Autotune Thermostat",
+                    message="Disabled forced pulse width modulation because no overshoot value has been found."
+                )
+
+            self.hass.services.async_register(
+                DOMAIN,
+                SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION,
+                partial(start_overshoot_protection_calculation, self)
+            )
+
+            self.hass.services.async_register(
+                DOMAIN,
+                SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
+                partial(set_overshoot_protection_value, self)
+            )
 
     async def track_sensor_temperature(self, entity_id):
         """
@@ -382,13 +405,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "rooms": self._rooms,
             "setpoint": self._setpoint,
+            "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
             "warming_up_derivative": self._warming_up_derivative,
-            "warming_up": vars(self._warming_up) if self._warming_up is not None else None,
             "valves_open": self.valves_open,
             "heating_curve": self._heating_curve.value,
             "minimum_setpoint": self._coordinator.minimum_setpoint,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self._heating_curve.optimal_coefficient,
+            "relative_modulation_enabled": self.relative_modulation_enabled,
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self._pwm.state,
             "pulse_width_modulation_duty_cycle": self._pwm.duty_cycle,
@@ -533,29 +557,25 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def pulse_width_modulation_enabled(self) -> bool:
-        """Return True if pulse width modulation is enabled, False otherwise.
-
-        If we are a coordinator that doesn't support it, it is enabled.
-        If an overshoot protection value is not set, pulse width modulation is disabled.
-        If pulse width modulation is forced on, it is enabled.
-        If overshoot protection is enabled, and we are below the overshoot protection value.
-        """
+        """Return True if pulse width modulation is enabled, False otherwise."""
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        if (overshoot_protection_value := self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)) is None:
+        return self._overshoot_protection and self._setpoint < (self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) - 2)
+
+    @property
+    def relative_modulation_enabled(self):
+        """Return True if relative modulation is enabled, False otherwise."""
+        if not self._coordinator.support_relative_modulation_management:
             return False
 
-        if self._overshoot_protection:
-            if self.max_error <= 0.1:
-                return True
+        if self._coordinator.hot_water_active:
+            return True
 
-            if self._warming_up is not None and self._setpoint < (overshoot_protection_value - 2):
-                return True
-
-        return False
+        return self.hvac_mode == HVACMode.HEAT and not self.pulse_width_modulation_enabled
 
     def _get_requested_setpoint(self):
+        """Get the requested setpoint based on the heating curve and PID output."""
         if self._heating_curve.value is None:
             return MINIMUM_SETPOINT
 
@@ -716,6 +736,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Pulse Width Modulation
         await self._pwm.update(self._get_requested_setpoint(), self._coordinator.minimum_setpoint)
 
+        # Set the relative modulation value, if supported
+        await self._async_control_relative_modulation()
+
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self._pwm.state)
 
@@ -770,14 +793,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 )
 
             # Since we are in the deadband, we can safely assume we are not warming up anymore
-            if self._warming_up and max_error <= 0.1:
+            if self._warming_up_data and max_error <= 0.1:
                 # Calculate the derivative per hour
-                time_taken_seconds = monotonic() - self._warming_up.started
-                self._warming_up_derivative = calculate_derivative_per_hour(self._warming_up.error, time_taken_seconds)
+                time_taken_seconds = monotonic() - self._warming_up_data.started
+                self._warming_up_derivative = calculate_derivative_per_hour(self._warming_up_data.error, time_taken_seconds)
 
                 # Notify that we are not warming anymore
                 _LOGGER.info("Reached deadband, turning off warming up.")
-                self._warming_up = None
+                self._warming_up_data = None
 
             # Update the pid controller
             self._pid.update(error=max_error, heating_curve_value=self._heating_curve.value)
@@ -790,7 +813,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Determine if we are warming up
             if self.max_error > 0.1:
-                self._warming_up = SatWarmingUp(self.max_error)
+                self._warming_up_data = SatWarmingUp(self.max_error)
                 _LOGGER.info("Outside of deadband, we are warming up")
 
         self.async_write_ha_state()
@@ -810,6 +833,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._setpoint = MINIMUM_SETPOINT
 
         await self._coordinator.async_set_control_setpoint(self._setpoint)
+
+    async def _async_control_relative_modulation(self):
+        """Control the relative modulation value based on the conditions"""
+        if self._coordinator.support_relative_modulation_management:
+            await self._coordinator.async_set_control_max_relative_modulation(
+                MAXIMUM_RELATIVE_MOD if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
+            )
 
     async def _async_update_rooms_from_climates(self):
         """Update the temperature setpoint for each room based on their associated climate entity."""
@@ -917,6 +947,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Control the heating based on the new temperature setpoint
         await self._async_control_heating_loop()
+
+    async def async_send_notification(self, title: str, message: str, service: str = SERVICE_PERSISTENT_NOTIFICATION):
+        """Send a notification to the user."""
+        data = {"title": title, "message": message}
+        await self.hass.services.async_call(NOTIFY_DOMAIN, service, data)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set the heating/cooling mode for the devices and update the state."""

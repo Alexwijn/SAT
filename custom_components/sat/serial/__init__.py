@@ -66,7 +66,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
     @property
     def support_relative_modulation_management(self) -> bool:
-        return self._overshoot_protection or not self._force_pulse_width_modulation
+        return True
 
     @property
     def setpoint(self) -> float | None:
@@ -129,8 +129,11 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return bool(self.get(DATA_SLAVE_FLAME_ON))
 
     @property
-    def minimum_setpoint(self):
-        return self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE, self._minimum_setpoint)
+    def minimum_setpoint(self) -> float:
+        if (value := self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)) is not None:
+            return float(value)
+
+        return super().minimum_setpoint
 
     def get(self, key: str) -> Optional[Any]:
         """Get the value for the given `key` from the boiler data.
