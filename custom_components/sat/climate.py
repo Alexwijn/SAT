@@ -558,6 +558,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def pulse_width_modulation_enabled(self) -> bool:
         """Return True if pulse width modulation is enabled, False otherwise."""
+        if self._setpoint is None:
+            return False
+
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
@@ -566,7 +569,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def relative_modulation_enabled(self):
         """Return True if relative modulation is enabled, False otherwise."""
-        if not self._coordinator.support_relative_modulation_management:
+        if self._setpoint is None or not self._coordinator.support_relative_modulation_management:
             return False
 
         if self._coordinator.hot_water_active:
