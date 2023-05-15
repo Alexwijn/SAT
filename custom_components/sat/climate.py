@@ -349,13 +349,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass.services.async_register(
                 DOMAIN,
                 SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION,
-                partial(start_overshoot_protection_calculation, self)
+                partial(start_overshoot_protection_calculation, self._coordinator, self)
             )
 
             self.hass.services.async_register(
                 DOMAIN,
                 SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
-                partial(set_overshoot_protection_value, self)
+                partial(set_overshoot_protection_value, self._coordinator)
             )
 
     async def track_sensor_temperature(self, entity_id):

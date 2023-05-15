@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import typing
+
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, HVACMode
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
 from homeassistant.core import ServiceCall
 
 from . import async_reload_entry
-from .climate import SatClimate
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
+
+if typing.TYPE_CHECKING:
+    from .climate import SatClimate
 
 
 async def set_overshoot_protection_value(coordinator: SatDataUpdateCoordinator, call: ServiceCall):
@@ -15,7 +19,7 @@ async def set_overshoot_protection_value(coordinator: SatDataUpdateCoordinator, 
     coordinator.store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, call.data.get("value"))
 
 
-async def start_overshoot_protection_calculation(climate: SatClimate, coordinator: SatDataUpdateCoordinator, call: ServiceCall):
+async def start_overshoot_protection_calculation(coordinator: SatDataUpdateCoordinator, climate: SatClimate, call: ServiceCall):
     """Service to start the overshoot protection calculation process.
 
     This process will activate overshoot protection by turning on the heater and setting the control setpoint to
@@ -27,9 +31,10 @@ async def start_overshoot_protection_calculation(climate: SatClimate, coordinato
         coordinator.logger.warning("[Overshoot Protection] Calculation already in progress.")
         return
 
+    climate.overshoot_protection_calculate = True
+
     from .coordinator import DeviceState
-    climate._device_state = DeviceState.ON
-    climate._overshoot_protection_calculate = True
+    await coordinator.async_set_heater_state(DeviceState.ON)
 
     saved_hvac_mode = climate.hvac_mode
     saved_target_temperature = climate.target_temperature

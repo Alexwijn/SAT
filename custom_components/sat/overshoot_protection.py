@@ -104,6 +104,8 @@ class OvershootProtection:
 
             if max_modulation != OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
                 await self._coordinator.async_set_control_setpoint(actual_temp)
+            else:
+                await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
             previous_average_temp = average_temp
             await asyncio.sleep(3)
