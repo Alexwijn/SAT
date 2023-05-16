@@ -566,10 +566,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def relative_modulation_enabled(self):
         """Return True if relative modulation is enabled, False otherwise."""
-        if not self._coordinator.support_relative_modulation_management:
+        if not self._coordinator.support_relative_modulation_management or self._setpoint is None:
             return False
 
-        if self._coordinator.hot_water_active:
+        if self._coordinator.hot_water_active or self._setpoint <= MINIMUM_SETPOINT:
             return True
 
         return self.hvac_mode == HVACMode.HEAT and not self.pulse_width_modulation_enabled
@@ -736,11 +736,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Pulse Width Modulation
         await self._pwm.update(self._get_requested_setpoint(), self._coordinator.minimum_setpoint)
 
-        # Set the relative modulation value, if supported
-        await self._async_control_relative_modulation()
-
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self._pwm.state)
+
+        # Set the relative modulation value, if supported
+        await self._async_control_relative_modulation()
 
         # Control the integral (if exceeded the time limit)
         self._pid.update_integral(self.max_error, self._heating_curve.value)
