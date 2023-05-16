@@ -31,8 +31,11 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
 
     This function is called by Home Assistant when the integration is set up with the UI.
     """
+    if _hass.data.get(DOMAIN) is None:
+        _hass.data.setdefault(DOMAIN, {})
+
     # Create a new dictionary
-    _hass.data[DOMAIN] = {_entry.entry_id: {}}
+    _hass.data[DOMAIN][_entry.entry_id] = {}
 
     # Create a new config store for this entry and initialize it
     _hass.data[DOMAIN][_entry.entry_id][CONFIG_STORE] = store = SatConfigStore(_hass, _entry)
@@ -47,9 +50,6 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE_DOMAIN))
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setups(_entry, [SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]))
 
-    # Add an update listener for this entry
-    _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
-
     return True
 
 
@@ -59,11 +59,13 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
 
     This function is called by Home Assistant when the integration is being removed.
     """
-    # Unload the entry and its dependent components
+
+    climate = _hass.data[DOMAIN][_entry.entry_id][CLIMATE]
+    await _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].async_will_remove_from_hass(climate)
+
     unloaded = all(
         await asyncio.gather(
-            _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].async_will_remove_from_hass(_hass.data[DOMAIN][_entry.entry_id][CLIMATE]),
-            _hass.config_entries.async_unload_platforms(_entry, [CLIMATE, SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]),
+            _hass.config_entries.async_unload_platforms(_entry, [CLIMATE_DOMAIN, SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]),
         )
     )
 

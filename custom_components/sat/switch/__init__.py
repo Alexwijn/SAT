@@ -27,7 +27,10 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
 
     @property
     def device_active(self) -> bool:
-        return self.hass.states.get(self._entity_id).state == STATE_ON
+        if (state := self.hass.states.get(self._entity_id)) is None:
+            return False
+
+        return state.state == STATE_ON
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         if not self._simulation:

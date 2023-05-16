@@ -14,9 +14,10 @@ if typing.TYPE_CHECKING:
     from .climate import SatClimate
 
 
-async def set_overshoot_protection_value(coordinator: SatDataUpdateCoordinator, call: ServiceCall):
+async def set_overshoot_protection_value(coordinator: SatDataUpdateCoordinator, climate: SatClimate, call: ServiceCall):
     """Service to set the overshoot protection value."""
     coordinator.store.update(STORAGE_OVERSHOOT_PROTECTION_VALUE, call.data.get("value"))
+    climate.async_write_ha_state()
 
 
 async def start_overshoot_protection_calculation(coordinator: SatDataUpdateCoordinator, climate: SatClimate, call: ServiceCall):

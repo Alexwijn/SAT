@@ -18,7 +18,7 @@ if typing.TYPE_CHECKING:
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-class DeviceState(Enum):
+class DeviceState(str, Enum):
     ON = "on"
     OFF = "off"
 

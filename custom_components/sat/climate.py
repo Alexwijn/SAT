@@ -355,7 +355,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass.services.async_register(
                 DOMAIN,
                 SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
-                partial(set_overshoot_protection_value, self._coordinator)
+                partial(set_overshoot_protection_value, self._coordinator, self)
             )
 
     async def track_sensor_temperature(self, entity_id):
@@ -561,12 +561,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        return self._overshoot_protection and self._calculate_control_setpoint() < (self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) - 2)
+        return self._overshoot_protection and self._calculate_control_setpoint() < (self._coordinator.minimum_setpoint - 2)
 
     @property
     def relative_modulation_enabled(self):
         """Return True if relative modulation is enabled, False otherwise."""
-        if self._setpoint is None or not self._coordinator.support_relative_modulation_management:
+        if not self._coordinator.support_relative_modulation_management:
             return False
 
         if self._coordinator.hot_water_active:
@@ -821,13 +821,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_setpoint(self, pwm_state: PWMState):
         """Control the setpoint of the heating system."""
         if self.hvac_mode == HVACMode.HEAT:
-            if self.pulse_width_modulation_enabled and pwm_state != pwm_state.IDLE:
-                self._setpoint = self._coordinator.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
-                _LOGGER.info(f"Running pulse width modulation cycle: {pwm_state}")
-            else:
-                self._outputs.append(self._calculate_control_setpoint())
+            self._outputs.append(self._calculate_control_setpoint())
+
+            if not self.pulse_width_modulation_enabled or pwm_state == pwm_state.IDLE:
+                _LOGGER.info("Running Normal cycle")
                 self._setpoint = mean(list(self._outputs)[-5:])
-                _LOGGER.info("Running normal cycle")
+            else:
+                _LOGGER.info(f"Running PWM cycle: {pwm_state}")
+                self._setpoint = self._coordinator.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
         else:
             self._outputs.clear()
             self._setpoint = MINIMUM_SETPOINT

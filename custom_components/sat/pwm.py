@@ -16,7 +16,7 @@ ON_TIME_20_PERCENT = 180
 ON_TIME_80_PERCENT = 900
 
 
-class PWMState(Enum):
+class PWMState(str, Enum):
     ON = "on"
     OFF = "off"
     IDLE = "idle"
