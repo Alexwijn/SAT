@@ -558,13 +558,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def pulse_width_modulation_enabled(self) -> bool:
         """Return True if pulse width modulation is enabled, False otherwise."""
-        if self._setpoint is None:
-            return False
-
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        return self._overshoot_protection and self._setpoint < (self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) - 2)
+        return self._overshoot_protection and self._calculate_control_setpoint() < (self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) - 2)
 
     @property
     def relative_modulation_enabled(self):
@@ -577,7 +574,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return self.hvac_mode == HVACMode.HEAT and not self.pulse_width_modulation_enabled
 
-    def _get_requested_setpoint(self):
+    def _get_requested_setpoint(self) -> float:
         """Get the requested setpoint based on the heating curve and PID output."""
         if self._heating_curve.value is None:
             return MINIMUM_SETPOINT
