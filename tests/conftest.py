@@ -17,7 +17,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.fixture
-async def entry(hass: HomeAssistant, domains: list, test_data: dict, config: dict, caplog: LogCaptureFixture) -> MockConfigEntry:
+async def entry(hass: HomeAssistant, domains: list, data: dict, config: dict, caplog: LogCaptureFixture) -> MockConfigEntry:
     """Setup any given integration."""
     for domain, count in domains:
         with assert_setup_component(count, domain):
@@ -29,7 +29,7 @@ async def entry(hass: HomeAssistant, domains: list, test_data: dict, config: dic
     await hass.async_block_till_done()
 
     user_data = DEFAULT_USER_DATA.copy()
-    user_data.update(test_data)
+    user_data.update(data)
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=user_data)
     await hass.config_entries.async_add(config_entry)

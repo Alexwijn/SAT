@@ -13,7 +13,7 @@ from custom_components.sat.fake import SatFakeCoordinator
 
 
 @pytest.mark.parametrize(*[
-    "domains, test_data, config",
+    "domains, data, config",
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
@@ -51,7 +51,7 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
 
 
 @pytest.mark.parametrize(*[
-    "domains, test_data, config",
+    "domains, data, config",
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
@@ -90,7 +90,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
 
 
 @pytest.mark.parametrize(*[
-    "domains, test_data, config",
+    "domains, data, config",
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
