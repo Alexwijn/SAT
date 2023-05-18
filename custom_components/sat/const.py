@@ -6,6 +6,7 @@ CLIMATE = "climate"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 
+MODE_FAKE = "fake"
 MODE_MQTT = "mqtt"
 MODE_SWITCH = "switch"
 MODE_SERIAL = "serial"
@@ -22,7 +23,7 @@ OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
-CONF_SETPOINT = "setpoint"
+CONF_MINIMUM_SETPOINT = "setpoint"
 CONF_CLIMATES = "climates"
 CONF_MQTT_TOPIC = "mqtt_topic"
 CONF_MAIN_CLIMATES = "main_climates"
@@ -75,7 +76,7 @@ OPTIONS_DEFAULTS = {
     CONF_SYNC_WITH_THERMOSTAT: False,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 
-    CONF_SETPOINT: 80,
+    CONF_MINIMUM_SETPOINT: 80,
     CONF_OVERSHOOT_PROTECTION: False,
     CONF_FORCE_PULSE_WIDTH_MODULATION: False,
 

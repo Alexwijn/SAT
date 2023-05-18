@@ -31,10 +31,10 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
 
     This function is called by Home Assistant when the integration is set up with the UI.
     """
-    if _hass.data.get(DOMAIN) is None:
-        _hass.data.setdefault(DOMAIN, {})
+    # Make sure we have our default domain property
+    _hass.data.setdefault(DOMAIN, {})
 
-    # Create a new dictionary
+    # Create a new dictionary for this entry
     _hass.data[DOMAIN][_entry.entry_id] = {}
 
     # Create a new config store for this entry and initialize it
@@ -49,6 +49,9 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     # Forward entry setup for climate and other platforms
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE_DOMAIN))
     await _hass.async_add_job(_hass.config_entries.async_forward_entry_setups(_entry, [SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]))
+
+    # Add an update listener for this entry
+    _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
 
     return True
 

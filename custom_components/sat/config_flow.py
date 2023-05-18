@@ -221,7 +221,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
         if options.get(CONF_MODE) in [MODE_SWITCH]:
-            schema[vol.Required(CONF_SETPOINT, default=50)] = selector.NumberSelector(
+            schema[vol.Required(CONF_MINIMUM_SETPOINT, default=50)] = selector.NumberSelector(
                 selector.NumberSelectorConfig(min=1, max=100, step=1)
             )
 

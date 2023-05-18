@@ -26,6 +26,10 @@ class DeviceState(str, Enum):
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
     async def resolve(hass: HomeAssistant, store: SatConfigStore, mode: str, device: str) -> DataUpdateCoordinator:
+        if mode == MODE_FAKE:
+            from .fake import SatFakeCoordinator
+            return SatFakeCoordinator(hass, store)
+
         if mode == MODE_MQTT:
             from .mqtt import SatMqttCoordinator
             return SatMqttCoordinator(hass, store, device)
@@ -47,7 +51,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._store = store
         self._device_state = DeviceState.OFF
         self._simulation = bool(self._store.options.get(CONF_SIMULATION))
-        self._minimum_setpoint = float(self._store.options.get(CONF_SETPOINT))
+        self._minimum_setpoint = float(self._store.options.get(CONF_MINIMUM_SETPOINT))
         self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)

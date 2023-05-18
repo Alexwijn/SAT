@@ -28,6 +28,8 @@ class PWM:
     def __init__(self, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
         """Initialize the PWM control."""
         self._force = force
+        self._last_duty_cycle_percentage = None
+
         self._heating_curve = heating_curve
         self._max_cycle_time = max_cycle_time
         self._automatic_duty_cycle = automatic_duty_cycle
@@ -84,38 +86,38 @@ class PWM:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
 
-        duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset)
-        duty_cycle_percentage = min(duty_cycle_percentage, 1)
-        duty_cycle_percentage = max(duty_cycle_percentage, 0)
+        self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset)
+        self._last_duty_cycle_percentage = min(self._last_duty_cycle_percentage, 1)
+        self._last_duty_cycle_percentage = max(self._last_duty_cycle_percentage, 0)
 
         _LOGGER.debug("Requested setpoint %.1f", requested_setpoint)
-        _LOGGER.debug("Calculated duty cycle %.0f%%", duty_cycle_percentage * 100)
+        _LOGGER.debug("Calculated duty cycle %.2f%%", self._last_duty_cycle_percentage * 100)
 
         if not self._automatic_duty_cycle:
-            return int(duty_cycle_percentage * self._max_cycle_time), int((1 - duty_cycle_percentage) * self._max_cycle_time)
+            return int(self._last_duty_cycle_percentage * self._max_cycle_time), int((1 - self._last_duty_cycle_percentage) * self._max_cycle_time)
 
-        if duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE:
+        if self._last_duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE:
             return 0, 0
 
-        if duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
+        if self._last_duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
             on_time = ON_TIME_20_PERCENT
-            off_time = (ON_TIME_20_PERCENT / duty_cycle_percentage) - ON_TIME_20_PERCENT
+            off_time = (ON_TIME_20_PERCENT / self._last_duty_cycle_percentage) - ON_TIME_20_PERCENT
 
             return int(on_time), int(off_time)
 
-        if duty_cycle_percentage <= DUTY_CYCLE_80_PERCENT:
-            on_time = ON_TIME_80_PERCENT * duty_cycle_percentage
-            off_time = ON_TIME_80_PERCENT * (1 - duty_cycle_percentage)
+        if self._last_duty_cycle_percentage <= DUTY_CYCLE_80_PERCENT:
+            on_time = ON_TIME_80_PERCENT * self._last_duty_cycle_percentage
+            off_time = ON_TIME_80_PERCENT * (1 - self._last_duty_cycle_percentage)
 
             return int(on_time), int(off_time)
 
-        if duty_cycle_percentage <= MAX_DUTY_CYCLE_PERCENTAGE:
-            on_time = ON_TIME_20_PERCENT / (1 - duty_cycle_percentage) - ON_TIME_20_PERCENT
+        if self._last_duty_cycle_percentage <= MAX_DUTY_CYCLE_PERCENTAGE:
+            on_time = ON_TIME_20_PERCENT / (1 - self._last_duty_cycle_percentage) - ON_TIME_20_PERCENT
             off_time = ON_TIME_20_PERCENT
 
             return int(on_time), int(off_time)
 
-        if duty_cycle_percentage > MAX_DUTY_CYCLE_PERCENTAGE:
+        if self._last_duty_cycle_percentage > MAX_DUTY_CYCLE_PERCENTAGE:
             return None
 
     @property
@@ -132,3 +134,7 @@ class PWM:
         Otherwise, a tuple is returned with the on and off times of the duty cycle in seconds.
         """
         return self._duty_cycle
+
+    @property
+    def last_duty_cycle_percentage(self):
+        return round(self._last_duty_cycle_percentage * 100, 2)
