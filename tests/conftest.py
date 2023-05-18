@@ -39,9 +39,11 @@ async def entry(hass: HomeAssistant, domains: list, test_data: dict, config: dic
 
 @pytest.fixture
 async def climate(hass, entry: MockConfigEntry) -> SatClimate:
+    await hass.async_block_till_done()
     return hass.data[DOMAIN][entry.entry_id][CLIMATE]
 
 
 @pytest.fixture
 async def coordinator(hass, entry: MockConfigEntry) -> SatFakeCoordinator:
+    await hass.async_block_till_done()
     return hass.data[DOMAIN][entry.entry_id][COORDINATOR]
