@@ -8,3 +8,4 @@ aiodiscover
 freezegun
 pyotgw
 scapy
+janus
