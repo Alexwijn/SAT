@@ -4,7 +4,7 @@ from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sat import async_reload_entry
-from custom_components.sat.const import DOMAIN, CONF_SIMULATION
+from custom_components.sat.const import DOMAIN
 from tests.const import DEFAULT_USER_DATA
 
 
@@ -15,7 +15,7 @@ async def test_setup_update_unload_entry(hass):
     await hass.config_entries.async_add(switch_entry)
 
     # Create our entity
-    sat_entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA, options={CONF_SIMULATION: True})
+    sat_entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA)
     await hass.config_entries.async_add(sat_entry)
 
     # Wait till there are no tasks and see if we have been configured
