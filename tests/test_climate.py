@@ -2,8 +2,8 @@
 
 import pytest
 from homeassistant.components.climate import HVACMode
-from homeassistant.components.command_line.const import DOMAIN as COMMAND_LINE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.template import DOMAIN as TEMPLATE_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -15,24 +15,24 @@ from custom_components.sat.fake import SatFakeCoordinator
 @pytest.mark.parametrize(*[
     "domains, test_data, config",
     [(
-            [(SENSOR_DOMAIN, 2)],
+            [(TEMPLATE_DOMAIN, 1)],
             {
                 CONF_MINIMUM_SETPOINT: 57,
                 CONF_HEATING_CURVE_COEFFICIENT: 1.8
             },
             {
-                SENSOR_DOMAIN: [
+                TEMPLATE_DOMAIN: [
                     {
-                        "platform": COMMAND_LINE_DOMAIN,
-                        "command": "echo 0",
-                        "name": "test_inside_sensor",
-                        "value_template": "{{ 20.9 | float }}",
-                    },
-                    {
-                        "platform": COMMAND_LINE_DOMAIN,
-                        "command": "echo 0",
-                        "name": "test_outside_sensor",
-                        "value_template": "{{ 9.9 | float }}",
+                        SENSOR_DOMAIN: [
+                            {
+                                "name": "test_inside_sensor",
+                                "state": "{{ 20.9 | float }}",
+                            },
+                            {
+                                "name": "test_outside_sensor",
+                                "state": "{{ 9.9 | float }}",
+                            }
+                        ]
                     },
                 ],
             },
@@ -53,24 +53,24 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
 @pytest.mark.parametrize(*[
     "domains, test_data, config",
     [(
-            [(SENSOR_DOMAIN, 2)],
+            [(TEMPLATE_DOMAIN, 1)],
             {
                 CONF_MINIMUM_SETPOINT: 58,
                 CONF_HEATING_CURVE_COEFFICIENT: 1.3
             },
             {
-                SENSOR_DOMAIN: [
+                TEMPLATE_DOMAIN: [
                     {
-                        "platform": COMMAND_LINE_DOMAIN,
-                        "command": "echo 0",
-                        "name": "test_inside_sensor",
-                        "value_template": "{{ 18.99 | float }}",
-                    },
-                    {
-                        "platform": COMMAND_LINE_DOMAIN,
-                        "command": "echo 0",
-                        "name": "test_outside_sensor",
-                        "value_template": "{{ 11.1 | float }}",
+                        SENSOR_DOMAIN: [
+                            {
+                                "name": "test_inside_sensor",
+                                "state": "{{ 18.99 | float }}",
+                            },
+                            {
+                                "name": "test_outside_sensor",
+                                "state": "{{ 11.1 | float }}",
+                            }
+                        ]
                     },
                 ],
             },
@@ -92,24 +92,24 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
 @pytest.mark.parametrize(*[
     "domains, test_data, config",
     [(
-            [(SENSOR_DOMAIN, 2)],
+            [(TEMPLATE_DOMAIN, 1)],
             {
                 CONF_MINIMUM_SETPOINT: 41,
                 CONF_HEATING_CURVE_COEFFICIENT: 0.9
             },
             {
-                SENSOR_DOMAIN: [
+                TEMPLATE_DOMAIN: [
                     {
-                        "platform": COMMAND_LINE_DOMAIN,
-                        "command": "echo 0",
-                        "name": "test_inside_sensor",
-                        "value_template": "{{ 19.9 | float }}",
-                    },
-                    {
-                        "platform": COMMAND_LINE_DOMAIN,
-                        "command": "echo 0",
-                        "name": "test_outside_sensor",
-                        "value_template": "{{ -2.2 | float }}",
+                        SENSOR_DOMAIN: [
+                            {
+                                "name": "test_inside_sensor",
+                                "state": "{{ 19.9 | float }}",
+                            },
+                            {
+                                "name": "test_outside_sensor",
+                                "state": "{{ -2.2 | float }}",
+                            }
+                        ]
                     },
                 ],
             },
