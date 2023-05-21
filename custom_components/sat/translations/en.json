@@ -5,7 +5,7 @@
         "title": "Smart Autotune Thermostat (SAT)",
         "description": "SAT is a smart thermostat that is capable of auto-tuning itself to optimize temperature control. Select the appropriate mode that matches your heating system.",
         "menu_options": {
-          "mqtt": "OpenTherm Gateway ( MQTT )",
+          "mosquitto": "OpenTherm Gateway ( MQTT )",
           "serial": "OpenTherm Gateway ( SERIAL )",
           "switch": "PID Thermostat with PWM ( ON/OFF )"
         }
@@ -58,19 +58,18 @@
         "menu_options": {
           "general": "General",
           "presets": "Presets",
-          "climates": "Climates",
-          "contact_sensors": "Contact Sensors",
-          "advanced": "Advanced"
+          "areas": "Areas",
+          "advanced": "Advanced Options",
+          "system_configuration": "System Configuration"
         }
       },
       "general": {
         "title": "General",
         "description": "General settings and configurations.",
         "data": {
-          "setpoint": "Setpoint",
           "automatic_gains": "Tuning",
           "heating_system": "Heating System",
-          "target_temperature_step": "Target Temperature Step",
+          "minimum_setpoint": "Minimum Setpoint",
           "heating_curve_coefficient": "Heating Curve Coefficient"
         }
       },
@@ -86,38 +85,38 @@
           "sync_climates_with_preset": "Synchronize climates with preset (sleep / away / activity)"
         }
       },
-      "climates": {
-        "title": "Climates (multi-room)",
-        "description": "Settings related to multi-room climates and temperature control.",
+      "areas": {
+        "title": "Areas",
+        "description": "Settings related to climates, multi-room and temperature control.",
         "data": {
-          "climates": "Climates (rooms)",
-          "main_climates": "Climates (main)",
+          "climates": "Rooms",
+          "main_climates": "Climates",
+          "window_sensor": "Contact Sensor or group",
           "sync_with_thermostat": "Synchronize setpoint with thermostat"
         }
       },
-      "contact_sensors": {
-        "title": "Contact Sensors",
-        "description": "Settings for contact sensors, particularly window sensors.",
+      "system_configuration": {
+        "title": "System Configuration",
+        "description": "For fine-tuning and customization.",
         "data": {
-          "window_sensor": "Window"
+          "integral": "Integral (kI)",
+          "derivative": "Derivative (kD)",
+          "proportional": "Proportional (kP)",
+          "automatic_duty_cycle": "Automatic duty cycle",
+          "overshoot_protection": "Overshoot Protection (with PWM)",
+          "window_minimum_open_time": "Minimum time for window to be open before reacting",
+          "sensor_max_value_age": "Temperature Sensor maximum value age (before considering stall)"
         }
       },
       "advanced": {
         "title": "Advanced",
-        "description": "For fine-tuning and customization.",
         "data": {
-          "simulation": "Simulation",
-          "integral": "Integral (kI)",
-          "derivative": "Derivative (kD)",
-          "proportional": "Proportional (kP)",
+          "simulation": "Simulation ",
           "climate_valve_offset": "Climate valve offset",
-          "automatic_duty_cycle": "Automatic duty cycle",
-          "overshoot_protection": "Overshoot Protection (with PWM)",
+          "target_temperature_step": "Target Temperature Step",
           "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",
-          "sample_time": "Minimum time interval between updates to the PID controller",
-          "window_minimum_open_time": "Minimum time for window to be open before reacting",
-          "sensor_max_value_age": "Temperature Sensor maximum value age (before considering stall)"
+          "sample_time": "Minimum time interval between updates to the PID controller"
         }
       }
     }

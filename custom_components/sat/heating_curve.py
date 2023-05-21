@@ -52,17 +52,17 @@ class HeatingCurve:
 
         self._optimal_coefficient = coefficient
 
+    def restore_autotune(self, coefficient: float):
+        if coefficient <= 0:
+            return
+
+        self._optimal_coefficient = coefficient
+        self._optimal_coefficients = deque([coefficient] * 5, maxlen=5)
+
     @staticmethod
     def _get_heating_curve_value(target_temperature: float, outside_temperature: float) -> float:
         """Calculate the heating curve value based on the current outside temperature"""
         return target_temperature - (0.01 * outside_temperature ** 2) - (0.8 * outside_temperature)
-
-    @property
-    def optimal_coefficient(self):
-        if len(self._optimal_coefficients) == 0:
-            return None
-
-        return round(mean(self._optimal_coefficients), 1)
 
     @property
     def base_offset(self) -> float:
@@ -72,3 +72,10 @@ class HeatingCurve:
     @property
     def value(self):
         return self._last_heating_curve_value
+
+    @property
+    def optimal_coefficient(self):
+        if len(self._optimal_coefficients) == 0:
+            return None
+
+        return round(mean(self._optimal_coefficients), 1)

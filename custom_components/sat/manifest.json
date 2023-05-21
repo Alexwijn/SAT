@@ -13,8 +13,11 @@
       "hostname": "otgw"
     }
   ],
+  "mqtt": [
+    "OTGW/value/+"
+  ],
   "documentation": "https://github.com/Alexwijn/SAT",
-  "iot_class": "local_polling",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/Alexwijn/SAT/issues",
   "requirements": [
     "pyotgw==2.1.3"

@@ -46,6 +46,7 @@ from .util import create_pid_controller, create_heating_curve_controller, create
 
 ATTR_ROOMS = "rooms"
 ATTR_WARMING_UP = "warming_up_data"
+ATTR_OPTIMAL_COEFFICIENT = "optimal_coefficient"
 ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
@@ -244,6 +245,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE):
                 self._warming_up_derivative = old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE)
 
+            if old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT):
+                self.heating_curve.restore_autotune(old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT))
+
             if old_state.attributes.get(ATTR_ROOMS):
                 self._rooms = old_state.attributes.get(ATTR_ROOMS)
             else:
@@ -397,7 +401,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
 
-        if not self._coordinator.device_state == DeviceState.ON:
+        if self._coordinator.device_state == DeviceState.OFF:
             return HVACAction.IDLE
 
         return HVACAction.HEATING
