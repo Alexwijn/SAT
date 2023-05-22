@@ -40,19 +40,19 @@ class HeatingCurve:
 
         # Fuzzy logic for when the derivative is positive
         if self._coefficient_derivative > 1:
-            coefficient += 0.3
+            coefficient -= 0.3
         elif self._coefficient_derivative < 0.5:
-            coefficient += 0.1
+            coefficient -= 0.1
         elif self._coefficient_derivative < 1:
-            coefficient += 0.2
+            coefficient -= 0.2
 
         # Fuzzy logic for when the derivative is negative
         if self._coefficient_derivative < -1:
-            coefficient -= 0.3
+            coefficient += 0.3
         elif self._coefficient_derivative > -0.5:
-            coefficient -= 0.1
+            coefficient += 0.1
         elif self._coefficient_derivative > -1:
-            coefficient -= 0.2
+            coefficient += 0.2
 
         # Store the results
         self._optimal_coefficients.append(coefficient)
