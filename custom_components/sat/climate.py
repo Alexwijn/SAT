@@ -47,6 +47,7 @@ from .util import create_pid_controller, create_heating_curve_controller, create
 ATTR_ROOMS = "rooms"
 ATTR_WARMING_UP = "warming_up_data"
 ATTR_OPTIMAL_COEFFICIENT = "optimal_coefficient"
+ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
@@ -246,7 +247,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._warming_up_derivative = old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE)
 
             if old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT):
-                self.heating_curve.restore_autotune(old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT))
+                self.heating_curve.restore_autotune(
+                    old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT),
+                    old_state.attributes.get(ATTR_COEFFICIENT_DERIVATIVE)
+                )
 
             if old_state.attributes.get(ATTR_ROOMS):
                 self._rooms = old_state.attributes.get(ATTR_ROOMS)
@@ -340,6 +344,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "minimum_setpoint": self._coordinator.minimum_setpoint,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
+            "coefficient_derivative": self.heating_curve.coefficient_derivative,
             "relative_modulation_enabled": self.relative_modulation_enabled,
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self.pwm.state,
