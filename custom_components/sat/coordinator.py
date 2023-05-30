@@ -150,7 +150,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return False
 
     @property
-    def support_relative_modulation_management(self):
+    def supports_relative_modulation_management(self):
         """Returns whether the device supports setting a relative modulation value.
 
         This property is used to determine whether the coordinator can send a relative modulation value to the device.
@@ -203,7 +203,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_set_control_max_relative_modulation(self, value: float) -> None:
         """Control the maximum relative modulation for the device."""
-        if self.support_relative_modulation_management:
+        if self.supports_relative_modulation_management:
             self.logger.info("Set maximum relative modulation to %d", value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:

@@ -68,6 +68,10 @@ class SatWarmingUp:
         self.error = error
         self.started = started if started is not None else monotonic()
 
+    @property
+    def elapsed(self):
+        return monotonic() - self.started
+
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
@@ -177,41 +181,34 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _register_event_listeners(self):
         """Register event listeners."""
         self.async_on_remove(
+            async_track_time_interval(
+                self.hass, self.async_control_heating_loop, timedelta(seconds=30)
+            )
+        )
+
+        self.async_on_remove(
             async_track_state_change_event(
                 self.hass, [self.inside_sensor_entity_id], self._async_inside_sensor_changed
             )
         )
 
         self.async_on_remove(
-            async_track_time_interval(
-                self.hass, self.async_control_heating_loop, timedelta(seconds=30)
+            async_track_state_change_event(
+                self.hass, self.outside_sensor_entities, self._async_outside_entity_changed
             )
         )
 
-        for entity_id in self.outside_sensor_entities:
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, [entity_id], self._async_outside_entity_changed
-                )
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, self._main_climates, self._async_main_climate_changed
             )
+        )
 
-        for climate_id in self._main_climates:
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, [climate_id], self._async_main_climate_changed
-                )
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, self._climates, self._async_climate_changed
             )
-
-        for climate_id in self._climates:
-            state = self.hass.states.get(climate_id)
-            if state is not None and (sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID)):
-                await self.async_track_sensor_temperature(sensor_temperature_id)
-
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, [climate_id], self._async_climate_changed
-                )
-            )
+        )
 
         if self._window_sensor_id is not None:
             self.async_on_remove(
@@ -219,6 +216,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     self.hass, [self._window_sensor_id], self._async_window_sensor_changed
                 )
             )
+
+        for climate_id in self._climates:
+            state = self.hass.states.get(climate_id)
+            if state is not None and (sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID)):
+                await self.async_track_sensor_temperature(sensor_temperature_id)
 
     async def _restore_previous_state_or_set_defaults(self):
         """Restore previous state if available, or set default values."""
@@ -502,13 +504,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def relative_modulation_enabled(self) -> bool:
         """Return True if relative modulation is enabled, False otherwise."""
-        if not self._coordinator.support_relative_modulation_management or self._setpoint is None:
+        if not self._coordinator.supports_relative_modulation_management:
             return False
+
+        if self.hvac_mode == HVACMode.OFF or self._setpoint is None:
+            return True
 
         if self._coordinator.hot_water_active or self._setpoint <= MINIMUM_SETPOINT:
             return True
 
-        return self.hvac_mode == HVACMode.HEAT and not self.pulse_width_modulation_enabled
+        if self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME:
+            return False
+
+        return self.max_error > DEADBAND or not self.pulse_width_modulation_enabled
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
@@ -673,7 +681,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
             # Calculate an optimal heating curve when we are in the deadband
-            if -0.1 <= max_error <= 0.1:
+            if -DEADBAND <= max_error <= DEADBAND:
                 self.heating_curve.autotune(
                     setpoint=self.requested_setpoint,
                     target_temperature=self.target_temperature,
@@ -681,10 +689,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 )
 
             # Since we are in the deadband, we can safely assume we are not warming up anymore
-            if self._warming_up_data and max_error <= 0.1:
+            if self._warming_up_data and max_error <= DEADBAND:
                 # Calculate the derivative per hour
-                time_taken_seconds = monotonic() - self._warming_up_data.started
-                self._warming_up_derivative = calculate_derivative_per_hour(self._warming_up_data.error, time_taken_seconds)
+                self._warming_up_derivative = calculate_derivative_per_hour(
+                    self._warming_up_data.error,
+                    self._warming_up_data.elapsed
+                )
 
                 # Notify that we are not warming anymore
                 _LOGGER.info("Reached deadband, turning off warming up.")
@@ -700,7 +710,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pwm.reset()
 
             # Determine if we are warming up
-            if self.max_error > 0.1:
+            if self.max_error > DEADBAND:
                 self._warming_up_data = SatWarmingUp(self.max_error)
                 _LOGGER.info("Outside of deadband, we are warming up")
 
@@ -725,7 +735,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_relative_modulation(self) -> None:
         """Control the relative modulation value based on the conditions"""
-        if self._coordinator.support_relative_modulation_management:
+        if self._coordinator.supports_relative_modulation_management:
             await self._coordinator.async_set_control_max_relative_modulation(
                 MAXIMUM_RELATIVE_MOD if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
             )

@@ -98,7 +98,7 @@ class OvershootProtection:
             average_temp = sum(temps) / 50
 
             if previous_average_temp is not None:
-                if abs(actual_temp - previous_average_temp) <= 0.1:
+                if abs(actual_temp - previous_average_temp) <= DEADBAND:
                     _LOGGER.info("Stable temperature reached: %s", actual_temp)
                     return actual_temp
 

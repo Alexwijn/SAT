@@ -37,7 +37,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         SatHeatingCurveSensor(coordinator, _config_entry, climate),
     ])
 
-    if coordinator.support_relative_modulation_management:
+    if coordinator.supports_relative_modulation_management:
         _async_add_entities([SatCurrentPowerSensor(coordinator, _config_entry)])
 
 

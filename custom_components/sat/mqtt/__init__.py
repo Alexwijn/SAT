@@ -70,7 +70,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         return True
 
     @property
-    def support_relative_modulation_management(self):
+    def supports_relative_modulation_management(self):
         return True
 
     @property

@@ -16,12 +16,12 @@ class SatFakeConfig:
             supports_setpoint_management: bool = False,
             supports_maximum_setpoint_management: bool = False,
             supports_hot_water_setpoint_management: bool = False,
-            support_relative_modulation_management: bool = False
+            supports_relative_modulation_management: bool = False
     ):
         self.supports_setpoint_management = supports_setpoint_management
         self.supports_maximum_setpoint_management = supports_maximum_setpoint_management
         self.supports_hot_water_setpoint_management = supports_hot_water_setpoint_management
-        self.support_relative_modulation_management = support_relative_modulation_management
+        self.supports_relative_modulation_management = supports_relative_modulation_management
 
 
 class SatFakeCoordinator(SatDataUpdateCoordinator):
@@ -67,11 +67,11 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         return self.config.supports_maximum_setpoint_management
 
     @property
-    def support_relative_modulation_management(self):
+    def supports_relative_modulation_management(self):
         if self.config is None:
-            return super().support_relative_modulation_management
+            return super().supports_relative_modulation_management
 
-        return self.config.support_relative_modulation_management
+        return self.config.supports_relative_modulation_management
 
     async def async_set_control_setpoint(self, value: float) -> None:
         self._setpoint = value

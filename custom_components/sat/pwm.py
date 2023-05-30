@@ -3,6 +3,7 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
+from .const import HEATER_STARTUP_TIMEFRAME
 from .heating_curve import HeatingCurve
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,13 +69,13 @@ class PWM:
         _LOGGER.debug("Calculated duty cycle %.0f seconds ON", self._duty_cycle[0])
         _LOGGER.debug("Calculated duty cycle %.0f seconds OFF", self._duty_cycle[1])
 
-        if self._state != PWMState.ON and self._duty_cycle[0] >= 180 and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
             self._last_update = monotonic()
             _LOGGER.debug("Starting duty cycle.")
             return
 
-        if self._state != PWMState.OFF and (self._duty_cycle[0] < 180 or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+        if self._state != PWMState.OFF and (self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
             self._state = PWMState.OFF
             self._last_update = monotonic()
             _LOGGER.debug("Finished duty cycle.")
