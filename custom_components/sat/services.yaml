@@ -1,36 +1,3 @@
-start_overshoot_protection_calculation:
-  name: Overshoot Protection Calculation
-  description: "This service calculates the value that will be used to determine the setpoint and prevent overshooting."
-  fields:
-    solution:
-      name: Solution
-      required: true
-      default: auto
-      description: Select the solution for calculation
-      selector:
-        select:
-          options:
-            - label: "Automatic"
-              value: "auto"
-            - label: "With Modulation"
-              value: "with_modulation"
-            - label: "With Zero Modulation"
-              value: "with_zero_modulation"
-
-set_overshoot_protection_value:
-  name: Overshoot Protection Value
-  description: "Override the stored overshoot protection value without doing a calculation."
-  fields:
-    value:
-      name: Value
-      default: 60
-      required: true
-      description: The value to set
-      selector:
-        number:
-          min: 10
-          max: 100
-
 clear_integral:
   name: Clear Integral
   description: "This service clears the integrating part of the PID controller for the specified climate entity. This may be useful if the integral value has become too large or if the PID controller's performance has degraded."

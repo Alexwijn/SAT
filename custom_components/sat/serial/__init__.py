@@ -5,14 +5,13 @@ import logging
 import typing
 from typing import Optional, Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from pyotgw import vars as gw_vars, OpenThermGateway
 from pyotgw.vars import *
 from serial import SerialException
 
-from ..config_store import SatConfigStore
-from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 
 if typing.TYPE_CHECKING:
@@ -31,9 +30,9 @@ TRANSLATE_SOURCE = {
 class SatSerialCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using pyotgw."""
 
-    def __init__(self, hass: HomeAssistant, store: SatConfigStore, port: str) -> None:
+    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry, port: str) -> None:
         """Initialize."""
-        super().__init__(hass, store)
+        super().__init__(hass, config_entry)
 
         self.data = DEFAULT_STATUS
 
@@ -127,13 +126,6 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
     @property
     def flame_active(self) -> bool:
         return bool(self.get(DATA_SLAVE_FLAME_ON))
-
-    @property
-    def minimum_setpoint(self) -> float:
-        if (value := self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)) is not None:
-            return float(value)
-
-        return super().minimum_setpoint
 
     def get(self, key: str) -> Optional[Any]:
         """Get the value for the given `key` from the boiler data.

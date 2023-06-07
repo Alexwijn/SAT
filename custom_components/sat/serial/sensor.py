@@ -2,7 +2,7 @@
 import logging
 from typing import Optional, List
 
-from homeassistant.components.sensor import SensorEntity, ENTITY_ID_FORMAT, SensorDeviceClass
+from homeassistant.components.sensor import SensorEntity, DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfPower, UnitOfTemperature, PERCENTAGE, UnitOfPressure, UnitOfVolume, UnitOfTime
 from homeassistant.core import HomeAssistant
@@ -110,7 +110,7 @@ class SatSensor(SatEntity, SensorEntity):
         super().__init__(coordinator, config_entry)
 
         self.entity_id = async_generate_entity_id(
-            ENTITY_ID_FORMAT, f"{config_entry.data.get(CONF_NAME).lower()}_{source}_{key}", hass=coordinator.hass
+            SENSOR_DOMAIN + ".{}", f"{config_entry.data.get(CONF_NAME).lower()}_{source}_{key}", hass=coordinator.hass
         )
 
         self._key = key

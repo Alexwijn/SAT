@@ -6,12 +6,12 @@ import typing
 from homeassistant.components import mqtt
 from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, Event, State
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.event import async_track_state_change_event
 
-from ..config_store import SatConfigStore
 from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 
@@ -46,14 +46,14 @@ def entity_id_to_opentherm_key(hass: HomeAssistant, node_id: str, entity_id: str
 class SatMqttCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
 
-    def __init__(self, hass: HomeAssistant, store: SatConfigStore, device_id: str) -> None:
-        super().__init__(hass, store)
+    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry, device_id: str) -> None:
+        super().__init__(hass, config_entry)
 
         self.data = {}
 
         self._device = device_registry.async_get(hass).async_get(device_id)
         self._node_id = list(self._device.identifiers)[0][1]
-        self._topic = store.options.get(CONF_MQTT_TOPIC)
+        self._topic = config_entry.data.get(CONF_MQTT_TOPIC)
 
         self._entity_registry = entity_registry.async_get(hass)
         self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
@@ -140,13 +140,6 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
             return float(value)
 
         return super().boiler_capacity
-
-    @property
-    def minimum_setpoint(self) -> float:
-        if (value := self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE)) is not None:
-            return float(value)
-
-        return super().minimum_setpoint
 
     async def async_added_to_hass(self, climate: SatClimate) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)

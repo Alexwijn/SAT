@@ -6,11 +6,12 @@ from abc import abstractmethod
 from enum import Enum
 
 from homeassistant.components.climate import HVACMode
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .config_store import SatConfigStore
 from .const import *
+from .util import calculate_default_maximum_setpoint
 
 if typing.TYPE_CHECKING:
     from .climate import SatClimate
@@ -25,41 +26,43 @@ class DeviceState(str, Enum):
 
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    async def resolve(hass: HomeAssistant, store: SatConfigStore, mode: str, device: str) -> DataUpdateCoordinator:
+    async def resolve(hass: HomeAssistant, config_entry: ConfigEntry, mode: str, device: str) -> SatDataUpdateCoordinator:
         if mode == MODE_FAKE:
             from .fake import SatFakeCoordinator
-            return SatFakeCoordinator(hass, store)
+            return SatFakeCoordinator(hass, config_entry)
+
+        if mode == MODE_SIMULATOR:
+            from .simulator import SatSimulatorCoordinator
+            return SatSimulatorCoordinator(hass, config_entry)
 
         if mode == MODE_MQTT:
             from .mqtt import SatMqttCoordinator
-            return SatMqttCoordinator(hass, store, device)
+            return SatMqttCoordinator(hass, config_entry, device)
 
         if mode == MODE_SERIAL:
             from .serial import SatSerialCoordinator
-            return await SatSerialCoordinator(hass, store, device).async_connect()
+            return await SatSerialCoordinator(hass, config_entry, device).async_connect()
 
         if mode == MODE_SWITCH:
             from .switch import SatSwitchCoordinator
-            return SatSwitchCoordinator(hass, store, device)
+            return SatSwitchCoordinator(hass, config_entry, device)
 
         raise Exception(f'Invalid mode[{mode}]')
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, store: SatConfigStore) -> None:
+    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize."""
-        self._store = store
+        self._config_entry = config_entry
         self._device_state = DeviceState.OFF
-        self._simulation = bool(self._store.options.get(CONF_SIMULATION))
-        self._minimum_setpoint = float(self._store.options.get(CONF_MINIMUM_SETPOINT))
-        self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
+        self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
+        self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
+
+        default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)
+        self._maximum_setpoint = float(config_entry.data.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
+        self._minimum_setpoint = float(config_entry.data.get(CONF_MINIMUM_SETPOINT))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
-
-    @property
-    def store(self):
-        """Return the configuration store for the integration."""
-        return self._store
 
     @property
     def device_state(self):
@@ -69,17 +72,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def maximum_setpoint(self) -> float:
         """Return the maximum setpoint temperature that the device can support."""
-        if self._heating_system == HEATING_SYSTEM_RADIATOR_HIGH_TEMPERATURES:
-            return 75.0
-
-        if self._heating_system == HEATING_SYSTEM_RADIATOR_MEDIUM_TEMPERATURES:
-            return 65.0
-
-        if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
-            return 55.0
-
-        if self._heating_system == HEATING_SYSTEM_UNDERFLOOR:
-            return 50.0
+        return self._maximum_setpoint
 
     @property
     @abstractmethod
@@ -132,6 +125,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return self._minimum_setpoint
 
     @property
+    def maximum_setpoint(self) -> float:
+        return self._maximum_setpoint
+
+    @property
     def supports_setpoint_management(self):
         """Returns whether the device supports setting a boiler setpoint.
 
@@ -175,9 +172,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when entity will be removed from hass."""
         pass
 
-    async def async_control_heating_loop(self, climate: SatClimate, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         """Control the heating loop for the device."""
-        if climate.hvac_mode == HVACMode.OFF and self.device_active:
+        if climate is not None and climate.hvac_mode == HVACMode.OFF and self.device_active:
             # Send out a new command to turn off the device
             await self.async_set_heater_state(DeviceState.OFF)
 

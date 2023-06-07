@@ -23,7 +23,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
 
     # Check if integration is set to use the serial protocol
-    if coordinator.store.options.get(CONF_MODE) == MODE_SERIAL:
+    if _config_entry.data.get(CONF_MODE) == MODE_SERIAL:
         await serial_binary_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     if coordinator.supports_setpoint_management:

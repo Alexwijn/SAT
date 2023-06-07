@@ -2,9 +2,9 @@ from __future__ import annotations, annotations
 
 import logging
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from ..config_store import SatConfigStore
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class SatFakeConfig:
 class SatFakeCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
 
-    def __init__(self, hass: HomeAssistant, store: SatConfigStore) -> None:
+    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         self.data = {}
         self.config = None
 
@@ -36,7 +36,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._hot_water_setpoint = None
         self._relative_modulation_value = 100
 
-        super().__init__(hass, store)
+        super().__init__(hass, config_entry)
 
     @property
     def setpoint(self) -> float | None:

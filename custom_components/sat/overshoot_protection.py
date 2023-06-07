@@ -22,16 +22,21 @@ class OvershootProtection:
     def __init__(self, coordinator: SatDataUpdateCoordinator):
         self._coordinator = coordinator
 
-    async def calculate(self, solution: str) -> float | None:
+    async def calculate(self, solution: str = SOLUTION_AUTOMATIC) -> float | None:
         _LOGGER.info("Starting calculation")
 
         await self._coordinator.async_set_heater_state(DeviceState.ON)
         await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
-        await self._coordinator.async_set_control_max_relative_modulation(OVERSHOOT_PROTECTION_SETPOINT)
+        await self._coordinator.async_set_control_max_relative_modulation(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
 
         try:
             # First wait for a flame
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
+
+            # Since the coordinator doesn't support modulation management, so we need to fall back to find it with modulation
+            if solution == SOLUTION_AUTOMATIC and not self._coordinator.supports_relative_modulation_management:
+                solution = SOLUTION_WITH_MODULATION
+                _LOGGER.info("Relative modulation management is not supported, switching to with modulation")
 
             if solution == SOLUTION_AUTOMATIC:
                 # First run start_with_zero_modulation for at least 2 minutes
@@ -52,6 +57,12 @@ class OvershootProtection:
         except asyncio.TimeoutError:
             _LOGGER.warning("Timed out waiting for stable temperature")
             return None
+        except asyncio.CancelledError as ex:
+            await self._coordinator.async_set_heater_state(DeviceState.OFF)
+            await self._coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)
+            await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MOD)
+
+            raise ex
 
     async def _calculate_with_zero_modulation(self) -> float:
         _LOGGER.info("Running calculation with zero modulation")
@@ -85,7 +96,9 @@ class OvershootProtection:
                 break
 
             _LOGGER.warning("Heating system is not running yet")
+
             await asyncio.sleep(5)
+            await self._coordinator.async_control_heating_loop()
 
     async def _wait_for_stable_temperature(self, max_modulation: float) -> float:
         temps = deque(maxlen=50)
@@ -108,4 +121,6 @@ class OvershootProtection:
                 await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
             previous_average_temp = average_temp
+
             await asyncio.sleep(3)
+            await self._coordinator.async_control_heating_loop()

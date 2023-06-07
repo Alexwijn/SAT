@@ -7,7 +7,8 @@
         "menu_options": {
           "mosquitto": "OpenTherm Gateway ( MQTT )",
           "serial": "OpenTherm Gateway ( SERIAL )",
-          "switch": "PID Thermostat with PWM ( ON/OFF )"
+          "switch": "PID Thermostat with PWM ( ON/OFF )",
+          "simulator": "Simulated Gateway ( ADVANCED )"
         }
       },
       "mqtt": {
@@ -32,7 +33,20 @@
         "description": "Please fill in the following details to setup the switch:",
         "data": {
           "name": "Name",
-          "device": "Switch"
+          "device": "Switch",
+          "minimum_setpoint": "Setpoint"
+        }
+      },
+      "simulator": {
+        "title": "Simulated Gateway ( ADVANCED )",
+        "description": "This gateway allows you to simulate a boiler for testing and demonstration purposes. Please provide the following information to configure the simulator.\n\nNote: The Simulator Gateway is intended for testing and demonstration purposes only and should not be used in production environments.",
+        "data": {
+          "name": "Name",
+          "minimum_setpoint": "Minimum Setpoint",
+          "maximum_setpoint": "Maximum Setpoint",
+          "simulated_heating": "Simulated Heating",
+          "simulated_cooling": "Simulated Cooling",
+          "simulated_warming_up": "Simulated Warming Up"
         }
       },
       "sensors": {
@@ -42,19 +56,63 @@
           "inside_sensor_entity_id": "Inside Sensor Entity",
           "outside_sensor_entity_id": "Outside Sensor Entity"
         }
+      },
+      "heating_system": {
+        "title": "Heating System",
+        "description": "Selecting the correct heating system type is important for SAT to accurately control the temperature and optimize performance. Choose the option that matches your setup to ensure proper temperature regulation throughout your home.",
+        "data": {
+          "heating_system": "System"
+        }
+      },
+      "automatic_gains": {
+        "title": "Automatic Gains",
+        "description": "Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.\n\nAutomatic Gains is recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.\n\nPlease note that choosing to skip Automatic Gains requires a good understanding of PID control and may require additional manual adjustments to achieve optimal performance.",
+        "menu_options": {
+          "calibrate": "Calibrate and determine your overshoot protection value (approx. 20 min).",
+          "overshoot_protection": "Manually enter the overshoot protection value.",
+          "pid_controller": "Manually enter PID values (not recommended)."
+        }
+      },
+      "overshoot_protection": {
+        "title": "Overshoot Protection",
+        "description": "By providing the overshoot protection value, SAT will adjust the control parameters accordingly to maintain a stable and comfortable heating environment. This manual configuration allows you to fine-tune the system based on your specific setup.\n\nNote: If you are unsure about the overshoot protection value or have not performed the calibration process, it is recommended to cancel the configuration and go through the calibration process to let SAT automatically determine the value for optimal performance.",
+        "data": {
+          "minimum_setpoint": "Value"
+        }
+      },
+      "pid_controller": {
+        "title": "Configure the PID controller manually.",
+        "description": "Configure the proportional, integral, and derivative gains manually to fine-tune your heating system. Use this option if you prefer to have full control over the PID controller parameters. Adjust the gains based on your specific heating system characteristics and preferences.",
+        "data": {
+          "integral": "Integral (kI)",
+          "derivative": "Derivative (kD)",
+          "proportional": "Proportional (kP)"
+        }
+      },
+      "calibrated": {
+        "title": "Calibration Completed",
+        "description": "The calibration process has completed successfully.\n\nCongratulations! Your Smart Autotune Thermostat (SAT) has been calibrated to optimize the heating performance of your system. During the calibration process, SAT carefully analyzed the heating characteristics and determined the appropriate overshoot protection value to ensure precise temperature control.\n\nOvershoot Protection Value: {minimum_setpoint} °C\n\nThis value represents the maximum amount of overshoot allowed during the heating process. SAT will actively monitor and adjust the heating to prevent excessive overshooting, maintaining a comfortable and efficient heating experience in your home.\n\nPlease note that the overshoot protection value may vary depending on the specific characteristics of your heating system and environmental factors. It has been fine-tuned to provide optimal performance based on the calibration results.",
+        "menu_options": {
+          "calibrate": "Retry calibration",
+          "finish": "Continue with current calibration"
+        }
       }
     },
     "error": {
       "connection": "Unable to connect to the gateway.",
-      "mqtt_component": "The MQTT component is unavailable."
+      "mqtt_component": "The MQTT component is unavailable.",
+      "unable_to_calibrate": "The calibration process has encountered an issue and could not be completed successfully. Please ensure that your heating system is functioning properly and that all required sensors are connected and working correctly.\n\nIf you continue to experience issues with calibration, consider contacting us for further assistance. We apologize for any inconvenience caused."
     },
     "abort": {
       "already_configured": "Gateway is already configured."
+    },
+    "progress": {
+      "calibration": "Calibrating and finding the overshoot protection value...\n\nPlease wait while we optimize your heating system. This process may take approximately 20 minutes."
     }
   },
   "options": {
     "step": {
-      "user": {
+      "init": {
         "menu_options": {
           "general": "General",
           "presets": "Presets",
@@ -67,10 +125,12 @@
         "title": "General",
         "description": "General settings and configurations.",
         "data": {
-          "automatic_gains": "Tuning",
-          "heating_system": "Heating System",
-          "minimum_setpoint": "Minimum Setpoint",
-          "heating_curve_coefficient": "Heating Curve Coefficient"
+          "integral": "Integral (kI)",
+          "derivative": "Derivative (kD)",
+          "proportional": "Proportional (kP)",
+          "maximum_setpoint": "Maximum Setpoint",
+          "heating_curve_coefficient": "Heating Curve Coefficient",
+          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation"
         }
       },
       "presets": {
@@ -99,9 +159,6 @@
         "title": "System Configuration",
         "description": "For fine-tuning and customization.",
         "data": {
-          "integral": "Integral (kI)",
-          "derivative": "Derivative (kD)",
-          "proportional": "Proportional (kP)",
           "automatic_duty_cycle": "Automatic duty cycle",
           "overshoot_protection": "Overshoot Protection (with PWM)",
           "window_minimum_open_time": "Minimum time for window to be open before reacting",
@@ -114,7 +171,6 @@
           "simulation": "Simulation ",
           "climate_valve_offset": "Climate valve offset",
           "target_temperature_step": "Target Temperature Step",
-          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",
           "sample_time": "Minimum time interval between updates to the PID controller"
         }

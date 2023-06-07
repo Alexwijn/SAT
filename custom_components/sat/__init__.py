@@ -7,9 +7,9 @@ from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 
 from . import mqtt, serial, switch
-from .config_store import SatConfigStore
 from .const import *
 from .coordinator import SatDataUpdateCoordinatorFactory
 
@@ -28,13 +28,9 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     # Create a new dictionary for this entry
     _hass.data[DOMAIN][_entry.entry_id] = {}
 
-    # Create a new config store for this entry and initialize it
-    _hass.data[DOMAIN][_entry.entry_id][CONFIG_STORE] = store = SatConfigStore(_hass, _entry)
-    await _hass.data[DOMAIN][_entry.entry_id][CONFIG_STORE].async_initialize()
-
     # Resolve the coordinator by using the factory according to the mode
     _hass.data[DOMAIN][_entry.entry_id][COORDINATOR] = await SatDataUpdateCoordinatorFactory().resolve(
-        hass=_hass, store=store, mode=store.options.get(CONF_MODE), device=store.options.get(CONF_DEVICE)
+        hass=_hass, config_entry=_entry, mode=_entry.data.get(CONF_MODE), device=_entry.data.get(CONF_DEVICE)
     )
 
     # Forward entry setup for climate and other platforms
@@ -81,3 +77,39 @@ async def async_reload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> None:
 
     # Set up the entry again
     await async_setup_entry(_hass, _entry)
+
+
+async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    _LOGGER.debug("Migrating from version %s", _entry.version)
+
+    if _entry.version == 1:
+        # Legacy Store
+        store = Store(_hass, 1, DOMAIN)
+        data = await store.async_load()
+
+        new = {**_entry.data}
+
+        if overshoot_protection_value := data.get("overshoot_protection_value"):
+            new[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
+        else:
+            new[CONF_MINIMUM_SETPOINT] = 10
+
+        if _entry.options[CONF_HEATING_SYSTEM] == "underfloor":
+            new[CONF_MAXIMUM_SETPOINT] = 50
+
+        if _entry.options[CONF_HEATING_SYSTEM] == "radiator_low_temperatures":
+            new[CONF_MAXIMUM_SETPOINT] = 55
+
+        if _entry.options[CONF_HEATING_SYSTEM] == "radiator_medium_temperatures":
+            new[CONF_MAXIMUM_SETPOINT] = 65
+
+        if _entry.options[CONF_HEATING_SYSTEM] == "radiator_high_temperatures":
+            new[CONF_MAXIMUM_SETPOINT] = 75
+
+        _entry.version = 2
+        _hass.config_entries.async_update_entry(_entry, data=new)
+
+    _LOGGER.info("Migration to version %s successful", _entry.version)
+
+    return True

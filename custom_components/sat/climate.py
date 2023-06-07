@@ -5,7 +5,6 @@ import asyncio
 import logging
 from collections import deque
 from datetime import timedelta
-from functools import partial
 from statistics import mean
 from time import monotonic
 from typing import List
@@ -41,7 +40,6 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .pwm import PWMState
-from .services import start_overshoot_protection_calculation, set_overshoot_protection_value
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, calculate_derivative_per_hour
 
 ATTR_ROOMS = "rooms"
@@ -77,17 +75,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
-        self._store = coordinator.store
-        self.overshoot_protection_calculate = False
-
         # Create dictionary mapping preset keys to temperature options
         conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
 
         # Create dictionary mapping preset keys to temperature values
-        self._presets = {key: self._store.options[value] for key, value in conf_presets.items() if value in self._store.options}
+        self._presets = {key: config_entry.data[value] for key, value in conf_presets.items() if value in config_entry.data}
 
         # Get inside sensor entity ID
-        self.inside_sensor_entity_id = self._store.options.get(CONF_INSIDE_SENSOR_ENTITY_ID)
+        self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
 
         # Get inside sensor entity state
         inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
@@ -104,14 +99,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if isinstance(self.outside_sensor_entities, str):
             self.outside_sensor_entities = [self.outside_sensor_entities]
 
+        # Create config data dictionary with defaults
+        config_data = OPTIONS_DEFAULTS.copy()
+        config_data.update(config_entry.data)
+
         # Create PID controller with given configuration options
-        self.pid = create_pid_controller(self._store.options)
+        self.pid = create_pid_controller(config_data)
 
         # Create Heating Curve controller with given configuration options
-        self.heating_curve = create_heating_curve_controller(self._store.options)
+        self.heating_curve = create_heating_curve_controller(config_data)
 
         # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, self._store.options)
+        self.pwm = create_pwm_controller(self.heating_curve, config_data)
 
         self._sensors = []
         self._rooms = None
@@ -127,20 +126,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._saved_target_temperature_before_custom = None
         self._saved_target_temperature_before_activity = None
 
-        self._climates = self._store.options.get(CONF_CLIMATES)
-        self._main_climates = self._store.options.get(CONF_MAIN_CLIMATES)
-        self._window_sensor_id = self._store.options.get(CONF_WINDOW_SENSOR)
+        self._climates = config_data.get(CONF_CLIMATES)
+        self._main_climates = config_data.get(CONF_MAIN_CLIMATES)
+        self._window_sensor_id = config_data.get(CONF_WINDOW_SENSOR)
 
-        self._simulation = bool(self._store.options.get(CONF_SIMULATION))
-        self._heating_system = str(self._store.options.get(CONF_HEATING_SYSTEM))
-        self._sync_with_thermostat = bool(self._store.options.get(CONF_SYNC_WITH_THERMOSTAT))
-        self._overshoot_protection = bool(self._store.options.get(CONF_OVERSHOOT_PROTECTION))
-        self._climate_valve_offset = float(self._store.options.get(CONF_CLIMATE_VALVE_OFFSET))
-        self._target_temperature_step = float(self._store.options.get(CONF_TARGET_TEMPERATURE_STEP))
-        self._sync_climates_with_preset = bool(self._store.options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
-        self._force_pulse_width_modulation = bool(self._store.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
-        self._sensor_max_value_age = convert_time_str_to_seconds(self._store.options.get(CONF_SENSOR_MAX_VALUE_AGE))
-        self._window_minimum_open_time = convert_time_str_to_seconds(self._store.options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
+        self._simulation = bool(config_data.get(CONF_SIMULATION))
+        self._heating_system = str(config_data.get(CONF_HEATING_SYSTEM))
+        self._sync_with_thermostat = bool(config_data.get(CONF_SYNC_WITH_THERMOSTAT))
+        self._overshoot_protection = bool(config_data.get(CONF_OVERSHOOT_PROTECTION))
+        self._climate_valve_offset = float(config_data.get(CONF_CLIMATE_VALVE_OFFSET))
+        self._target_temperature_step = float(config_data.get(CONF_TARGET_TEMPERATURE_STEP))
+        self._sync_climates_with_preset = bool(config_data.get(CONF_SYNC_CLIMATES_WITH_PRESET))
+        self._force_pulse_width_modulation = bool(config_data.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
+        self._sensor_max_value_age = convert_time_str_to_seconds(config_data.get(CONF_SENSOR_MAX_VALUE_AGE))
+        self._window_minimum_open_time = convert_time_str_to_seconds(config_data.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
 
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
@@ -279,35 +278,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.hass.services.async_register(DOMAIN, SERVICE_RESET_INTEGRAL, reset_integral)
 
-        if self._coordinator.supports_setpoint_management:
-            if self._overshoot_protection and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
-                self._overshoot_protection = False
-
-                await self.async_send_notification(
-                    title="Smart Autotune Thermostat",
-                    message="Disabled overshoot protection because no overshoot value has been found."
-                )
-
-            if self._force_pulse_width_modulation and self._store.get(STORAGE_OVERSHOOT_PROTECTION_VALUE) is None:
-                self._force_pulse_width_modulation = False
-
-                await self.async_send_notification(
-                    title="Smart Autotune Thermostat",
-                    message="Disabled forced pulse width modulation because no overshoot value has been found."
-                )
-
-            self.hass.services.async_register(
-                DOMAIN,
-                SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION,
-                partial(start_overshoot_protection_calculation, self._coordinator, self)
-            )
-
-            self.hass.services.async_register(
-                DOMAIN,
-                SERVICE_SET_OVERSHOOT_PROTECTION_VALUE,
-                partial(set_overshoot_protection_value, self._coordinator, self)
-            )
-
     @property
     def name(self):
         """Return the friendly name of the sensor."""
@@ -350,8 +320,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "relative_modulation_enabled": self.relative_modulation_enabled,
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self.pwm.state,
-            "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
-            "overshoot_protection_calculating": self.overshoot_protection_calculate,
+            "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle
         }
 
     @property
@@ -782,10 +751,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_control_heating_loop(self, _time=None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
-        # If overshoot protection is active, we are not doing anything since we already have a task running in async
-        if self.overshoot_protection_calculate:
-            return
-
         # If the current, target or outside temperature is not available, do nothing
         if self.current_temperature is None or self.target_temperature is None or self.current_outside_temperature is None:
             return
@@ -826,10 +791,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:
             return
 
-        # Ignore the request when we are in calculation mode
-        if self.overshoot_protection_calculate:
-            return
-
         # Automatically select the preset
         for preset in self._presets:
             if float(self._presets[preset]) == float(temperature):
@@ -840,10 +801,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set the heating/cooling mode for the devices and update the state."""
-        # Ignore the request when we are in calculation mode
-        if self.overshoot_protection_calculate:
-            return
-
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
@@ -871,10 +828,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Check if the given preset mode is valid
         if preset_mode not in self.preset_modes:
             raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
-
-        # Ignore the request when we are in calculation mode
-        if self.overshoot_protection_calculate:
-            return
 
         # Return if the given preset mode is already set
         if preset_mode == self._attr_preset_mode:

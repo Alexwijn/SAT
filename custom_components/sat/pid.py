@@ -16,7 +16,7 @@ class PID:
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
                  sample_time_limit: Optional[float] = 10,
-                 heating_system: str = HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES):
+                 heating_system: str = HEATING_SYSTEM_RADIATORS):
         """
         Initialize the PID controller.
 
@@ -250,7 +250,7 @@ class PID:
         if self._automatic_gains:
             return round(self._last_heating_curve_value * 1.65, 6)
 
-        return self._kp
+        return float(self._kp)
 
     @property
     def ki(self) -> float | None:
@@ -261,7 +261,7 @@ class PID:
 
             return round(self._last_heating_curve_value / 73900, 6)
 
-        return self._ki
+        return float(self._ki)
 
     @property
     def kd(self) -> float | None:
@@ -278,7 +278,7 @@ class PID:
 
             return round(self._last_heating_curve_value * 2720, 6)
 
-        return self._kd
+        return float(self._kd)
 
     @property
     def proportional(self) -> float:

@@ -10,10 +10,11 @@ from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, MODE_SIMULATOR
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .serial import sensor as serial_sensor
+from .simulator import sensor as simulator_sensor
 
 if typing.TYPE_CHECKING:
     from .climate import SatClimate
@@ -29,8 +30,12 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
 
     # Check if integration is set to use the serial protocol
-    if coordinator.store.options.get(CONF_MODE) == MODE_SERIAL:
+    if _config_entry.data.get(CONF_MODE) == MODE_SERIAL:
         await serial_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
+
+    # Check if integration is set to use the simulator
+    if _config_entry.data.get(CONF_MODE) == MODE_SIMULATOR:
+        await simulator_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     _async_add_entities([
         SatErrorValueSensor(coordinator, _config_entry, climate),
