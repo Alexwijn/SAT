@@ -161,11 +161,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=self._errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                [vol.Required(CONF_MINIMUM_SETPOINT, default=50)]: selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=10, max=100, step=1)
-                ),
                 vol.Required(CONF_DEVICE): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN, INPUT_BOOLEAN_DOMAIN])
+                ),
+                vol.Required(CONF_MINIMUM_SETPOINT, default=50): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=10, max=100, step=1)
                 )
             }),
         )

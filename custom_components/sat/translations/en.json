@@ -34,7 +34,7 @@
         "data": {
           "name": "Name",
           "device": "Switch",
-          "minimum_setpoint": "Setpoint"
+          "minimum_setpoint": "Equivalent Setpoint"
         }
       },
       "simulator": {
