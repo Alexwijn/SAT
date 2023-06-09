@@ -56,11 +56,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._config_entry = config_entry
         self._device_state = DeviceState.OFF
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
-        self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
-
-        default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)
-        self._maximum_setpoint = float(config_entry.data.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
-        self._minimum_setpoint = float(config_entry.data.get(CONF_MINIMUM_SETPOINT))
+        self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
@@ -68,11 +64,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def device_state(self):
         """Return the current state of the device."""
         return self._device_state
-
-    @property
-    def maximum_setpoint(self) -> float:
-        """Return the maximum setpoint temperature that the device can support."""
-        return self._maximum_setpoint
 
     @property
     @abstractmethod
@@ -121,12 +112,15 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
-    def minimum_setpoint(self) -> float:
-        return self._minimum_setpoint
+    def maximum_setpoint(self) -> float:
+        """Return the maximum setpoint temperature that the device can support."""
+        default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)
+        return float(self.config_entry.data.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
     @property
-    def maximum_setpoint(self) -> float:
-        return self._maximum_setpoint
+    def minimum_setpoint(self) -> float:
+        """Return the minimum setpoint temperature before the device starts to overshoot."""
+        return float(self.config_entry.data.get(CONF_MINIMUM_SETPOINT))
 
     @property
     def supports_setpoint_management(self):
