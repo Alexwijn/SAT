@@ -84,28 +84,28 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
     _LOGGER.debug("Migrating from version %s", _entry.version)
 
     if _entry.version == 1:
-        # Legacy Store
-        store = Store(_hass, 1, DOMAIN)
-        data = await store.async_load()
-
         new = {**_entry.data}
 
-        if overshoot_protection_value := data.get("overshoot_protection_value"):
-            new[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
-        else:
-            new[CONF_MINIMUM_SETPOINT] = 10
+        if not _entry.data.get(CONF_MINIMUM_SETPOINT):
+            # Legacy Store
+            store = Store(_hass, 1, DOMAIN)
+            if (data := await store.async_load()) and (overshoot_protection_value := data.get("overshoot_protection_value")):
+                new[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
+            else:
+                new[CONF_MINIMUM_SETPOINT] = 10
 
-        if _entry.options[CONF_HEATING_SYSTEM] == "underfloor":
-            new[CONF_MAXIMUM_SETPOINT] = 50
+        if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
+            if _entry.options.get(CONF_HEATING_SYSTEM) == "underfloor":
+                new[CONF_MAXIMUM_SETPOINT] = 50
 
-        if _entry.options[CONF_HEATING_SYSTEM] == "radiator_low_temperatures":
-            new[CONF_MAXIMUM_SETPOINT] = 55
+            if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_low_temperatures":
+                new[CONF_MAXIMUM_SETPOINT] = 55
 
-        if _entry.options[CONF_HEATING_SYSTEM] == "radiator_medium_temperatures":
-            new[CONF_MAXIMUM_SETPOINT] = 65
+            if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_medium_temperatures":
+                new[CONF_MAXIMUM_SETPOINT] = 65
 
-        if _entry.options[CONF_HEATING_SYSTEM] == "radiator_high_temperatures":
-            new[CONF_MAXIMUM_SETPOINT] = 75
+            if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_high_temperatures":
+                new[CONF_MAXIMUM_SETPOINT] = 75
 
         _entry.version = 2
         _hass.config_entries.async_update_entry(_entry, data=new)

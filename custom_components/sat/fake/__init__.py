@@ -29,7 +29,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         self.data = {}
-        self.config = None
+        self.config = SatFakeConfig(True)
 
         self._setpoint = None
         self._maximum_setpoint = None
@@ -51,7 +51,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         if self.config is None:
             return super().supports_setpoint_management
 
-        return self.config.supports_maximum_setpoint_management
+        return self.config.supports_setpoint_management
 
     @property
     def supports_hot_water_setpoint_management(self):
