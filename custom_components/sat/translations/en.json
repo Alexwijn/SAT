@@ -11,9 +11,9 @@
           "simulator": "Simulated Gateway ( ADVANCED )"
         }
       },
-      "mqtt": {
+      "mosquitto": {
         "title": "OpenTherm Gateway ( MQTT )",
-        "description": "Please fill in the following details to set up the OpenTherm Gateway.",
+        "description": "Please provide the following details to set up the OpenTherm Gateway. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the Climate entity to use for the OpenTherm Gateway. This entity is provided by the OpenTherm Gateway and represents your heating system.\n\nAdditionally, enter the Top Topic that will be used for publishing and subscribing to MQTT messages related to the OpenTherm Gateway.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through MQTT. They allow for seamless data exchange and control of your heating system. Ensure that the provided details are accurate to ensure proper functionality.",
         "data": {
           "name": "Name",
           "device": "Device",
@@ -22,7 +22,7 @@
       },
       "serial": {
         "title": "OpenTherm Gateway ( SERIAL )",
-        "description": "Please fill in the following details to set up the OpenTherm Gateway.",
+        "description": "To establish a connection with the OpenTherm Gateway using a socket connection, please provide the following details. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the network address of the OpenTherm Gateway in the Device field. This could be in the format of \"socket://otgw.local:25238\", where \"otgw.local\" is the hostname or IP address of the gateway and \"25238\" is the port number.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through the socket connection. Ensure that the provided details are accurate to ensure proper functionality.",
         "data": {
           "name": "Name",
           "device": "URL"
@@ -30,11 +30,11 @@
       },
       "switch": {
         "title": "PID Thermostat with PWM ( ON/OFF )",
-        "description": "Please fill in the following details to setup the switch:",
+        "description": "Please fill in the following details to set up the switch. Enter a name for the switch in the Name field, which will help you identify it within your system. Choose the appropriate entity to use for your switch from the provided options.\n\nIn the Temperature Setting field, specify the desired target temperature for your heating system. If you are using a hot water boiler, fill in the Boiler Temperature Setting with the appropriate value. For electric heating systems, enter the value 100.\n\nThese settings are essential for precise temperature control and ensuring optimal performance of your heating system. Providing the correct Temperature Setting allows for accurate regulation and helps achieve a comfortable and energy-efficient environment in your home.",
         "data": {
           "name": "Name",
-          "device": "Switch",
-          "minimum_setpoint": "Equivalent Setpoint"
+          "device": "Entity",
+          "minimum_setpoint": "Temperature Setting"
         }
       },
       "simulator": {
