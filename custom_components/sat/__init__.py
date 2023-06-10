@@ -92,7 +92,7 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
             if (data := await store.async_load()) and (overshoot_protection_value := data.get("overshoot_protection_value")):
                 new[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
             else:
-                new[CONF_MINIMUM_SETPOINT] = 10
+                new[CONF_MINIMUM_SETPOINT] = MINIMUM_SETPOINT
 
         if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
             if _entry.options.get(CONF_HEATING_SYSTEM) == "underfloor":

@@ -15,8 +15,7 @@ class PID:
                  deadband: float = DEADBAND,
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
-                 sample_time_limit: Optional[float] = 10,
-                 heating_system: str = HEATING_SYSTEM_RADIATORS):
+                 sample_time_limit: Optional[float] = 10):
         """
         Initialize the PID controller.
 
@@ -27,14 +26,12 @@ class PID:
         :param deadband: The deadband of the PID controller. The range of error values where the controller will not make adjustments.
         :param integral_time_limit: The minimum time interval between integral updates to the PID controller, in seconds.
         :param sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
-        :param heating_system: The heating system type that we are controlling.
         """
         self._kp = kp
         self._ki = ki
         self._kd = kd
         self._deadband = deadband
         self._history_size = max_history
-        self._heating_system = heating_system
         self._automatic_gains = automatic_gains
         self._last_interval_updated = monotonic()
         self._sample_time_limit = max(sample_time_limit, 1)
@@ -272,9 +269,6 @@ class PID:
         if self._automatic_gains:
             if self._last_heating_curve_value is None:
                 return 0
-
-            if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
-                return round(self._last_heating_curve_value * 1650, 6)
 
             return round(self._last_heating_curve_value * 2720, 6)
 
