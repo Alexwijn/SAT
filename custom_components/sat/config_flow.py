@@ -207,7 +207,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if self._data[CONF_MODE] in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
-            return await self.async_step_pid_controller()
+            return await self.async_step_automatic_gains()
 
         return self.async_show_form(
             step_id="sensors",
@@ -226,9 +226,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             self._data.update(_user_input)
 
             if (await self._create_coordinator()).supports_setpoint_management:
-                return await self.async_step_automatic_gains()
+                return await self.async_step_calibrate_system()
 
-            return await self.async_step_finish()
+            return await self.async_step_automatic_gains()
 
         return self.async_show_form(
             last_step=False,
@@ -244,8 +244,23 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_automatic_gains(self, _user_input=None):
-        return self.async_show_menu(
+        if _user_input is not None:
+            self._data.update(_user_input)
+
+            if not self._data[CONF_AUTOMATIC_GAINS]:
+                return await self.async_step_pid_controller()
+
+            return await self.async_step_finish()
+
+        return self.async_show_form(
+            last_step=False,
             step_id="automatic_gains",
+            data_schema=vol.Schema({vol.Required(CONF_AUTOMATIC_GAINS, default=True): bool})
+        )
+
+    async def async_step_calibrate_system(self, _user_input=None):
+        return self.async_show_menu(
+            step_id="calibrate_system",
             menu_options=["calibrate", "overshoot_protection", "pid_controller"]
         )
 

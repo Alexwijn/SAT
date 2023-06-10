@@ -66,6 +66,13 @@
       },
       "automatic_gains": {
         "title": "Automatic Gains",
+        "description": "This feature adjusts the control parameters of your heating system dynamically, optimizing temperature control for better comfort and energy efficiency. Enabling this option allows SAT to continuously adapt and fine-tune the heating settings based on the environmental conditions. This helps maintain a stable and comfortable environment without manual intervention.\n\nNote: If you choose not to enable automatic gains, you will need to manually enter the PID values for precise temperature control. Please ensure that you have accurate PID values for your specific heating system to achieve optimal performance.",
+        "data": {
+          "automatic_gains": "Automatic Gains (recommended)"
+        }
+      },
+      "calibrate_system": {
+        "title": "Calibrate System",
         "description": "Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.\n\nAutomatic Gains is recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.\n\nPlease note that choosing to skip Automatic Gains requires a good understanding of PID control and may require additional manual adjustments to achieve optimal performance.",
         "menu_options": {
           "calibrate": "Calibrate and determine your overshoot protection value (approx. 20 min).",
