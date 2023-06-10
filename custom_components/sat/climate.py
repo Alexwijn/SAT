@@ -47,6 +47,9 @@ ATTR_WARMING_UP = "warming_up_data"
 ATTR_OPTIMAL_COEFFICIENT = "optimal_coefficient"
 ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
+ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
+ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
+
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
 _LOGGER = logging.getLogger(__name__)
@@ -123,8 +126,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._hvac_mode = None
         self._target_temperature = None
         self._window_sensor_handle = None
-        self._saved_target_temperature_before_custom = None
-        self._saved_target_temperature_before_activity = None
+        self._pre_custom_temperature = None
+        self._pre_activity_temperature = None
 
         self._climates = config_data.get(CONF_CLIMATES)
         self._main_climates = config_data.get(CONF_MAIN_CLIMATES)
@@ -247,6 +250,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE):
                 self._warming_up_derivative = old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE)
 
+            if old_state.attributes.get(ATTR_PRE_ACTIVITY_TEMPERATURE):
+                self._pre_activity_temperature = old_state.attributes.get(ATTR_PRE_ACTIVITY_TEMPERATURE)
+
+            if old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE):
+                self._pre_custom_temperature = old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE)
+
             if old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT):
                 self.heating_curve.restore_autotune(
                     old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT),
@@ -299,6 +308,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "history_size": self.pid.history_size,
             "collected_errors": self.pid.num_errors,
             "integral_enabled": self.pid.integral_enabled,
+
+            "pre_custom_temperature": self._pre_custom_temperature,
+            "pre_activity_temperature": self._pre_activity_temperature,
 
             "derivative_enabled": self.pid.derivative_enabled,
             "derivative_raw": self.pid.raw_derivative,
@@ -606,7 +618,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             try:
                 self._window_sensor_handle = asyncio.create_task(asyncio.sleep(self._window_minimum_open_time))
-                self._saved_target_temperature_before_activity = self.target_temperature
+                self._pre_activity_temperature = self.target_temperature
 
                 await self._window_sensor_handle
                 await self.async_set_preset_mode(PRESET_ACTIVITY)
@@ -622,7 +634,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if self.preset_mode == PRESET_ACTIVITY:
                 _LOGGER.debug(f"Restoring original target temperature.")
-                await self.async_set_temperature(temperature=self._saved_target_temperature_before_activity)
+                await self.async_set_temperature(temperature=self._pre_activity_temperature)
 
             return
 
@@ -836,7 +848,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the preset mode if `PRESET_NONE` is given
         if preset_mode == PRESET_NONE:
             self._attr_preset_mode = PRESET_NONE
-            await self.async_set_target_temperature(self._saved_target_temperature_before_custom)
+            await self.async_set_target_temperature(self._pre_custom_temperature)
         else:
             # Set the HVAC mode to `HEAT` if it is currently `OFF`
             if self.hvac_mode == HVACMode.OFF:
@@ -844,7 +856,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Save the current target temperature if the preset mode is being set for the first time
             if self._attr_preset_mode == PRESET_NONE:
-                self._saved_target_temperature_before_custom = self._target_temperature
+                self._pre_custom_temperature = self._target_temperature
 
             # Set the preset mode and target temperature
             self._attr_preset_mode = preset_mode
