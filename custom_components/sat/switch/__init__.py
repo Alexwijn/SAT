@@ -39,9 +39,9 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
             service = SERVICE_TURN_ON if state == DeviceState.ON else SERVICE_TURN_OFF
 
             if self._entity.domain == SWITCH_DOMAIN:
-                await self.hass.services.async_call(SWITCH_DOMAIN, service, {ATTR_ENTITY_ID: self._entity.id}, blocking=True)
+                await self.hass.services.async_call(SWITCH_DOMAIN, service, {ATTR_ENTITY_ID: self._entity.entity_id}, blocking=True)
 
             if self._entity.domain == INPUT_BOOLEAN_DOMAIN:
-                await self.hass.services.async_call(INPUT_BOOLEAN_DOMAIN, service, {ATTR_ENTITY_ID: self._entity.id}, blocking=True)
+                await self.hass.services.async_call(INPUT_BOOLEAN_DOMAIN, service, {ATTR_ENTITY_ID: self._entity.entity_id}, blocking=True)
 
         await super().async_set_heater_state(state)
