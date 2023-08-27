@@ -88,7 +88,7 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
         new_data = {**_entry.data}
         new_options = {**_entry.options}
 
-        if _entry.version == 1:
+        if _entry.version < 2:
             if not _entry.data.get(CONF_MINIMUM_SETPOINT):
                 # Legacy Store
                 store = Store(_hass, 1, DOMAIN)
@@ -110,7 +110,7 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
                 if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_high_temperatures":
                     new_data[CONF_MAXIMUM_SETPOINT] = 75
 
-        if _entry.version == 2:
+        if _entry.version < 3:
             if main_climates := _entry.options.get("main_climates"):
                 new_data[CONF_MAIN_CLIMATES] = main_climates
                 new_options.pop("main_climates")
