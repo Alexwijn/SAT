@@ -6,7 +6,7 @@ from time import monotonic
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .. import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP
+from .. import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 from ..util import convert_time_str_to_seconds
 
@@ -27,10 +27,15 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
 
         self._heating = config_entry.data.get(CONF_SIMULATED_HEATING)
         self._cooling = config_entry.data.get(CONF_SIMULATED_COOLING)
+        self._maximum_setpoint = config_entry.data.get(CONF_MAXIMUM_SETPOINT)
         self._warming_up = convert_time_str_to_seconds(config_entry.data.get(CONF_SIMULATED_WARMING_UP))
 
     @property
     def supports_setpoint_management(self) -> bool:
+        return True
+
+    @property
+    def supports_maximum_setpoint_management(self):
         return True
 
     @property
@@ -57,6 +62,10 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
     async def async_set_control_setpoint(self, value: float) -> None:
         self._setpoint = value
         await super().async_set_control_setpoint(value)
+
+    async def async_set_control_max_setpoint(self, value: float) -> None:
+        self._maximum_setpoint = value
+        await super().async_set_control_max_setpoint(value)
 
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         # Calculate the difference, so we know when to slowdown
