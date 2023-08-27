@@ -444,7 +444,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 self._options[CONF_CLIMATES] = []
 
             if _user_input.get(CONF_WINDOW_SENSOR) is None:
-                self._options[CONF_WINDOW_SENSOR] = []
+                self._options[CONF_WINDOW_SENSOR] = None
 
             return await self.update_options(_user_input)
 
