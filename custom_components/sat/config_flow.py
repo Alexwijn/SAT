@@ -17,7 +17,7 @@ from homeassistant.config_entries import ConfigEntry, SOURCE_USER
 from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import selector, entity_registry, device_registry
+from homeassistant.helpers import selector, device_registry
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
 from pyotgw import OpenThermGateway
 
@@ -25,7 +25,7 @@ from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .overshoot_protection import OvershootProtection
-from .util import calculate_default_maximum_setpoint
+from .util import calculate_default_maximum_setpoint, snake_case
 
 DEFAULT_NAME = "Living Room"
 
@@ -34,7 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 2
+    VERSION = 3
     calibration = None
     overshoot_protection_value = None
 
@@ -174,7 +174,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self._data.update(_user_input)
             self._data[CONF_MODE] = MODE_SIMULATOR
-            self._data[CONF_DEVICE] = MODE_SIMULATOR
+            self._data[CONF_DEVICE] = f"%s_%s".format(MODE_SIMULATOR, snake_case(_user_input.get(CONF_NAME)))
 
             return await self.async_step_sensors()
 
@@ -207,9 +207,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if self._data[CONF_MODE] in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
-            return await self.async_step_automatic_gains()
+            return await self.async_step_areas()
 
         return self.async_show_form(
+            last_step=False,
             step_id="sensors",
             data_schema=vol.Schema({
                 vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
@@ -225,10 +226,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self._data.update(_user_input)
 
-            if (await self._create_coordinator()).supports_setpoint_management:
-                return await self.async_step_calibrate_system()
-
-            return await self.async_step_automatic_gains()
+            return await self.async_step_areas()
 
         return self.async_show_form(
             last_step=False,
@@ -240,6 +238,28 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         {"value": HEATING_SYSTEM_UNDERFLOOR, "label": "Underfloor"}
                     ])
                 )
+            })
+        )
+
+    async def async_step_areas(self, _user_input=None):
+        if _user_input is not None:
+            self._data.update(_user_input)
+
+            if (await self._create_coordinator()).supports_setpoint_management:
+                return await self.async_step_calibrate_system()
+
+            return await self.async_step_automatic_gains()
+
+        climate_selector = selector.EntitySelector(selector.EntitySelectorConfig(
+            domain=CLIMATE_DOMAIN, multiple=True
+        ))
+
+        return self.async_show_form(
+            step_id="areas",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_MAIN_CLIMATES): climate_selector,
+                vol.Optional(CONF_SECONDARY_CLIMATES): climate_selector,
+                vol.Required(CONF_SYNC_WITH_THERMOSTAT): bool,
             })
         )
 
@@ -370,7 +390,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._options = dict(config_entry.options)
 
     async def async_step_init(self, _user_input=None):
-        menu_options = ["general", "areas", "presets", "system_configuration"]
+        menu_options = ["general", "presets", "system_configuration"]
 
         if self.show_advanced_options:
             menu_options.append("advanced")
@@ -382,6 +402,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_general(self, _user_input=None) -> FlowResult:
         if _user_input is not None:
+            if _user_input.get(CONF_WINDOW_SENSOR) is None:
+                self._options[CONF_WINDOW_SENSOR] = None
+
             return await self.update_options(_user_input)
 
         schema = {}
@@ -405,6 +428,13 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         if not options.get(CONF_AUTOMATIC_DUTY_CYCLE):
             schema[vol.Required(CONF_DUTY_CYCLE, default=options.get(CONF_DUTY_CYCLE))] = selector.TimeSelector()
+
+        schema[vol.Optional(CONF_WINDOW_SENSOR, default=options.get(CONF_WINDOW_SENSOR))] = selector.EntitySelector(
+            selector.EntitySelectorConfig(
+                domain=BINARY_SENSOR_DOMAIN,
+                device_class=[BinarySensorDeviceClass.DOOR, BinarySensorDeviceClass.WINDOW, BinarySensorDeviceClass.GARAGE_DOOR]
+            )
+        )
 
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
@@ -432,47 +462,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
                 vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=defaults[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
-            })
-        )
-
-    async def async_step_areas(self, _user_input=None) -> FlowResult:
-        if _user_input is not None:
-            if _user_input.get(CONF_MAIN_CLIMATES) is None:
-                self._options[CONF_MAIN_CLIMATES] = []
-
-            if _user_input.get(CONF_CLIMATES) is None:
-                self._options[CONF_CLIMATES] = []
-
-            if _user_input.get(CONF_WINDOW_SENSOR) is None:
-                self._options[CONF_WINDOW_SENSOR] = None
-
-            return await self.update_options(_user_input)
-
-        entities = entity_registry.async_get(self.hass)
-        device_name = self._config_entry.data.get(CONF_NAME)
-        climate_id = entities.async_get_entity_id(CLIMATE_DOMAIN, DOMAIN, str(device_name).lower())
-
-        climate_selector = selector.EntitySelector(selector.EntitySelectorConfig(
-            exclude_entities=[climate_id], domain=CLIMATE_DOMAIN, multiple=True
-        ))
-
-        contact_sensor_selector = selector.EntitySelector(selector.EntitySelectorConfig(
-            domain=BINARY_SENSOR_DOMAIN, device_class=[
-                BinarySensorDeviceClass.DOOR,
-                BinarySensorDeviceClass.WINDOW,
-                BinarySensorDeviceClass.GARAGE_DOOR
-            ])
-        )
-
-        options = await self.get_options()
-
-        return self.async_show_form(
-            step_id="areas",
-            data_schema=vol.Schema({
-                vol.Optional(CONF_MAIN_CLIMATES, default=options[CONF_MAIN_CLIMATES]): climate_selector,
-                vol.Optional(CONF_CLIMATES, default=options[CONF_CLIMATES]): climate_selector,
-                vol.Optional(CONF_WINDOW_SENSOR, default=options[CONF_WINDOW_SENSOR]): contact_sensor_selector,
-                vol.Required(CONF_SYNC_WITH_THERMOSTAT, default=options[CONF_SYNC_WITH_THERMOSTAT]): bool,
             })
         )
 

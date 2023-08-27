@@ -81,34 +81,50 @@ async def async_reload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> None:
 
 async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
     """Migrate old entry."""
+    from custom_components.sat.config_flow import SatFlowHandler
     _LOGGER.debug("Migrating from version %s", _entry.version)
 
-    if _entry.version == 1:
-        new = {**_entry.data}
+    if _entry.version < SatFlowHandler.VERSION:
+        new_data = {**_entry.data}
+        new_options = {**_entry.options}
 
-        if not _entry.data.get(CONF_MINIMUM_SETPOINT):
-            # Legacy Store
-            store = Store(_hass, 1, DOMAIN)
-            if (data := await store.async_load()) and (overshoot_protection_value := data.get("overshoot_protection_value")):
-                new[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
-            else:
-                new[CONF_MINIMUM_SETPOINT] = MINIMUM_SETPOINT
+        if _entry.version < 2:
+            if not _entry.data.get(CONF_MINIMUM_SETPOINT):
+                # Legacy Store
+                store = Store(_hass, 1, DOMAIN)
+                new_data[CONF_MINIMUM_SETPOINT] = MINIMUM_SETPOINT
 
-        if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
-            if _entry.options.get(CONF_HEATING_SYSTEM) == "underfloor":
-                new[CONF_MAXIMUM_SETPOINT] = 50
+                if (data := await store.async_load()) and (overshoot_protection_value := data.get("overshoot_protection_value")):
+                    new_data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
 
-            if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_low_temperatures":
-                new[CONF_MAXIMUM_SETPOINT] = 55
+            if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
+                if _entry.options.get(CONF_HEATING_SYSTEM) == "underfloor":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 50
 
-            if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_medium_temperatures":
-                new[CONF_MAXIMUM_SETPOINT] = 65
+                if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_low_temperatures":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 55
 
-            if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_high_temperatures":
-                new[CONF_MAXIMUM_SETPOINT] = 75
+                if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_medium_temperatures":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 65
 
-        _entry.version = 2
-        _hass.config_entries.async_update_entry(_entry, data=new)
+                if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_high_temperatures":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 75
+
+        if _entry.version < 3:
+            if main_climates := _entry.options.get("main_climates"):
+                new_data[CONF_MAIN_CLIMATES] = main_climates
+                new_options.pop("main_climates")
+
+            if secondary_climates := _entry.options.get("climates"):
+                new_data[CONF_SECONDARY_CLIMATES] = secondary_climates
+                new_options.pop("climates")
+
+            if sync_with_thermostat := _entry.options.get("sync_with_thermostat"):
+                new_data[CONF_SYNC_WITH_THERMOSTAT] = sync_with_thermostat
+                new_options.pop("sync_with_thermostat")
+
+        _entry.version = SatFlowHandler.VERSION
+        _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)
 
     _LOGGER.info("Migration to version %s successful", _entry.version)
 

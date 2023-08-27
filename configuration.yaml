@@ -10,6 +10,12 @@ homeassistant:
     climate.heater:
       sensor_temperature_id: "sensor.heater_temperature"
 
+climate:
+  - platform: generic_thermostat
+    name: Fake Thermostat
+    heater: switch.fake_thermostat
+    target_sensor: sensor.current_temperature
+
 switch:
   - platform: template
     switches:
@@ -68,3 +74,5 @@ input_boolean:
     name: Heater
   window_sensor:
     name: Window Sensor
+  fake_thermostat:
+    name: Fake Thermostat

@@ -32,7 +32,7 @@ CONF_SIMULATED_COOLING = "simulated_cooling"
 CONF_SIMULATED_WARMING_UP = "simulated_warming_up"
 CONF_MINIMUM_SETPOINT = "minimum_setpoint"
 CONF_MAXIMUM_SETPOINT = "maximum_setpoint"
-CONF_CLIMATES = "climates"
+CONF_SECONDARY_CLIMATES = "secondary_climates"
 CONF_MQTT_TOPIC = "mqtt_topic"
 CONF_MAIN_CLIMATES = "main_climates"
 CONF_WINDOW_SENSOR = "window_sensor"
@@ -78,7 +78,7 @@ OPTIONS_DEFAULTS = {
     CONF_AUTOMATIC_DUTY_CYCLE: True,
     CONF_OVERSHOOT_PROTECTION: False,
 
-    CONF_CLIMATES: [],
+    CONF_SECONDARY_CLIMATES: [],
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
     CONF_WINDOW_SENSOR: None,

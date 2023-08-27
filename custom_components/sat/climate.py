@@ -129,7 +129,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._pre_custom_temperature = None
         self._pre_activity_temperature = None
 
-        self._climates = config_data.get(CONF_CLIMATES)
+        self._climates = config_data.get(CONF_SECONDARY_CLIMATES)
         self._main_climates = config_data.get(CONF_MAIN_CLIMATES)
         self._window_sensor_id = config_data.get(CONF_WINDOW_SENSOR)
 

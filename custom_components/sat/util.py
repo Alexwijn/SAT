@@ -1,3 +1,5 @@
+from re import sub
+
 from homeassistant.util import dt
 
 from .const import *
@@ -71,3 +73,10 @@ def create_pwm_controller(heating_curve: HeatingCurve, options) -> PWM | None:
 
     # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
+
+
+def snake_case(s):
+    return '_'.join(
+        sub('([A-Z][a-z]+)', r' \1',
+            sub('([A-Z]+)', r' \1',
+                s.replace('-', ' '))).split()).lower()

@@ -64,6 +64,15 @@
           "heating_system": "System"
         }
       },
+      "areas": {
+        "title": "Areas",
+        "description": "Settings related to climates, multi-room and temperature control.",
+        "data": {
+          "main_climates": "Climates",
+          "secondary_climates": "Rooms",
+          "sync_with_thermostat": "Synchronize setpoint with thermostat"
+        }
+      },
       "automatic_gains": {
         "title": "Automatic Gains",
         "description": "This feature adjusts the control parameters of your heating system dynamically, optimizing temperature control for better comfort and energy efficiency. Enabling this option allows SAT to continuously adapt and fine-tune the heating settings based on the environmental conditions. This helps maintain a stable and comfortable environment without manual intervention.\n\nNote: If you choose not to enable automatic gains, you will need to manually enter the PID values for precise temperature control. Please ensure that you have accurate PID values for your specific heating system to achieve optimal performance.",
@@ -123,7 +132,6 @@
         "menu_options": {
           "general": "General",
           "presets": "Presets",
-          "areas": "Areas",
           "advanced": "Advanced Options",
           "system_configuration": "System Configuration"
         }
@@ -136,8 +144,10 @@
           "derivative": "Derivative (kD)",
           "proportional": "Proportional (kP)",
           "maximum_setpoint": "Maximum Setpoint",
+          "window_sensor": "Contact Sensor or group",
           "heating_curve_coefficient": "Heating Curve Coefficient",
-          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation"
+          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
+          "sync_with_thermostat": "Synchronize setpoint with thermostat"
         }
       },
       "presets": {
@@ -150,16 +160,6 @@
           "comfort_temperature": "Comfort Temperature",
           "activity_temperature": "Activity Temperature",
           "sync_climates_with_preset": "Synchronize climates with preset (sleep / away / activity)"
-        }
-      },
-      "areas": {
-        "title": "Areas",
-        "description": "Settings related to climates, multi-room and temperature control.",
-        "data": {
-          "climates": "Rooms",
-          "main_climates": "Climates",
-          "window_sensor": "Contact Sensor or group",
-          "sync_with_thermostat": "Synchronize setpoint with thermostat"
         }
       },
       "system_configuration": {
