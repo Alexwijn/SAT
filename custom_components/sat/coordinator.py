@@ -115,7 +115,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def maximum_setpoint(self) -> float:
         """Return the maximum setpoint temperature that the device can support."""
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)
-        return float(self._config_entry.data.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
+        return float(self._config_entry.options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
     @property
     def minimum_setpoint(self) -> float:
