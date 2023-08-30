@@ -259,7 +259,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Optional(CONF_MAIN_CLIMATES): climate_selector,
                 vol.Optional(CONF_SECONDARY_CLIMATES): climate_selector,
-                vol.Required(CONF_SYNC_WITH_THERMOSTAT): bool,
             })
         )
 

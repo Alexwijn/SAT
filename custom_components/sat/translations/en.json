@@ -69,8 +69,7 @@
         "description": "Settings related to climates, multi-room and temperature control.",
         "data": {
           "main_climates": "Climates",
-          "secondary_climates": "Rooms",
-          "sync_with_thermostat": "Synchronize setpoint with thermostat"
+          "secondary_climates": "Rooms"
         }
       },
       "automatic_gains": {
