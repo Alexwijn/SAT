@@ -102,18 +102,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if isinstance(self.outside_sensor_entities, str):
             self.outside_sensor_entities = [self.outside_sensor_entities]
 
-        # Create config data dictionary with defaults
-        config_data = OPTIONS_DEFAULTS.copy()
-        config_data.update(config_entry.data)
+        # Create config options dictionary with defaults
+        config_options = OPTIONS_DEFAULTS.copy()
+        config_options.update(config_entry.options)
 
         # Create PID controller with given configuration options
-        self.pid = create_pid_controller(config_data)
+        self.pid = create_pid_controller(config_entry.data)
 
         # Create Heating Curve controller with given configuration options
-        self.heating_curve = create_heating_curve_controller(config_entry.options, config_data)
+        self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
 
         # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, config_data)
+        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data)
 
         self._sensors = []
         self._rooms = None
@@ -140,22 +140,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
 
-        self._climates = config_data.get(CONF_SECONDARY_CLIMATES)
-        self._main_climates = config_data.get(CONF_MAIN_CLIMATES)
-        self._window_sensor_id = config_data.get(CONF_WINDOW_SENSOR)
+        self._climates = config_entry.data.get(CONF_SECONDARY_CLIMATES)
+        self._main_climates = config_entry.data.get(CONF_MAIN_CLIMATES)
+        self._window_sensor_id = config_entry.data.get(CONF_WINDOW_SENSOR)
 
-        self._simulation = bool(config_data.get(CONF_SIMULATION))
-        self._heating_system = str(config_data.get(CONF_HEATING_SYSTEM))
-        self._sync_with_thermostat = bool(config_data.get(CONF_SYNC_WITH_THERMOSTAT))
-        self._overshoot_protection = bool(config_data.get(CONF_OVERSHOOT_PROTECTION))
+        self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
+        self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
+        self._sync_with_thermostat = bool(config_entry.data.get(CONF_SYNC_WITH_THERMOSTAT))
+        self._overshoot_protection = bool(config_entry.data.get(CONF_OVERSHOOT_PROTECTION))
 
         # User Configuration
-        self._climate_valve_offset = float(config_entry.options.get(CONF_CLIMATE_VALVE_OFFSET))
-        self._target_temperature_step = float(config_entry.options.get(CONF_TARGET_TEMPERATURE_STEP))
-        self._sync_climates_with_preset = bool(config_entry.options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
-        self._force_pulse_width_modulation = bool(config_entry.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
-        self._sensor_max_value_age = convert_time_str_to_seconds(config_entry.options.get(CONF_SENSOR_MAX_VALUE_AGE))
-        self._window_minimum_open_time = convert_time_str_to_seconds(config_entry.options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
+        self._climate_valve_offset = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
+        self._target_temperature_step = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
+        self._sync_climates_with_preset = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
+        self._force_pulse_width_modulation = bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
+        self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
+        self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
 
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
