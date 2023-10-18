@@ -107,13 +107,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         config_options.update(config_entry.options)
 
         # Create PID controller with given configuration options
-        self.pid = create_pid_controller(config_entry.data)
+        self.pid = create_pid_controller(config_options)
 
         # Create Heating Curve controller with given configuration options
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
 
         # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data)
+        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
 
         self._sensors = []
         self._rooms = None
@@ -140,9 +140,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
 
-        self._climates = config_entry.data.get(CONF_SECONDARY_CLIMATES)
-        self._main_climates = config_entry.data.get(CONF_MAIN_CLIMATES)
         self._window_sensor_id = config_entry.data.get(CONF_WINDOW_SENSOR)
+        self._climates = config_entry.data.get(CONF_SECONDARY_CLIMATES) or []
+        self._main_climates = config_entry.data.get(CONF_MAIN_CLIMATES) or []
 
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
         self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
