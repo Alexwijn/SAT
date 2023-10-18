@@ -41,35 +41,35 @@ def calculate_default_maximum_setpoint(heating_system: str) -> int | None:
     return None
 
 
-def create_pid_controller(options) -> PID:
+def create_pid_controller(config_options) -> PID:
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
-    kp = float(options.get(CONF_PROPORTIONAL))
-    ki = float(options.get(CONF_INTEGRAL))
-    kd = float(options.get(CONF_DERIVATIVE))
-    automatic_gains = bool(options.get(CONF_AUTOMATIC_GAINS))
-    sample_time_limit = convert_time_str_to_seconds(options.get(CONF_SAMPLE_TIME))
+    kp = float(config_options.get(CONF_PROPORTIONAL))
+    ki = float(config_options.get(CONF_INTEGRAL))
+    kd = float(config_options.get(CONF_DERIVATIVE))
+    automatic_gains = bool(config_options.get(CONF_AUTOMATIC_GAINS))
+    sample_time_limit = convert_time_str_to_seconds(config_options.get(CONF_SAMPLE_TIME))
 
     # Return a new PID controller instance with the given configuration options
     return PID(kp=kp, ki=ki, kd=kd, automatic_gains=automatic_gains, sample_time_limit=sample_time_limit)
 
 
-def create_heating_curve_controller(options) -> HeatingCurve:
+def create_heating_curve_controller(config_data, config_options) -> HeatingCurve:
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
-    heating_system = options.get(CONF_HEATING_SYSTEM)
-    coefficient = float(options.get(CONF_HEATING_CURVE_COEFFICIENT))
+    heating_system = config_data.get(CONF_HEATING_SYSTEM)
+    coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
 
     # Return a new heating Curve controller instance with the given configuration options
     return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
 
 
-def create_pwm_controller(heating_curve: HeatingCurve, options) -> PWM | None:
+def create_pwm_controller(heating_curve: HeatingCurve, config_data, config_options) -> PWM | None:
     """Create and return a PWM controller instance with the given configuration options."""
     # Extract the configuration options
-    automatic_duty_cycle = bool(options.get(CONF_AUTOMATIC_DUTY_CYCLE))
-    max_cycle_time = int(convert_time_str_to_seconds(options.get(CONF_DUTY_CYCLE)))
-    force = bool(options.get(CONF_MODE) == MODE_SWITCH) or bool(options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
+    automatic_duty_cycle = bool(config_options.get(CONF_AUTOMATIC_DUTY_CYCLE))
+    max_cycle_time = int(convert_time_str_to_seconds(config_options.get(CONF_DUTY_CYCLE)))
+    force = bool(config_data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
     # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
