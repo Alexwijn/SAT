@@ -500,7 +500,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME:
             return False
 
-        return self.max_error > DEADBAND or not self.pulse_width_modulation_enabled
+        return self.max_error > DEADBAND and not self.pulse_width_modulation_enabled
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
