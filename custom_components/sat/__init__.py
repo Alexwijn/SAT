@@ -97,17 +97,22 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
                 if (data := await store.async_load()) and (overshoot_protection_value := data.get("overshoot_protection_value")):
                     new_data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
 
+            if _entry.options.get("heating_system") == "underfloor":
+                new_data[CONF_HEATING_SYSTEM] = HEATING_SYSTEM_UNDERFLOOR
+            else:
+                new_data[CONF_HEATING_SYSTEM] = HEATING_SYSTEM_RADIATORS
+
             if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
-                if _entry.options.get(CONF_HEATING_SYSTEM) == "underfloor":
+                if _entry.options.get("heating_system") == "underfloor":
                     new_data[CONF_MAXIMUM_SETPOINT] = 50
 
-                if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_low_temperatures":
+                if _entry.options.get("heating_system") == "radiator_low_temperatures":
                     new_data[CONF_MAXIMUM_SETPOINT] = 55
 
-                if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_medium_temperatures":
+                if _entry.options.get("heating_system") == "radiator_medium_temperatures":
                     new_data[CONF_MAXIMUM_SETPOINT] = 65
 
-                if _entry.options.get(CONF_HEATING_SYSTEM) == "radiator_high_temperatures":
+                if _entry.options.get("heating_system") == "radiator_high_temperatures":
                     new_data[CONF_MAXIMUM_SETPOINT] = 75
 
         if _entry.version < 3:
