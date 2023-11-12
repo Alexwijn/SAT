@@ -10,7 +10,7 @@ from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.dhcp import DhcpServiceInfo
 from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
 from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry, SOURCE_USER
@@ -219,6 +219,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=[SENSOR_DOMAIN, WEATHER_DOMAIN], multiple=True)
                 ),
+                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain=SENSOR_DOMAIN,
+                        device_class=[SensorDeviceClass.HUMIDITY]
+                    )
+                )
             }),
         )
 
@@ -483,8 +489,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         options = await self.get_options()
 
-        schema = {}
-        schema[vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION])]: bool
+        schema = {
+            vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]): bool,
+            vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]): bool
+        }
 
         if options.get(CONF_MODE) in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
             schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool

@@ -38,6 +38,7 @@ CONF_MAIN_CLIMATES = "main_climates"
 CONF_WINDOW_SENSORS = "window_sensors"
 CONF_SYNC_WITH_THERMOSTAT = "sync_with_thermostat"
 CONF_WINDOW_MINIMUM_OPEN_TIME = "window_minimum_open_time"
+CONF_THERMAL_COMFORT = "thermal_comfort"
 CONF_SIMULATION = "simulation"
 CONF_INTEGRAL = "integral"
 CONF_DERIVATIVE = "derivative"
@@ -54,6 +55,7 @@ CONF_FORCE_PULSE_WIDTH_MODULATION = "force_pulse_width_modulation"
 CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
+CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
 
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
@@ -82,6 +84,8 @@ OPTIONS_DEFAULTS = {
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
     CONF_WINDOW_SENSORS: [],
+    CONF_THERMAL_COMFORT: False,
+    CONF_HUMIDITY_SENSOR_ENTITY_ID: None,
     CONF_SYNC_WITH_THERMOSTAT: False,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 

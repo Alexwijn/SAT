@@ -48,6 +48,10 @@ template:
       name: Outside Temperature
       device_class: 'temperature'
       state: "{{ states('input_number.outside_temperature_raw') }}"
+    - unit_of_measurement: "%"
+      name: Current Humidity
+      device_class: 'humidity'
+      state: "{{ states('input_number.humidity_raw') }}"
 
 input_number:
   heater_temperature_raw:
@@ -68,6 +72,12 @@ input_number:
     min: 0
     max: 35
     step: 0.01
+  humidity_raw:
+    name: Humidity
+    initial: 50
+    min: 0
+    max: 100
+    step: 0.1
 
 input_boolean:
   heater:

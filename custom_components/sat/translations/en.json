@@ -53,6 +53,7 @@
         "title": "Configure sensors",
         "description": "Please select the sensors that will be used to track the temperature.",
         "data": {
+          "humidity_sensor": "Humidity Sensor",
           "inside_sensor_entity_id": "Inside Sensor Entity",
           "outside_sensor_entity_id": "Outside Sensor Entity"
         }
@@ -174,7 +175,8 @@
       "advanced": {
         "title": "Advanced",
         "data": {
-          "simulation": "Simulation ",
+          "simulation": "Simulation",
+          "thermal_comfort": "Thermal Comfort",
           "climate_valve_offset": "Climate valve offset",
           "target_temperature_step": "Target Temperature Step",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",

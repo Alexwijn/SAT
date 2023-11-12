@@ -31,12 +31,13 @@ from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PER
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF
+from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, UnitOfTemperature
 from homeassistant.core import HomeAssistant, ServiceCall, Event
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util.unit_conversion import TemperatureConverter
 
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
@@ -86,16 +87,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Create dictionary mapping preset keys to temperature values
         self._presets = {key: config_entry.data[value] for key, value in conf_presets.items() if value in config_entry.data}
 
-        # Get inside sensor entity ID
+        # Get some sensor entity IDs
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
+        self.humidity_sensor_entity_id = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
 
-        # Get inside sensor entity state
+        # Get some sensor entity states
         inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
+        humidity_sensor_entity = coordinator.hass.states.get(self.humidity_sensor_entity_id) if self.humidity_sensor_entity_id is not None else None
 
         # Get current temperature
         self._current_temperature = None
         if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             self._current_temperature = float(inside_sensor_entity.state)
+
+        # Get current temperature
+        self._current_humidity = None
+        if humidity_sensor_entity is not None and humidity_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            self._current_humidity = float(humidity_sensor_entity.state)
 
         # Get outside sensor entity IDs
         self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
@@ -152,6 +160,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._overshoot_protection = bool(config_entry.data.get(CONF_OVERSHOOT_PROTECTION))
 
         # User Configuration
+        self._thermal_comfort = bool(config_options.get(CONF_THERMAL_COMFORT))
         self._climate_valve_offset = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
         self._sync_climates_with_preset = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
@@ -204,6 +213,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self.hass, self.outside_sensor_entities, self._async_outside_entity_changed
             )
         )
+
+        if self.humidity_sensor_entity_id is not None:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [self.humidity_sensor_entity_id], self._async_humidity_sensor_changed
+                )
+            )
 
         self.async_on_remove(
             async_track_state_change_event(
@@ -329,6 +345,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "rooms": self._rooms,
             "setpoint": self._setpoint,
+            "current_humidity": self._current_humidity,
+            "summer_simmer_index:": self.summer_simmer_index,
+            "summer_simmer_perception:": self.summer_simmer_perception,
             "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
             "warming_up_derivative": self._warming_up_derivative,
             "valves_open": self.valves_open,
@@ -340,7 +359,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "relative_modulation_enabled": self.relative_modulation_enabled,
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self.pwm.state,
-            "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle
+            "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
         }
 
     @property
@@ -354,10 +373,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return self._target_temperature
 
     @property
+    def current_humidity(self):
+        """Return the sensor humidity."""
+        return self._current_humidity
+
+    @property
     def error(self):
         """Return the error value."""
         if self._target_temperature is None or self._current_temperature is None:
             return 0
+
+        if self._thermal_comfort and self._current_humidity is not None:
+            return round(self._target_temperature - self.summer_simmer_index, 2)
 
         return round(self._target_temperature - self._current_temperature, 2)
 
@@ -507,6 +534,62 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return self.max_error > DEADBAND and not self.pulse_width_modulation_enabled
 
+    @property
+    def summer_simmer_index(self) -> float | None:
+        """
+        Calculate the Summer Simmer Index.
+
+        The Summer Simmer Index is a measure of heat and humidity.
+
+        Formula: 1.98 * (F - (0.55 - 0.0055 * H) * (F - 58.0)) - 56.83
+        If F < 58, the index is F.
+
+        Returns:
+            float: Summer Simmer Index in Celsius.
+        """
+        # Make sure we have a valid humidity value
+        if self._current_humidity is None:
+            return None
+
+        # Convert temperature to Fahrenheit
+        fahrenheit = TemperatureConverter.convert(
+            self._current_temperature, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
+        )
+
+        # Calculate Summer Simmer Index
+        index = 1.98 * (fahrenheit - (0.55 - 0.0055 * self._current_humidity) * (fahrenheit - 58.0)) - 56.83
+
+        # If the temperature is below 58°F, use the temperature as the index
+        if fahrenheit < 58:
+            index = fahrenheit
+
+        # Convert the result back to Celsius
+        return round(TemperatureConverter.convert(index, UnitOfTemperature.FAHRENHEIT, UnitOfTemperature.CELSIUS), 1)
+
+    @property
+    def summer_simmer_perception(self) -> str:
+        """<http://summersimmer.com/default.asp>."""
+        index = self.summer_simmer_index
+
+        if index < 21.1:
+            return "Cool"
+        elif index < 25.0:
+            return "Slightly Cool"
+        elif index < 28.3:
+            return "Comfortable"
+        elif index < 32.8:
+            return "Slightly Warm"
+        elif index < 37.8:
+            return "Increasing Discomfort"
+        elif index < 44.4:
+            return "Extremely Warm"
+        elif index < 51.7:
+            return "Danger Of Heatstroke"
+        elif index < 65.6:
+            return "Extreme Danger Of Heatstroke"
+        else:
+            return "Circulatory Collapse Imminent"
+
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
         if self.heating_curve.value is None:
@@ -540,6 +623,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if event.data.get("new_state") is None:
             return
 
+        await self.async_control_heating_loop()
+
+    async def _async_humidity_sensor_changed(self, event: Event) -> None:
+        """Handle changes to the inside temperature sensor."""
+        new_state = event.data.get("new_state")
+        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+
+        _LOGGER.debug("Humidity Sensor Changed.")
+        self._current_humidity = float(new_state.state)
+        self.async_write_ha_state()
+
+        await self._async_control_pid()
         await self.async_control_heating_loop()
 
     async def _async_main_climate_changed(self, event: Event) -> None:
