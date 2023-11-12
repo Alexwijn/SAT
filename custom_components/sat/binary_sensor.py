@@ -4,11 +4,14 @@ import logging
 
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.components.climate import HVACAction
+from homeassistant.components.group.binary_sensor import BinarySensorGroup
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE
+from .climate import SatClimate
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS
 from .entity import SatClimateEntity
 from .serial import binary_sensor as serial_binary_sensor
 
@@ -28,6 +31,9 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 
     if coordinator.supports_setpoint_management:
         _async_add_entities([SatControlSetpointSynchroSensor(coordinator, climate, _config_entry)])
+
+    if len(_config_entry.data.get(CONF_WINDOW_SENSORS, [])) > 0:
+        _async_add_entities([SatWindowSensor(coordinator, climate, _config_entry)])
 
     _async_add_entities([SatCentralHeatingSynchroSensor(coordinator, climate, _config_entry)])
 
@@ -93,3 +99,27 @@ class SatCentralHeatingSynchroSensor(SatClimateEntity, BinarySensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-central-heating-synchro"
+
+
+class SatWindowSensor(SatClimateEntity, BinarySensorGroup):
+    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry):
+        super().__init__(coordinator, climate, config_entry)
+
+        self.mode = any
+        self._entity_ids = self._config_entry.data.get(CONF_WINDOW_SENSORS)
+        self._attr_extra_state_attributes = {ATTR_ENTITY_ID: self._entity_ids}
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Smart Autotune Thermostat Window Sensor"
+
+    @property
+    def device_class(self) -> str:
+        """Return the device class."""
+        return BinarySensorDeviceClass.WINDOW
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-window-sensor"

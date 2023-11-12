@@ -9,6 +9,7 @@ from statistics import mean
 from time import monotonic
 from typing import List
 
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
@@ -32,6 +33,7 @@ from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF
 from homeassistant.core import HomeAssistant, ServiceCall, Event
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -140,9 +142,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
 
-        self._window_sensor_id = config_entry.data.get(CONF_WINDOW_SENSOR)
         self._climates = config_entry.data.get(CONF_SECONDARY_CLIMATES) or []
         self._main_climates = config_entry.data.get(CONF_MAIN_CLIMATES) or []
+        self._window_sensors = config_entry.data.get(CONF_WINDOW_SENSORS) or []
 
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
         self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
@@ -215,10 +217,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        if self._window_sensor_id is not None:
+        if len(self._window_sensors) > 0:
+            entities = entity_registry.async_get(self.hass)
+            unique_id = f"{self._config_entry.data.get(CONF_NAME).lower()}-window-sensor"
+
             self.async_on_remove(
                 async_track_state_change_event(
-                    self.hass, [self._window_sensor_id], self._async_window_sensor_changed
+                    self.hass, [entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, unique_id)], self._async_window_sensor_changed
                 )
             )
 
@@ -613,7 +618,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
-        _LOGGER.debug(f"Window Sensor Changed to {new_state.state} ({new_state.entity_id}).")
+        _LOGGER.debug(f"Window Sensor Changed to {new_state.state}.")
 
         if new_state.state == STATE_ON:
             if self.preset_mode == PRESET_ACTIVITY:

@@ -34,7 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 3
+    VERSION = 4
     calibration = None
     overshoot_protection_value = None
 
@@ -401,9 +401,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_general(self, _user_input=None) -> FlowResult:
         if _user_input is not None:
-            if _user_input.get(CONF_WINDOW_SENSOR) is None:
-                self._options[CONF_WINDOW_SENSOR] = None
-
             return await self.update_options(_user_input)
 
         schema = {}
@@ -416,20 +413,21 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=10, max=100, step=1, unit_of_measurement="°C")
         )
 
-        if not options.get(CONF_AUTOMATIC_GAINS):
-            schema[vol.Required(CONF_PROPORTIONAL, default=options.get(CONF_PROPORTIONAL))] = str
-            schema[vol.Required(CONF_INTEGRAL, default=options.get(CONF_INTEGRAL))] = str
-            schema[vol.Required(CONF_DERIVATIVE, default=options.get(CONF_DERIVATIVE))] = str
+        if not options[CONF_AUTOMATIC_GAINS]:
+            schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
+            schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
+            schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
 
         schema[vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=options[CONF_HEATING_CURVE_COEFFICIENT])] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
         )
 
-        if not options.get(CONF_AUTOMATIC_DUTY_CYCLE):
-            schema[vol.Required(CONF_DUTY_CYCLE, default=options.get(CONF_DUTY_CYCLE))] = selector.TimeSelector()
+        if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
+            schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()
 
-        schema[vol.Optional(CONF_WINDOW_SENSOR, default=options.get(CONF_WINDOW_SENSOR))] = selector.EntitySelector(
+        schema[vol.Optional(CONF_WINDOW_SENSORS, default=options[CONF_WINDOW_SENSORS])] = selector.EntitySelector(
             selector.EntitySelectorConfig(
+                multiple=True,
                 domain=BINARY_SENSOR_DOMAIN,
                 device_class=[BinarySensorDeviceClass.DOOR, BinarySensorDeviceClass.WINDOW, BinarySensorDeviceClass.GARAGE_DOOR]
             )
@@ -441,26 +439,26 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
-        defaults = await self.get_options()
+        options = await self.get_options()
         return self.async_show_form(
             step_id="presets",
             data_schema=vol.Schema({
-                vol.Required(CONF_ACTIVITY_TEMPERATURE, default=defaults[CONF_ACTIVITY_TEMPERATURE]): selector.NumberSelector(
+                vol.Required(CONF_ACTIVITY_TEMPERATURE, default=options[CONF_ACTIVITY_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
-                vol.Required(CONF_AWAY_TEMPERATURE, default=defaults[CONF_AWAY_TEMPERATURE]): selector.NumberSelector(
+                vol.Required(CONF_AWAY_TEMPERATURE, default=options[CONF_AWAY_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
-                vol.Required(CONF_SLEEP_TEMPERATURE, default=defaults[CONF_SLEEP_TEMPERATURE]): selector.NumberSelector(
+                vol.Required(CONF_SLEEP_TEMPERATURE, default=options[CONF_SLEEP_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
-                vol.Required(CONF_HOME_TEMPERATURE, default=defaults[CONF_HOME_TEMPERATURE]): selector.NumberSelector(
+                vol.Required(CONF_HOME_TEMPERATURE, default=options[CONF_HOME_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
-                vol.Required(CONF_COMFORT_TEMPERATURE, default=defaults[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
+                vol.Required(CONF_COMFORT_TEMPERATURE, default=options[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
-                vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=defaults[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
+                vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=options[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
             })
         )
 
@@ -473,16 +471,17 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="system_configuration",
             data_schema=vol.Schema({
-                vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options.get(CONF_AUTOMATIC_DUTY_CYCLE)): bool,
-                vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options.get(CONF_SENSOR_MAX_VALUE_AGE)): selector.TimeSelector(),
-                vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options.get(CONF_WINDOW_MINIMUM_OPEN_TIME)): selector.TimeSelector(),
+                vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
+                vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE]): selector.TimeSelector(),
+                vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]): selector.TimeSelector(),
             })
         )
 
     async def async_step_advanced(self, _user_input=None) -> FlowResult:
-        options = await self.get_options()
         if _user_input is not None:
             return await self.update_options(_user_input)
+
+        options = await self.get_options()
 
         schema = {}
         schema[vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION])]: bool
@@ -498,7 +497,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
         )
 
-        schema[vol.Required(CONF_SAMPLE_TIME, default=options.get(CONF_SAMPLE_TIME))] = selector.TimeSelector()
+        schema[vol.Required(CONF_SAMPLE_TIME, default=options[CONF_SAMPLE_TIME])] = selector.TimeSelector()
 
         return self.async_show_form(
             step_id="advanced",
@@ -510,7 +509,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_create_entry(title=self._config_entry.data[CONF_NAME], data=self._options)
 
     async def get_options(self):
-        defaults = OPTIONS_DEFAULTS.copy()
-        defaults.update(self._options)
+        options = OPTIONS_DEFAULTS.copy()
+        options.update(self._options)
 
-        return defaults
+        return options

@@ -35,7 +35,7 @@ CONF_MAXIMUM_SETPOINT = "maximum_setpoint"
 CONF_SECONDARY_CLIMATES = "secondary_climates"
 CONF_MQTT_TOPIC = "mqtt_topic"
 CONF_MAIN_CLIMATES = "main_climates"
-CONF_WINDOW_SENSOR = "window_sensor"
+CONF_WINDOW_SENSORS = "window_sensors"
 CONF_SYNC_WITH_THERMOSTAT = "sync_with_thermostat"
 CONF_WINDOW_MINIMUM_OPEN_TIME = "window_minimum_open_time"
 CONF_SIMULATION = "simulation"
@@ -81,7 +81,7 @@ OPTIONS_DEFAULTS = {
     CONF_SECONDARY_CLIMATES: [],
     CONF_MAIN_CLIMATES: [],
     CONF_SIMULATION: False,
-    CONF_WINDOW_SENSOR: None,
+    CONF_WINDOW_SENSORS: [],
     CONF_SYNC_WITH_THERMOSTAT: False,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 

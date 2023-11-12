@@ -130,6 +130,10 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
                 new_data[CONF_SYNC_WITH_THERMOSTAT] = sync_with_thermostat
                 new_options.pop("sync_with_thermostat")
 
+        if _entry.version < 4:
+            if _entry.data.get("window_sensor") is not None:
+                new_data[CONF_WINDOW_SENSORS] = [_entry.data.get("window_sensor")]
+
         _entry.version = SatFlowHandler.VERSION
         _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)
 
