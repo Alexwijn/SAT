@@ -465,7 +465,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if sensor_state is not None and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                     current_temperature = float(sensor_state.state)
 
-            errors.append(round(target_temperature - current_temperature, 2))
+            # Calculate the error value
+            error = round(target_temperature - current_temperature, 2)
+            _LOGGER.debug(f"{climate}: current: {current_temperature}, target: {target_temperature}, error: {error}")
+
+            # Add to the list so we calculate the max. later
+            errors.append(error)
 
         return errors
 
