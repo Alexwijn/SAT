@@ -143,7 +143,7 @@
           "derivative": "Derivative (kD)",
           "proportional": "Proportional (kP)",
           "maximum_setpoint": "Maximum Setpoint",
-          "window_sensor": "Contact Sensor or group",
+          "window_sensors": "Contact Sensors",
           "heating_curve_coefficient": "Heating Curve Coefficient",
           "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "sync_with_thermostat": "Synchronize setpoint with thermostat"
