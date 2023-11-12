@@ -365,6 +365,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def current_temperature(self):
         """Return the sensor temperature."""
+        if self._thermal_comfort and self._current_humidity is not None:
+            return self.summer_simmer_index
+
         return self._current_temperature
 
     @property
