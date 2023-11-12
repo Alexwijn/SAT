@@ -409,7 +409,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         schema = {}
         options = await self.get_options()
 
-        default_maximum_setpoint = calculate_default_maximum_setpoint(options.get(CONF_HEATING_SYSTEM))
+        default_maximum_setpoint = calculate_default_maximum_setpoint(self._config_entry.data.get(CONF_HEATING_SYSTEM))
         maximum_setpoint = float(options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
         schema[vol.Required(CONF_MAXIMUM_SETPOINT, default=maximum_setpoint)] = selector.NumberSelector(
