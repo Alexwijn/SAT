@@ -348,7 +348,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "rooms": self._rooms,
             "setpoint": self._setpoint,
             "current_humidity": self._current_humidity,
-            "summer_simmer_index": self._calculate_summer_simmer_index(self._current_temperature, self._current_humidity),
+            "summer_simmer_index": self.summer_simmer_index,
+            "summer_simmer_perception": self.summer_simmer_perception,
             "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
             "warming_up_derivative": self._warming_up_derivative,
             "valves_open": self.valves_open,
@@ -367,7 +368,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def current_temperature(self):
         """Return the sensor temperature."""
         if self._thermal_comfort and self._current_humidity is not None:
-            return self._calculate_summer_simmer_index(self._current_temperature, self._current_humidity)
+            return self.summer_simmer_index
 
         return self._current_temperature
 
@@ -458,7 +459,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Calculate temperature difference for this climate
             target_temperature = float(state.attributes.get("temperature"))
-            current_humidity = float(state.attributes.get("current_humidity") or self._current_humidity)
             current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
 
             # Retrieve the overriden sensor temperature if set
@@ -466,10 +466,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 sensor_state = self.hass.states.get(sensor_temperature_id)
                 if sensor_state is not None and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                     current_temperature = float(sensor_state.state)
-
-            # Calculate the summer simmer index based on the climate temperature
-            if self._thermal_comfort and current_humidity is not None:
-                current_temperature = self._calculate_summer_simmer_index(current_temperature, current_humidity)
 
             errors.append(round(target_temperature - current_temperature, 2))
 
@@ -540,8 +536,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return self.max_error > DEADBAND and not self.pulse_width_modulation_enabled
 
-    @staticmethod
-    def _calculate_summer_simmer_index(temperature: float, humidity: float) -> float | None:
+    @property
+    def summer_simmer_index(self) -> float | None:
         """
         Calculate the Summer Simmer Index.
 
@@ -553,17 +549,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         Returns:
             float: Summer Simmer Index in Celsius.
         """
-        # Validate
-        if temperature is None or humidity is None:
+        # Make sure we have a valid humidity value
+        if self._current_humidity is None:
             return None
 
         # Convert temperature to Fahrenheit
         fahrenheit = TemperatureConverter.convert(
-            temperature, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
+            self._current_temperature, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
         )
 
         # Calculate Summer Simmer Index
-        index = 1.98 * (fahrenheit - (0.55 - 0.0055 * humidity) * (fahrenheit - 58.0)) - 56.83
+        index = 1.98 * (fahrenheit - (0.55 - 0.0055 * self._current_humidity) * (fahrenheit - 58.0)) - 56.83
 
         # If the temperature is below 58°F, use the temperature as the index
         if fahrenheit < 58:
@@ -571,6 +567,32 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Convert the result back to Celsius
         return round(TemperatureConverter.convert(index, UnitOfTemperature.FAHRENHEIT, UnitOfTemperature.CELSIUS), 1)
+
+    @property
+    def summer_simmer_perception(self) -> str:
+        """<http://summersimmer.com/default.asp>."""
+        index = self.summer_simmer_index
+
+        if index is None:
+            return "Unknown"
+        elif index < 21.1:
+            return "Cool"
+        elif index < 25.0:
+            return "Slightly Cool"
+        elif index < 28.3:
+            return "Comfortable"
+        elif index < 32.8:
+            return "Slightly Warm"
+        elif index < 37.8:
+            return "Increasing Discomfort"
+        elif index < 44.4:
+            return "Extremely Warm"
+        elif index < 51.7:
+            return "Danger Of Heatstroke"
+        elif index < 65.6:
+            return "Extreme Danger Of Heatstroke"
+        else:
+            return "Circulatory Collapse Imminent"
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
