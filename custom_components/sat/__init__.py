@@ -103,6 +103,8 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
                 new_data[CONF_HEATING_SYSTEM] = HEATING_SYSTEM_RADIATORS
 
             if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
+                new_data[CONF_MAXIMUM_SETPOINT] = 55
+
                 if _entry.options.get("heating_system") == "underfloor":
                     new_data[CONF_MAXIMUM_SETPOINT] = 50
 
