@@ -571,7 +571,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """<http://summersimmer.com/default.asp>."""
         index = self.summer_simmer_index
 
-        if index < 21.1:
+        if index is None:
+            return "Unknown"
+        elif index < 21.1:
             return "Cool"
         elif index < 25.0:
             return "Slightly Cool"
