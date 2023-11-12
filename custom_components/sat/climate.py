@@ -81,12 +81,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
-        # Create dictionary mapping preset keys to temperature options
-        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
-
-        # Create dictionary mapping preset keys to temperature values
-        self._presets = {key: config_entry.data[value] for key, value in conf_presets.items() if value in config_entry.data}
-
         # Get some sensor entity IDs
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
         self.humidity_sensor_entity_id = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
@@ -115,6 +109,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Create config options dictionary with defaults
         config_options = OPTIONS_DEFAULTS.copy()
         config_options.update(config_entry.options)
+
+        # Create dictionary mapping preset keys to temperature options
+        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
+
+        # Create dictionary mapping preset keys to temperature values
+        self._presets = {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
 
         # Create PID controller with given configuration options
         self.pid = create_pid_controller(config_options)
@@ -145,6 +145,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
         self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+
+        _LOGGER.debug(self._attr_preset_modes)
 
         # System Configuration
         self._attr_name = str(config_entry.data.get(CONF_NAME))
