@@ -146,8 +146,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
 
-        _LOGGER.debug(self._attr_preset_modes)
-
         # System Configuration
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
