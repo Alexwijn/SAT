@@ -36,7 +36,7 @@ class HeatingCurve:
             return
 
         coefficient = self.calculate_coefficient(setpoint, target_temperature, outside_temperature)
-        self._coefficient_derivative = round(coefficient - self._optimal_coefficient, 1)
+        self._coefficient_derivative = round(coefficient - self._optimal_coefficient, 1) if self._optimal_coefficient else coefficient
 
         # Fuzzy logic for when the derivative is positive
         if self._coefficient_derivative > 1:
