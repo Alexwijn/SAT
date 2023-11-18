@@ -293,7 +293,7 @@ class PID:
         derivative = self.kd * self._raw_derivative
         output = self._last_heating_curve_value + self.proportional + self.integral
 
-        if abs(derivative) <= 0 or abs(self._last_boiler_temperature - output) < 3:
+        if derivative <= 0 or abs(self._last_boiler_temperature - output) < 3:
             return 0
 
         return round(derivative, 3)
