@@ -43,6 +43,7 @@ class PID:
         self._last_error = 0.0
         self._time_elapsed = 0
         self._last_updated = monotonic()
+        self._last_boiler_temperature = 0
         self._last_heating_curve_value = 0
 
         # Reset the integral and derivative
@@ -53,11 +54,12 @@ class PID:
         self._times = deque(maxlen=self._history_size)
         self._errors = deque(maxlen=self._history_size)
 
-    def update(self, error: float, heating_curve_value: float) -> None:
+    def update(self, error: float, heating_curve_value: float, boiler_temperature: float) -> None:
         """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.
 
         :param error: The max error between all the target temperatures and the current temperatures.
         :param heating_curve_value: The current heating curve value.
+        :param boiler_temperature: The current boiler temperature.
         """
         current_time = monotonic()
         time_elapsed = current_time - self._last_updated
@@ -76,6 +78,7 @@ class PID:
         self._time_elapsed = time_elapsed
 
         self._last_error = error
+        self._last_boiler_temperature = boiler_temperature
         self._last_heating_curve_value = heating_curve_value
 
     def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
@@ -287,7 +290,13 @@ class PID:
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
-        return round(self.kd * self._raw_derivative, 3)
+        derivative = self.kd * self._raw_derivative
+        output = self._last_heating_curve_value + self.proportional + self.integral
+
+        if abs(derivative) <= 0 or abs(self._last_boiler_temperature - output) < 3:
+            return 0
+
+        return round(derivative, 3)
 
     @property
     def raw_derivative(self) -> float:

@@ -792,8 +792,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 _LOGGER.info("Reached deadband, turning off warming up.")
                 self._warming_up_data = None
 
-            # Update the pid controller
-            self.pid.update(error=max_error, heating_curve_value=self.heating_curve.value)
+            self.pid.update(
+                error=max_error,
+                heating_curve_value=self.heating_curve.value,
+                boiler_temperature=self.coordinator.boiler_temperature or 0
+            )
         elif max_error != self.pid.last_error:
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
