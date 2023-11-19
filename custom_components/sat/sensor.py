@@ -45,7 +45,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     if coordinator.supports_relative_modulation_management:
         _async_add_entities([SatCurrentPowerSensor(coordinator, _config_entry)])
 
-        if _config_entry.options.get(CONF_MINIMUM_CONSUMPTION) > 0 and _config_entry.options.get(CONF_MAXIMUM_CONSUMPTION) > 0:
+        if float(_config_entry.options.get(CONF_MINIMUM_CONSUMPTION) or 0) > 0 and float(_config_entry.options.get(CONF_MAXIMUM_CONSUMPTION) or 0) > 0:
             _async_add_entities([SatCurrentConsumptionSensor(coordinator, _config_entry)])
 
 
