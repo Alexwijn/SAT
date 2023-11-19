@@ -273,7 +273,7 @@ class PID:
             if self._last_heating_curve_value is None:
                 return 0
 
-            return round(self._last_heating_curve_value * 2720, 6)
+            return round(self._last_heating_curve_value * 2980, 6)
 
         return float(self._kd)
 
