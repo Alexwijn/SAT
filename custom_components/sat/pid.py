@@ -43,8 +43,8 @@ class PID:
         self._last_error = 0.0
         self._time_elapsed = 0
         self._last_updated = monotonic()
-        self._last_boiler_temperature = 0
         self._last_heating_curve_value = 0
+        self._last_boiler_temperature = None
 
         # Reset the integral and derivative
         self._integral = 0.0
@@ -293,7 +293,7 @@ class PID:
         derivative = self.kd * self._raw_derivative
         output = self._last_heating_curve_value + self.proportional + self.integral
 
-        if abs(derivative) > 0 and abs(self._last_boiler_temperature - output) < 3:
+        if self._last_boiler_temperature is not None and abs(derivative) > 0 and abs(self._last_boiler_temperature - output) < 3:
             return 0
 
         return round(derivative, 3)
