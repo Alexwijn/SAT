@@ -25,6 +25,7 @@ DATA_BOILER_TEMPERATURE = "Tboiler"
 DATA_CENTRAL_HEATING = "centralheating"
 DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
 DATA_REL_MIN_MOD_LEVEL = "MaxCapacityMinModLevel_lb_u8"
+DATA_REL_MIN_MOD_LEVELL = "MaxCapacityMinModLevell_lb_u8"
 DATA_DHW_SETPOINT_MINIMUM = "TdhwSetUBTdhwSetLB_value_lb"
 DATA_DHW_SETPOINT_MAXIMUM = "TdhwSetUBTdhwSetLB_value_hb"
 
@@ -140,6 +141,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         if (value := self.data.get(DATA_REL_MIN_MOD_LEVEL)) is not None:
             return float(value)
 
+        # Legacy
+        if (value := self.data.get(DATA_REL_MIN_MOD_LEVELL)) is not None:
+            return float(value)
+
         return super().boiler_capacity
 
     async def async_added_to_hass(self, climate: SatClimate) -> None:
@@ -158,6 +163,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
             self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE),
             self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_CAPACITY),
             self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL),
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
         ]))
