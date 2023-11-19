@@ -4,6 +4,7 @@ import logging
 import typing
 
 from homeassistant.components import mqtt
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
@@ -75,15 +76,15 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     @property
     def device_active(self) -> bool:
-        return bool(self.data.get(DATA_CENTRAL_HEATING))
+        return self.data.get(DATA_CENTRAL_HEATING) == DeviceState.ON
 
     @property
     def flame_active(self) -> bool:
-        return bool(self.data.get(DATA_FLAME_ACTIVE))
+        return bool(self.data.get(DATA_FLAME_ACTIVE)) == DeviceState.ON
 
     @property
     def hot_water_active(self) -> bool:
-        return bool(self.data.get(DATA_DHW_ENABLE))
+        return bool(self.data.get(DATA_DHW_ENABLE)) == DeviceState.ON
 
     @property
     def setpoint(self) -> float | None:
@@ -147,17 +148,18 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         await self._send_command("PM=48")
 
         entities = list(filter(lambda entity: entity is not None, [
-            self._get_entity_id(DATA_FLAME_ACTIVE),
-            self._get_entity_id(DATA_DHW_SETPOINT),
-            self._get_entity_id(DATA_CONTROL_SETPOINT),
-            self._get_entity_id(DATA_DHW_ENABLE),
-            self._get_entity_id(DATA_REL_MOD_LEVEL),
-            self._get_entity_id(DATA_BOILER_TEMPERATURE),
-            self._get_entity_id(DATA_CENTRAL_HEATING),
-            self._get_entity_id(DATA_BOILER_CAPACITY),
-            self._get_entity_id(DATA_REL_MIN_MOD_LEVEL),
-            self._get_entity_id(DATA_DHW_SETPOINT_MINIMUM),
-            self._get_entity_id(DATA_DHW_SETPOINT_MAXIMUM),
+            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_CENTRAL_HEATING),
+            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE),
+            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_DHW_ENABLE),
+
+            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_CONTROL_SETPOINT),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_CAPACITY),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
         ]))
 
         for entity_id in entities:
@@ -201,8 +203,8 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_max_setpoint(value)
 
-    def _get_entity_id(self, key: str):
-        return self._entity_registry.async_get_entity_id(SENSOR_DOMAIN, MQTT_DOMAIN, f"{self._node_id}-{key}")
+    def _get_entity_id(self, domain: str, key: str):
+        return self._entity_registry.async_get_entity_id(domain, MQTT_DOMAIN, f"{self._node_id}-{key}")
 
     async def _on_state_change(self, entity_id: str, state: State):
         key = entity_id_to_opentherm_key(self.hass, self._node_id, entity_id)
