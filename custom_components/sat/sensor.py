@@ -5,12 +5,12 @@ import typing
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTemperature
+from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume
 from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, MODE_SIMULATOR
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, MODE_SIMULATOR, CONF_MINIMUM_CONSUMPTION, CONF_MAXIMUM_CONSUMPTION
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .serial import sensor as serial_sensor
@@ -45,6 +45,9 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     if coordinator.supports_relative_modulation_management:
         _async_add_entities([SatCurrentPowerSensor(coordinator, _config_entry)])
 
+        if _config_entry.options.get(CONF_MINIMUM_CONSUMPTION) > 0 and _config_entry.options.get(CONF_MAXIMUM_CONSUMPTION) > 0:
+            _async_add_entities([SatCurrentConsumptionSensor(coordinator, _config_entry)])
+
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
@@ -65,35 +68,71 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
+        return self._coordinator.boiler_power is not None
+
+    @property
+    def native_value(self) -> float:
+        """Return the state of the device in native units.
+
+        In this case, the state represents the current power of the boiler in kW.
+        """
+        return self._coordinator.boiler_power
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-power"
+
+
+class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
+
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
+        super().__init__(coordinator, config_entry)
+
+        self._minimum_consumption = self._config_entry.options.get(CONF_MINIMUM_CONSUMPTION)
+        self._maximum_consumption = self._config_entry.options.get(CONF_MAXIMUM_CONSUMPTION)
+
+    @property
+    def name(self) -> str:
+        return f"Boiler Current Consumption {self._config_entry.data.get(CONF_NAME)} (Boiler)"
+
+    @property
+    def device_class(self):
+        """Return the device class."""
+        return SensorDeviceClass.GAS
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return UnitOfVolume.CUBIC_METERS
+
+    @property
+    def available(self):
+        """Return availability of the sensor."""
         return self._coordinator.relative_modulation_value is not None
 
     @property
     def native_value(self) -> float:
         """Return the state of the device in native units.
 
-        In this case, the state represents the current capacity of the boiler in kW.
+        In this case, the state represents the current consumption of the boiler in m³/h.
         """
-        # If the flame is off, return 0 kW
+
+        if self._coordinator.device_active is False:
+            return 0
+
         if self._coordinator.flame_active is False:
-            return 0
+            return self._minimum_consumption
 
-        # Get the relative modulation level from the data
-        relative_modulation = self._coordinator.relative_modulation_value
+        gas_consumption_per_percentage = (self._maximum_consumption - self._minimum_consumption) / 100
+        relative_modulation_value = self._coordinator.relative_modulation_value
 
-        # Get the boiler capacity from the data
-        if (boiler_capacity := self._coordinator.boiler_capacity) == 0:
-            return 0
-
-        # Get and calculate the minimum capacity from the data
-        minimum_capacity = boiler_capacity / (100 / self._coordinator.minimum_relative_modulation_value)
-
-        # Calculate and return the current capacity in kW
-        return minimum_capacity + (((boiler_capacity - minimum_capacity) / 100) * relative_modulation)
+        return round(relative_modulation_value * gas_consumption_per_percentage, 3)
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-power"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-consumption"
 
 
 class SatHeatingCurveSensor(SatEntity, SensorEntity):

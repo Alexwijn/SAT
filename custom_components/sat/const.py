@@ -60,6 +60,9 @@ CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
+CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
+CONF_MAXIMUM_CONSUMPTION = "maximum_consumption"
+
 CONF_AWAY_TEMPERATURE = "away_temperature"
 CONF_HOME_TEMPERATURE = "home_temperature"
 CONF_SLEEP_TEMPERATURE = "sleep_temperature"
@@ -94,6 +97,9 @@ OPTIONS_DEFAULTS = {
 
     CONF_MINIMUM_SETPOINT: 10,
     CONF_FORCE_PULSE_WIDTH_MODULATION: False,
+
+    CONF_MINIMUM_CONSUMPTION: 0,
+    CONF_MAXIMUM_CONSUMPTION: 0,
 
     CONF_MQTT_TOPIC: "OTGW",
     CONF_DUTY_CYCLE: "00:13:00",

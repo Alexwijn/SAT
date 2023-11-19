@@ -896,21 +896,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control the integral (if exceeded the time limit)
         self.pid.update_integral(self.max_error, self.heating_curve.value)
 
-        if self._coordinator.device_state == DeviceState.ON:
-            # If the setpoint is too low or the valves are closed or HVAC is off, turn off the heater
-            if self._setpoint <= MINIMUM_SETPOINT or not self.valves_open or self.hvac_mode == HVACMode.OFF:
-                await self._coordinator.async_set_heater_state(DeviceState.OFF)
-            else:
-                await self._coordinator.async_set_heater_state(DeviceState.ON)
-
-        if self._coordinator.device_state == DeviceState.OFF:
-            # If the setpoint is high and the valves are open and the HVAC is not off, turn on the heater
-            if self._setpoint > MINIMUM_SETPOINT and self.valves_open and self.hvac_mode != HVACMode.OFF:
-                await self._coordinator.async_set_heater_state(DeviceState.ON)
-            else:
-                await self._coordinator.async_set_heater_state(DeviceState.OFF)
+        # If the setpoint is high and the HVAC is not off, turn on the heater
+        if self._setpoint > MINIMUM_SETPOINT and self.hvac_mode != HVACMode.OFF:
+            await self.async_set_heater_state(DeviceState.ON)
+        else:
+            await self.async_set_heater_state(DeviceState.OFF)
 
         self.async_write_ha_state()
+
+    async def async_set_heater_state(self, state: DeviceState):
+        if state == DeviceState.ON and not self.valves_open:
+            _LOGGER.warning('No valves are open at the moment.')
+            return await self._coordinator.async_set_heater_state(DeviceState.OFF)
+
+        return await self._coordinator.async_set_heater_state(state)
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set the target temperature."""

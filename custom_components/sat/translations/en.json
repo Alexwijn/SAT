@@ -177,6 +177,8 @@
         "data": {
           "simulation": "Simulation",
           "thermal_comfort": "Thermal Comfort",
+          "minimum_consumption": "Minimum Consumption",
+          "maximum_consumption": "Maximum Consumption",
           "climate_valve_offset": "Climate valve offset",
           "target_temperature_step": "Target Temperature Step",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",

@@ -13,7 +13,7 @@ homeassistant:
 climate:
   - platform: generic_thermostat
     name: Fake Thermostat
-    heater: switch.fake_thermostat
+    heater: input_boolean.fake_thermostat
     target_sensor: sensor.current_temperature
 
 switch:

@@ -108,6 +108,35 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
+    def minimum_boiler_capacity(self) -> float | None:
+        if (minimum_relative_modulation_value := self.minimum_relative_modulation_value) is None:
+            return None
+
+        if (boiler_capacity := self.boiler_capacity) is None:
+            return None
+
+        if boiler_capacity == 0:
+            return 0
+
+        return boiler_capacity / (100 / minimum_relative_modulation_value)
+
+    @property
+    def boiler_power(self) -> float | None:
+        if (boiler_capacity := self.boiler_capacity) is None:
+            return None
+
+        if (minimum_boiler_capacity := self.minimum_boiler_capacity) is None:
+            return None
+
+        if (relative_modulation_value := self.relative_modulation_value) is None:
+            return None
+
+        if self.flame_active is False:
+            return 0
+
+        return ((boiler_capacity - minimum_boiler_capacity) / 100) * relative_modulation_value
+
+    @property
     def minimum_relative_modulation_value(self) -> float | None:
         return None
 
