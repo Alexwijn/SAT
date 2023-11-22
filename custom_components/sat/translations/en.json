@@ -145,6 +145,7 @@
           "proportional": "Proportional (kP)",
           "maximum_setpoint": "Maximum Setpoint",
           "window_sensors": "Contact Sensors",
+          "automatic_gains_value": "Automatic Gains Value",
           "heating_curve_coefficient": "Heating Curve Coefficient",
           "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "sync_with_thermostat": "Synchronize setpoint with thermostat"

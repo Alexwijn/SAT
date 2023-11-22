@@ -47,11 +47,21 @@ def create_pid_controller(config_options) -> PID:
     kp = float(config_options.get(CONF_PROPORTIONAL))
     ki = float(config_options.get(CONF_INTEGRAL))
     kd = float(config_options.get(CONF_DERIVATIVE))
+
+    heating_system = config_options.get(CONF_HEATING_SYSTEM)
     automatic_gains = bool(config_options.get(CONF_AUTOMATIC_GAINS))
+    automatic_gains_value = float(config_options.get(CONF_AUTOMATIC_GAINS_VALUE))
     sample_time_limit = convert_time_str_to_seconds(config_options.get(CONF_SAMPLE_TIME))
 
     # Return a new PID controller instance with the given configuration options
-    return PID(kp=kp, ki=ki, kd=kd, automatic_gains=automatic_gains, sample_time_limit=sample_time_limit)
+    return PID(
+        heating_system=heating_system,
+        automatic_gain_value=automatic_gains_value,
+
+        kp=kp, ki=ki, kd=kd,
+        automatic_gains=automatic_gains,
+        sample_time_limit=sample_time_limit
+    )
 
 
 def create_heating_curve_controller(config_data, config_options) -> HeatingCurve:

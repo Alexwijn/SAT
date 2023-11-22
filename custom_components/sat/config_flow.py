@@ -428,6 +428,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
         )
 
+        schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
+            selector.NumberSelectorConfig(min=1, max=5, step=1)
+        )
+
         if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
             schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()
 

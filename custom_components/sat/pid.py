@@ -10,7 +10,9 @@ from .const import *
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, kp: float, ki: float, kd: float,
+    def __init__(self,
+                 heating_system: str, automatic_gain_value: float,
+                 kp: float, ki: float, kd: float,
                  max_history: int = 2,
                  deadband: float = DEADBAND,
                  automatic_gains: bool = False,
@@ -19,6 +21,8 @@ class PID:
         """
         Initialize the PID controller.
 
+        :param heating_system: The type of heating system, either "underfloor" or "radiator"
+        :param automatic_gain_value: The value to finetune the aggression value.
         :param kp: The proportional gain of the PID controller.
         :param ki: The integral gain of the PID controller.
         :param kd: The derivative gain of the PID controller.
@@ -32,7 +36,9 @@ class PID:
         self._kd = kd
         self._deadband = deadband
         self._history_size = max_history
+        self._heating_system = heating_system
         self._automatic_gains = automatic_gains
+        self._automatic_gains_value = automatic_gain_value
         self._last_interval_updated = monotonic()
         self._sample_time_limit = max(sample_time_limit, 1)
         self._integral_time_limit = max(integral_time_limit, 1)
@@ -248,7 +254,8 @@ class PID:
     def kp(self) -> float | None:
         """Return the value of kp based on the current configuration."""
         if self._automatic_gains:
-            return round(self._last_heating_curve_value * 1.65, 6)
+            automatic_gain_value = 0.243 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 0.33
+            return round(self._automatic_gains_value * automatic_gain_value * self._last_heating_curve_value, 6)
 
         return float(self._kp)
 
@@ -273,7 +280,8 @@ class PID:
             if self._last_heating_curve_value is None:
                 return 0
 
-            return round(self._last_heating_curve_value * 2980, 6)
+            aggression_value = 438.2 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 596
+            return round(self._automatic_gains_value * aggression_value * self._last_heating_curve_value, 6)
 
         return float(self._kd)
 
