@@ -630,6 +630,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if event.data.get("new_state") is None:
             return
 
+        await self._async_control_pid()
         await self.async_control_heating_loop()
 
     async def _async_humidity_sensor_changed(self, event: Event) -> None:
