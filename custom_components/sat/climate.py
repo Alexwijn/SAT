@@ -630,6 +630,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if event.data.get("new_state") is None:
             return
 
+        _LOGGER.debug("Outside Sensor Changed.")
+        self.async_write_ha_state()
+
         await self._async_control_pid()
         await self.async_control_heating_loop()
 
