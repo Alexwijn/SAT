@@ -1,10 +1,16 @@
+import logging
 from collections import deque
+from datetime import datetime, timedelta
 from time import monotonic
 from typing import Optional
 
 from homeassistant.core import State
 
 from .const import *
+
+_LOGGER = logging.getLogger(__name__)
+
+MAX_BOILER_TEMPERATURE_AGE = 300
 
 
 class PID:
@@ -57,6 +63,7 @@ class PID:
         self._raw_derivative = 0.0
 
         # Reset all lists
+        self._boiler_temperatures = []
         self._times = deque(maxlen=self._history_size)
         self._errors = deque(maxlen=self._history_size)
 
@@ -77,6 +84,7 @@ class PID:
             return
 
         self.update_integral(error, heating_curve_value, True)
+        self.update_boiler_temperature(boiler_temperature)
         self.update_derivative(error)
         self.update_history_size()
 
@@ -84,7 +92,6 @@ class PID:
         self._time_elapsed = time_elapsed
 
         self._last_error = error
-        self._last_boiler_temperature = boiler_temperature
         self._last_heating_curve_value = heating_curve_value
 
     def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
@@ -335,3 +342,26 @@ class PID:
     def history_size(self) -> int:
         """Return the number of values that we store."""
         return int(self._history_size)
+
+    def update_boiler_temperature(self, boiler_temperature: float):
+        current_time = datetime.now()
+
+        # Make sure we have valid value
+        if boiler_temperature is not None:
+            self._boiler_temperatures.append((current_time, boiler_temperature))
+
+        # Clear up any values that are older than the specified age
+        while self._boiler_temperatures and current_time - self._boiler_temperatures[0][0] > timedelta(seconds=MAX_BOILER_TEMPERATURE_AGE):
+            self._boiler_temperatures.pop()
+
+        # Not able to use if we do not have at least 2 values
+        if len(self._boiler_temperatures) < 2:
+            return
+
+        # Some noise filtering on the boiler temperature
+        difference_boiler_temperature_sum = sum(
+            abs(j[1] - i[1]) for i, j in zip(self._boiler_temperatures, self._boiler_temperatures[1:])
+        )
+
+        # Store it for later use
+        self._last_boiler_temperature = round(difference_boiler_temperature_sum / (len(self._boiler_temperatures) - 1), 2)
