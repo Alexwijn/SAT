@@ -53,7 +53,7 @@
         "title": "Configure sensors",
         "description": "Please select the sensors that will be used to track the temperature.",
         "data": {
-          "humidity_sensor": "Humidity Sensor",
+          "humidity_sensor_entity_id": "Humidity Sensor",
           "inside_sensor_entity_id": "Inside Sensor Entity",
           "outside_sensor_entity_id": "Outside Sensor Entity"
         }
