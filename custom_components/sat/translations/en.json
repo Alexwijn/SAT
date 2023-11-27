@@ -155,7 +155,6 @@
           "derivative": "The derivative term (kD) in the PID controller, responsible for mitigating overshooting.",
           "proportional": "The proportional term (kP) in the PID controller, responsible for the immediate response to errors.",
           "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
-          "overdrive_setpoint": "The temperature for overdrive mode, used when a room needs to warm up quickly.",
           "window_sensors": "Contact Sensors that trigger the system to react when a window or door is open for a period of time.",
           "automatic_gains_value": "The value used for automatic gains in the PID controller.",
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
