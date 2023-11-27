@@ -58,7 +58,7 @@ class PWM:
             return
 
         elapsed = monotonic() - self._last_update
-        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler_temperature + 1)
+        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler_temperature or 1)
 
         if self._duty_cycle is None:
             self._state = PWMState.IDLE
