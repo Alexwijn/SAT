@@ -34,7 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 4
+    VERSION = 5
     calibration = None
     overshoot_protection_value = None
 

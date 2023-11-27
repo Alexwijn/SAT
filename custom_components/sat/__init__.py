@@ -133,6 +133,12 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
         if _entry.version < 4:
             if _entry.data.get("window_sensor") is not None:
                 new_data[CONF_WINDOW_SENSORS] = [_entry.data.get("window_sensor")]
+                del new_options["window_sensor"]
+
+        if _entry.version < 5:
+            if _entry.options.get("overshoot_protection") is not None:
+                new_data[CONF_OVERSHOOT_PROTECTION] = _entry.options.get("overshoot_protection")
+                del new_options["overshoot_protection"]
 
         _entry.version = SatFlowHandler.VERSION
         _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)
