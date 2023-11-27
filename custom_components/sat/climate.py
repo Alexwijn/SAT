@@ -469,7 +469,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             error = round(target_temperature - current_temperature, 2)
             _LOGGER.debug(f"{climate}: current: {current_temperature}, target: {target_temperature}, error: {error}")
 
-            # Add to the list so we calculate the max. later
+            # Add to the list, so we calculate the max. later
             errors.append(error)
 
         return errors
@@ -890,7 +890,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self.requested_setpoint, self._coordinator.minimum_setpoint)
+            await self.pwm.update(self.requested_setpoint, self._coordinator.minimum_setpoint, self._coordinator.boiler_temperature)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)

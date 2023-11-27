@@ -43,7 +43,7 @@ class PWM:
         self._state = PWMState.IDLE
         self._last_update = monotonic()
 
-    async def update(self, requested_setpoint: float, minimum_setpoint: float) -> None:
+    async def update(self, requested_setpoint: float, minimum_setpoint: float, boiler_temperature: float) -> None:
         """Update the PWM state based on the output of a PID controller."""
         if not self._heating_curve.value:
             self._state = PWMState.IDLE
@@ -58,7 +58,7 @@ class PWM:
             return
 
         elapsed = monotonic() - self._last_update
-        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, minimum_setpoint)
+        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler_temperature + 1)
 
         if self._duty_cycle is None:
             self._state = PWMState.IDLE
