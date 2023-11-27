@@ -17,7 +17,7 @@ from homeassistant.config_entries import ConfigEntry, SOURCE_USER
 from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import selector, device_registry
+from homeassistant.helpers import selector, device_registry, entity_registry
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
 from pyotgw import OpenThermGateway
 
@@ -435,10 +435,15 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
             schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()
 
+        entities = entity_registry.async_get(self.hass)
+        device_name = self._config_entry.data.get(CONF_NAME)
+        window_id = entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, f"{device_name.lower()}-window-sensor")
+
         schema[vol.Optional(CONF_WINDOW_SENSORS, default=options[CONF_WINDOW_SENSORS])] = selector.EntitySelector(
             selector.EntitySelectorConfig(
                 multiple=True,
                 domain=BINARY_SENSOR_DOMAIN,
+                exclude_entities=[window_id] if window_id else [],
                 device_class=[BinarySensorDeviceClass.DOOR, BinarySensorDeviceClass.WINDOW, BinarySensorDeviceClass.GARAGE_DOOR]
             )
         )
