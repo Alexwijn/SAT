@@ -149,6 +149,18 @@
           "heating_curve_coefficient": "Heating Curve Coefficient",
           "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "sync_with_thermostat": "Synchronize setpoint with thermostat"
+        },
+        "data_description": {
+          "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
+          "derivative": "The derivative term (kD) in the PID controller, responsible for mitigating overshooting.",
+          "proportional": "The proportional term (kP) in the PID controller, responsible for the immediate response to errors.",
+          "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
+          "overdrive_setpoint": "The temperature for overdrive mode, used when a room needs to warm up quickly.",
+          "window_sensors": "Contact Sensors that trigger the system to react when a window or door is open for a period of time.",
+          "automatic_gains_value": "The value used for automatic gains in the PID controller.",
+          "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
+          "duty_cycle": "The maximum duty cycle for Pulse Width Modulation (PWM), controlling the boiler's on-off cycles.",
+          "sync_with_thermostat": "Synchronize setpoint with thermostat to ensure coordinated temperature control."
         }
       },
       "presets": {
@@ -169,21 +181,37 @@
         "data": {
           "automatic_duty_cycle": "Automatic duty cycle",
           "overshoot_protection": "Overshoot Protection (with PWM)",
-          "window_minimum_open_time": "Minimum time for window to be open before reacting",
-          "sensor_max_value_age": "Temperature Sensor maximum value age (before considering stall)"
+          "window_minimum_open_time": "Minimum time for window to be open",
+          "sensor_max_value_age": "Temperature Sensor maximum value age"
+        },
+        "data_description": {
+          "automatic_duty_cycle": "Enable or disable automatic duty cycle for Pulse Width Modulation (PWM).",
+          "overshoot_protection": "Enable overshoot protection with Pulse Width Modulation (PWM) to prevent boiler temperature overshooting.",
+          "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
+          "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall."
         }
       },
       "advanced": {
         "title": "Advanced",
         "data": {
           "simulation": "Simulation",
+          "sample_time": "Sample Time",
           "thermal_comfort": "Thermal Comfort",
           "minimum_consumption": "Minimum Consumption",
           "maximum_consumption": "Maximum Consumption",
           "climate_valve_offset": "Climate valve offset",
           "target_temperature_step": "Target Temperature Step",
-          "force_pulse_width_modulation": "Force Pulse Width Modulation",
-          "sample_time": "Minimum time interval between updates to the PID controller"
+          "force_pulse_width_modulation": "Force Pulse Width Modulation"
+        },
+        "data_description": {
+          "simulation": "Enable simulation mode to prevent sending commands to the boiler.",
+          "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment.",
+          "minimum_consumption": "The minimum gas consumption when the boiler is active.",
+          "maximum_consumption": "The maximum gas consumption when the boiler is active.",
+          "climate_valve_offset": "Offset to adjust the opening degree of the climate valve.",
+          "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
+          "force_pulse_width_modulation": "Force the use of Pulse Width Modulation (PWM) for boiler control.",
+          "sample_time": "The minimum time interval between updates to the PID controller."
         }
       }
     }
