@@ -103,9 +103,10 @@ class OvershootProtection:
         while True:
             actual_temp = float(self._coordinator.boiler_temperature)
 
-            temps.append(actual_temp)
-            average_temp = sum(temps) / 50
+            if self._coordinator.flame_active:
+                temps.append(actual_temp)
 
+            average_temp = sum(temps) / 50
             if previous_average_temp is not None:
                 if abs(actual_temp - previous_average_temp) <= DEADBAND:
                     _LOGGER.info("Stable temperature reached: %s", actual_temp)
