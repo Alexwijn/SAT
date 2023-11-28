@@ -33,7 +33,7 @@ class OvershootProtection:
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
             supports_relative_modulation_management = self._coordinator.supports_relative_modulation_management
-            if float(self._coordinator.relative_modulation_value) > 0:
+            if float(self._coordinator.relative_modulation_value) == 0:
                 supports_relative_modulation_management = False
 
             # Since the coordinator doesn't support modulation management, so we need to fall back to find it without it
