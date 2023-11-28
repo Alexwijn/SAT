@@ -14,8 +14,8 @@ _LOGGER = logging.getLogger(__name__)
 OVERSHOOT_PROTECTION_SETPOINT = 75
 OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD = 0.00
 OVERSHOOT_PROTECTION_ERROR_RELATIVE_MOD = 0.01
-OVERSHOOT_PROTECTION_TIMEOUT = 7200  # 2 hours in seconds
-OVERSHOOT_PROTECTION_INITIAL_WAIT = 120  # 2 minutes in seconds
+OVERSHOOT_PROTECTION_TIMEOUT = 7200  # Two hours in seconds
+OVERSHOOT_PROTECTION_INITIAL_WAIT = 120  # Two minutes in seconds
 
 
 class OvershootProtection:
@@ -26,12 +26,11 @@ class OvershootProtection:
         _LOGGER.info("Starting calculation")
 
         await self._coordinator.async_set_heater_state(DeviceState.ON)
-        await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
         await self._coordinator.async_set_control_max_relative_modulation(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
 
         try:
             # First wait for a flame
-            await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
+            await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
             # Since the coordinator doesn't support modulation management, so we need to fall back to find it with modulation
             if solution == SOLUTION_AUTOMATIC and not self._coordinator.supports_relative_modulation_management:
@@ -96,6 +95,7 @@ class OvershootProtection:
                 break
 
             _LOGGER.warning("Heating system is not running yet")
+            await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
             await asyncio.sleep(5)
             await self._coordinator.async_control_heating_loop()

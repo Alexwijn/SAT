@@ -203,7 +203,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """
         return False
 
-    async def async_added_to_hass(self, climate: SatClimate) -> None:
+    async def async_added_to_hass(self, climate: SatClimate = None) -> None:
         """Perform setup when the integration is added to Home Assistant."""
         await self.async_set_control_max_setpoint(self.maximum_setpoint)
 

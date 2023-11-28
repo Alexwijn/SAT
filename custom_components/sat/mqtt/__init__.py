@@ -147,7 +147,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         return super().boiler_capacity
 
-    async def async_added_to_hass(self, climate: SatClimate) -> None:
+    async def async_added_to_hass(self, climate: SatClimate = None) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)
 
         await self._send_command("PM=48")
