@@ -37,16 +37,12 @@ class OvershootProtection:
                 _LOGGER.info("Relative modulation management is not supported, switching to with modulation")
 
             if solution == SOLUTION_AUTOMATIC:
-                # First run start_with_modulation for at least 2 minutes
-                start_with_modulation_task = asyncio.create_task(self._calculate_with_modulation())
-                await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
-
-                # Check if relative modulation is zero
+                # Check if relative modulation is zero after the flame is on
                 if float(self._coordinator.relative_modulation_value) == 0:
-                    return await start_with_modulation_task
+                    _LOGGER.info("Relative modulation is zero, starting with modulation")
+                    return await self._calculate_with_zero_modulation()
                 else:
-                    start_with_modulation_task.cancel()
-                    _LOGGER.info("Relative modulation is not zero, switching to with zero modulation")
+                    _LOGGER.info("Relative modulation is not zero, starting with zero modulation")
                     return await self._calculate_with_zero_modulation()
             elif solution == SOLUTION_WITH_MODULATION:
                 return await self._calculate_with_modulation()
