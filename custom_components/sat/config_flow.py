@@ -378,9 +378,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         # Resolve the coordinator by using the factory according to the mode
-        return await SatDataUpdateCoordinatorFactory().resolve(
+        coordinator = await SatDataUpdateCoordinatorFactory().resolve(
             hass=self.hass, config_entry=config, mode=self._data[CONF_MODE], device=self._data[CONF_DEVICE]
         )
+
+        # Make sure the coordinator could set itself up
+        await coordinator.async_added_to_hass()
+
+        return coordinator
 
     async def _enable_overshoot_protection(self, overshoot_protection_value: float):
         self._data[CONF_OVERSHOOT_PROTECTION] = True
