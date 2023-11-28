@@ -123,7 +123,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
 
         # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
+        self.pwm = create_pwm_controller(self.heating_curve, self._coordinator.minimum_setpoint, config_entry.data, config_options)
 
         self._sensors = []
         self._rooms = None
@@ -800,7 +800,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pid.update(
                 error=max_error,
                 heating_curve_value=self.heating_curve.value,
-                boiler_temperature=self._coordinator.boiler_temperature
+                boiler_temperature=self._coordinator.filtered_boiler_temperature
             )
         elif max_error != self.pid.last_error:
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
@@ -891,7 +891,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self.requested_setpoint, self._coordinator.minimum_setpoint, self._coordinator.boiler_temperature)
+            await self.pwm.update(self.requested_setpoint, self._coordinator.boiler_temperature)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)

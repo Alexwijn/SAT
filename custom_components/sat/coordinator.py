@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import typing
 from abc import abstractmethod
+from datetime import datetime, timedelta
 from enum import Enum
 
 from homeassistant.components.climate import HVACMode
@@ -53,6 +54,7 @@ class SatDataUpdateCoordinatorFactory:
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize."""
+        self.boiler_temperatures = []
         self._config_entry = config_entry
         self._device_state = DeviceState.OFF
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
@@ -90,6 +92,20 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def boiler_temperature(self) -> float | None:
         return None
+
+    @property
+    def filtered_boiler_temperature(self) -> float | None:
+        # Not able to use if we do not have at least two values
+        if len(self.boiler_temperatures) < 2:
+            return None
+
+        # Some noise filtering on the boiler temperature
+        difference_boiler_temperature_sum = sum(
+            abs(j[1] - i[1]) for i, j in zip(self.boiler_temperatures, self.boiler_temperatures[1:])
+        )
+
+        # Average it and return it
+        return round(difference_boiler_temperature_sum / (len(self.boiler_temperatures) - 1), 2)
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
@@ -192,7 +208,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         await self.async_set_control_max_setpoint(self.maximum_setpoint)
 
     async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
-        """Run when entity will be removed from hass."""
+        """Run when an entity is removed from hass."""
         pass
 
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
@@ -200,6 +216,16 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if climate is not None and climate.hvac_mode == HVACMode.OFF and self.device_active:
             # Send out a new command to turn off the device
             await self.async_set_heater_state(DeviceState.OFF)
+
+        current_time = datetime.now()
+
+        # Make sure we have valid value
+        if self.boiler_temperature is not None:
+            self.boiler_temperatures.append((current_time, self.boiler_temperature))
+
+        # Clear up any values that are older than the specified age
+        while self.boiler_temperatures and current_time - self.boiler_temperatures[0][0] > timedelta(seconds=MAX_BOILER_TEMPERATURE_AGE):
+            self.boiler_temperatures.pop()
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""

@@ -34,6 +34,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._setpoint = None
         self._maximum_setpoint = None
         self._hot_water_setpoint = None
+        self._boiler_temperature = None
         self._relative_modulation_value = 100
 
         super().__init__(hass, config_entry)
@@ -41,6 +42,10 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
     @property
     def setpoint(self) -> float | None:
         return self._setpoint
+
+    @property
+    def boiler_temperature(self) -> float | None:
+        return self._boiler_temperature
 
     @property
     def device_active(self) -> bool:
@@ -72,6 +77,9 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
             return super().supports_relative_modulation_management
 
         return self.config.supports_relative_modulation_management
+
+    async def async_set_boiler_temperature(self, value: float) -> None:
+        self._boiler_temperature = value
 
     async def async_set_control_setpoint(self, value: float) -> None:
         self._setpoint = value
