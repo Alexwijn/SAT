@@ -12,9 +12,10 @@ SOLUTION_WITH_ZERO_MODULATION = "with_zero_modulation"
 _LOGGER = logging.getLogger(__name__)
 
 OVERSHOOT_PROTECTION_SETPOINT = 75
+OVERSHOOT_PROTECTION_INITIAL_SETPOINT = 40
 OVERSHOOT_PROTECTION_ERROR_RELATIVE_MOD = 0.01
 OVERSHOOT_PROTECTION_TIMEOUT = 7200  # Two hours in seconds
-OVERSHOOT_PROTECTION_INITIAL_WAIT = 120  # Two minutes in seconds
+OVERSHOOT_PROTECTION_INITIAL_WAIT = 300  # Five minutes in seconds
 
 
 class OvershootProtection:
@@ -82,7 +83,7 @@ class OvershootProtection:
             _LOGGER.warning("Timed out waiting for stable temperature")
 
     async def _wait_for_flame(self):
-        initial_setpoint = self._coordinator.boiler_temperature + 10
+        initial_setpoint = max(self._coordinator.boiler_temperature + 10, OVERSHOOT_PROTECTION_INITIAL_SETPOINT)
 
         while True:
             if bool(self._coordinator.flame_active):
