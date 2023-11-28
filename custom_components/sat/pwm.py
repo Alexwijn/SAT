@@ -88,7 +88,7 @@ class PWM:
         base_offset = self._heating_curve.base_offset
         minimum_setpoint = max(minimum_setpoint, boiler_temperature)
 
-        self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset)
+        self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset + 1)
         self._last_duty_cycle_percentage = min(self._last_duty_cycle_percentage, 1)
         self._last_duty_cycle_percentage = max(self._last_duty_cycle_percentage, 0)
 
