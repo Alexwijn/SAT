@@ -212,7 +212,7 @@
           "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
           "force_pulse_width_modulation": "Force the use of Pulse Width Modulation (PWM) for boiler control.",
           "sample_time": "The minimum time interval between updates to the PID controller.",
-          "maximum_relative_modulation": "The maximum relative modulation value, representing the highest modulation level for a efficient heating system."
+          "maximum_relative_modulation": "Representing the highest modulation level for an efficient heating system."
         }
       }
     }
