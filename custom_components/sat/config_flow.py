@@ -296,6 +296,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 overshoot_protection = OvershootProtection(coordinator)
                 self.overshoot_protection_value = await overshoot_protection.calculate()
+            except asyncio.TimeoutError:
+                _LOGGER.warning("Calibration time-out.")
+                return False
             except asyncio.CancelledError:
                 _LOGGER.warning("Cancelled calibration.")
                 return False
