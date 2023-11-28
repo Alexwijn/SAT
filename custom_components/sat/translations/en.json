@@ -200,6 +200,7 @@
           "maximum_consumption": "Maximum Consumption",
           "climate_valve_offset": "Climate valve offset",
           "target_temperature_step": "Target Temperature Step",
+          "maximum_relative_modulation": "Maximum Relative Modulation",
           "force_pulse_width_modulation": "Force Pulse Width Modulation"
         },
         "data_description": {
@@ -210,7 +211,8 @@
           "climate_valve_offset": "Offset to adjust the opening degree of the climate valve.",
           "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
           "force_pulse_width_modulation": "Force the use of Pulse Width Modulation (PWM) for boiler control.",
-          "sample_time": "The minimum time interval between updates to the PID controller."
+          "sample_time": "The minimum time interval between updates to the PID controller.",
+          "maximum_relative_modulation": "The maximum relative modulation value, representing the highest modulation level for a efficient heating system."
         }
       }
     }

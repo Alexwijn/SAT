@@ -522,6 +522,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
         )
 
+        schema[vol.Required(CONF_MAXIMUM_RELATIVE_MODULATION, default=options[CONF_MAXIMUM_RELATIVE_MODULATION])] = selector.NumberSelector(
+            selector.NumberSelectorConfig(min=0, max=100, step=1)
+        )
+
         schema[vol.Required(CONF_SAMPLE_TIME, default=options[CONF_SAMPLE_TIME])] = selector.TimeSelector()
 
         return self.async_show_form(

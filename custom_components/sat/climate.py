@@ -163,6 +163,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._thermal_comfort = bool(config_options.get(CONF_THERMAL_COMFORT))
         self._climate_valve_offset = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
+        self._maximum_relative_modulation = config_options.get(CONF_MAXIMUM_RELATIVE_MODULATION)
         self._sync_climates_with_preset = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
         self._force_pulse_width_modulation = bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
@@ -836,7 +837,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the relative modulation value based on the conditions"""
         if self._coordinator.supports_relative_modulation_management:
             await self._coordinator.async_set_control_max_relative_modulation(
-                MAXIMUM_RELATIVE_MOD if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
+                self._maximum_relative_modulation if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
             )
 
     async def _async_update_rooms_from_climates(self) -> None:
