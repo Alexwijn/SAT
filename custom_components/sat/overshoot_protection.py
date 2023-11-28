@@ -30,7 +30,7 @@ class OvershootProtection:
 
         try:
             # First wait for a flame
-            await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
+            await asyncio.wait_for(self._wait_for_warming_up(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
             supports_relative_modulation_management = self._coordinator.supports_relative_modulation_management
             if float(self._coordinator.relative_modulation_value) == 0:
@@ -84,11 +84,13 @@ class OvershootProtection:
         except asyncio.TimeoutError:
             _LOGGER.warning("Timed out waiting for stable temperature")
 
-    async def _wait_for_flame(self):
+    async def _wait_for_warming_up(self):
         initial_setpoint = max(self._coordinator.boiler_temperature + 10, OVERSHOOT_PROTECTION_INITIAL_SETPOINT)
 
         while True:
-            if bool(self._coordinator.flame_active):
+            actual_temp = float(self._coordinator.boiler_temperature)
+
+            if actual_temp >= initial_setpoint:
                 _LOGGER.info("Heating system has started to run")
                 break
 
@@ -104,20 +106,20 @@ class OvershootProtection:
 
         while True:
             actual_temp = float(self._coordinator.boiler_temperature)
-            temps.append(actual_temp if self._coordinator.flame_active else OVERSHOOT_PROTECTION_SETPOINT)
+            temps.append(actual_temp)
 
             average_temp = sum(temps) / 50
-            if self._coordinator.flame_active and previous_average_temp is not None:
+            if previous_average_temp is not None:
                 if abs(actual_temp - previous_average_temp) <= DEADBAND:
                     _LOGGER.info("Stable temperature reached: %s", actual_temp)
                     return actual_temp
 
             previous_average_temp = average_temp
 
-            if self._coordinator.flame_active and max_modulation > 0:
+            if max_modulation > 0:
                 await self._coordinator.async_set_control_setpoint(actual_temp)
             else:
                 await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
             await self._coordinator.async_control_heating_loop()
