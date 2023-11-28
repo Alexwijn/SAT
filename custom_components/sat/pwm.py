@@ -91,6 +91,7 @@ class PWM:
         self._last_duty_cycle_percentage = min(self._last_duty_cycle_percentage, 1)
         self._last_duty_cycle_percentage = max(self._last_duty_cycle_percentage, 0)
 
+        _LOGGER.debug("Minimum Setpoint %.1f", minimum_setpoint)
         _LOGGER.debug("Requested setpoint %.1f", requested_setpoint)
         _LOGGER.debug("Calculated duty cycle %.2f%%", self._last_duty_cycle_percentage * 100)
 
