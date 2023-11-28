@@ -38,10 +38,8 @@ class OvershootProtection:
             if solution == SOLUTION_AUTOMATIC:
                 # Check if relative modulation is zero after the flame is on
                 if float(self._coordinator.relative_modulation_value) == 0:
-                    _LOGGER.info("Relative modulation is zero, starting with modulation")
-                    return await self._calculate_with_zero_modulation()
+                    return await self._calculate_with_modulation()
                 else:
-                    _LOGGER.info("Relative modulation is not zero, starting with zero modulation")
                     return await self._calculate_with_zero_modulation()
             elif solution == SOLUTION_WITH_MODULATION:
                 return await self._calculate_with_modulation()
