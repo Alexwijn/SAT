@@ -104,21 +104,20 @@ class OvershootProtection:
 
         while True:
             actual_temp = float(self._coordinator.boiler_temperature)
+            temps.append(actual_temp if self._coordinator.flame_active else OVERSHOOT_PROTECTION_SETPOINT)
 
-            temps.append(actual_temp)
             average_temp = sum(temps) / 50
-
             if self._coordinator.flame_active and previous_average_temp is not None:
                 if abs(actual_temp - previous_average_temp) <= DEADBAND:
                     _LOGGER.info("Stable temperature reached: %s", actual_temp)
                     return actual_temp
 
+            previous_average_temp = average_temp
+
             if self._coordinator.flame_active and max_modulation > 0:
                 await self._coordinator.async_set_control_setpoint(actual_temp)
             else:
                 await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
-
-            previous_average_temp = average_temp
 
             await asyncio.sleep(3)
             await self._coordinator.async_control_heating_loop()
