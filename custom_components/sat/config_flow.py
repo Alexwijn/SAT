@@ -214,10 +214,16 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="sensors",
             data_schema=vol.Schema({
                 vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=[SENSOR_DOMAIN])
+                    selector.EntitySelectorConfig(
+                        domain=SENSOR_DOMAIN,
+                        device_class=[SensorDeviceClass.TEMPERATURE]
+                    )
                 ),
                 vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=[SENSOR_DOMAIN, WEATHER_DOMAIN], multiple=True)
+                    selector.EntitySelectorConfig(
+                        multiple=True,
+                        domain=[SENSOR_DOMAIN, WEATHER_DOMAIN]
+                    )
                 ),
                 vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID): selector.EntitySelector(
                     selector.EntitySelectorConfig(
