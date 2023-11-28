@@ -39,13 +39,18 @@ class OvershootProtection:
 
             if solution == SOLUTION_AUTOMATIC:
                 # Check if relative modulation is zero after the flame is on
-                if float(self._coordinator.relative_modulation_value) == 0:
+                zero_modulation_support = float(self._coordinator.relative_modulation_value) == 0
+                await self._coordinator.async_set_control_max_relative_modulation(0)
+
+                if zero_modulation_support == 0:
                     return await self._calculate_with_modulation()
                 else:
                     return await self._calculate_with_zero_modulation()
             elif solution == SOLUTION_WITH_MODULATION:
+                await self._coordinator.async_set_control_max_relative_modulation(100)
                 return await self._calculate_with_modulation()
             elif solution == SOLUTION_WITH_ZERO_MODULATION:
+                await self._coordinator.async_set_control_max_relative_modulation(0)
                 return await self._calculate_with_zero_modulation()
         except asyncio.TimeoutError:
             _LOGGER.warning("Timed out waiting for stable temperature")
@@ -59,7 +64,6 @@ class OvershootProtection:
 
     async def _calculate_with_zero_modulation(self) -> float:
         _LOGGER.info("Running calculation with zero modulation")
-        await self._coordinator.async_set_control_max_relative_modulation(0)
         await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
         try:
@@ -72,7 +76,6 @@ class OvershootProtection:
 
     async def _calculate_with_modulation(self) -> float:
         _LOGGER.info("Running calculation with modulation")
-        await self._coordinator.async_set_control_max_relative_modulation(0)
         await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
         try:
