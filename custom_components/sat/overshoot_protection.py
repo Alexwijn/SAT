@@ -6,7 +6,7 @@ from custom_components.sat.const import *
 from custom_components.sat.coordinator import DeviceState, SatDataUpdateCoordinator
 
 SOLUTION_AUTOMATIC = "auto"
-SOLUTION_WITH_MODULATION = "with_modulation"
+SOLUTION_WITH_NO_MODULATION_MANAGEMENT = "with_modulation"
 SOLUTION_WITH_ZERO_MODULATION = "with_zero_modulation"
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,8 +34,11 @@ class OvershootProtection:
 
             # Since the coordinator doesn't support modulation management, so we need to fall back to find it with modulation
             if solution == SOLUTION_AUTOMATIC and not self._coordinator.supports_relative_modulation_management:
-                solution = SOLUTION_WITH_MODULATION
-                _LOGGER.info("Relative modulation management is not supported, switching to with modulation")
+                solution = SOLUTION_WITH_NO_MODULATION_MANAGEMENT
+                _LOGGER.info("Relative modulation management is not supported")
+
+            await self._coordinator.async_set_control_max_relative_modulation(0)
+            await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
             if solution == SOLUTION_AUTOMATIC:
                 # Check if relative modulation is zero after the flame is on
@@ -43,15 +46,13 @@ class OvershootProtection:
                 await self._coordinator.async_set_control_max_relative_modulation(0)
 
                 if zero_modulation_support == 0:
-                    return await self._calculate_with_modulation()
+                    return await self._calculate_with_no_modulation_management()
                 else:
                     return await self._calculate_with_zero_modulation()
-            elif solution == SOLUTION_WITH_MODULATION:
-                await self._coordinator.async_set_control_max_relative_modulation(100)
-                return await self._calculate_with_modulation()
             elif solution == SOLUTION_WITH_ZERO_MODULATION:
-                await self._coordinator.async_set_control_max_relative_modulation(0)
                 return await self._calculate_with_zero_modulation()
+            elif solution == SOLUTION_WITH_NO_MODULATION_MANAGEMENT:
+                return await self._calculate_with_no_modulation_management()
         except asyncio.TimeoutError:
             _LOGGER.warning("Timed out waiting for stable temperature")
             return None
@@ -64,7 +65,6 @@ class OvershootProtection:
 
     async def _calculate_with_zero_modulation(self) -> float:
         _LOGGER.info("Running calculation with zero modulation")
-        await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
         try:
             return await asyncio.wait_for(
@@ -74,9 +74,8 @@ class OvershootProtection:
         except asyncio.TimeoutError:
             _LOGGER.warning("Timed out waiting for stable temperature")
 
-    async def _calculate_with_modulation(self) -> float:
-        _LOGGER.info("Running calculation with modulation")
-        await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
+    async def _calculate_with_no_modulation_management(self) -> float:
+        _LOGGER.info("Running calculation with no modulation management")
 
         try:
             return await asyncio.wait_for(
