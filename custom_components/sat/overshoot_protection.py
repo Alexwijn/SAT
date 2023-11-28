@@ -32,26 +32,25 @@ class OvershootProtection:
             # First wait for a flame
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
-            # Since the coordinator doesn't support modulation management, so we need to fall back to find it with modulation
-            if solution == SOLUTION_AUTOMATIC and not self._coordinator.supports_relative_modulation_management:
+            supports_relative_modulation_management = self._coordinator.supports_relative_modulation_management
+            if float(self._coordinator.relative_modulation_value) > 0:
+                supports_relative_modulation_management = False
+
+            # Since the coordinator doesn't support modulation management, so we need to fall back to find it without it
+            if solution == SOLUTION_AUTOMATIC and not supports_relative_modulation_management:
                 solution = SOLUTION_WITH_NO_MODULATION_MANAGEMENT
                 _LOGGER.info("Relative modulation management is not supported")
+            else:
+                solution = SOLUTION_WITH_ZERO_MODULATION
+                _LOGGER.info("Relative modulation management is supported")
 
             await self._coordinator.async_set_control_max_relative_modulation(0)
             await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
-            if solution == SOLUTION_AUTOMATIC:
-                # Check if relative modulation is zero after the flame is on
-                zero_modulation_support = float(self._coordinator.relative_modulation_value) == 0
-                await self._coordinator.async_set_control_max_relative_modulation(0)
-
-                if zero_modulation_support == 0:
-                    return await self._calculate_with_no_modulation_management()
-                else:
-                    return await self._calculate_with_zero_modulation()
-            elif solution == SOLUTION_WITH_ZERO_MODULATION:
+            if solution == SOLUTION_WITH_ZERO_MODULATION:
                 return await self._calculate_with_zero_modulation()
-            elif solution == SOLUTION_WITH_NO_MODULATION_MANAGEMENT:
+
+            if solution == SOLUTION_WITH_NO_MODULATION_MANAGEMENT:
                 return await self._calculate_with_no_modulation_management()
         except asyncio.TimeoutError:
             _LOGGER.warning("Timed out waiting for stable temperature")
