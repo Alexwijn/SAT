@@ -58,7 +58,7 @@ class PWM:
             return
 
         elapsed = monotonic() - self._last_update
-        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler_temperature or minimum_setpoint)
+        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler_temperature or 0)
 
         if self._duty_cycle is None:
             self._state = PWMState.IDLE
@@ -83,9 +83,10 @@ class PWM:
 
         _LOGGER.debug("Cycle time elapsed %.0f seconds in %s", elapsed, self._state)
 
-    def _calculate_duty_cycle(self, requested_setpoint: float, minimum_setpoint: float) -> Optional[Tuple[int, int]]:
+    def _calculate_duty_cycle(self, requested_setpoint: float, boiler_temperature: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
+        minimum_setpoint = max(base_offset, boiler_temperature)
 
         self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset)
         self._last_duty_cycle_percentage = min(self._last_duty_cycle_percentage, 1)
