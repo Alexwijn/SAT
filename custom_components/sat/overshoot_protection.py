@@ -12,7 +12,6 @@ SOLUTION_WITH_ZERO_MODULATION = "with_zero_modulation"
 _LOGGER = logging.getLogger(__name__)
 
 OVERSHOOT_PROTECTION_SETPOINT = 75
-OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD = 0
 OVERSHOOT_PROTECTION_ERROR_RELATIVE_MOD = 0.01
 OVERSHOOT_PROTECTION_TIMEOUT = 7200  # Two hours in seconds
 OVERSHOOT_PROTECTION_INITIAL_WAIT = 120  # Two minutes in seconds
@@ -26,7 +25,6 @@ class OvershootProtection:
         _LOGGER.info("Starting calculation")
 
         await self._coordinator.async_set_heater_state(DeviceState.ON)
-        await self._coordinator.async_set_control_max_relative_modulation(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD)
 
         try:
             # First wait for a flame
@@ -38,17 +36,17 @@ class OvershootProtection:
                 _LOGGER.info("Relative modulation management is not supported, switching to with modulation")
 
             if solution == SOLUTION_AUTOMATIC:
-                # First run start_with_zero_modulation for at least 2 minutes
-                start_with_zero_modulation_task = asyncio.create_task(self._calculate_with_zero_modulation())
+                # First run start_with_modulation for at least 2 minutes
+                start_with_modulation_task = asyncio.create_task(self._calculate_with_modulation())
                 await asyncio.sleep(OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
-                # Check if relative modulation is still zero
-                if float(self._coordinator.relative_modulation_value) == OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
-                    return await start_with_zero_modulation_task
+                # Check if relative modulation is zero
+                if float(self._coordinator.relative_modulation_value) == 0:
+                    return await start_with_modulation_task
                 else:
-                    start_with_zero_modulation_task.cancel()
-                    _LOGGER.info("Relative modulation is not zero, switching to with modulation")
-                    return await self._calculate_with_modulation()
+                    start_with_modulation_task.cancel()
+                    _LOGGER.info("Relative modulation is not zero, switching to with zero modulation")
+                    return await self._calculate_with_zero_modulation()
             elif solution == SOLUTION_WITH_MODULATION:
                 return await self._calculate_with_modulation()
             elif solution == SOLUTION_WITH_ZERO_MODULATION:
@@ -65,13 +63,11 @@ class OvershootProtection:
 
     async def _calculate_with_zero_modulation(self) -> float:
         _LOGGER.info("Running calculation with zero modulation")
-        await self._coordinator.async_set_control_max_relative_modulation(
-            OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD
-        )
+        await self._coordinator.async_set_control_max_relative_modulation(0)
 
         try:
             return await asyncio.wait_for(
-                self._wait_for_stable_temperature(OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD),
+                self._wait_for_stable_temperature(0),
                 timeout=OVERSHOOT_PROTECTION_TIMEOUT,
             )
         except asyncio.TimeoutError:
@@ -79,10 +75,11 @@ class OvershootProtection:
 
     async def _calculate_with_modulation(self) -> float:
         _LOGGER.info("Running calculation with modulation")
+        await self._coordinator.async_set_control_max_relative_modulation(100)
 
         try:
             return await asyncio.wait_for(
-                self._wait_for_stable_temperature(OVERSHOOT_PROTECTION_ERROR_RELATIVE_MOD),
+                self._wait_for_stable_temperature(100),
                 timeout=OVERSHOOT_PROTECTION_TIMEOUT,
             )
         except asyncio.TimeoutError:
@@ -115,7 +112,7 @@ class OvershootProtection:
                     _LOGGER.info("Stable temperature reached: %s", actual_temp)
                     return actual_temp
 
-            if max_modulation != OVERSHOOT_PROTECTION_MAX_RELATIVE_MOD:
+            if max_modulation > 0:
                 await self._coordinator.async_set_control_setpoint(actual_temp)
             else:
                 await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
