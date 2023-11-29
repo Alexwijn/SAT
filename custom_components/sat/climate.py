@@ -526,9 +526,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def relative_modulation_enabled(self) -> bool:
         """Return True if relative modulation is enabled, False otherwise."""
-        if not self._coordinator.supports_relative_modulation_management:
-            return False
-
         if self.hvac_mode == HVACMode.OFF or self._setpoint is None:
             return True
 
@@ -538,7 +535,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME:
             return False
 
-        return self.max_error > DEADBAND and not self.pulse_width_modulation_enabled
+        return not self.pulse_width_modulation_enabled
 
     @property
     def summer_simmer_index(self) -> float | None:
