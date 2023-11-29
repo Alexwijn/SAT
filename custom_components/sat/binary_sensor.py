@@ -32,6 +32,9 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     if coordinator.supports_setpoint_management:
         _async_add_entities([SatControlSetpointSynchroSensor(coordinator, climate, _config_entry)])
 
+    if coordinator.supports_relative_modulation_management:
+        _async_add_entities([SatRelativeModulationSynchroSensor(coordinator, climate, _config_entry)])
+
     if len(_config_entry.options.get(CONF_WINDOW_SENSORS, [])) > 0:
         _async_add_entities([SatWindowSensor(coordinator, climate, _config_entry)])
 
@@ -64,6 +67,34 @@ class SatControlSetpointSynchroSensor(SatClimateEntity, BinarySensorEntity):
     def unique_id(self):
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-control-setpoint-synchro"
+
+
+class SatRelativeModulationSynchroSensor(SatClimateEntity, BinarySensorEntity):
+
+    @property
+    def name(self):
+        """Return the friendly name of the sensor."""
+        return "Relative Modulation Synchro"
+
+    @property
+    def device_class(self):
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def available(self):
+        """Return availability of the sensor."""
+        return self._climate.relative_modulation_value is not None and self._coordinator.relative_modulation_value is not None
+
+    @property
+    def is_on(self):
+        """Return the state of the sensor."""
+        return round(self._climate.relative_modulation_value, 1) != round(self._coordinator.relative_modulation_value, 1)
+
+    @property
+    def unique_id(self):
+        """Return a unique ID to use for this entity."""
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-relative-modulation-synchro"
 
 
 class SatCentralHeatingSynchroSensor(SatClimateEntity, BinarySensorEntity):

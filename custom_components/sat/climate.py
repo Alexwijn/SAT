@@ -358,6 +358,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
             "relative_modulation_enabled": self.relative_modulation_enabled,
+            "relative_modulation_value": self.relative_modulation_value,
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self.pwm.state,
             "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
@@ -468,7 +469,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Calculate the error value
             error = round(target_temperature - current_temperature, 2)
-            _LOGGER.debug(f"{climate}: current: {current_temperature}, target: {target_temperature}, error: {error}")
 
             # Add to the list, so we calculate the max. later
             errors.append(error)
@@ -536,6 +536,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return False
 
         return not self.pulse_width_modulation_enabled
+
+    @property
+    def relative_modulation_value(self) -> float:
+        return self._maximum_relative_modulation if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
 
     @property
     def summer_simmer_index(self) -> float | None:
@@ -833,9 +837,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_relative_modulation(self) -> None:
         """Control the relative modulation value based on the conditions"""
         if self._coordinator.supports_relative_modulation_management:
-            await self._coordinator.async_set_control_max_relative_modulation(
-                self._maximum_relative_modulation if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
-            )
+            await self._coordinator.async_set_control_max_relative_modulation(self.relative_modulation_value)
 
     async def _async_update_rooms_from_climates(self) -> None:
         """Update the temperature setpoint for each room based on their associated climate entity."""
