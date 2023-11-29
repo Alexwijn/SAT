@@ -163,7 +163,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: float) -> None:
-        await self._send_command(f"MM={value}")
+        await self._send_command(f"MM={int(value)}")
 
         await super().async_set_control_max_relative_modulation(value)
 
