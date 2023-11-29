@@ -157,6 +157,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
+    def maximum_relative_modulation_value(self) -> float | None:
+        return None
+
+    @property
     def maximum_setpoint(self) -> float:
         """Return the maximum setpoint temperature that the device can support."""
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)

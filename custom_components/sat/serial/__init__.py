@@ -124,6 +124,13 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().minimum_relative_modulation_value
 
     @property
+    def maximum_relative_modulation_value(self) -> float | None:
+        if (value := self.get(DATA_SLAVE_MAX_RELATIVE_MOD)) is not None:
+            return float(value)
+
+        return super().maximum_relative_modulation_value
+
+    @property
     def flame_active(self) -> bool:
         return bool(self.get(DATA_SLAVE_FLAME_ON))
 
