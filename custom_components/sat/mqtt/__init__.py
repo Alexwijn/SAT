@@ -174,7 +174,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     def _get_entity_state(self, domain: str, key: str):
         state = self.hass.states.get(self._get_entity_id(domain, key))
-        if state.state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return None
 
         return state.state
