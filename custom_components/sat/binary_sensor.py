@@ -84,12 +84,12 @@ class SatRelativeModulationSynchroSensor(SatClimateEntity, BinarySensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._climate.relative_modulation_value is not None and self._coordinator.minimum_relative_modulation_value is not None
+        return self._climate.relative_modulation_value is not None and self._coordinator.maximum_relative_modulation_value is not None
 
     @property
     def is_on(self):
         """Return the state of the sensor."""
-        return int(self._climate.relative_modulation_value) != int(self._coordinator.minimum_relative_modulation_value)
+        return int(self._climate.relative_modulation_value) != int(self._coordinator.maximum_relative_modulation_value)
 
     @property
     def unique_id(self):
