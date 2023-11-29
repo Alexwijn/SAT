@@ -9,8 +9,9 @@ from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers import device_registry, entity_registry
+from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
@@ -139,8 +140,34 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     async def async_added_to_hass(self, climate: SatClimate) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)
 
+        # Create a list of entities that we track
+        entities = list(filter(lambda entity: entity is not None, [
+            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_CENTRAL_HEATING),
+            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE),
+            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_DHW_ENABLE),
+
+            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_CONTROL_SETPOINT),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_CAPACITY),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
+        ]))
+
+        # Track those entities so the coordinator can be updated when something changes
+        async_track_state_change_event(self.hass, entities, self.async_state_change_event)
+
         await self._send_command("PM=48")
         await super().async_added_to_hass(climate)
+
+    async def async_state_change_event(self, event: Event):
+        if self._listeners:
+            self._schedule_refresh()
+
+        self.async_update_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._send_command(f"CS={value}")
