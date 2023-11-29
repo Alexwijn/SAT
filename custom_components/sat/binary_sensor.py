@@ -89,7 +89,7 @@ class SatRelativeModulationSynchroSensor(SatClimateEntity, BinarySensorEntity):
     @property
     def is_on(self):
         """Return the state of the sensor."""
-        return round(self._climate.relative_modulation_value, 1) != round(self._coordinator.relative_modulation_value, 1)
+        return int(self._climate.relative_modulation_value) != int(self._coordinator.relative_modulation_value)
 
     @property
     def unique_id(self):
