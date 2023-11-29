@@ -90,7 +90,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         if (setpoint := self._get_entity_state(SENSOR_DOMAIN, DATA_DHW_SETPOINT)) is not None:
             return float(setpoint)
 
-        return None
+        return super().hot_water_setpoint
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
@@ -118,7 +118,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
             return float(value)
 
-        return None
+        return super().relative_modulation_value
 
     @property
     def boiler_capacity(self) -> float | None:
@@ -209,6 +209,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         await super().async_set_control_max_setpoint(value)
 
     def _get_entity_state(self, domain: str, key: str):
+        entity_id = self._get_entity_id(domain, key)
+        if entity_id is None:
+            return None
+
         state = self.hass.states.get(self._get_entity_id(domain, key))
         if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return None
