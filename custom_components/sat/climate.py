@@ -163,8 +163,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._thermal_comfort = bool(config_options.get(CONF_THERMAL_COMFORT))
         self._climate_valve_offset = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
-        self._maximum_relative_modulation = config_options.get(CONF_MAXIMUM_RELATIVE_MODULATION)
         self._sync_climates_with_preset = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
+        self._maximum_relative_modulation = int(config_options.get(CONF_MAXIMUM_RELATIVE_MODULATION))
         self._force_pulse_width_modulation = bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
@@ -538,7 +538,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return not self.pulse_width_modulation_enabled
 
     @property
-    def relative_modulation_value(self) -> float:
+    def relative_modulation_value(self) -> int:
         return self._maximum_relative_modulation if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
 
     @property

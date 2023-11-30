@@ -91,7 +91,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_hot_water_setpoint(value)
 
-    async def async_set_control_max_relative_modulation(self, value: float) -> None:
+    async def async_set_control_max_relative_modulation(self, value: int) -> None:
         self._relative_modulation_value = value
 
         await super().async_set_control_max_relative_modulation(value)

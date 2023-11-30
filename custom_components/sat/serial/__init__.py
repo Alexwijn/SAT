@@ -181,7 +181,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_heater_state(state)
 
-    async def async_set_control_max_relative_modulation(self, value: float) -> None:
+    async def async_set_control_max_relative_modulation(self, value: int) -> None:
         if not self._simulation:
             await self._api.set_max_relative_mod(value)
 

@@ -251,7 +251,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.supports_maximum_setpoint_management:
             self.logger.info("Set maximum setpoint to %d", value)
 
-    async def async_set_control_max_relative_modulation(self, value: float) -> None:
+    async def async_set_control_max_relative_modulation(self, value: int) -> None:
         """Control the maximum relative modulation for the device."""
         if self.supports_relative_modulation_management:
             self.logger.info("Set maximum relative modulation to %d", value)
