@@ -31,18 +31,18 @@ from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PER
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, UnitOfTemperature
+from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF
 from homeassistant.core import HomeAssistant, ServiceCall, Event
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.util.unit_conversion import TemperatureConverter
 
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .pwm import PWMState
+from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, calculate_derivative_per_hour
 
 ATTR_ROOMS = "rooms"
@@ -347,8 +347,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "rooms": self._rooms,
             "setpoint": self._setpoint,
             "current_humidity": self._current_humidity,
-            "summer_simmer_index": self.summer_simmer_index,
-            "summer_simmer_perception": self.summer_simmer_perception,
+            "experimental_minimum_setpoint": self._calculate_minimum_setpoint(),
+            "summer_simmer_index": SummerSimmer.index(self.current_temperature, self.current_humidity),
+            "summer_simmer_perception": SummerSimmer.perception(self.current_temperature, self.current_humidity),
             "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
             "warming_up_derivative": self._warming_up_derivative,
             "valves_open": self.valves_open,
@@ -368,7 +369,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def current_temperature(self):
         """Return the sensor temperature."""
         if self._thermal_comfort and self._current_humidity is not None:
-            return self.summer_simmer_index
+            return SummerSimmer.index(self.current_temperature, self.current_humidity)
 
         return self._current_temperature
 
@@ -541,64 +542,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def relative_modulation_value(self) -> int:
         return self._maximum_relative_modulation if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
 
-    @property
-    def summer_simmer_index(self) -> float | None:
-        """
-        Calculate the Summer Simmer Index.
-
-        The Summer Simmer Index is a measure of heat and humidity.
-
-        Formula: 1.98 * (F - (0.55 - 0.0055 * H) * (F - 58.0)) - 56.83
-        If F < 58, the index is F.
-
-        Returns:
-            float: Summer Simmer Index in Celsius.
-        """
-        # Make sure we have a valid humidity value
-        if self._current_humidity is None:
-            return None
-
-        # Convert temperature to Fahrenheit
-        fahrenheit = TemperatureConverter.convert(
-            self._current_temperature, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
-        )
-
-        # Calculate Summer Simmer Index
-        index = 1.98 * (fahrenheit - (0.55 - 0.0055 * self._current_humidity) * (fahrenheit - 58.0)) - 56.83
-
-        # If the temperature is below 58°F, use the temperature as the index
-        if fahrenheit < 58:
-            index = fahrenheit
-
-        # Convert the result back to Celsius
-        return round(TemperatureConverter.convert(index, UnitOfTemperature.FAHRENHEIT, UnitOfTemperature.CELSIUS), 1)
-
-    @property
-    def summer_simmer_perception(self) -> str:
-        """<http://summersimmer.com/default.asp>."""
-        index = self.summer_simmer_index
-
-        if index is None:
-            return "Unknown"
-        elif index < 21.1:
-            return "Cool"
-        elif index < 25.0:
-            return "Slightly Cool"
-        elif index < 28.3:
-            return "Comfortable"
-        elif index < 32.8:
-            return "Slightly Warm"
-        elif index < 37.8:
-            return "Increasing Discomfort"
-        elif index < 44.4:
-            return "Extremely Warm"
-        elif index < 51.7:
-            return "Danger Of Heatstroke"
-        elif index < 65.6:
-            return "Extreme Danger Of Heatstroke"
-        else:
-            return "Circulatory Collapse Imminent"
-
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
         if self.heating_curve.value is None:
@@ -613,6 +556,30 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Ensure setpoint is limited to our max
         return min(requested_setpoint, self._coordinator.maximum_setpoint)
+
+    def _calculate_minimum_setpoint(self, adjustment_percentage=10) -> float:
+        # Extract relevant values from the coordinator for clarity
+        boiler_temperature = self._coordinator.boiler_temperature
+        target_setpoint_temperature = self._coordinator.setpoint
+        minimum_setpoint = self._coordinator.minimum_setpoint
+        is_flame_active = self._coordinator.flame_active
+
+        # Check if either boiler_temperature or target_setpoint_temperature is None
+        if boiler_temperature is None or target_setpoint_temperature is None:
+            return minimum_setpoint
+
+        # Check if the boiler temperature is stable at the target temperature
+        is_temperature_stable = abs(boiler_temperature - target_setpoint_temperature) <= 1
+
+        if is_temperature_stable:
+            # Boiler temperature is stable, return the coordinator's minimum setpoint
+            return minimum_setpoint
+
+        # Calculate the adjustment value based on the specified percentage
+        adjustment_value = (adjustment_percentage / 100) * (target_setpoint_temperature - boiler_temperature)
+
+        # Determine the minimum setpoint based on flame state and adjustment
+        return max(boiler_temperature, target_setpoint_temperature - adjustment_value) if is_flame_active else minimum_setpoint
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
