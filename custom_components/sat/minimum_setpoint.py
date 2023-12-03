@@ -1,12 +1,11 @@
 from custom_components.sat.coordinator import SatDataUpdateCoordinator
 
-MOVING_AVERAGE_WINDOW = 10
-
 
 class MinimumSetpoint:
     def __init__(self, coordinator: SatDataUpdateCoordinator):
+        self._alpha = 0.2
         self._coordinator = coordinator
-        self._previous_minimum_setpoints = []
+        self._previous_minimum_setpoint = None
 
     def calculate(self, adjustment_percentage=10) -> float:
         # Extract relevant values from the coordinator for clarity
@@ -32,15 +31,19 @@ class MinimumSetpoint:
         # Determine the minimum setpoint based on flame state and adjustment
         adjusted_setpoint = max(boiler_temperature, target_setpoint_temperature - adjustment_value) if is_flame_active else minimum_setpoint
 
-        # Keep track of the previous minimum setpoints
-        self._previous_minimum_setpoints.append(adjusted_setpoint)
+        # Update the exponential moving average
+        if self._previous_minimum_setpoint is None:
+            # If it's the first observation, set the EMA to the current value
+            ema = adjusted_setpoint
+        else:
+            # Update the EMA using the smoothing factor (alpha)
+            ema = self._alpha * adjusted_setpoint + (1 - self._alpha) * self._previous_minimum_setpoint
 
-        # Maintain a moving average over the specified window size
-        if len(self._previous_minimum_setpoints) > MOVING_AVERAGE_WINDOW:
-            self._previous_minimum_setpoints.pop(0)
+        # Keep track of the current EMA for future calculations
+        self._previous_minimum_setpoint = ema
 
     def current(self) -> float:
-        if len(self._previous_minimum_setpoints) < 2:
+        if self._previous_minimum_setpoint is None:
             return self._coordinator.minimum_setpoint
 
-        return sum(self._previous_minimum_setpoints) / len(self._previous_minimum_setpoints)
+        return self._previous_minimum_setpoint
