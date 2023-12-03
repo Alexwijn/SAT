@@ -41,6 +41,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
+from .minimum_setpoint import MinimumSetpoint
 from .pwm import PWMState
 from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, calculate_derivative_per_hour
@@ -124,6 +125,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Create PWM controller with given configuration options
         self.pwm = create_pwm_controller(self.heating_curve, self._coordinator.minimum_setpoint, config_entry.data, config_options)
+
+        # Create the Minimum Setpoint controller
+        self.minimum_setpoint = MinimumSetpoint(coordinator)
 
         self._sensors = []
         self._rooms = None
@@ -347,7 +351,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "rooms": self._rooms,
             "setpoint": self._setpoint,
             "current_humidity": self._current_humidity,
-            "experimental_minimum_setpoint": self._calculate_minimum_setpoint(),
+            "experimental_minimum_setpoint": self.minimum_setpoint.current(),
             "summer_simmer_index": SummerSimmer.index(self._current_temperature, self._current_humidity),
             "summer_simmer_perception": SummerSimmer.perception(self._current_temperature, self._current_humidity),
             "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
@@ -556,30 +560,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Ensure setpoint is limited to our max
         return min(requested_setpoint, self._coordinator.maximum_setpoint)
-
-    def _calculate_minimum_setpoint(self, adjustment_percentage=10) -> float:
-        # Extract relevant values from the coordinator for clarity
-        boiler_temperature = self._coordinator.boiler_temperature
-        target_setpoint_temperature = self._coordinator.setpoint
-        minimum_setpoint = self._coordinator.minimum_setpoint
-        is_flame_active = self._coordinator.flame_active
-
-        # Check if either boiler_temperature or target_setpoint_temperature is None
-        if boiler_temperature is None or target_setpoint_temperature is None:
-            return minimum_setpoint
-
-        # Check if the boiler temperature is stable at the target temperature
-        is_temperature_stable = abs(boiler_temperature - target_setpoint_temperature) <= 1
-
-        if is_temperature_stable:
-            # Boiler temperature is stable, return the coordinator's minimum setpoint
-            return minimum_setpoint
-
-        # Calculate the adjustment value based on the specified percentage
-        adjustment_value = (adjustment_percentage / 100) * (target_setpoint_temperature - boiler_temperature)
-
-        # Determine the minimum setpoint based on flame state and adjustment
-        return max(boiler_temperature, target_setpoint_temperature - adjustment_value) if is_flame_active else minimum_setpoint
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
@@ -867,6 +847,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Control the integral (if exceeded the time limit)
         self.pid.update_integral(self.max_error, self.heating_curve.value)
+
+        # Calculate the minimum setpoint
+        self.minimum_setpoint.calculate()
 
         # If the setpoint is high and the HVAC is not off, turn on the heater
         if self._setpoint > MINIMUM_SETPOINT and self.hvac_mode != HVACMode.OFF:
