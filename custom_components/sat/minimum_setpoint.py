@@ -17,14 +17,14 @@ class MinimumSetpoint:
         if boiler_temperature is None or target_setpoint_temperature is None:
             return
 
-        if boiler_temperature < (target_setpoint_temperature - 1):
+        if not is_flame_active or boiler_temperature < (target_setpoint_temperature - 1):
             return
 
         # Calculate the adjustment value based on the specified percentage
         adjustment_value = (adjustment_percentage / 100) * (target_setpoint_temperature - boiler_temperature)
 
         # Determine the minimum setpoint based on flame state and adjustment
-        adjusted_setpoint = max(boiler_temperature, target_setpoint_temperature - adjustment_value) if is_flame_active else minimum_setpoint
+        adjusted_setpoint = max(boiler_temperature, target_setpoint_temperature - adjustment_value)
 
         # Update the exponential moving average
         if self._previous_minimum_setpoint is None:
