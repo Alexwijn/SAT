@@ -29,6 +29,7 @@ class PWM:
     def __init__(self, heating_curve: HeatingCurve, minimum_setpoint: float, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
         """Initialize the PWM control."""
         self._force = force
+        self._last_boiler_temperature = None
         self._last_duty_cycle_percentage = None
 
         self._heating_curve = heating_curve
@@ -58,8 +59,11 @@ class PWM:
             _LOGGER.debug("Turned off PWM due exceeding the overshoot protection value.")
             return
 
+        if boiler_temperature is not None and self._last_boiler_temperature is None:
+            self._last_boiler_temperature = boiler_temperature
+
         elapsed = monotonic() - self._last_update
-        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler_temperature or 0)
+        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint)
 
         if self._duty_cycle is None:
             self._state = PWMState.IDLE
@@ -73,6 +77,7 @@ class PWM:
         if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
             self._last_update = monotonic()
+            self._last_boiler_temperature = boiler_temperature or 0
             _LOGGER.debug("Starting duty cycle.")
             return
 
@@ -84,12 +89,12 @@ class PWM:
 
         _LOGGER.debug("Cycle time elapsed %.0f seconds in %s", elapsed, self._state)
 
-    def _calculate_duty_cycle(self, requested_setpoint: float, boiler_temperature: float) -> Optional[Tuple[int, int]]:
+    def _calculate_duty_cycle(self, requested_setpoint: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
-        minimum_setpoint = boiler_temperature
+        minimum_setpoint = self._last_boiler_temperature
         base_offset = self._heating_curve.base_offset
 
-        if boiler_temperature < base_offset:
+        if self._last_boiler_temperature < base_offset:
             minimum_setpoint = base_offset + 1
 
         self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset)
