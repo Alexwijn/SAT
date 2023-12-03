@@ -348,8 +348,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "setpoint": self._setpoint,
             "current_humidity": self._current_humidity,
             "experimental_minimum_setpoint": self._calculate_minimum_setpoint(),
-            "summer_simmer_index": SummerSimmer.index(self.current_temperature, self.current_humidity),
-            "summer_simmer_perception": SummerSimmer.perception(self.current_temperature, self.current_humidity),
+            "summer_simmer_index": SummerSimmer.index(self._current_temperature, self._current_humidity),
+            "summer_simmer_perception": SummerSimmer.perception(self._current_temperature, self._current_humidity),
             "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
             "warming_up_derivative": self._warming_up_derivative,
             "valves_open": self.valves_open,
@@ -369,7 +369,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def current_temperature(self):
         """Return the sensor temperature."""
         if self._thermal_comfort and self._current_humidity is not None:
-            return SummerSimmer.index(self.current_temperature, self.current_humidity)
+            return SummerSimmer.index(self._current_temperature, self._current_humidity)
 
         return self._current_temperature
 
