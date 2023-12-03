@@ -11,7 +11,6 @@ class MinimumSetpoint:
         # Extract relevant values from the coordinator for clarity
         boiler_temperature = self._coordinator.boiler_temperature
         target_setpoint_temperature = self._coordinator.setpoint
-        minimum_setpoint = self._coordinator.minimum_setpoint
         is_flame_active = self._coordinator.flame_active
 
         if boiler_temperature is None or target_setpoint_temperature is None:
