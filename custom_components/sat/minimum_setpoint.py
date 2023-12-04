@@ -1,9 +1,16 @@
 import hashlib
+from typing import List
 
 from custom_components.sat.coordinator import SatDataUpdateCoordinator
 
 
 class MinimumSetpoint:
+    @staticmethod
+    def _get_cache_key(errors: List[float]) -> str:
+        errors_str = ','.join(map(str, errors))
+        cache_hash = hashlib.sha256(errors_str.encode('utf-8'))
+        return cache_hash.hexdigest()
+
     def __init__(self, coordinator: SatDataUpdateCoordinator):
         self._alpha = 0.2
         self._coordinator = coordinator
@@ -12,9 +19,9 @@ class MinimumSetpoint:
     def restore(self, adjusted_setpoints):
         self._adjusted_setpoints = adjusted_setpoints
 
-    def calculate(self, climate_errors, adjustment_percentage=10):
+    def calculate(self, errors, adjustment_percentage=10):
         # Calculate a hash key
-        hash_key = self._get_cache_key(climate_errors)
+        hash_key = self._get_cache_key(errors)
 
         # Extract relevant values from the coordinator for clarity
         boiler_temperature = self._coordinator.boiler_temperature
@@ -40,20 +47,12 @@ class MinimumSetpoint:
         # Keep track of the adjusted setpoint for the current target setpoint
         self._adjusted_setpoints[hash_key] = round(adjusted_setpoint, 1)
 
-    def current(self, climate_errors):
+    def current(self, errors) -> float:
         # Get the cache key
-        cache_key = self._get_cache_key(climate_errors)
+        cache_key = self._get_cache_key(errors)
 
         # Return the adjusted setpoint if available, else return the configured minimum setpoint
         return self._adjusted_setpoints.get(cache_key, self._coordinator.minimum_setpoint)
 
-    def cache(self):
+    def cache(self) -> dict[str, float]:
         return self._adjusted_setpoints
-
-    @staticmethod
-    def _get_cache_key(climate_errors) -> str:
-        cache_hash = hashlib.sha256()
-        cache_hash.update(','.join(map(str, climate_errors)).encode('utf-8'))
-
-        # Create a hash from the error values, so we can use cache
-        return cache_hash.hexdigest()
