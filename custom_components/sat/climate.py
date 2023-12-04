@@ -53,6 +53,7 @@ ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
+ATTR_ADJUSTED_MINIMUM_SETPOINTS = "adjusted_minimum_setpoints"
 
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
@@ -295,6 +296,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._rooms = old_state.attributes.get(ATTR_ROOMS)
             else:
                 await self._async_update_rooms_from_climates()
+
+            if old_state.attributes.get(ATTR_ADJUSTED_MINIMUM_SETPOINTS):
+                self.minimum_setpoint.restore(old_state.attributes.get(ATTR_ADJUSTED_MINIMUM_SETPOINTS))
         else:
             if self._rooms is None:
                 await self._async_update_rooms_from_climates()
@@ -351,7 +355,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "rooms": self._rooms,
             "setpoint": self._setpoint,
             "current_humidity": self._current_humidity,
-            "experimental_minimum_setpoint": self.minimum_setpoint.current(),
             "summer_simmer_index": SummerSimmer.index(self._current_temperature, self._current_humidity),
             "summer_simmer_perception": SummerSimmer.perception(self._current_temperature, self._current_humidity),
             "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
@@ -359,6 +362,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
             "minimum_setpoint": self._coordinator.minimum_setpoint,
+            "adjusted_minimum_setpoint": self.minimum_setpoint.current(),
+            "adjusted_minimum_setpoints": self.minimum_setpoint.cache(),
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
@@ -837,7 +842,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self.requested_setpoint, self._coordinator.boiler_temperature)
+            await self.pwm.update(self.requested_setpoint, self._coordinator.boiler_temperature or 0)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
