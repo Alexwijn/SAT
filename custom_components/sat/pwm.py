@@ -91,10 +91,10 @@ class PWM:
 
     def _calculate_duty_cycle(self, requested_setpoint: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
-        minimum_setpoint = self._last_boiler_temperature
+        minimum_setpoint = self._last_boiler_temperature or requested_setpoint
         base_offset = self._heating_curve.base_offset
 
-        if self._last_boiler_temperature < base_offset:
+        if minimum_setpoint < base_offset:
             minimum_setpoint = base_offset + 1
 
         self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (minimum_setpoint - base_offset)

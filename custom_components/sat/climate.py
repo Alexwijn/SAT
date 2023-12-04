@@ -362,7 +362,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
             "minimum_setpoint": self._coordinator.minimum_setpoint,
-            "adjusted_minimum_setpoint": self.minimum_setpoint.current(),
+            "adjusted_minimum_setpoint": self.minimum_setpoint.current([self.error] + self.climate_errors),
             "adjusted_minimum_setpoints": self.minimum_setpoint.cache(),
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
@@ -854,7 +854,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pid.update_integral(self.max_error, self.heating_curve.value)
 
         # Calculate the minimum setpoint
-        self.minimum_setpoint.calculate()
+        self.minimum_setpoint.calculate([self.error] + self.climate_errors)
 
         # If the setpoint is high and the HVAC is not off, turn on the heater
         if self._setpoint > MINIMUM_SETPOINT and self.hvac_mode != HVACMode.OFF:
