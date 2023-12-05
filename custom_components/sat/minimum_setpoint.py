@@ -10,16 +10,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _is_valid(data):
-    _LOGGER.debug(data)
     if not isinstance(data, dict):
         return False
 
     if not 'value' in data or not isinstance(data['value'], float):
-        _LOGGER.debug("Value not found")
         return False
 
     if not 'timestamp' in data or not isinstance(data['timestamp'], int):
-        _LOGGER.debug("Timestamp not found")
         return False
 
     return True
@@ -93,8 +90,6 @@ class MinimumSetpoint:
             for key, data in self._adjusted_setpoints.items()
             if (not _is_valid(data) or (int(time.time()) - data['timestamp']) > timedelta(days=7).total_seconds())
         ]
-
-        _LOGGER.debug(outdated_keys)
 
         for key in outdated_keys:
             del self._adjusted_setpoints[key]
