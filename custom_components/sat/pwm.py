@@ -26,7 +26,7 @@ class PWMState(str, Enum):
 class PWM:
     """A class for implementing Pulse Width Modulation (PWM) control."""
 
-    def __init__(self, heating_curve: HeatingCurve, minimum_setpoint: float, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
+    def __init__(self, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
         """Initialize the PWM control."""
         self._force = force
         self._last_boiler_temperature = None
@@ -34,7 +34,6 @@ class PWM:
 
         self._heating_curve = heating_curve
         self._max_cycle_time = max_cycle_time
-        self._minimum_setpoint = minimum_setpoint
         self._automatic_duty_cycle = automatic_duty_cycle
 
         self.reset()
@@ -45,7 +44,7 @@ class PWM:
         self._state = PWMState.IDLE
         self._last_update = monotonic()
 
-    async def update(self, requested_setpoint: float, boiler_temperature: float) -> None:
+    async def update(self, minimum_setpoint: float, requested_setpoint: float, boiler_temperature: float) -> None:
         """Update the PWM state based on the output of a PID controller."""
         if not self._heating_curve.value:
             self._state = PWMState.IDLE
@@ -53,7 +52,7 @@ class PWM:
             _LOGGER.warning("Invalid heating curve value")
             return
 
-        if requested_setpoint is None or (not self._force and requested_setpoint > self._minimum_setpoint):
+        if requested_setpoint is None or (not self._force and requested_setpoint > minimum_setpoint):
             self._state = PWMState.IDLE
             self._last_update = monotonic()
             _LOGGER.debug("Turned off PWM due exceeding the overshoot protection value.")
@@ -77,14 +76,16 @@ class PWM:
         if self._state == PWMState.ON and boiler_temperature is not None:
             self._last_boiler_temperature = boiler_temperature
 
-        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (
+                elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
             self._last_update = monotonic()
             self._last_boiler_temperature = boiler_temperature or 0
             _LOGGER.debug("Starting duty cycle.")
             return
 
-        if self._state != PWMState.OFF and (self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+        if self._state != PWMState.OFF and (
+                self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
             self._state = PWMState.OFF
             self._last_update = monotonic()
             _LOGGER.debug("Finished duty cycle.")

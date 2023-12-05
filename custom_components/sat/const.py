@@ -58,6 +58,7 @@ CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
+CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
 
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
@@ -85,6 +86,7 @@ OPTIONS_DEFAULTS = {
     CONF_AUTOMATIC_DUTY_CYCLE: True,
     CONF_AUTOMATIC_GAINS_VALUE: 5.0,
     CONF_OVERSHOOT_PROTECTION: False,
+    CONF_DYNAMIC_MINIMUM_SETPOINT: False,
 
     CONF_SECONDARY_CLIMATES: [],
     CONF_MAIN_CLIMATES: [],

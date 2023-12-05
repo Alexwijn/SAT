@@ -201,16 +201,15 @@
           "climate_valve_offset": "Climate valve offset",
           "target_temperature_step": "Target Temperature Step",
           "maximum_relative_modulation": "Maximum Relative Modulation",
-          "force_pulse_width_modulation": "Force Pulse Width Modulation"
+          "force_pulse_width_modulation": "Force Pulse Width Modulation",
+          "dynamic_minimum_setpoint": "Dynamic Minimum Setpoint (Experimental)"
         },
         "data_description": {
-          "simulation": "Enable simulation mode to prevent sending commands to the boiler.",
           "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment.",
           "minimum_consumption": "The minimum gas consumption when the boiler is active.",
           "maximum_consumption": "The maximum gas consumption when the boiler is active.",
           "climate_valve_offset": "Offset to adjust the opening degree of the climate valve.",
           "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
-          "force_pulse_width_modulation": "Force the use of Pulse Width Modulation (PWM) for boiler control.",
           "sample_time": "The minimum time interval between updates to the PID controller.",
           "maximum_relative_modulation": "Representing the highest modulation level for an efficient heating system."
         }

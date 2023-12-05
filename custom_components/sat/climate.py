@@ -44,7 +44,8 @@ from .entity import SatEntity
 from .minimum_setpoint import MinimumSetpoint
 from .pwm import PWMState
 from .summer_simmer import SummerSimmer
-from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, calculate_derivative_per_hour
+from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, \
+    calculate_derivative_per_hour
 
 ATTR_ROOMS = "rooms"
 ATTR_WARMING_UP = "warming_up_data"
@@ -125,10 +126,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
 
         # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, self._coordinator.minimum_setpoint, config_entry.data, config_options)
+        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
 
         # Create the Minimum Setpoint controller
-        self.minimum_setpoint = MinimumSetpoint(coordinator)
+        self._minimum_setpoint = MinimumSetpoint(coordinator)
 
         self._sensors = []
         self._rooms = None
@@ -168,6 +169,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._thermal_comfort = bool(config_options.get(CONF_THERMAL_COMFORT))
         self._climate_valve_offset = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
+        self._dynamic_minimum_setpoint = bool(config_options.get(CONF_DYNAMIC_MINIMUM_SETPOINT))
         self._sync_climates_with_preset = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
         self._maximum_relative_modulation = int(config_options.get(CONF_MAXIMUM_RELATIVE_MODULATION))
         self._force_pulse_width_modulation = bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
@@ -298,7 +300,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 await self._async_update_rooms_from_climates()
 
             if old_state.attributes.get(ATTR_ADJUSTED_MINIMUM_SETPOINTS):
-                self.minimum_setpoint.restore(old_state.attributes.get(ATTR_ADJUSTED_MINIMUM_SETPOINTS))
+                self._minimum_setpoint.restore(old_state.attributes.get(ATTR_ADJUSTED_MINIMUM_SETPOINTS))
         else:
             if self._rooms is None:
                 await self._async_update_rooms_from_climates()
@@ -361,9 +363,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "warming_up_derivative": self._warming_up_derivative,
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
-            "minimum_setpoint": self._coordinator.minimum_setpoint,
-            "adjusted_minimum_setpoint": self.minimum_setpoint.current([self.error] + self.climate_errors),
-            "adjusted_minimum_setpoints": self.minimum_setpoint.cache(),
+            "minimum_setpoint": self.minimum_setpoint,
+            "adjusted_minimum_setpoint": self.adjusted_minimum_setpoint,
+            "adjusted_minimum_setpoints": self._minimum_setpoint.cache,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
@@ -471,7 +473,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             target_temperature = float(state.attributes.get("temperature"))
             current_temperature = float(state.attributes.get("current_temperature") or target_temperature)
 
-            # Retrieve the overriden sensor temperature if set
+            # Retrieve the overridden sensor temperature if set
             if sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID):
                 sensor_state = self.hass.states.get(sensor_temperature_id)
                 if sensor_state is not None and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
@@ -531,7 +533,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        return self._overshoot_protection and self._calculate_control_setpoint() < (self._coordinator.minimum_setpoint - 2)
+        return self._overshoot_protection and self._calculate_control_setpoint() < (self.minimum_setpoint - 2)
 
     @property
     def relative_modulation_enabled(self) -> bool:
@@ -550,6 +552,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def relative_modulation_value(self) -> int:
         return self._maximum_relative_modulation if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
+
+    @property
+    def minimum_setpoint(self) -> float:
+        if not self._dynamic_minimum_setpoint:
+            return self._coordinator.minimum_setpoint
+
+        return self.adjusted_minimum_setpoint
+
+    @property
+    def adjusted_minimum_setpoint(self) -> float:
+        return self._minimum_setpoint.current(self._coordinator.setpoint, [self.error] + self.climate_errors)
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
@@ -650,7 +663,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pid(True)
 
         # If the current temperature has changed, update the PID controller
-        elif not hasattr(new_state.attributes, SENSOR_TEMPERATURE_ID) and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
+        elif not hasattr(new_state.attributes, SENSOR_TEMPERATURE_ID) and new_attrs.get("current_temperature") != old_attrs.get(
+                "current_temperature"):
             await self._async_control_pid(False)
 
         if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode in [PRESET_HOME, PRESET_COMFORT]:
@@ -776,10 +790,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if not self.pulse_width_modulation_enabled or pwm_state == pwm_state.IDLE:
                 _LOGGER.info("Running Normal cycle")
-                self._setpoint = max(self._coordinator.minimum_setpoint, mean(list(self._outputs)[-5:]))
+                self._setpoint = max(self.minimum_setpoint, mean(list(self._outputs)[-5:]))
             else:
                 _LOGGER.info(f"Running PWM cycle: {pwm_state}")
-                self._setpoint = self._coordinator.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
+                self._setpoint = self.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
         else:
             self._outputs.clear()
             self._setpoint = MINIMUM_SETPOINT
@@ -842,7 +856,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self.requested_setpoint, self._coordinator.boiler_temperature)
+            await self.pwm.update(self.minimum_setpoint, self.requested_setpoint, self._coordinator.boiler_temperature)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
@@ -854,7 +868,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pid.update_integral(self.max_error, self.heating_curve.value)
 
         # Calculate the minimum setpoint
-        self.minimum_setpoint.calculate([self.error] + self.climate_errors)
+        self._minimum_setpoint.calculate(self._coordinator.setpoint, [self.error] + self.climate_errors)
 
         # If the setpoint is high and the HVAC is not off, turn on the heater
         if self._setpoint > MINIMUM_SETPOINT and self.hvac_mode != HVACMode.OFF:
