@@ -562,7 +562,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def adjusted_minimum_setpoint(self) -> float:
-        return self._minimum_setpoint.current(self._coordinator.setpoint, [self.error] + self.climate_errors)
+        return self._minimum_setpoint.current([self.error] + self.climate_errors)
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
@@ -856,7 +856,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self.minimum_setpoint, self.requested_setpoint, self._coordinator.boiler_temperature)
+            await self.pwm.update(self.minimum_setpoint, self._calculate_control_setpoint(), self._coordinator.boiler_temperature)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
