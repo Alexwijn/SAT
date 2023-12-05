@@ -74,6 +74,9 @@ class PWM:
         _LOGGER.debug("Calculated duty cycle %.0f seconds ON", self._duty_cycle[0])
         _LOGGER.debug("Calculated duty cycle %.0f seconds OFF", self._duty_cycle[1])
 
+        if self._state == PWMState.ON:
+            self._last_boiler_temperature = boiler_temperature or 0
+
         if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
             self._last_update = monotonic()
