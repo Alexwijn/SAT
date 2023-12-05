@@ -57,8 +57,13 @@ class MinimumSetpoint:
         if not is_flame_active or abs(target_setpoint_temperature - boiler_temperature) <= 1:
             return
 
-        # Determine the minimum setpoint based on flame state and adjustment
-        raw_adjusted_setpoint = max(boiler_temperature, target_setpoint_temperature - adjustment_percentage)
+        # Check if we are above configured minimum setpoint, does not make sense if we are below it
+        if boiler_temperature <= self._coordinator.minimum_setpoint:
+            return
+
+        # Dynamically adjust the minimum setpoint
+        adjustment_value = (adjustment_percentage / 100) * (target_setpoint_temperature - boiler_temperature)
+        raw_adjusted_setpoint = max(boiler_temperature, target_setpoint_temperature - adjustment_value)
 
         # Use the moving average to adjust the calculated setpoint
         adjusted_setpoint = raw_adjusted_setpoint
