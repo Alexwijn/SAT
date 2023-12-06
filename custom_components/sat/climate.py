@@ -562,7 +562,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def adjusted_minimum_setpoint(self) -> float:
-        return self._minimum_setpoint.current([self.error] + self.climate_errors)
+        return self._minimum_setpoint.current([self.error] + self.climate_errors) - 2
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""

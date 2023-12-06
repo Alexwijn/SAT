@@ -52,7 +52,7 @@ class PWM:
             _LOGGER.warning("Invalid heating curve value")
             return
 
-        if requested_setpoint is None or (not self._force and requested_setpoint > minimum_setpoint):
+        if requested_setpoint is None or (not self._force and requested_setpoint >= (minimum_setpoint - 2)):
             self._state = PWMState.IDLE
             self._last_update = monotonic()
             self._last_boiler_temperature = boiler_temperature
