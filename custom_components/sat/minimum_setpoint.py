@@ -68,7 +68,8 @@ class MinimumSetpoint:
         # Use the moving average to adjust the calculated setpoint
         adjusted_setpoint = raw_adjusted_setpoint
         if hash_key in self._adjusted_setpoints:
-            adjusted_setpoint = self._alpha * raw_adjusted_setpoint + (1 - self._alpha) * self._adjusted_setpoints[hash_key][setpoint]['value']
+            if setpoint in self._adjusted_setpoints[hash_key]:
+                adjusted_setpoint = self._alpha * raw_adjusted_setpoint + (1 - self._alpha) * self._adjusted_setpoints[hash_key][setpoint]['value']
         else:
             self._adjusted_setpoints[hash_key] = {}
 
