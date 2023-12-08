@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from collections import deque
 
 from custom_components.sat.const import *
 from custom_components.sat.coordinator import DeviceState, SatDataUpdateCoordinator
@@ -13,6 +12,7 @@ OVERSHOOT_PROTECTION_INITIAL_WAIT = 180  # Three minutes in seconds
 
 class OvershootProtection:
     def __init__(self, coordinator: SatDataUpdateCoordinator):
+        self._alpha = 0.2
         self._coordinator = coordinator
 
     async def calculate(self) -> float | None:
@@ -76,14 +76,11 @@ class OvershootProtection:
             await self._coordinator.async_control_heating_loop()
 
     async def _wait_for_stable_temperature(self, max_modulation: float) -> float:
-        temps = deque(maxlen=50)
-        previous_average_temperature = None
+        previous_average_temperature = float(self._coordinator.boiler_temperature)
 
         while True:
             actual_temperature = float(self._coordinator.boiler_temperature)
-
-            temps.append(actual_temperature)
-            average_temperature = sum(temps) / 50
+            average_temperature = self._alpha * actual_temperature + (1 - self._alpha) * previous_average_temperature
 
             if previous_average_temperature is not None and abs(actual_temperature - previous_average_temperature) <= DEADBAND:
                 _LOGGER.info("Stable temperature reached: %s", actual_temperature)
