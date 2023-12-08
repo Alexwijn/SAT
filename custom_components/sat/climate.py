@@ -364,6 +364,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
             "minimum_setpoint": self.minimum_setpoint,
+            "requested_setpoint": self.requested_setpoint,
             "adjusted_minimum_setpoint": self.adjusted_minimum_setpoint,
             "adjusted_minimum_setpoints": self._minimum_setpoint.cache,
             "outside_temperature": self.current_outside_temperature,
