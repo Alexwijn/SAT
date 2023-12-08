@@ -129,7 +129,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
 
         # Create the Minimum Setpoint controller
-        self._minimum_setpoint = MinimumSetpoint(hass, coordinator)
+        self._minimum_setpoint = MinimumSetpoint(self.hass, coordinator)
 
         self._sensors = []
         self._rooms = None
