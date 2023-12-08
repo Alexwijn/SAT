@@ -542,16 +542,28 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def relative_modulation_enabled(self) -> bool:
         """Return True if relative modulation is enabled, False otherwise."""
-        if self.hvac_mode == HVACMode.OFF or self._setpoint is None:
+        if self.hvac_mode == HVACMode.OFF:
+            _LOGGER.debug("Relative modulation is enabled because HVACMode is OFF.")
+            return True
+
+        if self._setpoint is None or self._setpoint <= MINIMUM_SETPOINT:
+            _LOGGER.debug("Relative modulation is enabled the setpoint is below 10 degrees.")
             return True
 
         if self._coordinator.hot_water_active or self._setpoint <= MINIMUM_SETPOINT:
+            _LOGGER.debug("Relative modulation is enabled because Hot Water is active.")
             return True
 
         if self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME:
+            _LOGGER.debug("Relative modulation is disabled because we are warming up.")
             return False
 
-        return not self.pulse_width_modulation_enabled
+        if self.pulse_width_modulation_enabled:
+            _LOGGER.debug("Relative modulation is disabled because PWM is enabled.")
+            return False
+
+        _LOGGER.debug("Relative modulation is enabled because PWM is disabled.")
+        return True
 
     @property
     def relative_modulation_value(self) -> int:
