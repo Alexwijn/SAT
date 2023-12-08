@@ -3,6 +3,8 @@ import logging
 import time
 from typing import List
 
+from homeassistant.helpers.storage import Store
+
 from custom_components.sat.coordinator import SatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,10 +24,15 @@ def _is_valid(data):
 
 
 class MinimumSetpoint:
-    def __init__(self, coordinator: SatDataUpdateCoordinator):
+    _STORAGE_VERSION = 1
+    _STORAGE_KEY = "minimum_setpoint"
+
+    def __init__(self, hass, coordinator: SatDataUpdateCoordinator):
         self._alpha = 0.2
-        self._coordinator = coordinator
         self._adjusted_setpoints = {}
+        self._coordinator = coordinator
+        self._previous_adjusted_setpoint = None
+        self._store = Store(hass, self._STORAGE_VERSION, self._STORAGE_KEY)
 
     @staticmethod
     def _get_cache_key(errors: List[float]) -> str:
@@ -33,8 +40,11 @@ class MinimumSetpoint:
         cache_hash = hashlib.sha256(errors_str.encode('utf-8'))
         return cache_hash.hexdigest()
 
-    def restore(self, adjusted_setpoints):
-        pass
+    async def async_initialize(self):
+        if (adjusted_setpoints := await self._store.async_load()) is None:
+            adjusted_setpoints = {}
+
+        self._adjusted_setpoints = adjusted_setpoints
 
     def calculate(self, setpoint: float, errors: List[float], adjustment_percentage=10):
         # Check for a valid setpoint
@@ -65,11 +75,16 @@ class MinimumSetpoint:
         adjustment_value = (adjustment_percentage / 100) * (target_setpoint_temperature - boiler_temperature)
         raw_adjusted_setpoint = max(boiler_temperature, target_setpoint_temperature - adjustment_value)
 
+        # Determine some defaults
+        previous_adjusted_setpoint = self._previous_adjusted_setpoint
+        if setpoint in self._adjusted_setpoints[hash_key]:
+            previous_adjusted_setpoint = self._adjusted_setpoints[hash_key][setpoint]['value']
+
         # Use the moving average to adjust the calculated setpoint
         adjusted_setpoint = raw_adjusted_setpoint
         if hash_key in self._adjusted_setpoints:
-            if setpoint in self._adjusted_setpoints[hash_key]:
-                adjusted_setpoint = self._alpha * raw_adjusted_setpoint + (1 - self._alpha) * self._adjusted_setpoints[hash_key][setpoint]['value']
+            if previous_adjusted_setpoint is not None:
+                adjusted_setpoint = self._alpha * raw_adjusted_setpoint + (1 - self._alpha) * previous_adjusted_setpoint
         else:
             self._adjusted_setpoints[hash_key] = {}
 
@@ -79,6 +94,12 @@ class MinimumSetpoint:
             'timestamp': int(time.time()),
             'value': round(adjusted_setpoint, 1)
         }
+
+        # Store the change calibration
+        self._store.async_delay_save(lambda: self._adjusted_setpoints)
+
+        # Store previous value, so we have a moving value
+        self._previous_adjusted_setpoint = round(adjusted_setpoint, 1)
 
     def current(self, errors: List[float]) -> float:
         cache_key = self._get_cache_key(errors)
