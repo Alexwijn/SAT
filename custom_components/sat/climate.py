@@ -43,6 +43,7 @@ from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .minimum_setpoint import MinimumSetpoint
 from .pwm import PWMState
+from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, \
     calculate_derivative_per_hour
@@ -129,7 +130,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
 
         # Create the Minimum Setpoint controller
-        self._minimum_setpoint = MinimumSetpoint(self.hass, coordinator)
+        self._minimum_setpoint = MinimumSetpoint(coordinator)
+
+        # Create Relative Modulation controller
+        self._relative_modulation = RelativeModulation(coordinator)
 
         self._sensors = []
         self._rooms = None
@@ -200,7 +204,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._register_services()
 
         # Initialize minimum setpoint system
-        await self._minimum_setpoint.async_initialize()
+        await self._minimum_setpoint.async_initialize(self.hass)
 
         # Let the coordinator know we are ready
         await self._coordinator.async_added_to_hass(self)
@@ -301,9 +305,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._rooms = old_state.attributes.get(ATTR_ROOMS)
             else:
                 await self._async_update_rooms_from_climates()
-
-            if old_state.attributes.get(ATTR_ADJUSTED_MINIMUM_SETPOINTS):
-                self._minimum_setpoint.restore(old_state.attributes.get(ATTR_ADJUSTED_MINIMUM_SETPOINTS))
         else:
             if self._rooms is None:
                 await self._async_update_rooms_from_climates()
@@ -373,8 +374,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
-            "relative_modulation_enabled": self.relative_modulation_enabled,
             "relative_modulation_value": self.relative_modulation_value,
+            "relative_modulation_state": self.relative_modulation_state,
+            "relative_modulation_enabled": self._relative_modulation.enabled,
             "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self.pwm.state,
             "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
@@ -540,34 +542,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return self._overshoot_protection and self._calculate_control_setpoint() < (self.minimum_setpoint - 2)
 
     @property
-    def relative_modulation_enabled(self) -> bool:
-        """Return True if relative modulation is enabled, False otherwise."""
-        if self.hvac_mode == HVACMode.OFF:
-            _LOGGER.debug("Relative modulation is enabled because HVACMode is OFF.")
-            return True
-
-        if self._setpoint is None or self._setpoint <= MINIMUM_SETPOINT:
-            _LOGGER.debug("Relative modulation is enabled the setpoint is below 10 degrees.")
-            return True
-
-        if self._coordinator.hot_water_active or self._setpoint <= MINIMUM_SETPOINT:
-            _LOGGER.debug("Relative modulation is enabled because Hot Water is active.")
-            return True
-
-        if self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME:
-            _LOGGER.debug("Relative modulation is disabled because we are warming up.")
-            return False
-
-        if self.pulse_width_modulation_enabled:
-            _LOGGER.debug("Relative modulation is disabled because PWM is enabled.")
-            return False
-
-        _LOGGER.debug("Relative modulation is enabled because PWM is disabled.")
-        return True
+    def relative_modulation_value(self) -> int:
+        return self._maximum_relative_modulation if self._relative_modulation.enabled else MINIMUM_RELATIVE_MOD
 
     @property
-    def relative_modulation_value(self) -> int:
-        return self._maximum_relative_modulation if self.relative_modulation_enabled else MINIMUM_RELATIVE_MOD
+    def relative_modulation_state(self) -> RelativeModulationState:
+        return self._relative_modulation.state
+
+    @property
+    def warming_up(self):
+        """Return True if we are warming up, False otherwise."""
+        return self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME
 
     @property
     def minimum_setpoint(self) -> float:
@@ -820,6 +805,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_relative_modulation(self) -> None:
         """Control the relative modulation value based on the conditions"""
         if self._coordinator.supports_relative_modulation_management:
+            await self._relative_modulation.update(self.warming_up, self.pwm.state)
             await self._coordinator.async_set_control_max_relative_modulation(self.relative_modulation_value)
 
     async def _async_update_rooms_from_climates(self) -> None:
