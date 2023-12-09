@@ -370,7 +370,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "minimum_setpoint": self.minimum_setpoint,
             "requested_setpoint": self.requested_setpoint,
             "adjusted_minimum_setpoint": self.adjusted_minimum_setpoint,
-            "adjusted_minimum_setpoints": self._minimum_setpoint.cache,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
@@ -463,7 +462,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.heating_curve.value is None:
             return MINIMUM_SETPOINT
 
-        return max(self.heating_curve.value + self.pid.output, MINIMUM_SETPOINT)
+        return round(max(self.heating_curve.value + self.pid.output, MINIMUM_SETPOINT), 1)
 
     @property
     def climate_errors(self) -> List[float]:
