@@ -6,7 +6,7 @@ import logging
 from collections import deque
 from datetime import timedelta
 from statistics import mean
-from time import monotonic
+from time import monotonic, time
 from typing import List
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -74,11 +74,11 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 class SatWarmingUp:
     def __init__(self, error: float, started: int = None):
         self.error = error
-        self.started = started if started is not None else monotonic()
+        self.started = started if started is not None else int(time())
 
     @property
     def elapsed(self):
-        return monotonic() - self.started
+        return int(time()) - self.started
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
