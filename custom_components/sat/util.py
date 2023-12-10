@@ -31,14 +31,11 @@ def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: 
     return round(temperature_error / time_taken_hours, 2)
 
 
-def calculate_default_maximum_setpoint(heating_system: str) -> int | None:
+def calculate_default_maximum_setpoint(heating_system: str) -> int:
     if heating_system == HEATING_SYSTEM_UNDERFLOOR:
         return 50
 
-    if heating_system == HEATING_SYSTEM_RADIATORS:
-        return 55
-
-    return None
+    return 55
 
 
 def create_pid_controller(config_options) -> PID:
