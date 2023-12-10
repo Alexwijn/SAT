@@ -120,21 +120,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Create dictionary mapping preset keys to temperature values
         self._presets = {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
 
-        # Create PID controller with given configuration options
-        self.pid = create_pid_controller(config_options)
-
-        # Create Heating Curve controller with given configuration options
-        self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
-
-        # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
-
-        # Create the Minimum Setpoint controller
-        self._minimum_setpoint = MinimumSetpoint(coordinator)
-
-        # Create Relative Modulation controller
-        self._relative_modulation = RelativeModulation(coordinator)
-
         self._sensors = []
         self._rooms = None
         self._setpoint = None
@@ -179,6 +164,21 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._force_pulse_width_modulation = bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
+
+        # Create PID controller with given configuration options
+        self.pid = create_pid_controller(config_options)
+
+        # Create Heating Curve controller with given configuration options
+        self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
+
+        # Create PWM controller with given configuration options
+        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
+
+        # Create the Minimum Setpoint controller
+        self._minimum_setpoint = MinimumSetpoint(coordinator)
+
+        # Create Relative Modulation controller
+        self._relative_modulation = RelativeModulation(coordinator, self._heating_system)
 
         if self._simulation:
             _LOGGER.warning("Simulation mode!")

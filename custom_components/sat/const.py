@@ -73,6 +73,7 @@ CONF_COMFORT_TEMPERATURE = "comfort_temperature"
 CONF_ACTIVITY_TEMPERATURE = "activity_temperature"
 
 HEATING_SYSTEM_UNKNOWN = "unknown"
+HEATING_SYSTEM_HEAT_PUMP = "heat_pump"
 HEATING_SYSTEM_RADIATORS = "radiators"
 HEATING_SYSTEM_UNDERFLOOR = "underfloor"
 

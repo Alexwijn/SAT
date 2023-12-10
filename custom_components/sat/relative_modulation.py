@@ -1,6 +1,6 @@
 from enum import Enum
 
-from custom_components.sat import MINIMUM_SETPOINT
+from custom_components.sat import MINIMUM_SETPOINT, HEATING_SYSTEM_HEAT_PUMP
 from custom_components.sat.coordinator import SatDataUpdateCoordinator
 from custom_components.sat.pwm import PWMState
 
@@ -15,8 +15,9 @@ class RelativeModulationState(str, Enum):
 
 
 class RelativeModulation:
-    def __init__(self, coordinator: SatDataUpdateCoordinator):
+    def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize instance variables"""
+        self._heating_system = heating_system  # The heating system that is being controlled
         self._pwm_state = None  # Tracks the current state of the PWM (Pulse Width Modulation) system
         self._warming_up = False  # Stores data related to the warming up state of the heating system
         self._coordinator = coordinator  # Reference to the data coordinator responsible for system-wide information
@@ -38,7 +39,7 @@ class RelativeModulation:
             return RelativeModulationState.HOT_WATER
 
         # If the heating system is currently in the process of warming up, it's considered WARMING_UP
-        if self._warming_up:
+        if self._warming_up and self._heating_system != HEATING_SYSTEM_HEAT_PUMP:
             return RelativeModulationState.WARMING_UP
 
         # If the PWM state is not in the ON state, it's considered PULSE_MODULATION_OFF
