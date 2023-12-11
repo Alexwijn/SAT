@@ -538,7 +538,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        return self._overshoot_protection and self._calculate_control_setpoint() < (self.minimum_setpoint - 2)
+        return self._overshoot_protection and self._calculate_control_setpoint() < self.minimum_setpoint
 
     @property
     def relative_modulation_value(self) -> int:
@@ -562,7 +562,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def adjusted_minimum_setpoint(self) -> float:
-        return self._minimum_setpoint.current([self.error] + self.climate_errors) - 2
+        return self._minimum_setpoint.current([self.error] + self.climate_errors)
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""

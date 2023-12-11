@@ -52,11 +52,11 @@ class PWM:
             _LOGGER.warning("Invalid heating curve value")
             return
 
-        if requested_setpoint is None or (not self._force and requested_setpoint >= (minimum_setpoint - 2)):
+        if requested_setpoint is None:
             self._state = PWMState.IDLE
             self._last_update = monotonic()
             self._last_boiler_temperature = boiler_temperature
-            _LOGGER.debug("Turned off PWM due exceeding the overshoot protection value.")
+            _LOGGER.debug("Turned off PWM due since we do not have a request setpoint.")
             return
 
         if boiler_temperature is not None and self._last_boiler_temperature is None:
