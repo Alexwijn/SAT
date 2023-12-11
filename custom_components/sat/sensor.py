@@ -127,7 +127,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
         gas_consumption_per_percentage = (self._maximum_consumption - self._minimum_consumption) / 100
         relative_modulation_value = self._coordinator.relative_modulation_value
 
-        return round(relative_modulation_value * gas_consumption_per_percentage, 3)
+        return round(self._minimum_consumption + ((relative_modulation_value / 100) * gas_consumption_per_percentage), 3)
 
     @property
     def unique_id(self) -> str:
