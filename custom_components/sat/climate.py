@@ -858,7 +858,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self.minimum_setpoint, self._calculate_control_setpoint(), self._coordinator.boiler_temperature)
+            await self.pwm.update(self._calculate_control_setpoint(), self._coordinator.boiler_temperature)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)

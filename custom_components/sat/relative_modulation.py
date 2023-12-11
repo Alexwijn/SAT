@@ -42,8 +42,8 @@ class RelativeModulation:
         if self._warming_up and self._heating_system != HEATING_SYSTEM_HEAT_PUMP:
             return RelativeModulationState.WARMING_UP
 
-        # If the PWM state is in the OFF state, it's considered PULSE_WIDTH_MODULATION_OFF
-        if self._pwm_state == PWMState.OFF:
+        # If the PWM state is in the ON state, it's considered PULSE_WIDTH_MODULATION_OFF
+        if self._pwm_state != PWMState.ON:
             return RelativeModulationState.PULSE_WIDTH_MODULATION_OFF
 
         # Default case, when none of the above conditions are met, it's considered OFF
