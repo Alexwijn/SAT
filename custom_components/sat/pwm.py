@@ -28,6 +28,7 @@ class PWM:
 
     def __init__(self, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, force: bool = False):
         """Initialize the PWM control."""
+        self._alpha = 0.2
         self._force = force
         self._last_boiler_temperature = None
         self._last_duty_cycle_percentage = None
@@ -69,7 +70,10 @@ class PWM:
         _LOGGER.debug("Calculated duty cycle %.0f seconds OFF", self._duty_cycle[1])
 
         if self._state == PWMState.ON and boiler_temperature is not None:
-            self._last_boiler_temperature = boiler_temperature
+            if elapsed <= HEATER_STARTUP_TIMEFRAME:
+                self._last_boiler_temperature = self._alpha * boiler_temperature + (1 - self._alpha) * self._last_boiler_temperature
+            else:
+                self._last_boiler_temperature = boiler_temperature
 
         if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
@@ -88,18 +92,18 @@ class PWM:
 
     def _calculate_duty_cycle(self, requested_setpoint: float) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
-        calculated_setpoint = self._last_boiler_temperature or requested_setpoint
+        boiler_temperature = self._last_boiler_temperature or requested_setpoint
         base_offset = self._heating_curve.base_offset
 
-        if calculated_setpoint < base_offset:
-            calculated_setpoint = base_offset + 1
+        if boiler_temperature < base_offset:
+            boiler_temperature = base_offset + 1
 
-        self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (calculated_setpoint - base_offset)
+        self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (boiler_temperature - base_offset)
         self._last_duty_cycle_percentage = min(self._last_duty_cycle_percentage, 1)
         self._last_duty_cycle_percentage = max(self._last_duty_cycle_percentage, 0)
 
         _LOGGER.debug("Requested setpoint %.1f", requested_setpoint)
-        _LOGGER.debug("Calculated Setpoint %.1f", calculated_setpoint)
+        _LOGGER.debug("Boiler Temperature %.1f", boiler_temperature)
         _LOGGER.debug("Calculated duty cycle %.2f%%", self._last_duty_cycle_percentage * 100)
 
         if not self._automatic_duty_cycle:
