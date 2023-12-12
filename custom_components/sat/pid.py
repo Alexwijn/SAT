@@ -9,7 +9,7 @@ from .const import *
 
 _LOGGER = logging.getLogger(__name__)
 
-MAX_BOILER_TEMPERATURE_AGE = 300
+MAX_BOILER_TEMPERATURE_AGE = 60
 
 
 class PID:
@@ -129,7 +129,7 @@ class PID:
             return
 
         current_time = monotonic()
-        limit = heating_curve_value / 10
+        limit = self.kp * heating_curve_value / 10
         time_elapsed = current_time - self._last_interval_updated
 
         # Check if the integral gain `ki` is set
@@ -268,10 +268,11 @@ class PID:
     def ki(self) -> float | None:
         """Return the value of ki based on the current configuration."""
         if self._automatic_gains:
+            automatic_gain_value = 0.243 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 0.33
             if self._last_heating_curve_value is None:
                 return 0
 
-            return round(self._last_heating_curve_value / 73900, 6)
+            return round(self._automatic_gains_value * automatic_gain_value * self._last_heating_curve_value / 90000, 6)
 
         return float(self._ki)
 
@@ -303,17 +304,7 @@ class PID:
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
-        derivative = self.kd * self._raw_derivative
-        output = self._last_heating_curve_value + self.proportional + self.integral
-
-        if self._last_boiler_temperature is not None:
-            if abs(self._last_error) > 0.1 and abs(self._last_boiler_temperature - output) < 3:
-                return 0
-
-            if abs(self._last_error) <= 0.1 and abs(self._last_boiler_temperature - output) < 7:
-                return 0
-
-        return round(derivative, 3)
+        return round(self.kd * self._raw_derivative, 3)
 
     @property
     def raw_derivative(self) -> float:
@@ -328,7 +319,7 @@ class PID:
     @property
     def integral_enabled(self) -> bool:
         """Return whether the updates of the integral are enabled."""
-        return abs(self._last_error) <= self._deadband
+        return self._last_error > self._deadband or self.previous_error > self._deadband
 
     @property
     def derivative_enabled(self) -> bool:
