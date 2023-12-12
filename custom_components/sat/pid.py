@@ -271,9 +271,9 @@ class PID:
             if self._last_heating_curve_value is None:
                 return 0
 
-            return 0
+            return round(self._last_heating_curve_value / 73900, 6)
 
-        return 0
+        return float(self._ki)
 
     @property
     def kd(self) -> float | None:
