@@ -1,8 +1,21 @@
-# Smart Autotune Thermostat (SAT) V3
-The Smart Autotune Thermostat (SAT) is a custom component for Home Assistant that works with an [OpenTherm Gateway (OTGW)](https://otgw.tclcode.com/) ( MQTT or Serial ) or acts as a PID ON/OFF thermostat in order to provide advanced temperature control functionality based on Outside Temperature compensation and Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficient, which means it can determine the optimal setpoint for your boiler without any manual intervention.
+# Smart Autotune Thermostat
+
+[![hacs][hacs-badge]][hacs-url]
+[![release][release-badge]][release-url]
+![build][build-badge]
+
+<a href="https://www.buymeacoffee.com/alexwijn"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=alexwijn&button_colour=0ac982&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff"></a>
+
+![setup.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/setup.png)
+![overshoot_protection.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/overshoot_protection.png)
+![opentherm-mqtt.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/opentherm-mqtt.png)
+
+## What is Smart Autotune Thermostat?
+
+The Smart Autotune Thermostat, or SAT for short, is a custom component for Home Assistant that functions with an [OpenTherm Gateway (OTGW)](https://otgw.tclcode.com/) (MQTT or Serial). It can also act as a PID ON/OFF thermostat, offering advanced temperature control functionality based on Outside Temperature compensation and the Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficient. This capability allows it to determine the optimal setpoint for your boiler without any manual intervention.
 
 ## Features
-OpenTherm ( MQTT/Serial ):
+OpenTherm ( MQTT / Serial ):
 - Multi-room temperature control with support for temperature synchronization for main climates
 - Overshoot protection value automatic calculation mechanism
 - Adjustable heating curve coefficients to fine-tune your heating system
@@ -127,8 +140,16 @@ setpoint back to your desired temperature.
 heat the home is less than the minimum boiler capacity. Moreover, using this feature SAT is able to regulate efficiently the room temperature even in mild weather by
 automatically adjusting the duty cycle.
 
-## Support
+<!-- Badges -->
 
-If you want to support this project, you can [**buy me a coffee here**](https://www.buymeacoffee.com/alexwijn).
+[hacs-url]: https://github.com/hacs/integration
+[hacs-badge]: https://img.shields.io/badge/hacs-default-orange.svg?style=flat-square
+[release-badge]: https://img.shields.io/github/v/tag/Alexwijn/SAT?style=flat-square
+[downloads-badge]: https://img.shields.io/github/downloads/Alexwijn/SAT/total?style=flat-square
+[build-badge]: https://img.shields.io/github/actions/workflow/status/Alexwijn/SAT/pytest.yml?branch=develop&style=flat-square
 
-<a href="https://www.buymeacoffee.com/alexwijn"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=alexwijn&button_colour=0ac982&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff"></a>
+<!-- References -->
+
+[hacs]: https://hacs.xyz
+[home-assistant]: https://www.home-assistant.io/
+[release-url]: https://github.com/Alexwijn/SAT/releases
