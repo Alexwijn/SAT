@@ -122,12 +122,12 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
             return 0
 
         if self._coordinator.flame_active is False:
-            return self._minimum_consumption
+            return 0
 
-        gas_consumption_per_percentage = (self._maximum_consumption - self._minimum_consumption) / 100
+        differential_gas_consumption = self._maximum_consumption - self._minimum_consumption
         relative_modulation_value = self._coordinator.relative_modulation_value
 
-        return round(self._minimum_consumption + ((relative_modulation_value / 100) * gas_consumption_per_percentage), 3)
+        return round(self._minimum_consumption + ((relative_modulation_value / 100) * differential_gas_consumption), 3)
 
     @property
     def unique_id(self) -> str:

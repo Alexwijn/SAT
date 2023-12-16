@@ -134,7 +134,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if boiler_capacity == 0:
             return 0
 
-        return boiler_capacity / (100 / minimum_relative_modulation_value)
+        return boiler_capacity * (minimum_relative_modulation_value / 100)
 
     @property
     def boiler_power(self) -> float | None:
@@ -150,7 +150,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.flame_active is False:
             return 0
 
-        return ((boiler_capacity - minimum_boiler_capacity) / 100) * relative_modulation_value
+        return minimum_boiler_capacity + ((boiler_capacity - minimum_boiler_capacity) * (relative_modulation_value / 100))
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
