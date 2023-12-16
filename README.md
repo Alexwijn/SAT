@@ -3,6 +3,7 @@
 [![hacs][hacs-badge]][hacs-url]
 [![release][release-badge]][release-url]
 ![build][build-badge]
+[![discord][discord-badge]][discord-url]
 
 <a href="https://www.buymeacoffee.com/alexwijn"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=alexwijn&button_colour=0ac982&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff"></a>
 
@@ -138,13 +139,15 @@ Note: If you have any TRVs, open all of them (set them to a high setpoint) to en
 <!-- Badges -->
 
 [hacs-url]: https://github.com/hacs/integration
-[hacs-badge]: https://img.shields.io/badge/hacs-default-orange.svg?style=flat-square
-[release-badge]: https://img.shields.io/github/v/tag/Alexwijn/SAT?style=flat-square
-[downloads-badge]: https://img.shields.io/github/downloads/Alexwijn/SAT/total?style=flat-square
-[build-badge]: https://img.shields.io/github/actions/workflow/status/Alexwijn/SAT/pytest.yml?branch=develop&style=flat-square
+[hacs-badge]: https://img.shields.io/badge/hacs-default-orange.svg?style=for-the-badge
+[release-badge]: https://img.shields.io/github/v/tag/Alexwijn/SAT?style=for-the-badge
+[downloads-badge]: https://img.shields.io/github/downloads/Alexwijn/SAT/total?style=for-the-badge
+[build-badge]: https://img.shields.io/github/actions/workflow/status/Alexwijn/SAT/pytest.yml?branch=develop&style=for-the-badge
+[discord-badge]: https://img.shields.io/discord/1184879273991995515?label=Discord&logo=discord&logoColor=white&style=for-the-badge
 
 <!-- References -->
 
 [hacs]: https://hacs.xyz
 [home-assistant]: https://www.home-assistant.io/
 [release-url]: https://github.com/Alexwijn/SAT/releases
+[discord-url]: https://discord.gg/jnVXpzqGEq
