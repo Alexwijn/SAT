@@ -6,9 +6,8 @@
 
 <a href="https://www.buymeacoffee.com/alexwijn"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=alexwijn&button_colour=0ac982&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff"></a>
 
-![setup.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/setup.png)
-![overshoot_protection.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/overshoot_protection.png)
 ![opentherm-mqtt.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/opentherm-mqtt.png)
+![overshoot_protection.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/overshoot_protection.png)
 
 ## What is Smart Autotune Thermostat?
 
