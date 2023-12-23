@@ -9,6 +9,11 @@ from homeassistant.helpers import entity_registry
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 
+DOMAIN_SERVICE = {
+    SWITCH_DOMAIN: SWITCH_DOMAIN,
+    INPUT_BOOLEAN_DOMAIN: INPUT_BOOLEAN_DOMAIN
+}
+
 
 class SatSwitchCoordinator(SatDataUpdateCoordinator):
     """Class to manage the Switch."""
@@ -36,12 +41,10 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         if not self._simulation:
-            service = SERVICE_TURN_ON if state == DeviceState.ON else SERVICE_TURN_OFF
+            domain_service = DOMAIN_SERVICE.get(self._entity.domain)
+            state_service = SERVICE_TURN_ON if state == DeviceState.ON else SERVICE_TURN_OFF
 
-            if self._entity.domain == SWITCH_DOMAIN:
-                await self.hass.services.async_call(SWITCH_DOMAIN, service, {ATTR_ENTITY_ID: self._entity.entity_id}, blocking=True)
-
-            if self._entity.domain == INPUT_BOOLEAN_DOMAIN:
-                await self.hass.services.async_call(INPUT_BOOLEAN_DOMAIN, service, {ATTR_ENTITY_ID: self._entity.entity_id}, blocking=True)
+            if domain_service:
+                await self.hass.services.async_call(domain_service, state_service, {ATTR_ENTITY_ID: self._entity.entity_id}, blocking=True)
 
         await super().async_set_heater_state(state)
