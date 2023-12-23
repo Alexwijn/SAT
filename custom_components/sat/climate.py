@@ -72,8 +72,9 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 
 
 class SatWarmingUp:
-    def __init__(self, error: float, started: int = None):
+    def __init__(self, error: float, boiler_temperature: float = None, started: int = None):
         self.error = error
+        self.boiler_temperature = boiler_temperature
         self.started = started if started is not None else int(time())
 
     @property
@@ -284,7 +285,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
 
             if warming_up := old_state.attributes.get(ATTR_WARMING_UP):
-                self._warming_up_data = SatWarmingUp(warming_up["error"], warming_up["started"])
+                self._warming_up_data = SatWarmingUp(warming_up["error"], warming_up["boiler_temperature"], warming_up["started"])
 
             if old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE):
                 self._warming_up_derivative = old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE)
@@ -778,7 +779,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Determine if we are warming up
             if self.max_error > DEADBAND:
-                self._warming_up_data = SatWarmingUp(self.max_error)
+                self._warming_up_data = SatWarmingUp(self.max_error, self._coordinator.boiler_temperature)
                 _LOGGER.info("Outside of deadband, we are warming up")
 
         self.async_write_ha_state()
