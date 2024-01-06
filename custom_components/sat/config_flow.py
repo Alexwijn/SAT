@@ -38,7 +38,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         menu_options = []
 
         # Since we rely on the availability logic in 2023.5, we do not support it below it.
-        if MAJOR_VERSION >= 2023 and MINOR_VERSION >= 5:
+        if MAJOR_VERSION >= 2023 and (MINOR_VERSION >= 5 or MAJOR_VERSION > 2023):
             menu_options.append("mqtt")
 
         menu_options.append("serial")
