@@ -35,13 +35,15 @@ _LOGGER = logging.getLogger(__name__)
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
     VERSION = 5
+    MINOR_VERSION = 0
+
     calibration = None
     overshoot_protection_value = None
 
     def __init__(self):
         """Initialize."""
-        self._data = {}
-        self._errors = {}
+        self.data = {}
+        self.errors = {}
 
     @staticmethod
     @callback
@@ -58,7 +60,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         menu_options = []
 
         # Since we rely on the availability logic in 2023.5, we do not support below it.
-        if MAJOR_VERSION >= 2023 and MINOR_VERSION >= 5:
+        if MAJOR_VERSION >= 2023 and (MINOR_VERSION >= 5 or MAJOR_VERSION > 2023):
             menu_options.append("mosquitto")
 
         menu_options.append("serial")
@@ -72,12 +74,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
         """Handle dhcp discovery."""
         _LOGGER.debug("Discovered OTGW at [socket://%s]", discovery_info.hostname)
-        self._data[CONF_DEVICE] = f"socket://{discovery_info.hostname}:25238"
+        self.data[CONF_DEVICE] = f"socket://{discovery_info.hostname}:25238"
 
         # abort if we already have exactly this gateway id/host
         # reload the integration if the host got updated
         await self.async_set_unique_id(discovery_info.hostname)
-        self._abort_if_unique_id_configured(updates=self._data, reload_on_update=True)
+        self._abort_if_unique_id_configured(updates=self.data, reload_on_update=True)
 
         return await self.async_step_serial()
 
@@ -88,24 +90,24 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         _LOGGER.debug("Discovered OTGW at [mqtt://%s]", discovery_info.topic)
-        self._data[CONF_DEVICE] = device.id
+        self.data[CONF_DEVICE] = device.id
 
         # abort if we already have exactly this gateway id/host
         # reload the integration if the host got updated
         await self.async_set_unique_id(device.id)
-        self._abort_if_unique_id_configured(updates=self._data, reload_on_update=True)
+        self._abort_if_unique_id_configured(updates=self.data, reload_on_update=True)
 
         return await self.async_step_mosquitto()
 
     async def async_step_mosquitto(self, _user_input=None):
-        self._errors = {}
+        self.errors = {}
 
         if _user_input is not None:
-            self._data.update(_user_input)
-            self._data[CONF_MODE] = MODE_MQTT
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = MODE_MQTT
 
             if not await mqtt.async_wait_for_mqtt_client(self.hass):
-                self._errors["base"] = "mqtt_component"
+                self.errors["base"] = "mqtt_component"
                 return await self.async_step_mosquitto()
 
             return await self.async_step_sensors()
@@ -113,27 +115,27 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="mosquitto",
             last_step=False,
-            errors=self._errors,
+            errors=self.errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
-                vol.Required(CONF_DEVICE, default=self._data.get(CONF_DEVICE)): selector.DeviceSelector(
+                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
                     selector.DeviceSelectorConfig(model="otgw-nodo")
                 ),
             }),
         )
 
     async def async_step_serial(self, _user_input=None):
-        self._errors = {}
+        self.errors = {}
 
         if _user_input is not None:
-            self._data.update(_user_input)
-            self._data[CONF_MODE] = MODE_SERIAL
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = MODE_SERIAL
 
             gateway = OpenThermGateway()
-            if not await gateway.connect(port=self._data[CONF_DEVICE], skip_init=True, timeout=5):
+            if not await gateway.connect(port=self.data[CONF_DEVICE], skip_init=True, timeout=5):
                 await gateway.disconnect()
-                self._errors["base"] = "connection"
+                self.errors["base"] = "connection"
                 return await self.async_step_serial()
 
             return await self.async_step_sensors()
@@ -141,24 +143,24 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="serial",
             last_step=False,
-            errors=self._errors,
+            errors=self.errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                vol.Required(CONF_DEVICE, default=self._data.get(CONF_DEVICE, "socket://otgw.local:25238")): str,
+                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE, "socket://otgw.local:25238")): str,
             }),
         )
 
     async def async_step_switch(self, _user_input=None):
         if _user_input is not None:
-            self._data.update(_user_input)
-            self._data[CONF_MODE] = MODE_SWITCH
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = MODE_SWITCH
 
             return await self.async_step_sensors()
 
         return self.async_show_form(
             step_id="switch",
             last_step=False,
-            errors=self._errors,
+            errors=self.errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_DEVICE): selector.EntitySelector(
@@ -172,16 +174,16 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_simulator(self, _user_input=None):
         if _user_input is not None:
-            self._data.update(_user_input)
-            self._data[CONF_MODE] = MODE_SIMULATOR
-            self._data[CONF_DEVICE] = f"%s_%s".format(MODE_SIMULATOR, snake_case(_user_input.get(CONF_NAME)))
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = MODE_SIMULATOR
+            self.data[CONF_DEVICE] = f"%s_%s".format(MODE_SIMULATOR, snake_case(_user_input.get(CONF_NAME)))
 
             return await self.async_step_sensors()
 
         return self.async_show_form(
             step_id="simulator",
             last_step=False,
-            errors=self._errors,
+            errors=self.errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_SIMULATED_HEATING, default=OPTIONS_DEFAULTS[CONF_SIMULATED_HEATING]): selector.NumberSelector(
@@ -198,13 +200,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_sensors(self, _user_input=None):
-        await self.async_set_unique_id(self._data[CONF_DEVICE], raise_on_progress=False)
+        await self.async_set_unique_id(self.data[CONF_DEVICE], raise_on_progress=False)
         self._abort_if_unique_id_configured()
 
         if _user_input is not None:
-            self._data.update(_user_input)
+            self.data.update(_user_input)
 
-            if self._data[CONF_MODE] in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
+            if self.data[CONF_MODE] in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()
@@ -236,7 +238,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_heating_system(self, _user_input=None):
         if _user_input is not None:
-            self._data.update(_user_input)
+            self.data.update(_user_input)
 
             return await self.async_step_areas()
 
@@ -256,9 +258,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_areas(self, _user_input=None):
         if _user_input is not None:
-            self._data.update(_user_input)
+            self.data.update(_user_input)
 
-            if (await self._create_coordinator()).supports_setpoint_management:
+            if (await self.async_create_coordinator()).supports_setpoint_management:
                 return await self.async_step_calibrate_system()
 
             return await self.async_step_automatic_gains()
@@ -277,9 +279,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_automatic_gains(self, _user_input=None):
         if _user_input is not None:
-            self._data.update(_user_input)
+            self.data.update(_user_input)
 
-            if not self._data[CONF_AUTOMATIC_GAINS]:
+            if not self.data[CONF_AUTOMATIC_GAINS]:
                 return await self.async_step_pid_controller()
 
             return await self.async_step_finish()
@@ -297,7 +299,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_calibrate(self, _user_input=None):
-        coordinator = await self._create_coordinator()
+        coordinator = await self.async_create_coordinator()
 
         async def start_calibration():
             try:
@@ -341,7 +343,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_calibrated(self, _user_input=None):
         return self.async_show_menu(
             step_id="calibrated",
-            description_placeholders=self._data,
+            description_placeholders=self.data,
             menu_options=["calibrate", "finish"],
         )
 
@@ -363,10 +365,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_pid_controller(self, _user_input=None):
-        self._data[CONF_AUTOMATIC_GAINS] = False
+        self.data[CONF_AUTOMATIC_GAINS] = False
 
         if _user_input is not None:
-            self._data.update(_user_input)
+            self.data.update(_user_input)
             return await self.async_step_finish()
 
         return self.async_show_form(
@@ -379,22 +381,33 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_finish(self, _user_input=None):
-        return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
+        return self.async_create_entry(title=self.data[CONF_NAME], data=self.data)
 
-    async def _create_coordinator(self) -> SatDataUpdateCoordinator:
+    async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
+        # Set up the config entry parameters, since they differ per version
+        config_params = {
+            "version": self.VERSION,
+            "domain": DOMAIN,
+            "title": self.data[CONF_NAME],
+            "data": self.data,
+            "source": SOURCE_USER,
+        }
+
+        # Check Home Assistant version and add parameters accordingly
+        if MAJOR_VERSION >= 2024:
+            config_params["minor_version"] = self.MINOR_VERSION
+
         # Create a new config to use
-        config = ConfigEntry(
-            version=self.VERSION, domain=DOMAIN, title=self._data[CONF_NAME], data=self._data, source=SOURCE_USER
-        )
+        config = ConfigEntry(**config_params)
 
         # Resolve the coordinator by using the factory according to the mode
         return await SatDataUpdateCoordinatorFactory().resolve(
-            hass=self.hass, config_entry=config, mode=self._data[CONF_MODE], device=self._data[CONF_DEVICE]
+            hass=self.hass, config_entry=config, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
     async def _enable_overshoot_protection(self, overshoot_protection_value: float):
-        self._data[CONF_OVERSHOOT_PROTECTION] = True
-        self._data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
+        self.data[CONF_OVERSHOOT_PROTECTION] = True
+        self.data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
 
 
 class SatOptionsFlowHandler(config_entries.OptionsFlow):
