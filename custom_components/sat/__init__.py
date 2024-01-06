@@ -1,62 +1,65 @@
 import asyncio
 import logging
-from typing import Optional, Any
 
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
+from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Config, HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from pyotgw import OpenThermGateway
-from serial import SerialException
 
+from . import mqtt, serial, switch
 from .const import *
+from .coordinator import SatDataUpdateCoordinatorFactory
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-async def async_setup(_hass: HomeAssistant, __config: Config):
-    """Set up this integration using YAML is not supported."""
-    return True
-
-
 async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
-    """Set up this integration using UI."""
-    if _hass.data.get(DOMAIN) is None:
-        _hass.data.setdefault(DOMAIN, {})
+    """
+    Set up this integration using the UI.
 
-    try:
-        client = OpenThermGateway()
-        await client.connect(port=_entry.data.get(CONF_DEVICE), timeout=5)
-    except (asyncio.TimeoutError, ConnectionError, SerialException) as ex:
-        raise ConfigEntryNotReady(f"Could not connect to gateway at {_entry.data.get(CONF_DEVICE)}: {ex}") from ex
+    This function is called by Home Assistant when the integration is set up with the UI.
+    """
+    # Make sure we have our default domain property
+    _hass.data.setdefault(DOMAIN, {})
 
-    _hass.data[DOMAIN][_entry.entry_id] = {
-        COORDINATOR: SatDataUpdateCoordinator(_hass, client=client),
-    }
+    # Create a new dictionary for this entry
+    _hass.data[DOMAIN][_entry.entry_id] = {}
 
-    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE))
-    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, SENSOR))
-    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, NUMBER))
-    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, BINARY_SENSOR))
+    # Resolve the coordinator by using the factory according to the mode
+    _hass.data[DOMAIN][_entry.entry_id][COORDINATOR] = await SatDataUpdateCoordinatorFactory().resolve(
+        hass=_hass, config_entry=_entry, mode=_entry.data.get(CONF_MODE), device=_entry.data.get(CONF_DEVICE)
+    )
 
+    # Forward entry setup for climate and other platforms
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE_DOMAIN))
+    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setups(_entry, [SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]))
+
+    # Add an update listener for this entry
     _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
 
     return True
 
 
 async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
-    """Handle removal of an entry."""
+    """
+    Handle removal of an entry.
+
+    This function is called by Home Assistant when the integration is being removed.
+    """
+
+    climate = _hass.data[DOMAIN][_entry.entry_id][CLIMATE]
+    await _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].async_will_remove_from_hass(climate)
+
     unloaded = all(
         await asyncio.gather(
-            _hass.config_entries.async_forward_entry_unload(_entry, CLIMATE),
-            _hass.config_entries.async_forward_entry_unload(_entry, SENSOR),
-            _hass.config_entries.async_forward_entry_unload(_entry, NUMBER),
-            _hass.config_entries.async_forward_entry_unload(_entry, BINARY_SENSOR),
-            _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].cleanup()
+            _hass.config_entries.async_unload_platforms(_entry, [CLIMATE_DOMAIN, SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]),
         )
     )
 
+    # Remove the entry from the data dictionary if all components are unloaded successfully
     if unloaded:
         _hass.data[DOMAIN].pop(_entry.entry_id)
 
@@ -64,66 +67,82 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
 
 
 async def async_reload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> None:
-    """Reload config entry."""
+    """
+    Reload config entry.
+
+    This function is called by Home Assistant when the integration configuration is updated.
+    """
+    # Unload the entry and its dependent components
     await async_unload_entry(_hass, _entry)
+
+    # Set up the entry again
     await async_setup_entry(_hass, _entry)
 
 
-class SatDataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching data from the OTGW Gateway."""
+async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    from custom_components.sat.config_flow import SatFlowHandler
+    _LOGGER.debug("Migrating from version %s", _entry.version)
 
-    def __init__(self, hass: HomeAssistant, client: OpenThermGateway) -> None:
-        """Initialize."""
-        self.api = client
-        self.api.subscribe(self._async_coroutine)
+    if _entry.version < SatFlowHandler.VERSION:
+        new_data = {**_entry.data}
+        new_options = {**_entry.options}
 
-        super().__init__(hass, _LOGGER, name=DOMAIN)
+        if _entry.version < 2:
+            if not _entry.data.get(CONF_MINIMUM_SETPOINT):
+                # Legacy Store
+                store = Store(_hass, 1, DOMAIN)
+                new_data[CONF_MINIMUM_SETPOINT] = MINIMUM_SETPOINT
 
-    async def _async_update_data(self):
-        """Update data via library."""
-        try:
-            return await self.api.get_status()
-        except Exception as exception:
-            raise UpdateFailed() from exception
+                if (data := await store.async_load()) and (overshoot_protection_value := data.get("overshoot_protection_value")):
+                    new_data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
 
-    async def _async_coroutine(self, data):
-        self.async_set_updated_data(data)
+            if _entry.options.get("heating_system") == "underfloor":
+                new_data[CONF_HEATING_SYSTEM] = HEATING_SYSTEM_UNDERFLOOR
+            else:
+                new_data[CONF_HEATING_SYSTEM] = HEATING_SYSTEM_RADIATORS
 
-    async def cleanup(self):
-        """Cleanup and disconnect."""
-        self.api.unsubscribe(self._async_coroutine)
+            if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
+                new_data[CONF_MAXIMUM_SETPOINT] = 55
 
-        await self.api.set_control_setpoint(0)
-        await self.api.set_max_relative_mod("-")
-        await self.api.disconnect()
+                if _entry.options.get("heating_system") == "underfloor":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 50
 
-    def get(self, key: str) -> Optional[Any]:
-        """Get the value for the given `key` from the boiler data.
+                if _entry.options.get("heating_system") == "radiator_low_temperatures":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 55
 
-        :param key: Key of the value to retrieve from the boiler data.
-        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
-        """
-        return self.data[gw_vars.BOILER].get(key) if self.data[gw_vars.BOILER] else None
+                if _entry.options.get("heating_system") == "radiator_medium_temperatures":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 65
 
+                if _entry.options.get("heating_system") == "radiator_high_temperatures":
+                    new_data[CONF_MAXIMUM_SETPOINT] = 75
 
-class SatConfigStore:
-    _STORAGE_VERSION = 1
-    _STORAGE_KEY = DOMAIN
+        if _entry.version < 3:
+            if main_climates := _entry.options.get("main_climates"):
+                new_data[CONF_MAIN_CLIMATES] = main_climates
+                new_options.pop("main_climates")
 
-    def __init__(self, hass):
-        self._hass = hass
-        self._data = None
-        self._store = Store(hass, self._STORAGE_VERSION, self._STORAGE_KEY)
+            if secondary_climates := _entry.options.get("climates"):
+                new_data[CONF_SECONDARY_CLIMATES] = secondary_climates
+                new_options.pop("climates")
 
-    async def async_initialize(self):
-        if (data := await self._store.async_load()) is None:
-            data = {STORAGE_OVERSHOOT_PROTECTION_VALUE: None}
+            if sync_with_thermostat := _entry.options.get("sync_with_thermostat"):
+                new_data[CONF_SYNC_WITH_THERMOSTAT] = sync_with_thermostat
+                new_options.pop("sync_with_thermostat")
 
-        self._data = data
+        if _entry.version < 4:
+            if _entry.data.get("window_sensor") is not None:
+                new_data[CONF_WINDOW_SENSORS] = [_entry.data.get("window_sensor")]
+                del new_options["window_sensor"]
 
-    def retrieve_overshoot_protection_value(self):
-        return self._data[STORAGE_OVERSHOOT_PROTECTION_VALUE]
+        if _entry.version < 5:
+            if _entry.options.get("overshoot_protection") is not None:
+                new_data[CONF_OVERSHOOT_PROTECTION] = _entry.options.get("overshoot_protection")
+                del new_options["overshoot_protection"]
 
-    def store_overshoot_protection_value(self, value: float):
-        self._data[STORAGE_OVERSHOOT_PROTECTION_VALUE] = value
-        self._store.async_delay_save(lambda: self._data, 1.0)
+        _entry.version = SatFlowHandler.VERSION
+        _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)
+
+    _LOGGER.info("Migration to version %s successful", _entry.version)
+
+    return True

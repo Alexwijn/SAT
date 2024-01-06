@@ -1,3 +1,4 @@
+import logging
 from collections import deque
 from time import monotonic
 from typing import Optional
@@ -6,20 +7,27 @@ from homeassistant.core import State
 
 from .const import *
 
+_LOGGER = logging.getLogger(__name__)
+
+MAX_BOILER_TEMPERATURE_AGE = 300
+
 
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, kp: float, ki: float, kd: float,
+    def __init__(self,
+                 heating_system: str, automatic_gain_value: float,
+                 kp: float, ki: float, kd: float,
                  max_history: int = 2,
-                 deadband: float = 0.1,
+                 deadband: float = DEADBAND,
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
-                 sample_time_limit: Optional[float] = 10,
-                 heating_system: str = HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES):
+                 sample_time_limit: Optional[float] = 10):
         """
         Initialize the PID controller.
 
+        :param heating_system: The type of heating system, either "underfloor" or "radiator"
+        :param automatic_gain_value: The value to finetune the aggression value.
         :param kp: The proportional gain of the PID controller.
         :param ki: The integral gain of the PID controller.
         :param kd: The derivative gain of the PID controller.
@@ -27,7 +35,6 @@ class PID:
         :param deadband: The deadband of the PID controller. The range of error values where the controller will not make adjustments.
         :param integral_time_limit: The minimum time interval between integral updates to the PID controller, in seconds.
         :param sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
-        :param heating_system: The heating system type that we are controlling.
         """
         self._kp = kp
         self._ki = ki
@@ -36,6 +43,7 @@ class PID:
         self._history_size = max_history
         self._heating_system = heating_system
         self._automatic_gains = automatic_gains
+        self._automatic_gains_value = automatic_gain_value
         self._last_interval_updated = monotonic()
         self._sample_time_limit = max(sample_time_limit, 1)
         self._integral_time_limit = max(integral_time_limit, 1)
@@ -47,6 +55,7 @@ class PID:
         self._time_elapsed = 0
         self._last_updated = monotonic()
         self._last_heating_curve_value = 0
+        self._last_boiler_temperature = None
 
         # Reset the integral and derivative
         self._integral = 0.0
@@ -56,11 +65,12 @@ class PID:
         self._times = deque(maxlen=self._history_size)
         self._errors = deque(maxlen=self._history_size)
 
-    def update(self, error: float, heating_curve_value: float) -> None:
+    def update(self, error: float, heating_curve_value: float, boiler_temperature: float) -> None:
         """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.
 
         :param error: The max error between all the target temperatures and the current temperatures.
         :param heating_curve_value: The current heating curve value.
+        :param boiler_temperature: The current boiler temperature.
         """
         current_time = monotonic()
         time_elapsed = current_time - self._last_updated
@@ -79,6 +89,7 @@ class PID:
         self._time_elapsed = time_elapsed
 
         self._last_error = error
+        self._last_boiler_temperature = boiler_temperature
         self._last_heating_curve_value = heating_curve_value
 
     def update_reset(self, error: float, heating_curve_value: Optional[float]) -> None:
@@ -176,7 +187,7 @@ class PID:
 
     def update_history_size(self, alpha: float = 0.8):
         """
-        Update the size of the history of errors and times.
+        Update the history of errors and times.
 
         The size of the history is updated based on the frequency of updates to the sensor value.
         If the frequency of updates is high, the history size is increased, and if the frequency of updates is low,
@@ -202,7 +213,7 @@ class PID:
         history_size = max(2, history_size)
         history_size = min(history_size, 100)
 
-        # Calculate a weighted average of the rate of updates and the previous history size
+        # Calculate an average weighted rate of updates and the previous history size
         self._history_size = alpha * history_size + (1 - alpha) * self._history_size
 
         # Update our lists with the new size
@@ -248,9 +259,10 @@ class PID:
     def kp(self) -> float | None:
         """Return the value of kp based on the current configuration."""
         if self._automatic_gains:
-            return round(self._last_heating_curve_value * 1.65, 6)
+            automatic_gain_value = 0.243 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 0.33
+            return round(self._automatic_gains_value * automatic_gain_value * self._last_heating_curve_value, 6)
 
-        return self._kp
+        return float(self._kp)
 
     @property
     def ki(self) -> float | None:
@@ -261,7 +273,7 @@ class PID:
 
             return round(self._last_heating_curve_value / 73900, 6)
 
-        return self._ki
+        return float(self._ki)
 
     @property
     def kd(self) -> float | None:
@@ -273,12 +285,10 @@ class PID:
             if self._last_heating_curve_value is None:
                 return 0
 
-            if self._heating_system == HEATING_SYSTEM_RADIATOR_LOW_TEMPERATURES:
-                return round(self._last_heating_curve_value * 1650, 6)
+            aggression_value = 438.2 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 596
+            return round(self._automatic_gains_value * aggression_value * self._last_heating_curve_value, 6)
 
-            return round(self._last_heating_curve_value * 2720, 6)
-
-        return self._kd
+        return float(self._kd)
 
     @property
     def proportional(self) -> float:
@@ -293,7 +303,17 @@ class PID:
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
-        return round(self.kd * self._raw_derivative, 3)
+        derivative = self.kd * self._raw_derivative
+        output = self._last_heating_curve_value + self.proportional + self.integral
+
+        if self._last_boiler_temperature is not None:
+            if abs(self._last_error) > 0.1 and abs(self._last_boiler_temperature - output) < 3:
+                return 0
+
+            if abs(self._last_error) <= 0.1 and abs(self._last_boiler_temperature - output) < 7:
+                return 0
+
+        return round(derivative, 3)
 
     @property
     def raw_derivative(self) -> float:

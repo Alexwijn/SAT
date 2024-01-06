@@ -1,26 +1,27 @@
-import pyotgw.vars as gw_vars
 from homeassistant.components.number import NumberEntity, NumberDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from custom_components.sat import SatDataUpdateCoordinator, CONF_NAME, COORDINATOR, DOMAIN
-from custom_components.sat.entity import SatEntity
+from .const import *
+from .coordinator import SatDataUpdateCoordinator
+from .entity import SatEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
-    async_add_entities([SatHotWaterSetpointEntity(coordinator, config_entry)])
+
+    if coordinator.supports_hot_water_setpoint_management:
+        async_add_entities([SatHotWaterSetpointEntity(coordinator, config_entry)])
 
 
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
-
-        self._coordinator = coordinator
+        self._name = self._config_entry.data.get(CONF_NAME)
 
     @property
     def name(self) -> str | None:
-        return f"Hot Water Setpoint {self._config_entry.data.get(CONF_NAME)} (Boiler)"
+        return f"Hot Water Setpoint {self._name} (Boiler)"
 
     @property
     def device_class(self):
@@ -30,7 +31,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-dhw-setpoint"
+        return f"{self._name.lower()}-boiler-dhw-setpoint"
 
     @property
     def icon(self) -> str | None:
@@ -39,7 +40,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._coordinator.data is not None and self._coordinator.data[gw_vars.BOILER] is not None
+        return self._coordinator.hot_water_setpoint is not None
 
     @property
     def native_unit_of_measurement(self):
@@ -49,18 +50,18 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def native_value(self):
         """Return the state of the device in native units."""
-        return self._coordinator.data[gw_vars.BOILER][gw_vars.DATA_DHW_SETPOINT]
+        return self._coordinator.hot_water_setpoint
 
     @property
     def native_min_value(self) -> float:
         """Return the minimum accepted temperature."""
-        return self._coordinator.data[gw_vars.BOILER][gw_vars.DATA_SLAVE_DHW_MIN_SETP]
+        return self._coordinator.minimum_hot_water_setpoint
 
     @property
     def native_max_value(self) -> float:
         """Return the maximum accepted temperature."""
-        return self._coordinator.data[gw_vars.BOILER][gw_vars.DATA_SLAVE_DHW_MAX_SETP]
+        return self._coordinator.maximum_hot_water_setpoint
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the setpoint."""
-        await self._coordinator.api.set_dhw_setpoint(value)
+        await self._coordinator.async_set_control_hot_water_setpoint(value)

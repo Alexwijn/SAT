@@ -3,63 +3,191 @@
     "step": {
       "user": {
         "title": "Smart Autotune Thermostat (SAT)",
+        "description": "SAT is a smart thermostat that is capable of auto-tuning itself to optimize temperature control. Select the appropriate mode that matches your heating system.",
+        "menu_options": {
+          "mosquitto": "OpenTherm Gateway ( MQTT )",
+          "serial": "OpenTherm Gateway ( SERIAL )",
+          "switch": "PID Thermostat with PWM ( ON/OFF )",
+          "simulator": "Simulated Gateway ( ADVANCED )"
+        }
+      },
+      "mosquitto": {
+        "title": "OpenTherm Gateway ( MQTT )",
+        "description": "Please provide the following details to set up the OpenTherm Gateway. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the Climate entity to use for the OpenTherm Gateway. This entity is provided by the OpenTherm Gateway and represents your heating system.\n\nAdditionally, enter the Top Topic that will be used for publishing and subscribing to MQTT messages related to the OpenTherm Gateway.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through MQTT. They allow for seamless data exchange and control of your heating system. Ensure that the provided details are accurate to ensure proper functionality.",
         "data": {
           "name": "Name",
-          "device": "Path or URL"
+          "device": "Device",
+          "mqtt_topic": "Top Topic"
+        }
+      },
+      "serial": {
+        "title": "OpenTherm Gateway ( SERIAL )",
+        "description": "To establish a connection with the OpenTherm Gateway using a socket connection, please provide the following details. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the network address of the OpenTherm Gateway in the Device field. This could be in the format of \"socket://otgw.local:25238\", where \"otgw.local\" is the hostname or IP address of the gateway and \"25238\" is the port number.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through the socket connection. Ensure that the provided details are accurate to ensure proper functionality.",
+        "data": {
+          "name": "Name",
+          "device": "URL"
+        }
+      },
+      "switch": {
+        "title": "PID Thermostat with PWM ( ON/OFF )",
+        "description": "Please fill in the following details to set up the switch. Enter a name for the switch in the Name field, which will help you identify it within your system. Choose the appropriate entity to use for your switch from the provided options.\n\nIn the Temperature Setting field, specify the desired target temperature for your heating system. If you are using a hot water boiler, fill in the Boiler Temperature Setting with the appropriate value. For electric heating systems, enter the value 100.\n\nThese settings are essential for precise temperature control and ensuring optimal performance of your heating system. Providing the correct Temperature Setting allows for accurate regulation and helps achieve a comfortable and energy-efficient environment in your home.",
+        "data": {
+          "name": "Name",
+          "device": "Entity",
+          "minimum_setpoint": "Temperature Setting"
+        }
+      },
+      "simulator": {
+        "title": "Simulated Gateway ( ADVANCED )",
+        "description": "This gateway allows you to simulate a boiler for testing and demonstration purposes. Please provide the following information to configure the simulator.\n\nNote: The Simulator Gateway is intended for testing and demonstration purposes only and should not be used in production environments.",
+        "data": {
+          "name": "Name",
+          "minimum_setpoint": "Minimum Setpoint",
+          "maximum_setpoint": "Maximum Setpoint",
+          "simulated_heating": "Simulated Heating",
+          "simulated_cooling": "Simulated Cooling",
+          "simulated_warming_up": "Simulated Warming Up"
         }
       },
       "sensors": {
         "title": "Configure sensors",
+        "description": "Please select the sensors that will be used to track the temperature.",
         "data": {
           "inside_sensor_entity_id": "Inside Sensor Entity",
-          "outside_sensor_entity_id": "Outside Sensor Entity"
+          "outside_sensor_entity_id": "Outside Sensor Entity",
+          "humidity_sensor_entity_id": "Humidity Sensor Entity"
+        }
+      },
+      "heating_system": {
+        "title": "Heating System",
+        "description": "Selecting the correct heating system type is important for SAT to accurately control the temperature and optimize performance. Choose the option that matches your setup to ensure proper temperature regulation throughout your home.",
+        "data": {
+          "heating_system": "System"
+        }
+      },
+      "areas": {
+        "title": "Areas",
+        "description": "Settings related to climates, multi-room and temperature control.",
+        "data": {
+          "main_climates": "Climates",
+          "secondary_climates": "Rooms"
+        }
+      },
+      "automatic_gains": {
+        "title": "Automatic Gains",
+        "description": "This feature adjusts the control parameters of your heating system dynamically, optimizing temperature control for better comfort and energy efficiency. Enabling this option allows SAT to continuously adapt and fine-tune the heating settings based on the environmental conditions. This helps maintain a stable and comfortable environment without manual intervention.\n\nNote: If you choose not to enable automatic gains, you will need to manually enter the PID values for precise temperature control. Please ensure that you have accurate PID values for your specific heating system to achieve optimal performance.",
+        "data": {
+          "automatic_gains": "Automatic Gains (recommended)"
+        }
+      },
+      "calibrate_system": {
+        "title": "Calibrate System",
+        "description": "Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.\n\nAutomatic Gains is recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.\n\nPlease note that choosing to skip Automatic Gains requires a good understanding of PID control and may require additional manual adjustments to achieve optimal performance.",
+        "menu_options": {
+          "calibrate": "Calibrate and determine your overshoot protection value (approx. 20 min).",
+          "overshoot_protection": "Manually enter the overshoot protection value.",
+          "pid_controller": "Manually enter PID values (not recommended)."
+        }
+      },
+      "overshoot_protection": {
+        "title": "Overshoot Protection",
+        "description": "By providing the overshoot protection value, SAT will adjust the control parameters accordingly to maintain a stable and comfortable heating environment. This manual configuration allows you to fine-tune the system based on your specific setup.\n\nNote: If you are unsure about the overshoot protection value or have not performed the calibration process, it is recommended to cancel the configuration and go through the calibration process to let SAT automatically determine the value for optimal performance.",
+        "data": {
+          "minimum_setpoint": "Value"
+        }
+      },
+      "pid_controller": {
+        "title": "Configure the PID controller manually.",
+        "description": "Configure the proportional, integral, and derivative gains manually to fine-tune your heating system. Use this option if you prefer to have full control over the PID controller parameters. Adjust the gains based on your specific heating system characteristics and preferences.",
+        "data": {
+          "integral": "Integral (kI)",
+          "derivative": "Derivative (kD)",
+          "proportional": "Proportional (kP)"
+        }
+      },
+      "calibrated": {
+        "title": "Calibration Completed",
+        "description": "The calibration process has completed successfully.\n\nCongratulations! Your Smart Autotune Thermostat (SAT) has been calibrated to optimize the heating performance of your system. During the calibration process, SAT carefully analyzed the heating characteristics and determined the appropriate overshoot protection value to ensure precise temperature control.\n\nOvershoot Protection Value: {minimum_setpoint} °C\n\nThis value represents the maximum amount of overshoot allowed during the heating process. SAT will actively monitor and adjust the heating to prevent excessive overshooting, maintaining a comfortable and efficient heating experience in your home.\n\nPlease note that the overshoot protection value may vary depending on the specific characteristics of your heating system and environmental factors. It has been fine-tuned to provide optimal performance based on the calibration results.",
+        "menu_options": {
+          "calibrate": "Retry calibration",
+          "finish": "Continue with current calibration"
         }
       }
     },
     "error": {
-      "auth": "Unable to connect."
+      "connection": "Unable to connect to the gateway.",
+      "mqtt_component": "The MQTT component is unavailable.",
+      "unable_to_calibrate": "The calibration process has encountered an issue and could not be completed successfully. Please ensure that your heating system is functioning properly and that all required sensors are connected and working correctly.\n\nIf you continue to experience issues with calibration, consider contacting us for further assistance. We apologize for any inconvenience caused."
     },
     "abort": {
       "already_configured": "Gateway is already configured."
+    },
+    "progress": {
+      "calibration": "Calibrating and finding the overshoot protection value...\n\nPlease wait while we optimize your heating system. This process may take approximately 20 minutes."
     }
   },
   "options": {
     "step": {
-      "user": {
+      "init": {
         "menu_options": {
           "general": "General",
           "presets": "Presets",
-          "climates": "Climates",
-          "advanced": "Advanced"
+          "advanced": "Advanced Options",
+          "system_configuration": "System Configuration"
         }
       },
       "general": {
         "title": "General",
+        "description": "General settings and configurations.",
         "data": {
-          "integral": "Integral",
-          "derivative": "Derivative",
-          "proportional": "Proportional",
-          "duty_cycle": "Duty Cycle",
-          "heating_system": "Heating System",
-          "target_temperature_step": "Target Temperature Step",
-          "heating_curve_coefficient": "Heating Curve Coefficient"
+          "integral": "Integral (kI)",
+          "derivative": "Derivative (kD)",
+          "proportional": "Proportional (kP)",
+          "maximum_setpoint": "Maximum Setpoint",
+          "window_sensors": "Contact Sensors",
+          "automatic_gains_value": "Automatic Gains Value",
+          "heating_curve_coefficient": "Heating Curve Coefficient",
+          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
+          "sync_with_thermostat": "Synchronize setpoint with thermostat"
+        },
+        "data_description": {
+          "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
+          "derivative": "The derivative term (kD) in the PID controller, responsible for mitigating overshooting.",
+          "proportional": "The proportional term (kP) in the PID controller, responsible for the immediate response to errors.",
+          "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
+          "window_sensors": "Contact Sensors that trigger the system to react when a window or door is open for a period of time.",
+          "automatic_gains_value": "The value used for automatic gains in the PID controller.",
+          "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
+          "duty_cycle": "The maximum duty cycle for Pulse Width Modulation (PWM), controlling the boiler's on-off cycles.",
+          "sync_with_thermostat": "Synchronize setpoint with thermostat to ensure coordinated temperature control."
         }
       },
       "presets": {
         "title": "Presets",
+        "description": "Predefined temperature settings for different scenarios or activities.",
         "data": {
           "away_temperature": "Away Temperature",
           "home_temperature": "Home Temperature",
           "sleep_temperature": "Sleep Temperature",
           "comfort_temperature": "Comfort Temperature",
-          "sync_climates_with_preset": "Synchronize climates with preset (sleep / away)"
+          "activity_temperature": "Activity Temperature",
+          "sync_climates_with_preset": "Synchronize climates with preset (sleep / away / activity)"
         }
       },
-      "climates": {
-        "title": "Climates (multi-room)",
+      "system_configuration": {
+        "title": "System Configuration",
+        "description": "For fine-tuning and customization.",
         "data": {
-          "climates": "Climates (rooms)",
-          "main_climates": "Climates (main)"
+          "automatic_duty_cycle": "Automatic duty cycle",
+          "overshoot_protection": "Overshoot Protection (with PWM)",
+          "window_minimum_open_time": "Minimum time for window to be open",
+          "sensor_max_value_age": "Temperature Sensor maximum value age"
+        },
+        "data_description": {
+          "automatic_duty_cycle": "Enable or disable automatic duty cycle for Pulse Width Modulation (PWM).",
+          "overshoot_protection": "Enable overshoot protection with Pulse Width Modulation (PWM) to prevent boiler temperature overshooting.",
+          "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
+          "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall."
         }
       },
       "advanced": {
@@ -67,13 +195,23 @@
         "data": {
           "simulation": "Simulation",
           "sample_time": "Sample Time",
+          "thermal_comfort": "Thermal Comfort",
+          "minimum_consumption": "Minimum Consumption",
+          "maximum_consumption": "Maximum Consumption",
           "climate_valve_offset": "Climate valve offset",
-          "sensor_max_value_age": "Sensor max. value age",
-          "automatic_gains": "Automatic gains",
-          "overshoot_protection": "Overshoot Protection (with PWM)",
-          "automatic_duty_cycle": "Automatic duty cycle (experimental)",
+          "target_temperature_step": "Target Temperature Step",
+          "maximum_relative_modulation": "Maximum Relative Modulation",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",
-          "min_num_updates": "Minimum number of updates required for auto-tuning"
+          "dynamic_minimum_setpoint": "Dynamic Minimum Setpoint (Experimental)"
+        },
+        "data_description": {
+          "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment.",
+          "minimum_consumption": "The minimum gas consumption when the boiler is active.",
+          "maximum_consumption": "The maximum gas consumption when the boiler is active.",
+          "climate_valve_offset": "Offset to adjust the opening degree of the climate valve.",
+          "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
+          "sample_time": "The minimum time interval between updates to the PID controller.",
+          "maximum_relative_modulation": "Representing the highest modulation level for an efficient heating system."
         }
       }
     }
