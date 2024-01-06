@@ -2,7 +2,6 @@ pytest
 pytest-cov
 pytest-asyncio
 pytest-homeassistant-custom-component
-homeassistant==2024.1.2
 aiohttp_cors
 aiodiscover
 freezegun

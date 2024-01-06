@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ "3.11" ]
+        home-assistant-version: [ "2023.5.4", "2024.1.2" ]
 
     steps:
       - uses: actions/checkout@v2
@@ -23,6 +24,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest
+          pip install homeassistant==${{ matrix.home-assistant-version }}
           if [ -f requirements_test.txt ]; then pip install -r requirements_test.txt; fi
       - name: Test with pytest
         run: |
