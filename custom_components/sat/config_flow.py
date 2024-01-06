@@ -35,6 +35,8 @@ _LOGGER = logging.getLogger(__name__)
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
     VERSION = 5
+    MINOR_VERSION = 0
+
     calibration = None
     overshoot_protection_value = None
 
@@ -58,7 +60,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         menu_options = []
 
         # Since we rely on the availability logic in 2023.5, we do not support below it.
-        if MAJOR_VERSION >= 2023 and MINOR_VERSION >= 5:
+        if MAJOR_VERSION >= 2023 and (MINOR_VERSION >= 5 or MAJOR_VERSION > 2023):
             menu_options.append("mosquitto")
 
         menu_options.append("serial")
@@ -382,10 +384,21 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
 
     async def _create_coordinator(self) -> SatDataUpdateCoordinator:
+        # Set up the config entry parameters, since they differ per version
+        config_params = {
+            "version": self.VERSION,
+            "domain": DOMAIN,
+            "title": self._data[CONF_NAME],
+            "data": self._data,
+            "source": SOURCE_USER,
+        }
+
+        # Check Home Assistant version and add parameters accordingly
+        if MAJOR_VERSION >= 2024:
+            config_params["minor_version"] = self.MINOR_VERSION
+
         # Create a new config to use
-        config = ConfigEntry(
-            version=self.VERSION, domain=DOMAIN, title=self._data[CONF_NAME], data=self._data, source=SOURCE_USER
-        )
+        config = ConfigEntry(**config_params)
 
         # Resolve the coordinator by using the factory according to the mode
         return await SatDataUpdateCoordinatorFactory().resolve(
