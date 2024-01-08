@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import deque
 from datetime import timedelta
-from statistics import mean
 from time import monotonic, time
 from typing import List
 
@@ -121,10 +119,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Create dictionary mapping preset keys to temperature values
         self._presets = {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
 
+        self._alpha = 0.2
         self._sensors = []
         self._rooms = None
         self._setpoint = None
-        self._outputs = deque(maxlen=50)
+        self._requested_setpoint = None
 
         self._warming_up_data = None
         self._warming_up_derivative = None
@@ -774,7 +773,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
             self.pid.update_reset(error=max_error, heating_curve_value=self.heating_curve.value)
-            self._outputs.clear()
+            self._requested_setpoint = None
             self.pwm.reset()
 
             # Determine if we are warming up
@@ -787,17 +786,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_control_setpoint(self, pwm_state: PWMState) -> None:
         """Control the setpoint of the heating system."""
         if self.hvac_mode == HVACMode.HEAT:
-            self._outputs.append(self._calculate_control_setpoint())
-
             if not self.pulse_width_modulation_enabled or pwm_state == pwm_state.IDLE:
                 _LOGGER.info("Running Normal cycle")
-                setpoint = round(mean(list(self._outputs)[-5:]), 1)
-                self._setpoint = max(self.minimum_setpoint, setpoint)
+                self._setpoint = self._requested_setpoint
             else:
                 _LOGGER.info(f"Running PWM cycle: {pwm_state}")
                 self._setpoint = self.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
         else:
-            self._outputs.clear()
+            self._requested_setpoint = None
             self._setpoint = MINIMUM_SETPOINT
 
         await self._coordinator.async_set_control_setpoint(self._setpoint)
@@ -857,9 +853,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control the heating through the coordinator
         await self._coordinator.async_control_heating_loop(self)
 
+        if self._requested_setpoint is None:
+            # Default to the calculated setpoint
+            self._requested_setpoint = self._calculate_control_setpoint()
+        else:
+            # Apply low filter on requested setpoint
+            self._requested_setpoint = self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._requested_setpoint
+
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self._calculate_control_setpoint(), self._coordinator.boiler_temperature)
+            await self.pwm.update(self._requested_setpoint, self._coordinator.boiler_temperature)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
