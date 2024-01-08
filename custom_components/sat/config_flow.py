@@ -13,7 +13,7 @@ from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
-from homeassistant.config_entries import ConfigEntry, SOURCE_USER
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
@@ -384,25 +384,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(title=self.data[CONF_NAME], data=self.data)
 
     async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
-        # Set up the config entry parameters, since they differ per version
-        config_params = {
-            "version": self.VERSION,
-            "domain": DOMAIN,
-            "title": self.data[CONF_NAME],
-            "data": self.data,
-            "source": SOURCE_USER,
-        }
-
-        # Check Home Assistant version and add parameters accordingly
-        if MAJOR_VERSION >= 2024:
-            config_params["minor_version"] = self.MINOR_VERSION
-
-        # Create a new config to use
-        config = ConfigEntry(**config_params)
-
         # Resolve the coordinator by using the factory according to the mode
         return await SatDataUpdateCoordinatorFactory().resolve(
-            hass=self.hass, config_entry=config, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
+            hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
     async def _enable_overshoot_protection(self, overshoot_protection_value: float):

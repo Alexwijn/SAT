@@ -30,7 +30,7 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
 
     # Resolve the coordinator by using the factory according to the mode
     _hass.data[DOMAIN][_entry.entry_id][COORDINATOR] = await SatDataUpdateCoordinatorFactory().resolve(
-        hass=_hass, config_entry=_entry, mode=_entry.data.get(CONF_MODE), device=_entry.data.get(CONF_DEVICE)
+        hass=_hass, data=_entry.data, options=_entry.options, mode=_entry.data.get(CONF_MODE), device=_entry.data.get(CONF_DEVICE)
     )
 
     # Forward entry setup for climate and other platforms
