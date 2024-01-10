@@ -426,18 +426,21 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=10, max=100, step=1, unit_of_measurement="°C")
         )
 
-        if not options[CONF_AUTOMATIC_GAINS]:
-            schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
-            schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
-            schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
-
         schema[vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=options[CONF_HEATING_CURVE_COEFFICIENT])] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
         )
 
-        schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
-            selector.NumberSelectorConfig(min=1, max=5, step=1)
-        )
+        if options[CONF_AUTOMATIC_GAINS]:
+            schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=5, step=1)
+            )
+            schema[vol.Required(CONF_DERIVATIVE_TIME_WEIGHT, default=options[CONF_DERIVATIVE_TIME_WEIGHT])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=6, step=1)
+            )
+        else:
+            schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
+            schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
+            schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
 
         if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
             schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()

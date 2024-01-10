@@ -146,6 +146,7 @@
           "maximum_setpoint": "Maximum Setpoint",
           "window_sensors": "Contact Sensors",
           "automatic_gains_value": "Automatic Gains Value",
+          "derivative_time_weight": "Derivative Time Weight",
           "heating_curve_coefficient": "Heating Curve Coefficient",
           "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "sync_with_thermostat": "Synchronize setpoint with thermostat"
@@ -159,7 +160,8 @@
           "automatic_gains_value": "The value used for automatic gains in the PID controller.",
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
           "duty_cycle": "The maximum duty cycle for Pulse Width Modulation (PWM), controlling the boiler's on-off cycles.",
-          "sync_with_thermostat": "Synchronize setpoint with thermostat to ensure coordinated temperature control."
+          "sync_with_thermostat": "Synchronize setpoint with thermostat to ensure coordinated temperature control.",
+          "derivative_time_weight": "A parameter to adjust the influence of the derivative term over time, particularly useful for reducing undershoot during the warm-up phase when the heating curve coefficient is correctly set."
         }
       },
       "presets": {

@@ -48,12 +48,14 @@ def create_pid_controller(config_options) -> PID:
     heating_system = config_options.get(CONF_HEATING_SYSTEM)
     automatic_gains = bool(config_options.get(CONF_AUTOMATIC_GAINS))
     automatic_gains_value = float(config_options.get(CONF_AUTOMATIC_GAINS_VALUE))
+    derivative_time_weight = float(config_options.get(CONF_DERIVATIVE_TIME_WEIGHT))
     sample_time_limit = convert_time_str_to_seconds(config_options.get(CONF_SAMPLE_TIME))
 
     # Return a new PID controller instance with the given configuration options
     return PID(
         heating_system=heating_system,
         automatic_gain_value=automatic_gains_value,
+        derivative_time_weight=derivative_time_weight,
 
         kp=kp, ki=ki, kd=kd,
         automatic_gains=automatic_gains,
