@@ -864,7 +864,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.pulse_width_modulation_enabled:
             await self.pwm.update(self._requested_setpoint, self._coordinator.boiler_temperature)
         else:
-            self.pwm.disable()
+            self.pwm.reset()
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
