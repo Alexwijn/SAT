@@ -45,6 +45,12 @@ class PWM:
         self._state = PWMState.IDLE
         self._last_update = monotonic()
 
+    def disable(self) -> None:
+        """Reset and disable the PWM control."""
+        self._duty_cycle = None
+        self._state = PWMState.OFF
+        self._last_update = monotonic()
+
     async def update(self, requested_setpoint: float, boiler_temperature: float) -> None:
         """Update the PWM state based on the output of a PID controller."""
         if not self._heating_curve.value:
