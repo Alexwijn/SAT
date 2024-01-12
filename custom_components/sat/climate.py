@@ -123,7 +123,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors = []
         self._rooms = None
         self._setpoint = None
-        self._requested_setpoint = None
+        self._calculated_setpoint = None
 
         self._warming_up_data = None
         self._warming_up_derivative = None
@@ -773,7 +773,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
             self.pid.update_reset(error=max_error, heating_curve_value=self.heating_curve.value)
-            self._requested_setpoint = None
+            self._calculated_setpoint = None
             self.pwm.reset()
 
             # Determine if we are warming up
@@ -788,12 +788,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.hvac_mode == HVACMode.HEAT:
             if not self.pulse_width_modulation_enabled or pwm_state == pwm_state.IDLE:
                 _LOGGER.info("Running Normal cycle")
-                self._setpoint = self._requested_setpoint
+                self._setpoint = self._calculated_setpoint
             else:
                 _LOGGER.info(f"Running PWM cycle: {pwm_state}")
                 self._setpoint = self.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
         else:
-            self._requested_setpoint = None
+            self._calculated_setpoint = None
             self._setpoint = MINIMUM_SETPOINT
 
         await self._coordinator.async_set_control_setpoint(self._setpoint)
@@ -853,16 +853,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control the heating through the coordinator
         await self._coordinator.async_control_heating_loop(self)
 
-        if self._requested_setpoint is None:
+        if self._calculated_setpoint is None:
             # Default to the calculated setpoint
-            self._requested_setpoint = self._calculate_control_setpoint()
+            self._calculated_setpoint = self._calculate_control_setpoint()
         else:
             # Apply low filter on requested setpoint
-            self._requested_setpoint = self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._requested_setpoint
+            self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self._requested_setpoint, self._coordinator.boiler_temperature)
+            await self.pwm.update(self._calculated_setpoint, self._coordinator.boiler_temperature)
         else:
             self.pwm.reset()
 
