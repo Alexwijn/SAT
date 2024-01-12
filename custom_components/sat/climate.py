@@ -860,6 +860,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Apply low filter on requested setpoint
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
+            # Prevent sudden drops
+            if not self.pulse_width_modulation_enabled and (self._coordinator.boiler_temperature - self._calculated_setpoint) >= 4:
+                self._calculated_setpoint -= 3
+
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
             await self.pwm.update(self._calculated_setpoint, self._coordinator.boiler_temperature)
