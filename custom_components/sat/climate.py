@@ -862,7 +862,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Prevent sudden drops
             if self._calculated_setpoint >= MINIMUM_SETPOINT and not self.pulse_width_modulation_enabled and (self._coordinator.boiler_temperature - self._calculated_setpoint) >= 4:
-                self._calculated_setpoint -= 3
+                self._calculated_setpoint = self._coordinator.boiler_temperature - 3
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
