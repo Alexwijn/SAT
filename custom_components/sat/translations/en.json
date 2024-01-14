@@ -67,7 +67,7 @@
       },
       "areas": {
         "title": "Areas",
-        "description": "Settings related to climates, multi-room and temperature control. Primary climates are in the same room as the inside sensor and the rooms have their own target temperature separate from the system.",
+        "description": "Settings related to climates, multi-room and temperature control. Primary climates are in the same room as the inside sensor and the rooms have their own target temperatures separate from the system.",
         "data": {
           "main_climates": "Primary",
           "secondary_climates": "Rooms"
