@@ -268,13 +268,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         old_state = await self.async_get_last_state()
 
         if old_state is not None:
+            self.pid.restore(old_state)
+
             if self._target_temperature is None:
                 if old_state.attributes.get(ATTR_TEMPERATURE) is None:
                     self.pid.setpoint = self.min_temp
                     self._target_temperature = self.min_temp
                     _LOGGER.warning("Undefined target temperature, falling back to %s", self._target_temperature, )
                 else:
-                    self.pid.restore(old_state)
                     self._target_temperature = float(old_state.attributes[ATTR_TEMPERATURE])
 
             if old_state.state:
