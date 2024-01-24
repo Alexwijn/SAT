@@ -75,7 +75,7 @@ class HeatingCurve:
         if self._version <= 1:
             return target_temperature - (0.01 * outside_temperature ** 2) - (0.8 * outside_temperature)
 
-        return (2.72 * (target_temperature - 20) + 20) - (0.01 * outside_temperature ** 2) - (0.8 * outside_temperature)
+        return 2.72 * (target_temperature - 20) + 0.03 * (outside_temperature - 20) ** 2 - 1.2 * (outside_temperature - 20)
 
     @property
     def base_offset(self) -> float:
