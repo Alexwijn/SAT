@@ -67,10 +67,11 @@ def create_heating_curve_controller(config_data, config_options) -> HeatingCurve
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
     heating_system = config_data.get(CONF_HEATING_SYSTEM)
+    version = int(config_options.get(CONF_HEATING_CURVE_VERSION))
     coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
 
     # Return a new heating Curve controller instance with the given configuration options
-    return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
+    return HeatingCurve(heating_system=heating_system, coefficient=coefficient, version=version)
 
 
 def create_pwm_controller(heating_curve: HeatingCurve, config_data, config_options) -> PWM | None:

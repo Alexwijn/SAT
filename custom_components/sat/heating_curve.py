@@ -1,15 +1,20 @@
+import logging
 from collections import deque
 from statistics import mean
 
 from .const import *
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class HeatingCurve:
-    def __init__(self, heating_system: str, coefficient: float):
+    def __init__(self, heating_system: str, coefficient: float, version: int = 2):
         """
         :param heating_system: The type of heating system, either "underfloor" or "radiator"
         :param coefficient: The coefficient used to adjust the heating curve
+        :param version: The version of math calculation for the heating curve
         """
+        self._version = version
         self._coefficient = coefficient
         self._heating_system = heating_system
         self.reset()
@@ -65,10 +70,12 @@ class HeatingCurve:
 
         self._optimal_coefficients = deque([coefficient] * 5, maxlen=5)
 
-    @staticmethod
-    def _get_heating_curve_value(target_temperature: float, outside_temperature: float) -> float:
+    def _get_heating_curve_value(self, target_temperature: float, outside_temperature: float) -> float:
         """Calculate the heating curve value based on the current outside temperature"""
-        return target_temperature - (0.01 * outside_temperature ** 2) - (0.8 * outside_temperature)
+        if self._version <= 1:
+            return target_temperature - (0.01 * outside_temperature ** 2) - (0.8 * outside_temperature)
+
+        return (2.72 * (target_temperature - 20) + 20) - (0.01 * outside_temperature ** 2) - (0.8 * outside_temperature)
 
     @property
     def base_offset(self) -> float:
