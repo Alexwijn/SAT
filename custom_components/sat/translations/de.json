@@ -1,0 +1,222 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart Autotune Thermostat (SAT)",
+        "description": "SAT ist ein intelligentes Thermostat, das in der Lage ist, sich selbst automatisch zu justieren, um die Temperaturregelung zu optimieren. Wählen Sie den passenden Modus, der zu Ihrem Heizsystem passt.",
+        "menu_options": {
+          "mosquitto": "OpenTherm Gateway ( MQTT )",
+          "serial": "OpenTherm Gateway ( SERIELL )",
+          "switch": "PID-Thermostat mit PWM ( EIN/AUS )",
+          "simulator": "Simuliertes Gateway ( FORTGESCHRITTEN )"
+        }
+      },
+      "mosquitto": {
+        "title": "OpenTherm Gateway ( MQTT )",
+        "description": "Bitte geben Sie die folgenden Details an, um das OpenTherm Gateway einzurichten. Geben Sie im Feld Name einen Namen für das Gateway ein, der Ihnen hilft, es in Ihrem System zu identifizieren.\n\nGeben Sie die Klimaentität an, die für das OpenTherm Gateway verwendet wird. Diese Entität wird vom OpenTherm Gateway bereitgestellt und repräsentiert Ihr Heizsystem.\n\nGeben Sie außerdem das Top-Thema an, das für das Veröffentlichen und Abonnieren von MQTT-Nachrichten im Zusammenhang mit dem OpenTherm Gateway verwendet wird.\n\nDiese Einstellungen sind wesentlich, um die Kommunikation und Integration mit Ihrem OpenTherm Gateway über MQTT herzustellen. Sie ermöglichen einen nahtlosen Datenaustausch und die Steuerung Ihres Heizsystems. Stellen Sie sicher, dass die angegebenen Details korrekt sind, um eine ordnungsgemäße Funktionalität zu gewährleisten.",
+        "data": {
+          "name": "Name",
+          "device": "Gerät",
+          "mqtt_topic": "Top-Thema"
+        }
+      },
+      "serial": {
+        "title": "OpenTherm Gateway ( SERIELL )",
+        "description": "Um eine Verbindung mit dem OpenTherm Gateway über eine Socket-Verbindung herzustellen, geben Sie bitte die folgenden Details an. Geben Sie im Feld Name einen Namen für das Gateway ein, der Ihnen hilft, es in Ihrem System zu identifizieren.\n\nGeben Sie die Netzwerkadresse des OpenTherm Gateways im Feld Gerät an. Dies könnte im Format \"socket://otgw.local:25238\" sein, wobei \"otgw.local\" der Hostname oder die IP-Adresse des Gateways ist und \"25238\" die Portnummer.\n\nDiese Einstellungen sind wesentlich, um die Kommunikation und Integration mit Ihrem OpenTherm Gateway über die Socket-Verbindung herzustellen. Stellen Sie sicher, dass die angegebenen Details korrekt sind, um eine ordnungsgemäße Funktionalität zu gewährleisten.",
+        "data": {
+          "name": "Name",
+          "device": "URL"
+        }
+      },
+      "switch": {
+        "title": "PID-Thermostat mit PWM ( EIN/AUS )",
+        "description": "Bitte füllen Sie die folgenden Details aus, um den Schalter einzurichten. Geben Sie einen Namen für den Schalter im Feld Name ein, der Ihnen hilft, ihn in Ihrem System zu identifizieren. Wählen Sie die passende Entität für Ihren Schalter aus den angebotenen Optionen aus.\n\nGeben Sie im Feld Temperatureinstellung die gewünschte Zieltemperatur für Ihr Heizsystem an. Wenn Sie einen Warmwasserboiler verwenden, geben Sie die Boilertemperatureinstellung mit dem entsprechenden Wert an. Für elektrische Heizsysteme geben Sie den Wert 100 ein.\n\nDiese Einstellungen sind wesentlich für eine präzise Temperaturregelung und gewährleisten eine optimale Leistung Ihres Heizsystems. Die Angabe der korrekten Temperatureinstellung ermöglicht eine genaue Regelung und hilft dabei, eine komfortable und energieeffiziente Umgebung in Ihrem Zuhause zu erreichen.",
+        "data": {
+          "name": "Name",
+          "device": "Entität",
+          "minimum_setpoint": "Temperatureinstellung"
+        }
+      },
+      "simulator": {
+        "title": "Simuliertes Gateway ( FORTGESCHRITTEN )",
+        "description": "Dieses Gateway ermöglicht es Ihnen, einen Boiler zu simulieren, zu Test- und Demonstrationszwecken. Bitte geben Sie die folgenden Informationen an, um den Simulator zu konfigurieren.\n\nHinweis: Das Simulator Gateway ist nur zu Test- und Demonstrationszwecken gedacht und sollte nicht in Produktionsumgebungen verwendet werden.",
+        "data": {
+          "name": "Name",
+          "minimum_setpoint": "Mindesteinstellung",
+          "maximum_setpoint": "Maximale Einstellung",
+          "simulated_heating": "Simulierte Heizung",
+          "simulated_cooling": "Simulierte Kühlung",
+          "simulated_warming_up": "Simuliertes Aufwärmen"
+        }
+      },
+      "sensors": {
+        "title": "Sensoren konfigurieren",
+        "description": "Bitte wählen Sie die Sensoren aus, die zur Überwachung der Temperatur verwendet werden sollen.",
+        "data": {
+          "inside_sensor_entity_id": "Innensensor-Entität",
+          "outside_sensor_entity_id": "Außensensor-Entität",
+          "humidity_sensor_entity_id": "Feuchtigkeitssensor-Entität"
+        }
+      },
+      "heating_system": {
+        "title": "Heizsystem",
+        "description": "Die Auswahl des richtigen Heizsystemtyps ist wichtig, damit SAT die Temperatur genau steuern und die Leistung optimieren kann. Wählen Sie die Option, die zu Ihrer Einrichtung passt, um eine ordnungsgemäße Temperaturregelung in Ihrem Zuhause zu gewährleisten.",
+        "data": {
+          "heating_system": "System"
+        }
+      },
+      "areas": {
+        "title": "Bereiche",
+        "description": "Einstellungen im Zusammenhang mit Klimazonen, Mehrzimmern und Temperaturregelung. Primäre Klimazonen befinden sich im selben Raum wie der Innensensor, und die Zimmer haben ihre eigenen Zieltemperaturen, getrennt vom System.",
+        "data": {
+          "main_climates": "Primär",
+          "secondary_climates": "Zimmer"
+        }
+      },
+      "automatic_gains": {
+        "title": "Automatische Verstärkungen",
+        "description": "Diese Funktion passt die Steuerungsparameter Ihres Heizsystems dynamisch an, um die Temperaturregelung für mehr Komfort und Energieeffizienz zu optimieren. Die Aktivierung dieser Option ermöglicht es SAT, die Heizeinstellungen kontinuierlich anzupassen und auf der Grundlage der Umgebungsbedingungen fein abzustimmen. Dies hilft, eine stabile und komfortable Umgebung ohne manuelle Eingriffe aufrechtzuerhalten.\n\nHinweis: Wenn Sie sich entscheiden, automatische Verstärkungen nicht zu aktivieren, müssen Sie die PID-Werte manuell eingeben, um eine präzise Temperaturregelung zu gewährleisten. Bitte stellen Sie sicher, dass Sie genaue PID-Werte für Ihr spezifisches Heizsystem haben, um eine optimale Leistung zu erzielen.",
+        "data": {
+          "automatic_gains": "Automatische Verstärkungen (empfohlen)"
+        }
+      },
+      "calibrate_system": {
+        "title": "System kalibrieren",
+        "description": "Optimieren Sie Ihr Heizsystem, indem Sie die optimalen PID-Werte für Ihre Einrichtung automatisch bestimmen. Bitte beachten Sie, dass das System bei Auswahl von Automatischen Verstärkungen einen Kalibrierungsprozess durchläuft, der etwa 20 Minuten dauern kann.\n\nAutomatische Verstärkungen werden für die meisten Benutzer empfohlen, da sie den Einrichtungsprozess vereinfachen und eine optimale Leistung gewährleisten. Wenn Sie jedoch mit der PID-Steuerung vertraut sind und die Werte lieber manuell eingeben möchten, können Sie sich entscheiden, Automatische Verstärkungen zu überspringen.\n\nBitte beachten Sie, dass die Entscheidung gegen Automatische Verstärkungen ein gutes Verständnis der PID-Steuerung erfordert und möglicherweise zusätzliche manuelle Anpassungen für eine optimale Leistung notwendig sind.",
+        "menu_options": {
+          "calibrate": "Kalibrieren und Ihren Überschwingungsschutzwert bestimmen (ca. 20 Min.).",
+          "overshoot_protection": "Den Überschwingungsschutzwert manuell eingeben.",
+          "pid_controller": "PID-Werte manuell eingeben (nicht empfohlen)."
+        }
+      },
+      "overshoot_protection": {
+        "title": "Überschwingungsschutz",
+        "description": "Durch Angabe des Überschwingungsschutzwertes wird SAT die Steuerungsparameter entsprechend anpassen, um eine stabile und komfortable Heizumgebung zu erhalten. Diese manuelle Konfiguration ermöglicht es Ihnen, das System basierend auf Ihrer spezifischen Einrichtung fein abzustimmen.\n\nHinweis: Wenn Sie sich nicht sicher über den Überschwingungsschutzwert sind oder den Kalibrierungsprozess nicht durchgeführt haben, wird empfohlen, die Konfiguration abzubrechen und den Kalibrierungsprozess durchzuführen, damit SAT den Wert automatisch für eine optimale Leistung bestimmt.",
+        "data": {
+          "minimum_setpoint": "Wert"
+        }
+      },
+      "pid_controller": {
+        "title": "PID-Regler manuell konfigurieren.",
+        "description": "Konfigurieren Sie die proportionalen, integralen und derivativen Verstärkungen manuell, um Ihr Heizsystem fein abzustimmen. Verwenden Sie diese Option, wenn Sie die volle Kontrolle über die PID-Reglerparameter haben möchten. Passen Sie die Verstärkungen basierend auf den spezifischen Eigenschaften und Vorlieben Ihres Heizsystems an.",
+        "data": {
+          "integral": "Integral (kI)",
+          "derivative": "Derivativ (kD)",
+          "proportional": "Proportional (kP)"
+        }
+      },
+      "calibrated": {
+        "title": "Kalibrierung abgeschlossen",
+        "description": "Der Kalibrierungsprozess wurde erfolgreich abgeschlossen.\n\nHerzlichen Glückwunsch! Ihr Smart Autotune Thermostat (SAT) wurde kalibriert, um die Heizleistung Ihres Systems zu optimieren. Während des Kalibrierungsprozesses hat SAT die Heizeigenschaften sorgfältig analysiert und den angemessenen Überschwingungsschutzwert bestimmt, um eine präzise Temperaturregelung zu gewährleisten.\n\nÜberschwingungsschutzwert: {minimum_setpoint} °C\n\nDieser Wert stellt die maximale Menge an Überschwingen dar, die während des Heizprozesses erlaubt ist. SAT wird aktiv die Heizung überwachen und anpassen, um übermäßiges Überschwingen zu verhindern und eine komfortable und effiziente Heizerfahrung in Ihrem Zuhause zu gewährleisten.\n\nBitte beachten Sie, dass der Überschwingungsschutzwert je nach den spezifischen Eigenschaften Ihres Heizsystems und Umweltfaktoren variieren kann. Er wurde fein abgestimmt, um basierend auf den Kalibrierungsergebnissen eine optimale Leistung zu bieten.",
+        "menu_options": {
+          "calibrate": "Kalibrierung erneut versuchen",
+          "finish": "Mit der aktuellen Kalibrierung fortfahren"
+        }
+      }
+    },
+    "error": {
+      "connection": "Verbindung zum Gateway konnte nicht hergestellt werden.",
+      "mqtt_component": "Die MQTT-Komponente ist nicht verfügbar.",
+      "unable_to_calibrate": "Der Kalibrierungsprozess ist auf ein Problem gestoßen und konnte nicht erfolgreich abgeschlossen werden. Bitte stellen Sie sicher, dass Ihr Heizsystem ordnungsgemäß funktioniert und dass alle erforderlichen Sensoren angeschlossen und funktionsfähig sind.\n\nWenn Sie weiterhin Probleme mit der Kalibrierung haben, ziehen Sie in Erwägung, uns für weitere Unterstützung zu kontaktieren. Wir entschuldigen uns für etwaige Unannehmlichkeiten."
+    },
+    "abort": {
+      "already_configured": "Gateway ist bereits konfiguriert."
+    },
+    "progress": {
+      "calibration": "Kalibrierung und Ermittlung des Überschwingungsschutzwertes...\n\nBitte warten Sie, während wir Ihr Heizsystem optimieren. Dieser Prozess kann etwa 20 Minuten dauern."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "general": "Allgemein",
+          "presets": "Voreinstellungen",
+          "advanced": "Erweiterte Optionen",
+          "system_configuration": "Systemkonfiguration"
+        }
+      },
+      "general": {
+        "title": "Allgemein",
+        "description": "Allgemeine Einstellungen und Konfigurationen.",
+        "data": {
+          "integral": "Integral (kI)",
+          "derivative": "Ableitung (kD)",
+          "proportional": "Proportional (kP)",
+          "maximum_setpoint": "Maximaler Sollwert",
+          "window_sensors": "Kontaktsensoren",
+          "automatic_gains_value": "Automatischer Verstärkungswert",
+          "derivative_time_weight": "Zeitgewicht der Ableitung",
+          "heating_curve_version": "Version der Heizkurve",
+          "heating_curve_coefficient": "Koeffizient der Heizkurve",
+          "duty_cycle": "Maximaler Tastgrad für Pulsweitenmodulation",
+          "sync_with_thermostat": "Sollwert mit Thermostat synchronisieren"
+        },
+        "data_description": {
+          "integral": "Der Integralterm (kI) im PID-Regler, verantwortlich für die Reduzierung des stationären Fehlers.",
+          "derivative": "Der Ableitungsterm (kD) im PID-Regler, verantwortlich für die Minderung von Überschwingen.",
+          "proportional": "Der proportionale Term (kP) im PID-Regler, verantwortlich für die sofortige Reaktion auf Fehler.",
+          "maximum_setpoint": "Die optimale Temperatur für einen effizienten Kesselbetrieb.",
+          "window_sensors": "Kontaktsensoren, die das System auslösen, wenn ein Fenster oder eine Tür für eine bestimmte Zeit geöffnet ist.",
+          "automatic_gains_value": "Der Wert, der für automatische Verstärkungen im PID-Regler verwendet wird.",
+          "heating_curve_coefficient": "Der Koeffizient, der zur Anpassung der Heizkurve verwendet wird.",
+          "duty_cycle": "Der maximale Tastgrad für Pulsweitenmodulation (PWM), der die Ein-Aus-Zyklen des Kessels steuert.",
+          "sync_with_thermostat": "Sollwert mit Thermostat synchronisieren, um eine koordinierte Temperaturregelung zu gewährleisten.",
+          "derivative_time_weight": "Ein Parameter zur Anpassung des Einflusses des Ableitungsterms über die Zeit, besonders nützlich, um Unterschwingen während der Aufwärmphase zu reduzieren, wenn der Heizkurvenkoeffizient korrekt eingestellt ist."
+        }
+      },
+      "presets": {
+        "title": "Voreinstellungen",
+        "description": "Vordefinierte Temperatureinstellungen für verschiedene Szenarien oder Aktivitäten.",
+        "data": {
+          "away_temperature": "Abwesenheitstemperatur",
+          "home_temperature": "Heimtemperatur",
+          "sleep_temperature": "Schlafzimmertemperatur",
+          "comfort_temperature": "Komforttemperatur",
+          "activity_temperature": "Aktivitätstemperatur",
+          "sync_climates_with_preset": "Klimazonen mit Voreinstellung synchronisieren (schlafen/abwesend/aktiv)"
+        }
+      },
+      "system_configuration": {
+        "title": "Systemkonfiguration",
+        "description": "Für Feinabstimmung und Anpassung.",
+        "data": {
+          "automatic_duty_cycle": "Automatischer Tastgrad",
+          "overshoot_protection": "Überschwingungsschutz (mit PWM)",
+          "window_minimum_open_time": "Mindestzeit für geöffnetes Fenster",
+          "sensor_max_value_age": "Maximales Alter des Temperatursensorwerts"
+        },
+        "data_description": {
+          "automatic_duty_cycle": "Automatischen Tastgrad für Pulsweitenmodulation (PWM) aktivieren oder deaktivieren.",
+          "overshoot_protection": "Überschwingungsschutz mit Pulsweitenmodulation (PWM) aktivieren, um die Temperaturüberschreitung des Kessels zu verhindern.",
+          "window_minimum_open_time": "Die Mindestzeit, die ein Fenster geöffnet sein muss, bevor das System reagiert.",
+          "sensor_max_value_age": "Das maximale Alter des Temperatursensorwerts, bevor er als gestoppt betrachtet wird."
+        }
+      },
+      "advanced": {
+        "title": "Erweitert",
+        "data": {
+          "simulation": "Simulation",
+          "sample_time": "Abtastzeit",
+          "thermal_comfort": "Thermischer Komfort",
+          "minimum_consumption": "Mindestverbrauch",
+          "maximum_consumption": "Maximalverbrauch",
+          "climate_valve_offset": "Klimaventil-Offset",
+          "target_temperature_step": "Schrittweite der Zieltemperatur",
+          "maximum_relative_modulation": "Maximale relative Modulation",
+          "force_pulse_width_modulation": "Pulsweitenmodulation erzwingen",
+          "dynamic_minimum_setpoint": "Dynamischer Minimaler Sollwert (Experimentell)"
+        },
+        "data_description": {
+          "thermal_comfort": "Verwendung des Simmer-Index für die Anpassung des thermischen Komforts aktivieren.",
+          "minimum_consumption": "Der minimale Gasverbrauch, wenn der Kessel aktiv ist.",
+          "maximum_consumption": "Der maximale Gasverbrauch, wenn der Kessel aktiv ist.",
+          "climate_valve_offset": "Offset zur Anpassung des Öffnungsgrads des Klimaventils.",
+          "target_temperature_step": "Die Schrittweite der Zieltemperatur zur Feinabstimmung der Komfortstufen anpassen.",
+          "sample_time": "Das minimale Zeitintervall zwischen Aktualisierungen des PID-Reglers.",
+          "maximum_relative_modulation": "Die höchste Modulationsstufe für ein effizientes Heizsystem darstellen."
+        }
+      }
+    }
+  }
+}
