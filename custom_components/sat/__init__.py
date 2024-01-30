@@ -30,7 +30,7 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
 
     # Resolve the coordinator by using the factory according to the mode
     _hass.data[DOMAIN][_entry.entry_id][COORDINATOR] = await SatDataUpdateCoordinatorFactory().resolve(
-        hass=_hass, config_entry=_entry, mode=_entry.data.get(CONF_MODE), device=_entry.data.get(CONF_DEVICE)
+        hass=_hass, data=_entry.data, options=_entry.options, mode=_entry.data.get(CONF_MODE), device=_entry.data.get(CONF_DEVICE)
     )
 
     # Forward entry setup for climate and other platforms
@@ -139,6 +139,9 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
             if _entry.options.get("overshoot_protection") is not None:
                 new_data[CONF_OVERSHOOT_PROTECTION] = _entry.options.get("overshoot_protection")
                 del new_options["overshoot_protection"]
+
+        if _entry.version < 6:
+            new_options[CONF_HEATING_CURVE_VERSION] = 1
 
         _entry.version = SatFlowHandler.VERSION
         _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)

@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 import logging
-import typing
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import TYPE_CHECKING, Mapping, Any
 
 from homeassistant.components.climate import HVACMode
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import *
 from .util import calculate_default_maximum_setpoint
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from .climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -27,38 +26,46 @@ class DeviceState(str, Enum):
 
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    async def resolve(hass: HomeAssistant, config_entry: ConfigEntry, mode: str, device: str) -> SatDataUpdateCoordinator:
+    async def resolve(
+            hass: HomeAssistant,
+            mode: str,
+            device: str,
+            data: Mapping[str, Any],
+            options: Mapping[str, Any] | None = None
+    ) -> SatDataUpdateCoordinator:
         if mode == MODE_FAKE:
             from .fake import SatFakeCoordinator
-            return SatFakeCoordinator(hass, config_entry)
+            return SatFakeCoordinator(hass=hass, data=data, options=options)
 
         if mode == MODE_SIMULATOR:
             from .simulator import SatSimulatorCoordinator
-            return SatSimulatorCoordinator(hass, config_entry)
+            return SatSimulatorCoordinator(hass=hass, data=data, options=options)
 
         if mode == MODE_MQTT:
             from .mqtt import SatMqttCoordinator
-            return SatMqttCoordinator(hass, config_entry, device)
-
-        if mode == MODE_SERIAL:
-            from .serial import SatSerialCoordinator
-            return await SatSerialCoordinator(hass, config_entry, device).async_connect()
+            return SatMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
 
         if mode == MODE_SWITCH:
             from .switch import SatSwitchCoordinator
-            return SatSwitchCoordinator(hass, config_entry, device)
+            return SatSwitchCoordinator(hass=hass, entity_id=device, data=data, options=options)
+
+        if mode == MODE_SERIAL:
+            from .serial import SatSerialCoordinator
+            return await SatSerialCoordinator(hass=hass, port=device, data=data, options=options).async_connect()
 
         raise Exception(f'Invalid mode[{mode}]')
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
         self.boiler_temperatures = []
-        self._config_entry = config_entry
+
+        self._data = data
+        self._options = options
         self._device_state = DeviceState.OFF
-        self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
-        self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
+        self._simulation = bool(data.get(CONF_SIMULATION))
+        self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
@@ -164,12 +171,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def maximum_setpoint(self) -> float:
         """Return the maximum setpoint temperature that the device can support."""
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)
-        return float(self._config_entry.options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
+        return float(self._options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
     @property
     def minimum_setpoint(self) -> float:
         """Return the minimum setpoint temperature before the device starts to overshoot."""
-        return float(self._config_entry.data.get(CONF_MINIMUM_SETPOINT))
+        return float(self._data.get(CONF_MINIMUM_SETPOINT))
 
     @property
     def supports_setpoint_management(self):
@@ -234,27 +241,27 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
         self._device_state = state
-        self.logger.info("Set central heater state %s", state)
+        _LOGGER.info("Set central heater state %s", state)
 
     async def async_set_control_setpoint(self, value: float) -> None:
         """Control the boiler setpoint temperature for the device."""
         if self.supports_setpoint_management:
-            self.logger.info("Set control boiler setpoint to %d", value)
+            _LOGGER.info("Set control boiler setpoint to %d", value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
         """Control the DHW setpoint temperature for the device."""
         if self.supports_hot_water_setpoint_management:
-            self.logger.info("Set control hot water setpoint to %d", value)
+            _LOGGER.info("Set control hot water setpoint to %d", value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
         """Control the maximum setpoint temperature for the device."""
         if self.supports_maximum_setpoint_management:
-            self.logger.info("Set maximum setpoint to %d", value)
+            _LOGGER.info("Set maximum setpoint to %d", value)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         """Control the maximum relative modulation for the device."""
         if self.supports_relative_modulation_management:
-            self.logger.info("Set maximum relative modulation to %d", value)
+            _LOGGER.info("Set maximum relative modulation to %d", value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         """Control the setpoint temperature for the thermostat."""

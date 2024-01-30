@@ -1,34 +1,33 @@
 from __future__ import annotations
 
-import typing
 from time import monotonic
+from typing import TYPE_CHECKING, Mapping, Any
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .. import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 from ..util import convert_time_str_to_seconds
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from ..climate import SatClimate
 
 
 class SatSimulatorCoordinator(SatDataUpdateCoordinator):
     """Class to manage the Switch."""
 
-    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        super().__init__(hass, config_entry)
+        super().__init__(hass, data, options)
 
         self._started_on = None
         self._setpoint = MINIMUM_SETPOINT
         self._boiler_temperature = MINIMUM_SETPOINT
 
-        self._heating = config_entry.data.get(CONF_SIMULATED_HEATING)
-        self._cooling = config_entry.data.get(CONF_SIMULATED_COOLING)
-        self._maximum_setpoint = config_entry.data.get(CONF_MAXIMUM_SETPOINT)
-        self._warming_up = convert_time_str_to_seconds(config_entry.data.get(CONF_SIMULATED_WARMING_UP))
+        self._heating = data.get(CONF_SIMULATED_HEATING)
+        self._cooling = data.get(CONF_SIMULATED_COOLING)
+        self._maximum_setpoint = data.get(CONF_MAXIMUM_SETPOINT)
+        self._warming_up = convert_time_str_to_seconds(data.get(CONF_SIMULATED_WARMING_UP))
 
     @property
     def supports_setpoint_management(self) -> bool:

@@ -13,11 +13,12 @@ from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
-from homeassistant.config_entries import ConfigEntry, SOURCE_USER
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector, device_registry, entity_registry
+from homeassistant.helpers.selector import SelectSelectorMode
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
 from pyotgw import OpenThermGateway
 
@@ -34,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 5
+    VERSION = 6
     MINOR_VERSION = 0
 
     calibration = None
@@ -384,25 +385,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(title=self.data[CONF_NAME], data=self.data)
 
     async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
-        # Set up the config entry parameters, since they differ per version
-        config_params = {
-            "version": self.VERSION,
-            "domain": DOMAIN,
-            "title": self.data[CONF_NAME],
-            "data": self.data,
-            "source": SOURCE_USER,
-        }
-
-        # Check Home Assistant version and add parameters accordingly
-        if MAJOR_VERSION >= 2024:
-            config_params["minor_version"] = self.MINOR_VERSION
-
-        # Create a new config to use
-        config = ConfigEntry(**config_params)
-
         # Resolve the coordinator by using the factory according to the mode
         return await SatDataUpdateCoordinatorFactory().resolve(
-            hass=self.hass, config_entry=config, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
+            hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
     async def _enable_overshoot_protection(self, overshoot_protection_value: float):
@@ -438,22 +423,32 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._config_entry.data.get(CONF_HEATING_SYSTEM))
         maximum_setpoint = float(options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
+        schema[vol.Required(CONF_HEATING_CURVE_VERSION, default=str(options[CONF_HEATING_CURVE_VERSION]))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                selector.SelectOptionDict(value="1", label="Classic Curve"),
+                selector.SelectOptionDict(value="2", label="Quantum Curve")
+            ])
+        )
+
         schema[vol.Required(CONF_MAXIMUM_SETPOINT, default=maximum_setpoint)] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=10, max=100, step=1, unit_of_measurement="°C")
         )
-
-        if not options[CONF_AUTOMATIC_GAINS]:
-            schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
-            schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
-            schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
 
         schema[vol.Required(CONF_HEATING_CURVE_COEFFICIENT, default=options[CONF_HEATING_CURVE_COEFFICIENT])] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
         )
 
-        schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
-            selector.NumberSelectorConfig(min=1, max=5, step=1)
-        )
+        if options[CONF_AUTOMATIC_GAINS]:
+            schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=5, step=1)
+            )
+            schema[vol.Required(CONF_DERIVATIVE_TIME_WEIGHT, default=options[CONF_DERIVATIVE_TIME_WEIGHT])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=6, step=1)
+            )
+        else:
+            schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
+            schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
+            schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
 
         if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
             schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()

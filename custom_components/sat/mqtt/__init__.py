@@ -1,13 +1,12 @@
 from __future__ import annotations, annotations
 
 import logging
-import typing
+from typing import TYPE_CHECKING, Mapping, Any
 
 from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers import device_registry, entity_registry
@@ -30,7 +29,7 @@ DATA_MAX_REL_MOD_LEVEL_SETTING = "MaxRelModLevelSetting"
 DATA_DHW_SETPOINT_MINIMUM = "TdhwSetUBTdhwSetLB_value_lb"
 DATA_DHW_SETPOINT_MAXIMUM = "TdhwSetUBTdhwSetLB_value_hb"
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from ..climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -39,14 +38,14 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 class SatMqttCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
 
-    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry, device_id: str) -> None:
-        super().__init__(hass, config_entry)
+    def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+        super().__init__(hass, data, options)
 
         self.data = {}
 
         self._device = device_registry.async_get(hass).async_get(device_id)
         self._node_id = list(self._device.identifiers)[0][1]
-        self._topic = config_entry.data.get(CONF_MQTT_TOPIC)
+        self._topic = data.get(CONF_MQTT_TOPIC)
 
         self._entity_registry = entity_registry.async_get(hass)
         self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
