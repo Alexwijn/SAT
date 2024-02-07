@@ -1,5 +1,4 @@
 from re import sub
-from typing import TYPE_CHECKING
 
 from homeassistant.util import dt
 
@@ -8,9 +7,6 @@ from .heating_curve import HeatingCurve
 from .minimum_setpoint import MinimumSetpoint
 from .pid import PID
 from .pwm import PWM
-
-if TYPE_CHECKING:
-    pass
 
 
 def convert_time_str_to_seconds(time_str: str) -> float:
