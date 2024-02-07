@@ -45,7 +45,7 @@ class MinimumSetpoint:
         if self.base_return_temperature is None:
             return
 
-        adjustment = (self.base_return_temperature - return_temperature) * self.adjustment_factor
+        adjustment = (return_temperature - self.base_return_temperature) * self.adjustment_factor
         self.current_minimum_setpoint = self.configured_minimum_setpoint + adjustment
 
         _LOGGER.debug(f"Calculated new minimum setpoint: {self.current_minimum_setpoint}")
