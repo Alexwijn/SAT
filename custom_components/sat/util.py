@@ -1,11 +1,16 @@
 from re import sub
+from typing import TYPE_CHECKING
 
 from homeassistant.util import dt
 
 from .const import *
 from .heating_curve import HeatingCurve
+from .minimum_setpoint import MinimumSetpoint
 from .pid import PID
 from .pwm import PWM
+
+if TYPE_CHECKING:
+    pass
 
 
 def convert_time_str_to_seconds(time_str: str) -> float:
@@ -83,6 +88,13 @@ def create_pwm_controller(heating_curve: HeatingCurve, config_data, config_optio
 
     # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
+
+
+def create_minimum_setpoint_controller(config_data, config_options) -> MinimumSetpoint:
+    minimum_setpoint = config_data.get(CONF_MINIMUM_SETPOINT)
+    adjustment_factor = config_options.get(CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR)
+
+    return MinimumSetpoint(configured_minimum_setpoint=minimum_setpoint, adjustment_factor=adjustment_factor)
 
 
 def snake_case(s):

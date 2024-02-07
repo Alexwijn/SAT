@@ -20,6 +20,7 @@ DATA_DHW_SETPOINT = "TdhwSet"
 DATA_CONTROL_SETPOINT = "TSet"
 DATA_REL_MOD_LEVEL = "RelModLevel"
 DATA_BOILER_TEMPERATURE = "Tboiler"
+DATA_RETURN_TEMPERATURE = "Tret "
 DATA_DHW_ENABLE = "domestichotwater"
 DATA_CENTRAL_HEATING = "centralheating"
 DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
@@ -111,6 +112,13 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
             return float(value)
 
         return super().boiler_temperature
+
+    @property
+    def return_temperature(self) -> float | None:
+        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_RETURN_TEMPERATURE)) is not None:
+            return float(value)
+
+        return super().return_temperature
 
     @property
     def relative_modulation_value(self) -> float | None:

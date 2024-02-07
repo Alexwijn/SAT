@@ -39,12 +39,11 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
-from .minimum_setpoint import MinimumSetpoint
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, \
-    calculate_derivative_per_hour
+    calculate_derivative_per_hour, create_minimum_setpoint_controller
 
 ATTR_ROOMS = "rooms"
 ATTR_WARMING_UP = "warming_up_data"
@@ -175,7 +174,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
 
         # Create the Minimum Setpoint controller
-        self._minimum_setpoint = MinimumSetpoint(coordinator)
+        self._minimum_setpoint = create_minimum_setpoint_controller(config_entry.data, config_options)
 
         # Create Relative Modulation controller
         self._relative_modulation = RelativeModulation(coordinator, self._heating_system)
@@ -550,7 +549,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return self._relative_modulation.state
 
     @property
-    def warming_up(self):
+    def warming_up(self) -> bool:
         """Return True if we are warming up, False otherwise."""
         return self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME
 
@@ -563,7 +562,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def adjusted_minimum_setpoint(self) -> float:
-        return self._minimum_setpoint.current([self.error] + self.climate_errors)
+        return self._minimum_setpoint.current()
 
     def _calculate_control_setpoint(self) -> float:
         """Calculate the control setpoint based on the heating curve and PID output."""
@@ -876,8 +875,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control the integral (if exceeded the time limit)
         self.pid.update_integral(self.max_error, self.heating_curve.value)
 
-        # Calculate the minimum setpoint
-        self._minimum_setpoint.calculate(self._coordinator.setpoint, [self.error] + self.climate_errors)
+        if not self._coordinator.hot_water_active and self._coordinator.flame_active:
+            # Calculate the base return temperature
+            if self.warming_up and self._coordinator.setpoint >= self._coordinator.maximum_setpoint:
+                self._minimum_setpoint.warming_up(self._coordinator.return_temperature)
+
+            # Calculate the dynamic minimum setpoint
+            self._minimum_setpoint.calculate(self._coordinator.return_temperature)
 
         # If the setpoint is high and the HVAC is not off, turn on the heater
         if self._setpoint > MINIMUM_SETPOINT and self.hvac_mode != HVACMode.OFF:

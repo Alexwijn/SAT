@@ -60,6 +60,7 @@ CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
 CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
+CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_VERSION = "heating_curve_version"
@@ -91,6 +92,7 @@ OPTIONS_DEFAULTS = {
     CONF_DERIVATIVE_TIME_WEIGHT: 6.0,
     CONF_OVERSHOOT_PROTECTION: False,
     CONF_DYNAMIC_MINIMUM_SETPOINT: False,
+    CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR: 0.2,
 
     CONF_SECONDARY_CLIMATES: [],
     CONF_MAIN_CLIMATES: [],

@@ -150,7 +150,8 @@
           "heating_curve_version": "Heating Curve Version",
           "heating_curve_coefficient": "Heating Curve Coefficient",
           "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
-          "sync_with_thermostat": "Synchronize setpoint with thermostat"
+          "sync_with_thermostat": "Synchronize setpoint with thermostat",
+          "minimum_setpoint_adjustment_factor": "Adjustment Factor for Return Temperature"
         },
         "data_description": {
           "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
@@ -162,7 +163,8 @@
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
           "duty_cycle": "The maximum duty cycle for Pulse Width Modulation (PWM), controlling the boiler's on-off cycles.",
           "sync_with_thermostat": "Synchronize setpoint with thermostat to ensure coordinated temperature control.",
-          "derivative_time_weight": "A parameter to adjust the influence of the derivative term over time, particularly useful for reducing undershoot during the warm-up phase when the heating curve coefficient is correctly set."
+          "derivative_time_weight": "A parameter to adjust the influence of the derivative term over time, particularly useful for reducing undershoot during the warm-up phase when the heating curve coefficient is correctly set.",
+          "minimum_setpoint_adjustment_factor": "This factor adjusts the heating setpoint based on the boiler's return temperature, affecting heating responsiveness and efficiency. A higher value increases sensitivity to temperature changes, enhancing control over comfort and energy use. Recommended starting range is 0.1 to 0.5. Adjust to suit your system and comfort preferences."
         }
       },
       "presets": {
@@ -214,7 +216,8 @@
           "climate_valve_offset": "Offset to adjust the opening degree of the climate valve.",
           "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
           "sample_time": "The minimum time interval between updates to the PID controller.",
-          "maximum_relative_modulation": "Representing the highest modulation level for an efficient heating system."
+          "maximum_relative_modulation": "Representing the highest modulation level for an efficient heating system.",
+          "dynamic_minimum_setpoint": "Activates the dynamic setpoint adjustment based on the boiler's return temperature, which also helps identify if any valves are closed."
         }
       }
     }
