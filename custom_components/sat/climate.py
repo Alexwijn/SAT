@@ -370,6 +370,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "minimum_setpoint": self.minimum_setpoint,
             "requested_setpoint": self.requested_setpoint,
             "adjusted_minimum_setpoint": self.adjusted_minimum_setpoint,
+            "base_return_temperature": self._minimum_setpoint.base_return_temperature,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
