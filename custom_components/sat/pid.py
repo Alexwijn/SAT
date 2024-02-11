@@ -351,12 +351,12 @@ class PID:
     @property
     def integral_enabled(self) -> bool:
         """Return whether the updates of the integral are enabled."""
-        return abs(self.previous_error) <= self._deadband
+        return abs(self._last_error) <= self._deadband
 
     @property
     def derivative_enabled(self) -> bool:
         """Return whether the updates of the derivative are enabled."""
-        return abs(self.previous_error) > self._deadband
+        return abs(self._last_error) > self._deadband
 
     @property
     def num_errors(self) -> int:
