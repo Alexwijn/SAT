@@ -143,6 +143,9 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
         if _entry.version < 6:
             new_options[CONF_HEATING_CURVE_VERSION] = 1
 
+        if _entry.version < 7:
+            new_options[CONF_PID_CONTROLLER_VERSION] = 1
+
         _entry.version = SatFlowHandler.VERSION
         _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)
 

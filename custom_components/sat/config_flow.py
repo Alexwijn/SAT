@@ -35,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 6
+    VERSION = 7
     MINOR_VERSION = 0
 
     calibration = None
@@ -426,7 +426,15 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         schema[vol.Required(CONF_HEATING_CURVE_VERSION, default=str(options[CONF_HEATING_CURVE_VERSION]))] = selector.SelectSelector(
             selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                 selector.SelectOptionDict(value="1", label="Classic Curve"),
-                selector.SelectOptionDict(value="2", label="Quantum Curve")
+                selector.SelectOptionDict(value="2", label="Quantum Curve"),
+                selector.SelectOptionDict(value="3", label="Precision Curve"),
+            ])
+        )
+
+        schema[vol.Required(CONF_PID_CONTROLLER_VERSION, default=str(options[CONF_PID_CONTROLLER_VERSION]))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                selector.SelectOptionDict(value="1", label="Classic Controller"),
+                selector.SelectOptionDict(value="2", label="Improved Controller")
             ])
         )
 

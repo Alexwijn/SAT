@@ -47,6 +47,7 @@ def create_pid_controller(config_options) -> PID:
     kd = float(config_options.get(CONF_DERIVATIVE))
 
     heating_system = config_options.get(CONF_HEATING_SYSTEM)
+    version = int(config_options.get(CONF_PID_CONTROLLER_VERSION))
     automatic_gains = bool(config_options.get(CONF_AUTOMATIC_GAINS))
     automatic_gains_value = float(config_options.get(CONF_AUTOMATIC_GAINS_VALUE))
     derivative_time_weight = float(config_options.get(CONF_DERIVATIVE_TIME_WEIGHT))
@@ -54,6 +55,7 @@ def create_pid_controller(config_options) -> PID:
 
     # Return a new PID controller instance with the given configuration options
     return PID(
+        version=version,
         heating_system=heating_system,
         automatic_gain_value=automatic_gains_value,
         derivative_time_weight=derivative_time_weight,

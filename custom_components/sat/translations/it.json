@@ -1,221 +1,225 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Smart Autotune Thermostat (SAT)",
-        "description": "Il SAT è un termostato intelligente capace di auto-regolarsi per ottimizzare il controllo della temperatura. Seleziona la modalità appropriata che corrisponde al tuo sistema di riscaldamento.",
-        "menu_options": {
-          "mosquitto": "Gateway OpenTherm (MQTT)",
-          "serial": "Gateway OpenTherm (SERIALE)",
-          "switch": "Termostato PID con PWM (ON/OFF)",
-          "simulator": "Gateway Simulato (AVANZATO)"
-        }
-      },
-      "mosquitto": {
-        "title": "Gateway OpenTherm (MQTT)",
-        "description": "Si prega di fornire i seguenti dettagli per configurare il Gateway OpenTherm. Nel campo Nome, inserisci un nome per il gateway che ti aiuterà a identificarlo all'interno del tuo sistema.\n\nSpecifica l'entità Climatica da utilizzare per il Gateway OpenTherm. Questa entità è fornita dal Gateway OpenTherm e rappresenta il tuo sistema di riscaldamento.\n\nInoltre, inserisci l'Argomento Principale che verrà utilizzato per pubblicare e sottoscrivere i messaggi MQTT relativi al Gateway OpenTherm.\n\nQueste impostazioni sono essenziali per stabilire la comunicazione e l'integrazione con il tuo Gateway OpenTherm tramite MQTT. Consentono uno scambio di dati e un controllo fluido del tuo sistema di riscaldamento. Assicurati che i dettagli forniti siano accurati per garantire un corretto funzionamento.",
-        "data": {
-          "name": "Nome",
-          "device": "Dispositivo",
-          "mqtt_topic": "Argomento Principale"
-        }
-      },
-      "serial": {
-        "title": "Gateway OpenTherm (SERIALE)",
-        "description": "Per stabilire una connessione con il Gateway OpenTherm tramite una connessione socket, si prega di fornire i seguenti dettagli. Nel campo Nome, inserisci un nome per il gateway che ti aiuterà a identificarlo all'interno del tuo sistema.\n\nSpecifica l'indirizzo di rete del Gateway OpenTherm nel campo Dispositivo. Questo potrebbe essere nel formato \"socket://otgw.local:25238\", dove \"otgw.local\" è il nome host o l'indirizzo IP del gateway e \"25238\" è il numero della porta.\n\nQueste impostazioni sono essenziali per stabilire la comunicazione e l'integrazione con il tuo Gateway OpenTherm tramite la connessione socket. Assicurati che i dettagli forniti siano accurati per garantire un corretto funzionamento.",
-        "data": {
-          "name": "Nome",
-          "device": "URL"
-        }
-      },
-      "switch": {
-        "title": "Termostato PID con PWM (ON/OFF)",
-        "description": "Si prega di compilare i seguenti dettagli per configurare l'interruttore. Inserisci un nome per l'interruttore nel campo Nome, che ti aiuterà a identificarlo all'interno del tuo sistema. Scegli l'entità appropriata da utilizzare per il tuo interruttore tra le opzioni fornite.\n\nNel campo Impostazione della Temperatura, specifica la temperatura desiderata per il tuo sistema di riscaldamento. Se stai utilizzando una caldaia per acqua calda, inserisci l'Impostazione della Temperatura della Caldaia con il valore appropriato. Per i sistemi di riscaldamento elettrici, inserisci il valore 100.\n\nQueste impostazioni sono essenziali per un controllo preciso della temperatura e per garantire prestazioni ottimali del tuo sistema di riscaldamento. Fornire l'Impostazione della Temperatura corretta consente una regolazione accurata e contribuisce a creare un ambiente confortevole ed efficiente dal punto di vista energetico nella tua casa.",
-        "data": {
-          "name": "Nome",
-          "device": "Entità",
-          "minimum_setpoint": "Impostazione della Temperatura"
-        }
-      },
-      "simulator": {
-        "title": "Gateway Simulato (AVANZATO)",
-        "description": "Questo gateway ti consente di simulare una caldaia per scopi di test e dimostrazione. Si prega di fornire le seguenti informazioni per configurare il simulatore.\n\nNota: Il Gateway Simulatore è destinato solo a scopi di test e dimostrazione e non dovrebbe essere utilizzato in ambienti di produzione.",
-        "data": {
-          "name": "Nome",
-          "minimum_setpoint": "Setpoint Minimo",
-          "maximum_setpoint": "Setpoint Massimo",
-          "simulated_heating": "Riscaldamento Simulato",
-          "simulated_cooling": "Raffreddamento Simulato",
-          "simulated_warming_up": "Riscaldamento Simulato"
-        }
-      },
-      "sensors": {
-        "title": "Configura sensori",
-        "description": "Si prega di selezionare i sensori che verranno utilizzati per monitorare la temperatura.",
-        "data": {
-          "inside_sensor_entity_id": "Entità Sensore Interno",
-          "outside_sensor_entity_id": "Entità Sensore Esterno",
-          "humidity_sensor_entity_id": "Entità Sensore Umidità"
-        }
-      },
-      "heating_system": {
-        "title": "Sistema di Riscaldamento",
-        "description": "Selezionare il tipo corretto di sistema di riscaldamento è importante affinché il SAT possa controllare accuratamente la temperatura e ottimizzare le prestazioni. Scegli l'opzione che corrisponde alla tua configurazione per garantire una regolazione appropriata della temperatura in tutta la tua casa.",
-        "data": {
-          "heating_system": "Sistema"
-        }
-      },
-      "areas": {
-        "title": "Aree",
-        "description": "Impostazioni relative ai climi, alle stanze multiple e al controllo della temperatura. I climi primari sono nella stessa stanza del sensore interno e le stanze hanno le loro temperature obiettivo separate dal sistema.",
-        "data": {
-          "main_climates": "Primari",
-          "secondary_climates": "Stanze"
-        }
-      },
-      "automatic_gains": {
-        "title": "Guadagni Automatici",
-        "description": "Questa funzionalità regola dinamicamente i parametri di controllo del tuo sistema di riscaldamento, ottimizzando il controllo della temperatura per un maggiore comfort e efficienza energetica. Attivare questa opzione consente al SAT di adattarsi continuamente e di perfezionare le impostazioni di riscaldamento in base alle condizioni ambientali. Ciò aiuta a mantenere un ambiente stabile e confortevole senza interventi manuali.\n\nNota: Se scegli di non abilitare i guadagni automatici, dovrai inserire manualmente i valori PID per un controllo preciso della temperatura. Assicurati di avere valori PID accurati per il tuo specifico sistema di riscaldamento per ottenere prestazioni ottimali.",
-        "data": {
-          "automatic_gains": "Guadagni Automatici (raccomandato)"
-        }
-      },
-      "calibrate_system": {
-        "title": "Calibra Sistema",
-        "description": "Ottimizza il tuo sistema di riscaldamento determinando automaticamente i valori PID ottimali per la tua configurazione. Quando selezioni Guadagni Automatici, si prega di notare che il sistema passerà attraverso un processo di calibrazione che potrebbe richiedere circa 20 minuti per completarsi.\n\nI Guadagni Automatici sono raccomandati per la maggior parte degli utenti in quanto semplificano il processo di configurazione e garantiscono prestazioni ottimali. Tuttavia, se sei familiare con il controllo PID e preferisci impostare manualmente i valori, puoi scegliere di non attivare i Guadagni Automatici.\n\nSi prega di notare che scegliere di non attivare i Guadagni Automatici richiede una buona conoscenza del controllo PID e potrebbe richiedere ulteriori regolazioni manuali per ottenere prestazioni ottimali.",
-        "menu_options": {
-          "calibrate": "Calibra e determina il tuo valore di protezione dal superamento (circa 20 min).",
-          "overshoot_protection": "Inserisci manualmente il valore di protezione dal superamento.",
-          "pid_controller": "Inserisci manualmente i valori PID (non raccomandato)."
-        }
-      },
-      "overshoot_protection": {
-        "title": "Protezione dal Superamento",
-        "description": "Fornendo il valore di protezione dal superamento, il SAT regolerà di conseguenza i parametri di controllo per mantenere un ambiente di riscaldamento stabile e confortevole. Questa configurazione manuale ti consente di affinare il sistema in base alla tua configurazione specifica.\n\nNota: Se non sei sicuro del valore di protezione dal superamento o non hai eseguito il processo di calibrazione, si raccomanda di annullare la configurazione e procedere con il processo di calibrazione per consentire al SAT di determinare automaticamente il valore per prestazioni ottimali.",
-        "data": {
-          "minimum_setpoint": "Valore"
-        }
-      },
-      "pid_controller": {
-        "title": "Configura manualmente il controller PID.",
-        "description": "Configura manualmente i guadagni proporzionale, integrale e derivativo per affinare il tuo sistema di riscaldamento. Utilizza questa opzione se preferisci avere il pieno controllo sui parametri del controller PID. Regola i guadagni in base alle caratteristiche specifiche del tuo sistema di riscaldamento e alle tue preferenze.",
-        "data": {
-          "integral": "Integrale (kI)",
-          "derivative": "Derivativo (kD)",
-          "proportional": "Proporzionale (kP)"
-        }
-      },
-      "calibrated": {
-        "title": "Calibrazione Completata",
-        "description": "Il processo di calibrazione è stato completato con successo.\n\nCongratulazioni! Il tuo Smart Autotune Thermostat (SAT) è stato calibrato per ottimizzare le prestazioni di riscaldamento del tuo sistema. Durante il processo di calibrazione, il SAT ha analizzato attentamente le caratteristiche di riscaldamento e determinato il valore appropriato di protezione dal superamento per garantire un controllo preciso della temperatura.\n\nValore di Protezione dal Superamento: {minimum_setpoint} °C\n\nQuesto valore rappresenta la quantità massima di superamento consentita durante il processo di riscaldamento. Il SAT monitorerà attivamente e regolerà il riscaldamento per evitare un superamento eccessivo, mantenendo così un'esperienza di riscaldamento confortevole ed efficiente nella tua casa.\n\nSi prega di notare che il valore di protezione dal superamento può variare a seconda delle caratteristiche specifiche del tuo sistema di riscaldamento e dei fattori ambientali. È stato affinato per fornire prestazioni ottimali in base ai risultati della calibrazione.",
-        "menu_options": {
-          "calibrate": "Riprova la calibrazione",
-          "finish": "Continua con la calibrazione attuale"
-        }
-      }
+    "abort": {
+      "already_configured": "Il gateway è già configurato."
     },
     "error": {
       "connection": "Impossibile connettersi al gateway.",
       "mqtt_component": "Il componente MQTT non è disponibile.",
       "unable_to_calibrate": "Il processo di calibrazione ha incontrato un problema e non è stato completato con successo. Si prega di assicurarsi che il sistema di riscaldamento funzioni correttamente e che tutti i sensori richiesti siano connessi e funzionanti correttamente.\n\nSe continui a riscontrare problemi con la calibrazione, considera di contattarci per ulteriore assistenza. Ci scusiamo per eventuali inconvenienti causati."
     },
-    "abort": {
-      "already_configured": "Il gateway è già configurato."
-    },
     "progress": {
       "calibration": "Calibrazione e ricerca del valore di protezione dal superamento in corso...\n\nSi prega di attendere mentre ottimizziamo il tuo sistema di riscaldamento. Questo processo può richiedere circa 20 minuti."
+    },
+    "step": {
+      "areas": {
+        "data": {
+          "main_climates": "Primari",
+          "secondary_climates": "Stanze"
+        },
+        "description": "Impostazioni relative ai climi, alle stanze multiple e al controllo della temperatura. I climi primari sono nella stessa stanza del sensore interno e le stanze hanno le loro temperature obiettivo separate dal sistema.",
+        "title": "Aree"
+      },
+      "automatic_gains": {
+        "data": {
+          "automatic_gains": "Guadagni Automatici (raccomandato)"
+        },
+        "description": "Questa funzionalità regola dinamicamente i parametri di controllo del tuo sistema di riscaldamento, ottimizzando il controllo della temperatura per un maggiore comfort e efficienza energetica. Attivare questa opzione consente al SAT di adattarsi continuamente e di perfezionare le impostazioni di riscaldamento in base alle condizioni ambientali. Ciò aiuta a mantenere un ambiente stabile e confortevole senza interventi manuali.\n\nNota: Se scegli di non abilitare i guadagni automatici, dovrai inserire manualmente i valori PID per un controllo preciso della temperatura. Assicurati di avere valori PID accurati per il tuo specifico sistema di riscaldamento per ottenere prestazioni ottimali.",
+        "title": "Guadagni Automatici"
+      },
+      "calibrate_system": {
+        "description": "Ottimizza il tuo sistema di riscaldamento determinando automaticamente i valori PID ottimali per la tua configurazione. Quando selezioni Guadagni Automatici, si prega di notare che il sistema passerà attraverso un processo di calibrazione che potrebbe richiedere circa 20 minuti per completarsi.\n\nI Guadagni Automatici sono raccomandati per la maggior parte degli utenti in quanto semplificano il processo di configurazione e garantiscono prestazioni ottimali. Tuttavia, se sei familiare con il controllo PID e preferisci impostare manualmente i valori, puoi scegliere di non attivare i Guadagni Automatici.\n\nSi prega di notare che scegliere di non attivare i Guadagni Automatici richiede una buona conoscenza del controllo PID e potrebbe richiedere ulteriori regolazioni manuali per ottenere prestazioni ottimali.",
+        "menu_options": {
+          "calibrate": "Calibra e determina il tuo valore di protezione dal superamento (circa 20 min).",
+          "overshoot_protection": "Inserisci manualmente il valore di protezione dal superamento.",
+          "pid_controller": "Inserisci manualmente i valori PID (non raccomandato)."
+        },
+        "title": "Calibra Sistema"
+      },
+      "calibrated": {
+        "description": "Il processo di calibrazione è stato completato con successo.\n\nCongratulazioni! Il tuo Smart Autotune Thermostat (SAT) è stato calibrato per ottimizzare le prestazioni di riscaldamento del tuo sistema. Durante il processo di calibrazione, il SAT ha analizzato attentamente le caratteristiche di riscaldamento e determinato il valore appropriato di protezione dal superamento per garantire un controllo preciso della temperatura.\n\nValore di Protezione dal Superamento: {minimum_setpoint} °C\n\nQuesto valore rappresenta la quantità massima di superamento consentita durante il processo di riscaldamento. Il SAT monitorerà attivamente e regolerà il riscaldamento per evitare un superamento eccessivo, mantenendo così un'esperienza di riscaldamento confortevole ed efficiente nella tua casa.\n\nSi prega di notare che il valore di protezione dal superamento può variare a seconda delle caratteristiche specifiche del tuo sistema di riscaldamento e dei fattori ambientali. È stato affinato per fornire prestazioni ottimali in base ai risultati della calibrazione.",
+        "menu_options": {
+          "calibrate": "Riprova la calibrazione",
+          "finish": "Continua con la calibrazione attuale"
+        },
+        "title": "Calibrazione Completata"
+      },
+      "heating_system": {
+        "data": {
+          "heating_system": "Sistema"
+        },
+        "description": "Selezionare il tipo corretto di sistema di riscaldamento è importante affinché il SAT possa controllare accuratamente la temperatura e ottimizzare le prestazioni. Scegli l'opzione che corrisponde alla tua configurazione per garantire una regolazione appropriata della temperatura in tutta la tua casa.",
+        "title": "Sistema di Riscaldamento"
+      },
+      "mosquitto": {
+        "data": {
+          "device": "Dispositivo",
+          "mqtt_topic": "Argomento Principale",
+          "name": "Nome"
+        },
+        "description": "Si prega di fornire i seguenti dettagli per configurare il Gateway OpenTherm. Nel campo Nome, inserisci un nome per il gateway che ti aiuterà a identificarlo all'interno del tuo sistema.\n\nSpecifica l'entità Climatica da utilizzare per il Gateway OpenTherm. Questa entità è fornita dal Gateway OpenTherm e rappresenta il tuo sistema di riscaldamento.\n\nInoltre, inserisci l'Argomento Principale che verrà utilizzato per pubblicare e sottoscrivere i messaggi MQTT relativi al Gateway OpenTherm.\n\nQueste impostazioni sono essenziali per stabilire la comunicazione e l'integrazione con il tuo Gateway OpenTherm tramite MQTT. Consentono uno scambio di dati e un controllo fluido del tuo sistema di riscaldamento. Assicurati che i dettagli forniti siano accurati per garantire un corretto funzionamento.",
+        "title": "Gateway OpenTherm (MQTT)"
+      },
+      "overshoot_protection": {
+        "data": {
+          "minimum_setpoint": "Valore"
+        },
+        "description": "Fornendo il valore di protezione dal superamento, il SAT regolerà di conseguenza i parametri di controllo per mantenere un ambiente di riscaldamento stabile e confortevole. Questa configurazione manuale ti consente di affinare il sistema in base alla tua configurazione specifica.\n\nNota: Se non sei sicuro del valore di protezione dal superamento o non hai eseguito il processo di calibrazione, si raccomanda di annullare la configurazione e procedere con il processo di calibrazione per consentire al SAT di determinare automaticamente il valore per prestazioni ottimali.",
+        "title": "Protezione dal Superamento"
+      },
+      "pid_controller": {
+        "data": {
+          "derivative": "Derivativo (kD)",
+          "integral": "Integrale (kI)",
+          "proportional": "Proporzionale (kP)"
+        },
+        "description": "Configura manualmente i guadagni proporzionale, integrale e derivativo per affinare il tuo sistema di riscaldamento. Utilizza questa opzione se preferisci avere il pieno controllo sui parametri del controller PID. Regola i guadagni in base alle caratteristiche specifiche del tuo sistema di riscaldamento e alle tue preferenze.",
+        "title": "Configura manualmente il controller PID."
+      },
+      "sensors": {
+        "data": {
+          "humidity_sensor_entity_id": "Entità Sensore Umidità",
+          "inside_sensor_entity_id": "Entità Sensore Interno",
+          "outside_sensor_entity_id": "Entità Sensore Esterno"
+        },
+        "description": "Si prega di selezionare i sensori che verranno utilizzati per monitorare la temperatura.",
+        "title": "Configura sensori"
+      },
+      "serial": {
+        "data": {
+          "device": "URL",
+          "name": "Nome"
+        },
+        "description": "Per stabilire una connessione con il Gateway OpenTherm tramite una connessione socket, si prega di fornire i seguenti dettagli. Nel campo Nome, inserisci un nome per il gateway che ti aiuterà a identificarlo all'interno del tuo sistema.\n\nSpecifica l'indirizzo di rete del Gateway OpenTherm nel campo Dispositivo. Questo potrebbe essere nel formato \"socket://otgw.local:25238\", dove \"otgw.local\" è il nome host o l'indirizzo IP del gateway e \"25238\" è il numero della porta.\n\nQueste impostazioni sono essenziali per stabilire la comunicazione e l'integrazione con il tuo Gateway OpenTherm tramite la connessione socket. Assicurati che i dettagli forniti siano accurati per garantire un corretto funzionamento.",
+        "title": "Gateway OpenTherm (SERIALE)"
+      },
+      "simulator": {
+        "data": {
+          "maximum_setpoint": "Setpoint Massimo",
+          "minimum_setpoint": "Setpoint Minimo",
+          "name": "Nome",
+          "simulated_cooling": "Raffreddamento Simulato",
+          "simulated_heating": "Riscaldamento Simulato",
+          "simulated_warming_up": "Riscaldamento Simulato"
+        },
+        "description": "Questo gateway ti consente di simulare una caldaia per scopi di test e dimostrazione. Si prega di fornire le seguenti informazioni per configurare il simulatore.\n\nNota: Il Gateway Simulatore è destinato solo a scopi di test e dimostrazione e non dovrebbe essere utilizzato in ambienti di produzione.",
+        "title": "Gateway Simulato (AVANZATO)"
+      },
+      "switch": {
+        "data": {
+          "device": "Entità",
+          "minimum_setpoint": "Impostazione della Temperatura",
+          "name": "Nome"
+        },
+        "description": "Si prega di compilare i seguenti dettagli per configurare l'interruttore. Inserisci un nome per l'interruttore nel campo Nome, che ti aiuterà a identificarlo all'interno del tuo sistema. Scegli l'entità appropriata da utilizzare per il tuo interruttore tra le opzioni fornite.\n\nNel campo Impostazione della Temperatura, specifica la temperatura desiderata per il tuo sistema di riscaldamento. Se stai utilizzando una caldaia per acqua calda, inserisci l'Impostazione della Temperatura della Caldaia con il valore appropriato. Per i sistemi di riscaldamento elettrici, inserisci il valore 100.\n\nQueste impostazioni sono essenziali per un controllo preciso della temperatura e per garantire prestazioni ottimali del tuo sistema di riscaldamento. Fornire l'Impostazione della Temperatura corretta consente una regolazione accurata e contribuisce a creare un ambiente confortevole ed efficiente dal punto di vista energetico nella tua casa.",
+        "title": "Termostato PID con PWM (ON/OFF)"
+      },
+      "user": {
+        "description": "Il SAT è un termostato intelligente capace di auto-regolarsi per ottimizzare il controllo della temperatura. Seleziona la modalità appropriata che corrisponde al tuo sistema di riscaldamento.",
+        "menu_options": {
+          "mosquitto": "Gateway OpenTherm (MQTT)",
+          "serial": "Gateway OpenTherm (SERIALE)",
+          "simulator": "Gateway Simulato (AVANZATO)",
+          "switch": "Termostato PID con PWM (ON/OFF)"
+        },
+        "title": "Smart Autotune Thermostat (SAT)"
+      }
     }
   },
   "options": {
     "step": {
+      "advanced": {
+        "data": {
+          "climate_valve_offset": "Offset della Valvola Climatica",
+          "dynamic_minimum_setpoint": "Setpoint Minimo Dinamico (Sperimentale)",
+          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso",
+          "maximum_consumption": "Consumo Massimo",
+          "maximum_relative_modulation": "Modulazione Relativa Massima",
+          "minimum_consumption": "Consumo Minimo",
+          "sample_time": "Tempo di Campionamento",
+          "simulation": "Simulazione",
+          "target_temperature_step": "Passo della Temperatura Target",
+          "thermal_comfort": "Comfort Termico"
+        },
+        "data_description": {
+          "climate_valve_offset": "Offset per regolare il grado di apertura della valvola climatica.",
+          "dynamic_minimum_setpoint": "Attiva la regolazione dinamica del punto di impostazione minimo in base alla temperatura di ritorno della caldaia, che aiuta anche a identificare se delle valvole sono chiuse.",
+          "maximum_consumption": "Il consumo massimo di gas quando la caldaia è attiva.",
+          "maximum_relative_modulation": "Rappresenta il livello di modulazione più alto per un sistema di riscaldamento efficiente.",
+          "minimum_consumption": "Il consumo minimo di gas quando la caldaia è attiva.",
+          "sample_time": "L'intervallo di tempo minimo tra gli aggiornamenti del controllore PID.",
+          "target_temperature_step": "Regolare il passo della temperatura target per un'accurata regolazione dei livelli di comfort.",
+          "thermal_comfort": "Abilitare l'uso dell'Indice di Simmer per l'aggiustamento del comfort termico."
+        },
+        "title": "Avanzate"
+      },
+      "general": {
+        "data": {
+          "automatic_gains_value": "Valore dei Guadagni Automatici",
+          "derivative": "Derivata (kD)",
+          "derivative_time_weight": "Peso Temporale Derivato",
+          "duty_cycle": "Ciclo di Lavoro Massimo per la Modulazione di Larghezza di Impulso",
+          "heating_curve_coefficient": "Coefficiente della Curva di Riscaldamento",
+          "heating_curve_version": "Versione della Curva di Riscaldamento",
+          "integral": "Integrale (kI)",
+          "maximum_setpoint": "Setpoint Massimo",
+          "minimum_setpoint_adjustment_factor": "Fattore di regolazione del punto di impostazione minimo",
+          "pid_controller_version": "Versione del controllore PID",
+          "proportional": "Proporzionale (kP)",
+          "sync_with_thermostat": "Sincronizza setpoint con termostato",
+          "window_sensors": "Sensori Contatto"
+        },
+        "data_description": {
+          "automatic_gains_value": "Il valore utilizzato per i guadagni automatici nel controllore PID.",
+          "derivative": "Il termine derivato (kD) nel controllore PID, responsabile della mitigazione del superamento.",
+          "derivative_time_weight": "Un parametro per regolare l'influenza del termine derivato nel tempo, particolarmente utile per ridurre il sottoscavo durante la fase di riscaldamento quando il coefficiente della curva di riscaldamento è correttamente impostato.",
+          "duty_cycle": "Il ciclo di lavoro massimo per la Modulazione di Larghezza di Impulso (PWM), controllando i cicli di accensione/spegnimento della caldaia.",
+          "heating_curve_coefficient": "Il coefficiente utilizzato per regolare la curva di riscaldamento.",
+          "integral": "Il termine integrale (kI) nel controllore PID, responsabile della riduzione dell'errore in stato stazionario.",
+          "maximum_setpoint": "La temperatura ottimale per un funzionamento efficiente della caldaia.",
+          "minimum_setpoint_adjustment_factor": "Questo fattore regola il punto di impostazione del riscaldamento in base alla temperatura di ritorno della caldaia, influenzando la reattività e l'efficienza del riscaldamento. Un valore più alto aumenta la sensibilità ai cambiamenti di temperatura, migliorando il controllo del comfort e del consumo energetico. L'intervallo di partenza consigliato è da 0,1 a 0,5. Regolare per adattarsi al proprio sistema e alle preferenze di comfort.",
+          "proportional": "Il termine proporzionale (kP) nel controllore PID, responsabile della risposta immediata agli errori.",
+          "sync_with_thermostat": "Sincronizza il setpoint con il termostato per garantire un controllo coordinato della temperatura.",
+          "window_sensors": "Sensori di Contatto che attivano il sistema quando una finestra o una porta è aperta per un periodo di tempo."
+        },
+        "description": "Impostazioni e configurazioni generali.",
+        "title": "Generale"
+      },
       "init": {
         "menu_options": {
+          "advanced": "Opzioni Avanzate",
           "general": "Generale",
           "presets": "Preimpostazioni",
-          "advanced": "Opzioni Avanzate",
           "system_configuration": "Configurazione del Sistema"
         }
       },
-      "general": {
-        "title": "Generale",
-        "description": "Impostazioni e configurazioni generali.",
-        "data": {
-          "integral": "Integrale (kI)",
-          "derivative": "Derivata (kD)",
-          "proportional": "Proporzionale (kP)",
-          "maximum_setpoint": "Setpoint Massimo",
-          "window_sensors": "Sensori Contatto",
-          "automatic_gains_value": "Valore dei Guadagni Automatici",
-          "derivative_time_weight": "Peso Temporale Derivato",
-          "heating_curve_version": "Versione della Curva di Riscaldamento",
-          "heating_curve_coefficient": "Coefficiente della Curva di Riscaldamento",
-          "duty_cycle": "Ciclo di Lavoro Massimo per la Modulazione di Larghezza di Impulso",
-          "sync_with_thermostat": "Sincronizza setpoint con termostato"
-        },
-        "data_description": {
-          "integral": "Il termine integrale (kI) nel controllore PID, responsabile della riduzione dell'errore in stato stazionario.",
-          "derivative": "Il termine derivato (kD) nel controllore PID, responsabile della mitigazione del superamento.",
-          "proportional": "Il termine proporzionale (kP) nel controllore PID, responsabile della risposta immediata agli errori.",
-          "maximum_setpoint": "La temperatura ottimale per un funzionamento efficiente della caldaia.",
-          "window_sensors": "Sensori di Contatto che attivano il sistema quando una finestra o una porta è aperta per un periodo di tempo.",
-          "automatic_gains_value": "Il valore utilizzato per i guadagni automatici nel controllore PID.",
-          "heating_curve_coefficient": "Il coefficiente utilizzato per regolare la curva di riscaldamento.",
-          "duty_cycle": "Il ciclo di lavoro massimo per la Modulazione di Larghezza di Impulso (PWM), controllando i cicli di accensione/spegnimento della caldaia.",
-          "sync_with_thermostat": "Sincronizza il setpoint con il termostato per garantire un controllo coordinato della temperatura.",
-          "derivative_time_weight": "Un parametro per regolare l'influenza del termine derivato nel tempo, particolarmente utile per ridurre il sottoscavo durante la fase di riscaldamento quando il coefficiente della curva di riscaldamento è correttamente impostato."
-        }
-      },
       "presets": {
-        "title": "Preimpostazioni",
-        "description": "Impostazioni di temperatura predefinite per diversi scenari o attività.",
         "data": {
+          "activity_temperature": "Temperatura Attività",
           "away_temperature": "Temperatura Assente",
+          "comfort_temperature": "Temperatura Comfort",
           "home_temperature": "Temperatura Casa",
           "sleep_temperature": "Temperatura Sonno",
-          "comfort_temperature": "Temperatura Comfort",
-          "activity_temperature": "Temperatura Attività",
           "sync_climates_with_preset": "Sincronizza climi con preimpostazione (sonno / assente / attività)"
-        }
+        },
+        "description": "Impostazioni di temperatura predefinite per diversi scenari o attività.",
+        "title": "Preimpostazioni"
       },
       "system_configuration": {
-        "title": "Configurazione del Sistema",
-        "description": "Per una regolazione fine e una personalizzazione.",
         "data": {
           "automatic_duty_cycle": "Ciclo di lavoro automatico",
           "overshoot_protection": "Protezione dal Superamento (con PWM)",
-          "window_minimum_open_time": "Tempo minimo di apertura della finestra",
-          "sensor_max_value_age": "Età massima del valore del sensore di temperatura"
+          "sensor_max_value_age": "Età massima del valore del sensore di temperatura",
+          "window_minimum_open_time": "Tempo minimo di apertura della finestra"
         },
         "data_description": {
           "automatic_duty_cycle": "Abilitare o disabilitare il ciclo di lavoro automatico per la Modulazione di Larghezza di Impulso (PWM).",
           "overshoot_protection": "Abilitare la protezione dal superamento con la Modulazione di Larghezza di Impulso (PWM) per prevenire il superamento della temperatura della caldaia.",
-          "window_minimum_open_time": "Il tempo minimo che una finestra deve essere aperta prima che il sistema reagisca.",
-          "sensor_max_value_age": "L'età massima del valore del sensore di temperatura prima di considerarlo stazionario."
-        }
-      },
-      "advanced": {
-        "title": "Avanzate",
-        "data": {
-          "simulation": "Simulazione",
-          "sample_time": "Tempo di Campionamento",
-          "thermal_comfort": "Comfort Termico",
-          "minimum_consumption": "Consumo Minimo",
-          "maximum_consumption": "Consumo Massimo",
-          "climate_valve_offset": "Offset della Valvola Climatica",
-          "target_temperature_step": "Passo della Temperatura Target",
-          "maximum_relative_modulation": "Modulazione Relativa Massima",
-          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso",
-          "dynamic_minimum_setpoint": "Setpoint Minimo Dinamico (Sperimentale)"
+          "sensor_max_value_age": "L'età massima del valore del sensore di temperatura prima di considerarlo stazionario.",
+          "window_minimum_open_time": "Il tempo minimo che una finestra deve essere aperta prima che il sistema reagisca."
         },
-        "data_description": {
-          "thermal_comfort": "Abilitare l'uso dell'Indice di Simmer per l'aggiustamento del comfort termico.",
-          "minimum_consumption": "Il consumo minimo di gas quando la caldaia è attiva.",
-          "maximum_consumption": "Il consumo massimo di gas quando la caldaia è attiva.",
-          "climate_valve_offset": "Offset per regolare il grado di apertura della valvola climatica.",
-          "target_temperature_step": "Regolare il passo della temperatura target per un'accurata regolazione dei livelli di comfort.",
-          "sample_time": "L'intervallo di tempo minimo tra gli aggiornamenti del controllore PID.",
-          "maximum_relative_modulation": "Rappresenta il livello di modulazione più alto per un sistema di riscaldamento efficiente."
-        }
+        "description": "Per una regolazione fine e una personalizzazione.",
+        "title": "Configurazione del Sistema"
       }
     }
   }
