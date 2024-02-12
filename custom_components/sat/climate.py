@@ -985,9 +985,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Set the new target temperature
         self._target_temperature = temperature
 
-        # Reset the PID controller
-        await self._async_control_pid(True)
-
         # Set the target temperature for each main climate
         for entity_id in self._main_climates:
             data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
@@ -996,6 +993,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._sync_with_thermostat:
             # Set the target temperature for the connected boiler
             await self._coordinator.async_set_control_thermostat_setpoint(temperature)
+
+        # Reset the PID controller
+        await self._async_control_pid(True)
 
         # Write the state to Home Assistant
         self.async_write_ha_state()
