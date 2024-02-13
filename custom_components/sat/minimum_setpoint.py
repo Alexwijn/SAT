@@ -33,7 +33,7 @@ class MinimumSetpoint:
 
         # Directly calculate the 90th percentile of the recent return temperatures here
         if self.recent_return_temperatures:
-            sorted_temperatures = sorted(self.recent_return_temperatures, reverse=True)
+            sorted_temperatures = sorted(self.recent_return_temperatures)
             index = int(len(sorted_temperatures) * 0.9) - 1
             self.base_return_temperature = sorted_temperatures[max(index, 0)]
 

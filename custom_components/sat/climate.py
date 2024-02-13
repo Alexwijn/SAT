@@ -879,7 +879,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if not self._coordinator.hot_water_active and self._coordinator.flame_active:
             # Calculate the base return temperature
-            if self.warming_up and self._coordinator.setpoint >= self._coordinator.maximum_setpoint:
+            if self.warming_up:
                 self._minimum_setpoint.warming_up(self._coordinator.return_temperature)
 
             # Calculate the dynamic minimum setpoint
