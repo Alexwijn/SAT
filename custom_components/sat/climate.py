@@ -249,11 +249,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if len(self._window_sensors) > 0:
             entities = entity_registry.async_get(self.hass)
-            unique_id = f"{self._config_entry.data.get(CONF_NAME).lower()}-window-sensor"
+            device_name = self._config_entry.data.get(CONF_NAME)
+            window_id = entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, f"{device_name.lower()}-window-sensor")
 
             self.async_on_remove(
                 async_track_state_change_event(
-                    self.hass, [entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, unique_id)], self._async_window_sensor_changed
+                    self.hass, [window_id], self._async_window_sensor_changed
                 )
             )
 
