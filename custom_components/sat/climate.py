@@ -560,7 +560,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._dynamic_minimum_setpoint:
             return self._coordinator.minimum_setpoint
 
-        return self.adjusted_minimum_setpoint
+        return min(self.adjusted_minimum_setpoint, self._coordinator.maximum_setpoint)
 
     @property
     def adjusted_minimum_setpoint(self) -> float:
