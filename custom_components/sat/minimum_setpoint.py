@@ -14,7 +14,6 @@ class MinimumSetpoint:
         self._store = None
         self.base_return_temperature = None
         self.current_minimum_setpoint = None
-        self.recent_return_temperatures = []
 
         self.adjustment_factor = adjustment_factor
         self.configured_minimum_setpoint = configured_minimum_setpoint
@@ -28,16 +27,15 @@ class MinimumSetpoint:
             _LOGGER.debug("Loaded base return temperature from storage.")
 
     def warming_up(self, return_temperature: float) -> None:
-        self.recent_return_temperatures.append(return_temperature)
-        self.recent_return_temperatures = self.recent_return_temperatures[-100:]
+        if self.base_return_temperature is not None and self.base_return_temperature > return_temperature:
+            return
 
-        # Directly calculate the 90th percentile of the recent return temperatures here
-        if self.recent_return_temperatures:
-            sorted_temperatures = sorted(self.recent_return_temperatures)
-            index = int(len(sorted_temperatures) * 0.9) - 1
-            self.base_return_temperature = sorted_temperatures[max(index, 0)]
+        # Use the new value if it's higher or none is set
+        self.base_return_temperature = return_temperature
+        _LOGGER.debug(f"Higher temperature set to: {return_temperature}.")
 
-        if self._store and self.base_return_temperature is not None:
+        # Make sure to remember this value
+        if self._store:
             self._store.async_delay_save(self._data_to_save)
             _LOGGER.debug("Stored base return temperature changes.")
 
