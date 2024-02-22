@@ -126,6 +126,10 @@ class PID:
         :param heating_curve_value: The current value of the heating curve.
         :param force: Boolean flag indicating whether to force an update even if the integral time limit has not been reached.
         """
+        # Make sure we reset the time if we just entered deadband
+        if self.last_error > self._deadband > error:
+            self._last_interval_updated = monotonic()
+
         # Make sure the integral term is enabled
         if not self.integral_enabled:
             self._integral = 0
