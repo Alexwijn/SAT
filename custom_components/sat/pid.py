@@ -141,7 +141,6 @@ class PID:
             return
 
         current_time = monotonic()
-        limit = heating_curve_value / 10
         time_elapsed = current_time - self._last_interval_updated
 
         # Check if the integral gain `ki` is set
@@ -152,8 +151,8 @@ class PID:
         self._integral += self.ki * error * time_elapsed
 
         # Clamp the integral value within the limit
-        self._integral = min(self._integral, float(+limit))
-        self._integral = max(self._integral, float(-limit))
+        self._integral = min(self._integral, float(+heating_curve_value))
+        self._integral = max(self._integral, float(-heating_curve_value))
 
         # Record the time of the latest update
         self._last_interval_updated = current_time
