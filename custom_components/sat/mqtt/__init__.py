@@ -155,8 +155,11 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         return super().maximum_relative_modulation_value
 
     @property
-    def member_id(self) -> int:
-        return int(self._get_entity_state(SENSOR_DOMAIN, DATA_SLAVE_MEMBER_ID))
+    def member_id(self) -> int | None:
+        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_SLAVE_MEMBER_ID)) is not None:
+            return int(value)
+
+        return None
 
     async def boot(self) -> SatMqttCoordinator:
         await self._send_command("PM=3")
@@ -218,7 +221,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         if isinstance(self.manufacturer, Immergas):
-            await self._send_command(f"TP=11:12={value}")
+            await self._send_command(f"TP=11:12={min(value, 80)}")
 
         await self._send_command(f"MM={value}")
 

@@ -41,7 +41,7 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         return state.state == STATE_ON
 
     @property
-    def member_id(self) -> int:
+    def member_id(self) -> int | None:
         return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:

@@ -77,6 +77,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def manufacturer(self) -> Manufacturer | None:
+        if self.member_id is None:
+            return None
+
         return ManufacturerFactory().resolve(self.member_id)
 
     @property
@@ -91,7 +94,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     @abstractmethod
-    def member_id(self) -> int:
+    def member_id(self) -> int | None:
         pass
 
     @property
