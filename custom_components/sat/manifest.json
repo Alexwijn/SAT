@@ -6,7 +6,8 @@
   ],
   "config_flow": true,
   "dependencies": [
-    "mqtt"
+    "mqtt",
+    "dhcp"
   ],
   "dhcp": [
     {
