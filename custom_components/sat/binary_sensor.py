@@ -30,15 +30,15 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         await serial_binary_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     if coordinator.supports_setpoint_management:
-        _async_add_entities([SatControlSetpointSynchroSensor(coordinator, climate, _config_entry)])
+        _async_add_entities([SatControlSetpointSynchroSensor(coordinator, _config_entry, climate)])
 
     if coordinator.supports_relative_modulation_management:
-        _async_add_entities([SatRelativeModulationSynchroSensor(coordinator, climate, _config_entry)])
+        _async_add_entities([SatRelativeModulationSynchroSensor(coordinator, _config_entry, climate)])
 
     if len(_config_entry.options.get(CONF_WINDOW_SENSORS, [])) > 0:
-        _async_add_entities([SatWindowSensor(coordinator, climate, _config_entry)])
+        _async_add_entities([SatWindowSensor(coordinator, _config_entry, climate)])
 
-    _async_add_entities([SatCentralHeatingSynchroSensor(coordinator, climate, _config_entry)])
+    _async_add_entities([SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)])
 
 
 class SatControlSetpointSynchroSensor(SatClimateEntity, BinarySensorEntity):
@@ -133,8 +133,8 @@ class SatCentralHeatingSynchroSensor(SatClimateEntity, BinarySensorEntity):
 
 
 class SatWindowSensor(SatClimateEntity, BinarySensorGroup):
-    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry):
-        super().__init__(coordinator, climate, config_entry)
+    def __init__(self, coordinator, config_entry: ConfigEntry, climate: SatClimate):
+        super().__init__(coordinator, config_entry, climate)
 
         self.mode = any
         self._entity_ids = self._config_entry.options.get(CONF_WINDOW_SENSORS)

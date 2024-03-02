@@ -27,6 +27,10 @@ class SatFakeConfig:
 class SatFakeCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
 
+    @property
+    def member_id(self) -> int:
+        return -1
+
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         self.data = {}
         self.config = SatFakeConfig(True)

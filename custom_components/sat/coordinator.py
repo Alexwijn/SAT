@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import *
+from .manufacturer import ManufacturerFactory, Manufacturer
 from .util import calculate_default_maximum_setpoint
 
 if TYPE_CHECKING:
@@ -41,13 +42,13 @@ class SatDataUpdateCoordinatorFactory:
             from .simulator import SatSimulatorCoordinator
             return SatSimulatorCoordinator(hass=hass, data=data, options=options)
 
-        if mode == MODE_MQTT:
-            from .mqtt import SatMqttCoordinator
-            return SatMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
-
         if mode == MODE_SWITCH:
             from .switch import SatSwitchCoordinator
             return SatSwitchCoordinator(hass=hass, entity_id=device, data=data, options=options)
+
+        if mode == MODE_MQTT:
+            from .mqtt import SatMqttCoordinator
+            return await SatMqttCoordinator(hass=hass, device_id=device, data=data, options=options).boot()
 
         if mode == MODE_SERIAL:
             from .serial import SatSerialCoordinator
@@ -75,6 +76,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return self._device_state
 
     @property
+    def manufacturer(self) -> Manufacturer | None:
+        return ManufacturerFactory().resolve(self.member_id)
+
+    @property
     @abstractmethod
     def setpoint(self) -> float | None:
         pass
@@ -82,6 +87,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     @abstractmethod
     def device_active(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def member_id(self) -> int:
         pass
 
     @property

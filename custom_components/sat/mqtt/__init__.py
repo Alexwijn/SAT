@@ -14,6 +14,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
+from ..manufacturers.immergas import Immergas
 
 DATA_FLAME_ACTIVE = "flame"
 DATA_DHW_SETPOINT = "TdhwSet"
@@ -23,6 +24,7 @@ DATA_BOILER_TEMPERATURE = "Tboiler"
 DATA_RETURN_TEMPERATURE = "Tret"
 DATA_DHW_ENABLE = "domestichotwater"
 DATA_CENTRAL_HEATING = "centralheating"
+DATA_SLAVE_MEMBER_ID = "slave_memberid_code"
 DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
 DATA_REL_MIN_MOD_LEVEL = "MaxCapacityMinModLevel_lb_u8"
 DATA_REL_MIN_MOD_LEVELL = "MaxCapacityMinModLevell_lb_u8"
@@ -152,6 +154,16 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         return super().maximum_relative_modulation_value
 
+    @property
+    def member_id(self) -> int:
+        return int(self._get_entity_state(SENSOR_DOMAIN, DATA_SLAVE_MEMBER_ID))
+
+    async def boot(self) -> SatMqttCoordinator:
+        await self._send_command("PM=3")
+        await self._send_command("PM=48")
+
+        return self
+
     async def async_added_to_hass(self, climate: SatClimate) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)
 
@@ -176,7 +188,6 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         # Track those entities so the coordinator can be updated when something changes
         async_track_state_change_event(self.hass, entities, self.async_state_change_event)
 
-        await self._send_command("PM=48")
         await super().async_added_to_hass(climate)
 
     async def async_state_change_event(self, event: Event):
@@ -206,6 +217,9 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
+        if isinstance(self.manufacturer, Immergas):
+            await self._send_command(f"TP=11:12={value}")
+
         await self._send_command(f"MM={value}")
 
         await super().async_set_control_max_relative_modulation(value)

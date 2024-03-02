@@ -12,12 +12,12 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, MODE_SIMULATOR, CONF_MINIMUM_CONSUMPTION, CONF_MAXIMUM_CONSUMPTION
 from .coordinator import SatDataUpdateCoordinator
-from .entity import SatEntity
+from .entity import SatEntity, SatClimateEntity
 from .serial import sensor as serial_sensor
 from .simulator import sensor as simulator_sensor
 
 if typing.TYPE_CHECKING:
-    from .climate import SatClimate
+    pass
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         await simulator_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     _async_add_entities([
+        SatManufacturerSensor(coordinator, _config_entry),
         SatErrorValueSensor(coordinator, _config_entry, climate),
         SatHeatingCurveSensor(coordinator, _config_entry, climate),
     ])
@@ -135,12 +136,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-consumption"
 
 
-class SatHeatingCurveSensor(SatEntity, SensorEntity):
-
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, climate: SatClimate):
-        super().__init__(coordinator, config_entry)
-
-        self._climate = climate
+class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         async def on_state_change(_event: Event):
@@ -185,12 +181,7 @@ class SatHeatingCurveSensor(SatEntity, SensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-heating-curve"
 
 
-class SatErrorValueSensor(SatEntity, SensorEntity):
-
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, climate: SatClimate):
-        super().__init__(coordinator, config_entry)
-
-        self._climate = climate
+class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         async def on_state_change(_event: Event):
@@ -233,3 +224,20 @@ class SatErrorValueSensor(SatEntity, SensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-error-value"
+
+
+class SatManufacturerSensor(SatEntity, SensorEntity):
+    @property
+    def name(self) -> str:
+        return f"Boiler Manufacturer"
+
+    @property
+    def native_value(self) -> str:
+        if not (manufacturer := self._coordinator.manufacturer):
+            return "Unknown"
+
+        return manufacturer.name
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-manufacturer"

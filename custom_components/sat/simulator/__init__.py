@@ -61,6 +61,10 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
     def relative_modulation_value(self) -> float | None:
         return 100 if self.flame_active else 0
 
+    @property
+    def member_id(self) -> int:
+        return -1
+
     async def async_set_heater_state(self, state: DeviceState) -> None:
         self._started_on = monotonic() if state == DeviceState.ON else None
 

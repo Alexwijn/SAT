@@ -33,7 +33,7 @@ class SatEntity(CoordinatorEntity):
 
 
 class SatClimateEntity(SatEntity):
-    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator, config_entry: ConfigEntry, climate: SatClimate):
         super().__init__(coordinator, config_entry)
 
         self._climate = climate
