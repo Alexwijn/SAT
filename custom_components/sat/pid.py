@@ -127,7 +127,7 @@ class PID:
         :param force: Boolean flag indicating whether to force an update even if the integral time limit has not been reached.
         """
         # Make sure we reset the time if we just entered deadband
-        if self.last_error > self._deadband > error:
+        if abs(self.last_error) > self._deadband >= abs(error):
             self._last_interval_updated = monotonic()
 
         # Make sure the integral term is enabled
