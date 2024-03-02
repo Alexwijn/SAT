@@ -64,6 +64,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         self._data = data
         self._options = options
+        self._manufacturer = None
         self._device_state = DeviceState.OFF
         self._simulation = bool(data.get(CONF_SIMULATION))
         self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
@@ -80,7 +81,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.member_id is None:
             return None
 
-        return ManufacturerFactory().resolve(self.member_id)
+        if self._manufacturer is None:
+            self._manufacturer = ManufacturerFactory().resolve(self.member_id)
+
+        return self._manufacturer
 
     @property
     @abstractmethod
