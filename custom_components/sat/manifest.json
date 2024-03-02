@@ -1,4 +1,6 @@
 {
+  "domain": "sat",
+  "name": "Smart Autotune Thermostat",
   "codeowners": [
     "@Alexwijn"
   ],
@@ -13,13 +15,12 @@
     }
   ],
   "documentation": "https://github.com/Alexwijn/SAT",
-  "domain": "sat",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Alexwijn/SAT/issues",
   "mqtt": [
     "OTGW/value/+"
   ],
-  "name": "Smart Autotune Thermostat",
+
   "requirements": [
     "pyotgw==2.1.3"
   ],
