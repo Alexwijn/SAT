@@ -19,6 +19,10 @@ class ManufacturerFactory:
             from custom_components.sat.manufacturers.ideal import Ideal
             return Ideal()
 
+        if member_id == 9:
+            from custom_components.sat.manufacturers.ferroli import Ferroli
+            return Ferroli()
+
         if member_id == 11:
             from custom_components.sat.manufacturers.dedietrich import DeDietrich
             return DeDietrich()
