@@ -31,4 +31,8 @@ class ManufacturerFactory:
             from custom_components.sat.manufacturers.nefit import Nefit
             return Nefit()
 
+        if member_id == 173:
+            from custom_components.sat.manufacturers.intergas  import Intergas
+            return Intergas()
+
         return None
