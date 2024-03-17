@@ -146,7 +146,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._climates = config_entry.data.get(CONF_SECONDARY_CLIMATES) or []
         self._main_climates = config_entry.data.get(CONF_MAIN_CLIMATES) or []
-        self._window_sensors = config_entry.data.get(CONF_WINDOW_SENSORS) or []
+        self._window_sensors = config_entry.options.get(CONF_WINDOW_SENSORS) or []
 
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
         self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
