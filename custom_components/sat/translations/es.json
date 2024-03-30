@@ -1,7 +1,8 @@
 {
   "config": {
     "abort": {
-      "already_configured": "La puerta de enlace ya está configurada."
+      "already_configured": "La puerta de enlace ya está configurada.",
+      "reconfigure_successful": "La puerta de enlace ha sido reconfigurada."
     },
     "error": {
       "connection": "No se puede conectar a la puerta de enlace.",

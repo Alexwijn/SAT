@@ -1,7 +1,8 @@
 {
   "config": {
     "abort": {
-      "already_configured": "La passerelle est déjà configurée."
+      "already_configured": "La passerelle est déjà configurée.",
+      "reconfigure_successful": "La passerelle a été reconfigurée."
     },
     "error": {
       "connection": "Impossible de se connecter à la passerelle.",

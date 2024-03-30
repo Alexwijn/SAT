@@ -1,6 +1,7 @@
 """Adds config flow for SAT."""
 import asyncio
 import logging
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -45,6 +46,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         self.data = {}
         self.errors = {}
+        self.config_entry = None
 
     @staticmethod
     @callback
@@ -56,7 +58,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if self.calibration is not None:
             self.calibration.cancel()
 
-    async def async_step_user(self, _user_input=None) -> FlowResult:
+    async def async_step_user(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle user flow."""
         menu_options = []
 
@@ -100,7 +102,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         return await self.async_step_mosquitto()
 
-    async def async_step_mosquitto(self, _user_input=None):
+    async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
         self.errors = {}
 
         if _user_input is not None:
@@ -126,7 +128,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_serial(self, _user_input=None):
+    async def async_step_serial(self, _user_input: dict[str, Any] | None = None):
         self.errors = {}
 
         if _user_input is not None:
@@ -151,7 +153,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_switch(self, _user_input=None):
+    async def async_step_switch(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
             self.data[CONF_MODE] = MODE_SWITCH
@@ -173,7 +175,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_simulator(self, _user_input=None):
+    async def async_step_simulator(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
             self.data[CONF_MODE] = MODE_SIMULATOR
@@ -200,9 +202,16 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_sensors(self, _user_input=None):
-        await self.async_set_unique_id(self.data[CONF_DEVICE], raise_on_progress=False)
-        self._abort_if_unique_id_configured()
+    async def async_step_reconfigure(self, _user_input: dict[str, Any] | None = None):
+        self.config_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        self.data = self.config_entry.data.copy()
+
+        return await self.async_step_sensors()
+
+    async def async_step_sensors(self, _user_input: dict[str, Any] | None = None):
+        if self.config_entry is None:
+            await self.async_set_unique_id(self.data[CONF_DEVICE], raise_on_progress=False)
+            self._abort_if_unique_id_configured()
 
         if _user_input is not None:
             self.data.update(_user_input)
@@ -216,19 +225,19 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="sensors",
             data_schema=vol.Schema({
-                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID, default=self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         domain=SENSOR_DOMAIN,
                         device_class=[SensorDeviceClass.TEMPERATURE]
                     )
                 ),
-                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID, default=self.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         multiple=True,
                         domain=[SENSOR_DOMAIN, WEATHER_DOMAIN]
                     )
                 ),
-                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID): selector.EntitySelector(
+                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID, default=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         domain=SENSOR_DOMAIN,
                         device_class=[SensorDeviceClass.HUMIDITY]
@@ -237,7 +246,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_heating_system(self, _user_input=None):
+    async def async_step_heating_system(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
 
@@ -247,7 +256,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="heating_system",
             data_schema=vol.Schema({
-                vol.Required(CONF_HEATING_SYSTEM, default=OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM]): selector.SelectSelector(
+                vol.Required(CONF_HEATING_SYSTEM, default=self.data.get(CONF_HEATING_SYSTEM, OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM])): selector.SelectSelector(
                     selector.SelectSelectorConfig(options=[
                         {"value": HEATING_SYSTEM_RADIATORS, "label": "Radiators"},
                         {"value": HEATING_SYSTEM_HEAT_PUMP, "label": "Heat Pump"},
@@ -257,7 +266,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             })
         )
 
-    async def async_step_areas(self, _user_input=None):
+    async def async_step_areas(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
 
@@ -273,12 +282,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="areas",
             data_schema=vol.Schema({
-                vol.Optional(CONF_MAIN_CLIMATES): climate_selector,
-                vol.Optional(CONF_SECONDARY_CLIMATES): climate_selector,
+                vol.Optional(CONF_MAIN_CLIMATES, default=self.data.get(CONF_MAIN_CLIMATES, [])): climate_selector,
+                vol.Optional(CONF_SECONDARY_CLIMATES, default=self.data.get(CONF_SECONDARY_CLIMATES, [])): climate_selector,
             })
         )
 
-    async def async_step_automatic_gains(self, _user_input=None):
+    async def async_step_automatic_gains(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
 
@@ -293,13 +302,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_AUTOMATIC_GAINS, default=True): bool})
         )
 
-    async def async_step_calibrate_system(self, _user_input=None):
+    async def async_step_calibrate_system(self, _user_input: dict[str, Any] | None = None):
         return self.async_show_menu(
             step_id="calibrate_system",
             menu_options=["calibrate", "overshoot_protection", "pid_controller"]
         )
 
-    async def async_step_calibrate(self, _user_input=None):
+    async def async_step_calibrate(self, _user_input: dict[str, Any] | None = None):
         coordinator = await self.async_create_coordinator()
 
         async def start_calibration():
@@ -341,14 +350,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_progress_done(next_step_id="calibrated")
 
-    async def async_step_calibrated(self, _user_input=None):
+    async def async_step_calibrated(self, _user_input: dict[str, Any] | None = None):
         return self.async_show_menu(
             step_id="calibrated",
             description_placeholders=self.data,
             menu_options=["calibrate", "finish"],
         )
 
-    async def async_step_overshoot_protection(self, _user_input=None):
+    async def async_step_overshoot_protection(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             await self._enable_overshoot_protection(
                 _user_input[CONF_MINIMUM_SETPOINT]
@@ -359,13 +368,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="overshoot_protection",
             data_schema=vol.Schema({
-                vol.Required(CONF_MINIMUM_SETPOINT, default=OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT]): selector.NumberSelector(
+                vol.Required(CONF_MINIMUM_SETPOINT, default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT])): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=MINIMUM_SETPOINT, max=OVERSHOOT_PROTECTION_SETPOINT, step=1, unit_of_measurement="°C")
                 ),
             })
         )
 
-    async def async_step_pid_controller(self, _user_input=None):
+    async def async_step_pid_controller(self, _user_input: dict[str, Any] | None = None):
         self.data[CONF_AUTOMATIC_GAINS] = False
 
         if _user_input is not None:
@@ -375,14 +384,25 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="pid_controller",
             data_schema=vol.Schema({
-                vol.Required(CONF_PROPORTIONAL, default=OPTIONS_DEFAULTS[CONF_PROPORTIONAL]): str,
-                vol.Required(CONF_INTEGRAL, default=OPTIONS_DEFAULTS[CONF_INTEGRAL]): str,
-                vol.Required(CONF_DERIVATIVE, default=OPTIONS_DEFAULTS[CONF_DERIVATIVE]): str
+                vol.Required(CONF_PROPORTIONAL, default=self.data.get(CONF_PROPORTIONAL, OPTIONS_DEFAULTS[CONF_PROPORTIONAL])): str,
+                vol.Required(CONF_INTEGRAL, default=self.data.get(CONF_INTEGRAL, OPTIONS_DEFAULTS[CONF_INTEGRAL])): str,
+                vol.Required(CONF_DERIVATIVE, default=self.data.get(CONF_DERIVATIVE, OPTIONS_DEFAULTS[CONF_DERIVATIVE])): str
             })
         )
 
-    async def async_step_finish(self, _user_input=None):
-        return self.async_create_entry(title=self.data[CONF_NAME], data=self.data)
+    async def async_step_finish(self, _user_input: dict[str, Any] | None = None):
+        if self.config_entry is not None:
+            return self.async_update_reload_and_abort(
+                data=self.data,
+                entry=self.config_entry,
+                title=self.data[CONF_NAME],
+                reason="reconfigure_successful",
+            )
+
+        return self.async_create_entry(
+            title=self.data[CONF_NAME],
+            data=self.data
+        )
 
     async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
         # Resolve the coordinator by using the factory according to the mode
@@ -402,7 +422,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._config_entry = config_entry
         self._options = dict(config_entry.options)
 
-    async def async_step_init(self, _user_input=None):
+    async def async_step_init(self, _user_input: dict[str, Any] | None = None):
         menu_options = ["general", "presets", "system_configuration"]
 
         if self.show_advanced_options:
@@ -413,7 +433,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             menu_options=menu_options
         )
 
-    async def async_step_general(self, _user_input=None) -> FlowResult:
+    async def async_step_general(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -481,7 +501,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
-    async def async_step_presets(self, _user_input=None) -> FlowResult:
+    async def async_step_presets(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -508,7 +528,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_system_configuration(self, _user_input=None) -> FlowResult:
+    async def async_step_system_configuration(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -523,7 +543,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_advanced(self, _user_input=None) -> FlowResult:
+    async def async_step_advanced(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
         if _user_input is not None:
             return await self.update_options(_user_input)
 

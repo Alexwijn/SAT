@@ -1,7 +1,8 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Il gateway è già configurato."
+      "already_configured": "Il gateway è già configurato.",
+      "reconfigure_successful": "Il gateway è stato riconfigurato."
     },
     "error": {
       "connection": "Impossibile connettersi al gateway.",

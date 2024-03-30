@@ -1,7 +1,8 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Gateway is al geconfigureerd."
+      "already_configured": "Gateway is al geconfigureerd.",
+      "reconfigure_successful": "Gateway is opnieuw geconfigureerd."
     },
     "error": {
       "connection": "Kan geen verbinding maken met de gateway.",
