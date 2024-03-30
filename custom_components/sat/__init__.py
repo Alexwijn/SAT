@@ -34,8 +34,8 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     )
 
     # Forward entry setup for climate and other platforms
-    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setup(_entry, CLIMATE_DOMAIN))
-    await _hass.async_add_job(_hass.config_entries.async_forward_entry_setups(_entry, [SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]))
+    await _entry.async_create_task(_hass, _hass.config_entries.async_forward_entry_setup(_entry, CLIMATE_DOMAIN))
+    await _entry.async_create_task(_hass, _hass.config_entries.async_forward_entry_setups(_entry, [SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]))
 
     # Add an update listener for this entry
     _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
