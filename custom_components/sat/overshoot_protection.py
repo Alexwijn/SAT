@@ -19,13 +19,15 @@ class OvershootProtection:
         _LOGGER.info("Starting calculation")
 
         await self._coordinator.async_set_heater_state(DeviceState.ON)
+        await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
+        await self._coordinator.async_set_control_max_relative_modulation(MINIMUM_RELATIVE_MOD)
 
         try:
             # First wait for a flame
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
             # Since the coordinator doesn't support modulation management, so we need to fall back to find it with modulation
-            if not self._coordinator.supports_relative_modulation_management:
+            if not self._coordinator.supports_relative_modulation_management or self._coordinator.relative_modulation_value > 0:
                 return await self._calculate_with_no_modulation_management()
 
             # Run with maximum power of the boiler, zero modulation.
