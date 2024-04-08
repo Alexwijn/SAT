@@ -140,7 +140,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_preset_mode = PRESET_NONE
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
         self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
-        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE | ClimateEntityFeature.TURN_OFF
+
+        # Add features based on compatibility
+        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+
+        # Conditionally add TURN_OFF if it exists
+        if hasattr(ClimateEntityFeature, 'TURN_OFF'):
+            self._attr_supported_features |= ClimateEntityFeature.TURN_OFF
 
         # System Configuration
         self._attr_name = str(config_entry.data.get(CONF_NAME))
