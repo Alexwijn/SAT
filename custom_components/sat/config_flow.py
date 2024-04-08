@@ -22,6 +22,7 @@ from homeassistant.helpers import selector, device_registry, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
 from pyotgw import OpenThermGateway
+from voluptuous import UNDEFINED
 
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
@@ -237,7 +238,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         domain=[SENSOR_DOMAIN, WEATHER_DOMAIN]
                     )
                 ),
-                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID, default=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)): selector.EntitySelector(
+                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID, default=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID, UNDEFINED)): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         domain=SENSOR_DOMAIN,
                         device_class=[SensorDeviceClass.HUMIDITY]
