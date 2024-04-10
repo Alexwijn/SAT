@@ -85,8 +85,9 @@ class OvershootProtection:
         while True:
             actual_temperature = float(self._coordinator.boiler_temperature)
             average_temperature = self._alpha * actual_temperature + (1 - self._alpha) * previous_average_temperature
+            error_value = abs(actual_temperature - previous_average_temperature)
 
-            if previous_average_temperature is not None and abs(actual_temperature - previous_average_temperature) <= DEADBAND:
+            if previous_average_temperature is not None and error_value <= DEADBAND:
                 _LOGGER.info("Stable temperature reached: %s", actual_temperature)
                 return actual_temperature
 
@@ -99,3 +100,4 @@ class OvershootProtection:
 
             await asyncio.sleep(5)
             await self._coordinator.async_control_heating_loop()
+            _LOGGER.info("Current temperature: %s, error: %s", actual_temperature, error_value)
