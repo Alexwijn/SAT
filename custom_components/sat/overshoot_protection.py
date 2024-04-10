@@ -26,6 +26,9 @@ class OvershootProtection:
             # First wait for a flame
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
+            # Then we wait for 60 seconds more, so we at least make sure we have some change in temperature
+            await asyncio.sleep(60)
+
             # Since the coordinator doesn't support modulation management, so we need to fall back to find it with modulation
             if not self._coordinator.supports_relative_modulation_management or self._coordinator.relative_modulation_value > 0:
                 return await self._calculate_with_no_modulation_management()
@@ -44,7 +47,6 @@ class OvershootProtection:
 
     async def _calculate_with_zero_modulation(self) -> float:
         _LOGGER.info("Running calculation with zero modulation")
-        await self._coordinator.async_set_control_max_relative_modulation(MINIMUM_RELATIVE_MOD)
 
         try:
             return await asyncio.wait_for(
