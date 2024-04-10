@@ -97,5 +97,5 @@ class OvershootProtection:
             else:
                 await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)
             await self._coordinator.async_control_heating_loop()
