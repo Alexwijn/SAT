@@ -960,10 +960,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._attr_preset_mode = PRESET_NONE
             await self.async_set_target_temperature(self._pre_custom_temperature)
         else:
-            # Set the HVAC mode to `HEAT` if it is currently `OFF`
-            if self.hvac_mode == HVACMode.OFF:
-                await self.async_set_hvac_mode(HVACMode.HEAT)
-
             # Save the current target temperature if the preset mode is being set for the first time
             if self._attr_preset_mode == PRESET_NONE:
                 self._pre_custom_temperature = self._target_temperature
