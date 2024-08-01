@@ -5,6 +5,7 @@ pytest-homeassistant-custom-component
 homeassistant
 aiohttp_cors
 aiodiscover
+aiodhcpwatcher
 freezegun
 pyotgw
 scapy
