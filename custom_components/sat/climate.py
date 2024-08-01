@@ -162,6 +162,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._overshoot_protection = bool(config_entry.data.get(CONF_OVERSHOOT_PROTECTION))
 
         # User Configuration
+        self._heating_mode = str(config_entry.options.get(CONF_HEATING_MODE))
         self._thermal_comfort = bool(config_options.get(CONF_THERMAL_COMFORT))
         self._climate_valve_offset = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
@@ -460,6 +461,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def max_error(self) -> float:
+        if self._heating_mode == HEATING_MODE_ECO:
+            return self.error
+
         return max([self.error] + self.climate_errors)
 
     @property

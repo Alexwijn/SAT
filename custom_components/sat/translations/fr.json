@@ -168,7 +168,8 @@
           "pid_controller_version": "Version du contrôleur PID",
           "proportional": "Proportionnel (kP)",
           "sync_with_thermostat": "Synchroniser le point de consigne avec le thermostat",
-          "window_sensors": "Capteurs de Contact"
+          "window_sensors": "Capteurs de Contact",
+          "heating_mode": "Mode chauffage"
         },
         "data_description": {
           "automatic_gains_value": "La valeur utilisée pour les gains automatiques dans le régulateur PID.",

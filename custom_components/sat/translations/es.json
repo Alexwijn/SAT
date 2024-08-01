@@ -168,7 +168,8 @@
           "pid_controller_version": "Versión del controlador PID",
           "proportional": "Proporcional (kP)",
           "sync_with_thermostat": "Sincronizar punto de ajuste con el termostato",
-          "window_sensors": "Sensores de Contacto"
+          "window_sensors": "Sensores de Contacto",
+          "heating_mode": "Modo de calefacción"
         },
         "data_description": {
           "automatic_gains_value": "El valor utilizado para las ganancias automáticas en el controlador PID.",

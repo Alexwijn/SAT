@@ -168,7 +168,8 @@
           "pid_controller_version": "PID-Reglerversion",
           "proportional": "Proportional (kP)",
           "sync_with_thermostat": "Sollwert mit Thermostat synchronisieren",
-          "window_sensors": "Kontaktsensoren"
+          "window_sensors": "Kontaktsensoren",
+          "heating_mode": "Heizbetrieb"
         },
         "data_description": {
           "automatic_gains_value": "Der Wert, der für automatische Verstärkungen im PID-Regler verwendet wird.",

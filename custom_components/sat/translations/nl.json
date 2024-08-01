@@ -168,7 +168,8 @@
           "pid_controller_version": "Versie van de PID-regelaar",
           "proportional": "Proportioneel (kP)",
           "sync_with_thermostat": "Synchroniseer setpoint met thermostaat",
-          "window_sensors": "Contact Sensoren"
+          "window_sensors": "Contact Sensoren",
+          "heating_mode": "Verwarmingsmodus"
         },
         "data_description": {
           "automatic_gains_value": "De waarde die wordt gebruikt voor automatische versterkingen in de PID-regelaar.",

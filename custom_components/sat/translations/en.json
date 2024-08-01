@@ -168,7 +168,8 @@
           "pid_controller_version": "PID Controller Version",
           "proportional": "Proportional (kP)",
           "sync_with_thermostat": "Synchronize setpoint with thermostat",
-          "window_sensors": "Contact Sensors"
+          "window_sensors": "Contact Sensors",
+          "heating_mode": "Heating Mode"
         },
         "data_description": {
           "automatic_gains_value": "The value used for automatic gains in the PID controller.",

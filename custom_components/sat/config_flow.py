@@ -459,6 +459,14 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             ])
         )
 
+        if len(self._config_entry.data.get(CONF_SECONDARY_CLIMATES, [])) > 0:
+            schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value=HEATING_MODE_COMFORT, label="Comfort"),
+                    selector.SelectOptionDict(value=HEATING_MODE_ECO, label="Eco"),
+                ])
+            )
+
         schema[vol.Required(CONF_MAXIMUM_SETPOINT, default=maximum_setpoint)] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=10, max=100, step=1, unit_of_measurement="°C")
         )
