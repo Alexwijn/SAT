@@ -14,6 +14,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinatorFactory
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+PLATFORMS = [CLIMATE_DOMAIN, SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]
 
 
 async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
@@ -33,9 +34,8 @@ async def async_setup_entry(_hass: HomeAssistant, _entry: ConfigEntry):
         hass=_hass, data=_entry.data, options=_entry.options, mode=_entry.data.get(CONF_MODE), device=_entry.data.get(CONF_DEVICE)
     )
 
-    # Forward entry setup for climate and other platforms
-    await _entry.async_create_task(_hass, _hass.config_entries.async_forward_entry_setup(_entry, CLIMATE_DOMAIN))
-    await _entry.async_create_task(_hass, _hass.config_entries.async_forward_entry_setups(_entry, [SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]))
+    # Forward entry setup for used platforms
+    await _entry.async_create_task(_hass, _hass.config_entries.async_forward_entry_setups(_entry, PLATFORMS))
 
     # Add an update listener for this entry
     _entry.async_on_unload(_entry.add_update_listener(async_reload_entry))
@@ -54,9 +54,8 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
     await _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].async_will_remove_from_hass(climate)
 
     unloaded = all(
-        await asyncio.gather(
-            _hass.config_entries.async_unload_platforms(_entry, [CLIMATE_DOMAIN, SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]),
-        )
+        # Forward entry unload for used platforms
+        await asyncio.gather(_hass.config_entries.async_unload_platforms(_entry, PLATFORMS))
     )
 
     # Remove the entry from the data dictionary if all components are unloaded successfully
