@@ -136,6 +136,13 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().maximum_relative_modulation_value
 
     @property
+    def member_id(self) -> int | None:
+        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_SLAVE_MEMBER_ID)) is not None:
+            return int(value)
+
+        return None
+    
+    @property
     def flame_active(self) -> bool:
         return bool(self.get(DATA_SLAVE_FLAME_ON))
 
