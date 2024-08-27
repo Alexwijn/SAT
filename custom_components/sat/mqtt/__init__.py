@@ -24,7 +24,7 @@ DATA_BOILER_TEMPERATURE = "Tboiler"
 DATA_RETURN_TEMPERATURE = "Tret"
 DATA_DHW_ENABLE = "domestichotwater"
 DATA_CENTRAL_HEATING = "centralheating"
-DATA_SLAVE_MEMBER_ID = "slave_memberid_code"
+DATA_SLAVE_MEMBERID = "slave_memberid_code"
 DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
 DATA_REL_MIN_MOD_LEVEL = "MaxCapacityMinModLevel_lb_u8"
 DATA_REL_MIN_MOD_LEVELL = "MaxCapacityMinModLevell_lb_u8"
@@ -156,7 +156,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     @property
     def member_id(self) -> int | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_SLAVE_MEMBER_ID)) is not None:
+        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
             return int(value)
 
         return None
