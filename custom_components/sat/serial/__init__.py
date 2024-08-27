@@ -11,7 +11,6 @@ from pyotgw.vars import *
 from serial import SerialException
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
-from ..mqtt import DATA_SLAVE_MEMBER_ID
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
@@ -138,7 +137,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
     @property
     def member_id(self) -> int | None:
-        if (value := self.get(DATA_SLAVE_MEMBER_ID)) is not None:
+        if (value := self.get(DATA_SLAVE_MEMBERID)) is not None:
             return int(value)
 
         return None
