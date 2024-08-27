@@ -11,6 +11,7 @@ from pyotgw.vars import *
 from serial import SerialException
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
+from ..mqtt import DATA_SLAVE_MEMBER_ID
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
@@ -134,6 +135,13 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
             return float(value)
 
         return super().maximum_relative_modulation_value
+
+    @property
+    def member_id(self) -> int | None:
+        if (value := self.get(DATA_SLAVE_MEMBER_ID)) is not None:
+            return int(value)
+
+        return None
 
     @property
     def flame_active(self) -> bool:
