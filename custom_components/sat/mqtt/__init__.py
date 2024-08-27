@@ -1,7 +1,7 @@
 from __future__ import annotations, annotations
 
 import logging
-from typing import TYPE_CHECKING, Mapping, Any
+from typing import TYPE_CHECKING, Mapping, Any, Optional
 
 from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -70,93 +70,93 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     @property
     def device_active(self) -> bool:
-        return self._get_entity_state(BINARY_SENSOR_DOMAIN, DATA_CENTRAL_HEATING) == DeviceState.ON
+        return self.get(BINARY_SENSOR_DOMAIN, DATA_CENTRAL_HEATING) == DeviceState.ON
 
     @property
     def flame_active(self) -> bool:
-        return self._get_entity_state(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE) == DeviceState.ON
+        return self.get(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE) == DeviceState.ON
 
     @property
     def hot_water_active(self) -> bool:
-        return self._get_entity_state(BINARY_SENSOR_DOMAIN, DATA_DHW_ENABLE) == DeviceState.ON
+        return self.get(BINARY_SENSOR_DOMAIN, DATA_DHW_ENABLE) == DeviceState.ON
 
     @property
     def setpoint(self) -> float | None:
-        if (setpoint := self._get_entity_state(SENSOR_DOMAIN, DATA_CONTROL_SETPOINT)) is not None:
+        if (setpoint := self.get(SENSOR_DOMAIN, DATA_CONTROL_SETPOINT)) is not None:
             return float(setpoint)
 
         return None
 
     @property
     def hot_water_setpoint(self) -> float | None:
-        if (setpoint := self._get_entity_state(SENSOR_DOMAIN, DATA_DHW_SETPOINT)) is not None:
+        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT)) is not None:
             return float(setpoint)
 
         return super().hot_water_setpoint
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
-        if (setpoint := self._get_entity_state(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
+        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
             return float(setpoint)
 
         return super().minimum_hot_water_setpoint
 
     @property
     def maximum_hot_water_setpoint(self) -> float | None:
-        if (setpoint := self._get_entity_state(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
+        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
             return float(setpoint)
 
         return super().maximum_hot_water_setpoint
 
     @property
     def boiler_temperature(self) -> float | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE)) is not None:
             return float(value)
 
         return super().boiler_temperature
 
     @property
     def return_temperature(self) -> float | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_RETURN_TEMPERATURE)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_RETURN_TEMPERATURE)) is not None:
             return float(value)
 
         return super().return_temperature
 
     @property
     def relative_modulation_value(self) -> float | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
             return float(value)
 
         return super().relative_modulation_value
 
     @property
     def boiler_capacity(self) -> float | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
             return float(value)
 
         return super().boiler_capacity
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
             return float(value)
 
         # Legacy
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL)) is not None:
             return float(value)
 
         return super().minimum_relative_modulation_value
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
             return float(value)
 
         return super().maximum_relative_modulation_value
 
     @property
     def member_id(self) -> int | None:
-        if (value := self._get_entity_state(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
             return int(value)
 
         return None
@@ -232,7 +232,13 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_max_setpoint(value)
 
-    def _get_entity_state(self, domain: str, key: str):
+    def get(self, domain: str, key: str) -> Optional[Any]:
+        """Get the value for the given `key` from the boiler data.
+
+        :param domain: Domain of where this value is located.
+        :param key: Key of the value to retrieve from the boiler data.
+        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
+        """
         entity_id = self._get_entity_id(domain, key)
         if entity_id is None:
             return None
