@@ -586,10 +586,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Combine the heating curve value and the calculated output from the pid controller
         requested_setpoint = self.requested_setpoint
 
-        # Make sure we are above the base setpoint when we are below the target temperature
-        if self.max_error > 0:
-            requested_setpoint = max(requested_setpoint, self.heating_curve.value)
-
         # Ensure setpoint is limited to our max
         return min(requested_setpoint, self._coordinator.maximum_setpoint)
 

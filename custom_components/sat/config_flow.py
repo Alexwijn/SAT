@@ -370,7 +370,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="overshoot_protection",
             data_schema=vol.Schema({
                 vol.Required(CONF_MINIMUM_SETPOINT, default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT])): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=MINIMUM_SETPOINT, max=OVERSHOOT_PROTECTION_SETPOINT, step=1, unit_of_measurement="°C")
+                    selector.NumberSelectorConfig(min=MINIMUM_SETPOINT, max=MAXIMUM_SETPOINT, step=1, unit_of_measurement="°C")
                 ),
             })
         )
