@@ -38,7 +38,10 @@ class OvershootProtection:
             _LOGGER.warning("Timed out during overshoot protection calculation")
             return None
         except asyncio.CancelledError as exception:
-            await self._shutdown_on_cancel()
+            _LOGGER.info("Calculation cancelled, shutting down heating system")
+            await self._coordinator.async_set_heater_state(DeviceState.OFF)
+            await self._coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)
+
             raise exception
 
     async def _wait_for_flame(self) -> None:
@@ -93,8 +96,3 @@ class OvershootProtection:
         await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MOD)
         await asyncio.sleep(SLEEP_INTERVAL)
         await self._coordinator.async_control_heating_loop()
-
-    async def _shutdown_on_cancel(self) -> None:
-        _LOGGER.info("Calculation cancelled, shutting down heating system")
-        await self._coordinator.async_set_heater_state(DeviceState.OFF)
-        await self._coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)
