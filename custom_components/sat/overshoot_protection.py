@@ -33,7 +33,7 @@ class OvershootProtection:
             await asyncio.sleep(300)
 
             # Then we wait for a stable relative modulation value
-            relative_modulation_value = await asyncio.wait_for(self._wait_for_relative_modulation(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
+            relative_modulation_value = await asyncio.wait_for(self._wait_for_stable_relative_modulation(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
 
             # Calculate the new overshoot protection value
             return (100 - relative_modulation_value / 100) * self._setpoint
@@ -78,7 +78,7 @@ class OvershootProtection:
             await self._coordinator.async_control_heating_loop()
             _LOGGER.info("Current temperature: %s, error: %s", actual_temperature, error_value)
 
-    async def _wait_for_relative_modulation(self) -> float:
+    async def _wait_for_stable_relative_modulation(self) -> float:
         previous_average_value = float(self._coordinator.relative_modulation_value)
 
         while True:
