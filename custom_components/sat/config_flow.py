@@ -314,7 +314,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         async def start_calibration():
             try:
-                overshoot_protection = OvershootProtection(coordinator)
+                overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
                 self.overshoot_protection_value = await overshoot_protection.calculate()
             except asyncio.TimeoutError:
                 _LOGGER.warning("Calibration time-out.")
