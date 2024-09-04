@@ -336,6 +336,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return self.async_show_progress(
                 step_id="calibrate",
+                task=self.calibration,
                 progress_action="calibration",
             )
 
