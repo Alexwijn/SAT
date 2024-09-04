@@ -193,7 +193,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         await super().async_added_to_hass(climate)
 
-    async def async_state_change_event(self, event: Event):
+    async def async_state_change_event(self, _event: Event):
         if self._listeners:
             self._schedule_refresh()
 
