@@ -77,7 +77,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def device_active(self) -> bool:
-        return self.get(BINARY_SENSOR_DOMAIN, DATA_CENTRAL_HEATING) == DeviceState.ON
+        return self.get(SWITCH_DOMAIN, DATA_CENTRAL_HEATING) == DeviceState.ON
 
     @property
     def flame_active(self) -> bool:
@@ -89,14 +89,14 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def setpoint(self) -> float | None:
-        if (setpoint := self.get(SENSOR_DOMAIN, DATA_CONTROL_SETPOINT)) is not None:
+        if (setpoint := self.get(NUMBER_DOMAIN, DATA_CONTROL_SETPOINT)) is not None:
             return float(setpoint)
 
         return None
 
     @property
     def hot_water_setpoint(self) -> float | None:
-        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT)) is not None:
+        if (setpoint := self.get(NUMBER_DOMAIN, DATA_DHW_SETPOINT)) is not None:
             return float(setpoint)
 
         return super().hot_water_setpoint
