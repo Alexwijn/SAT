@@ -34,7 +34,7 @@ DATA_CENTRAL_HEATING = "ch_enabled"
 DATA_MAX_CH_SETPOINT = "ch_max_temperature"
 DATA_DHW_SETPOINT = "dhw_setpoint_temperature"
 DATA_CONTROL_SETPOINT = "ch_setpoint_temperature"
-DATA_MAX_REL_MOD_LEVEL_SETTING = "max_modulation"
+DATA_MAX_REL_MOD_LEVEL_SETTING = "max_modulation_level"
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
@@ -226,7 +226,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         payload = {"entity_id": self._get_entity_id(SWITCH_DOMAIN, key)}
         await self._send_command(SWITCH_DOMAIN, service, key, payload)
 
-    async def _send_command_value(self, key: str, value):
+    async def _send_command_value(self, key: str, value: float):
         """Send a command to set a numerical value."""
         payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key), "value": value}
         await self._send_command(NUMBER_DOMAIN, SERVICE_SET_VALUE, key, payload)
