@@ -212,16 +212,20 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, f"{self._mac_address}-{domain}-{key}")
 
     async def _send_command_value(self, key: str, value):
+        entity_id = self._get_entity_id(NUMBER_DOMAIN, key)
+
         if not self._simulation:
-            payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key), "value": value}
+            payload = {"entity_id": entity_id, "value": value}
             await self.hass.services.async_call(NUMBER_DOMAIN, SERVICE_SET_VALUE, payload, blocking=True)
 
-        _LOGGER.debug(f"Publishing '{key}':{value} to ESPHome.")
+        _LOGGER.debug(f"Changing number to {value} for '{entity_id}'.")
 
     async def _send_command_state(self, key: str, value: bool):
+        entity_id = self._get_entity_id(NUMBER_DOMAIN, key)
+        service = SERVICE_TURN_ON if value else SERVICE_TURN_OFF
+
         if not self._simulation:
-            service = SERVICE_TURN_ON if value else SERVICE_TURN_OFF
             payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key)}
             await self.hass.services.async_call(SWITCH_DOMAIN, service, payload, blocking=True)
 
-        _LOGGER.debug(f"Publishing '{key}':{value} to ESPHome.")
+        _LOGGER.debug(f"Running action {service} for '{entity_id}'.")
