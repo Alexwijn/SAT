@@ -42,6 +42,10 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         self._api.subscribe(async_coroutine)
 
     @property
+    def device_id(self) -> str:
+        return self._port
+
+    @property
     def device_active(self) -> bool:
         return bool(self.get(DATA_MASTER_CH_ENABLED) or False)
 

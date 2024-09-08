@@ -17,13 +17,15 @@ DOMAIN_SERVICE = {
 
 
 class SatSwitchCoordinator(SatDataUpdateCoordinator):
-    """Class to manage the Switch."""
-
     def __init__(self, hass: HomeAssistant, entity_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
         super().__init__(hass, data, options)
 
         self._entity = entity_registry.async_get(hass).async_get(entity_id)
+
+    @property
+    def device_id(self) -> str:
+        return self._entity.name
 
     @property
     def setpoint(self) -> float:

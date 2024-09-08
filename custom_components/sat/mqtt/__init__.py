@@ -53,6 +53,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
 
     @property
+    def device_id(self) -> str:
+        return self._node_id
+
+    @property
     def supports_setpoint_management(self):
         return True
 

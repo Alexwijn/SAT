@@ -25,7 +25,9 @@ class SatFakeConfig:
 
 
 class SatFakeCoordinator(SatDataUpdateCoordinator):
-    """Class to manage to fetch data from the OTGW Gateway using mqtt."""
+    @property
+    def device_id(self) -> str:
+        return "Fake"
 
     @property
     def member_id(self) -> int | None:

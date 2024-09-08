@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 
 
 class SatSimulatorCoordinator(SatDataUpdateCoordinator):
-    """Class to manage the Switch."""
-
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
         super().__init__(hass, data, options)
@@ -28,6 +26,10 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         self._cooling = data.get(CONF_SIMULATED_COOLING)
         self._maximum_setpoint = data.get(CONF_MAXIMUM_SETPOINT)
         self._warming_up = convert_time_str_to_seconds(data.get(CONF_SIMULATED_WARMING_UP))
+
+    @property
+    def device_id(self) -> str:
+        return 'Simulator'
 
     @property
     def supports_setpoint_management(self) -> bool:

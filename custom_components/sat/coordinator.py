@@ -77,6 +77,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
     @property
+    @abstractmethod
+    def device_id(self) -> str:
+        pass
+
+    @property
     def device_state(self):
         """Return the current state of the device."""
         return self._device_state

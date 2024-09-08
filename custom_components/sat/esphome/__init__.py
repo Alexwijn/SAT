@@ -42,7 +42,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
-    """Class to manage to fetch data from the OTGW Gateway using mqtt."""
+    """Class to manage to fetch data from the OTGW Gateway using esphome."""
 
     def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         super().__init__(hass, data, options)
@@ -54,6 +54,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         self._entity_registry = entity_registry.async_get(hass)
         self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
+
+    @property
+    def device_id(self) -> str:
+        return self._mac_address
 
     @property
     def supports_setpoint_management(self):
