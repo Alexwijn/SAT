@@ -204,7 +204,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         await super().async_set_control_max_setpoint(value)
 
     def _get_entity_id(self, domain: str, key: str):
-        return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, f"{self._mac_address}-{key}")
+        return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, f"{self._mac_address}-{domain}-{key}")
 
     async def _send_command_value(self, key: str, value):
         if not self._simulation:
