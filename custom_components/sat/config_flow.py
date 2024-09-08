@@ -238,7 +238,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
-            if self.data[CONF_MODE] in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
+            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()
