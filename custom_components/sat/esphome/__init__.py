@@ -213,21 +213,20 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         _LOGGER.debug(f"Attempting to find the unique_id of {unique_id}")
         return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, unique_id)
 
-    async def _send_command_value(self, key: str, value):
-        entity_id = self._get_entity_id(NUMBER_DOMAIN, key)
-
+    async def _send_command(self, domain: str, service: str, key: str, payload: dict):
+        """Helper method to send a command to a specified domain and service."""
         if not self._simulation:
-            payload = {"entity_id": entity_id, "value": value}
-            await self.hass.services.async_call(NUMBER_DOMAIN, SERVICE_SET_VALUE, payload, blocking=True)
+            await self.hass.services.async_call(domain, service, payload, blocking=True)
 
-        _LOGGER.debug(f"Changing number to {value} for '{entity_id}'.")
+        _LOGGER.debug(f"Sending '{payload}' to {service} in {domain}.")
 
     async def _send_command_state(self, key: str, value: bool):
-        entity_id = self._get_entity_id(NUMBER_DOMAIN, key)
+        """Send a command to turn a switch on or off."""
         service = SERVICE_TURN_ON if value else SERVICE_TURN_OFF
+        payload = {"entity_id": self._get_entity_id(SWITCH_DOMAIN, key)}
+        await self._send_command(SWITCH_DOMAIN, service, key, payload)
 
-        if not self._simulation:
-            payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key)}
-            await self.hass.services.async_call(SWITCH_DOMAIN, service, payload, blocking=True)
-
-        _LOGGER.debug(f"Running action {service} for '{entity_id}'.")
+    async def _send_command_value(self, key: str, value):
+        """Send a command to set a numerical value."""
+        payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key), "value": value}
+        await self._send_command(NUMBER_DOMAIN, SERVICE_SET_VALUE, key, payload)
