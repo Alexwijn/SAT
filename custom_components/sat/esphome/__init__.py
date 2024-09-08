@@ -31,9 +31,9 @@ DATA_DHW_ENABLE = "dhw_enabled"
 DATA_CENTRAL_HEATING = "ch_enabled"
 
 # Number
-DATA_MAX_CH_SETPOINT = "ch_max_temperature"
 DATA_DHW_SETPOINT = "dhw_setpoint_temperature"
 DATA_CONTROL_SETPOINT = "ch_setpoint_temperature"
+DATA_MAX_CH_SETPOINT = "max_ch_setpoint_temperature"
 DATA_MAX_REL_MOD_LEVEL_SETTING = "max_modulation_level"
 
 if TYPE_CHECKING:
