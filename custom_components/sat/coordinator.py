@@ -4,9 +4,10 @@ import logging
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Mapping, Any
+from typing import TYPE_CHECKING, Mapping, Any, Optional
 
 from homeassistant.components.climate import HVACMode
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -45,6 +46,10 @@ class SatDataUpdateCoordinatorFactory:
         if mode == MODE_SWITCH:
             from .switch import SatSwitchCoordinator
             return SatSwitchCoordinator(hass=hass, entity_id=device, data=data, options=options)
+
+        if mode == MODE_ESPHOME:
+            from .esphome import SatEspHomeCoordinator
+            return SatEspHomeCoordinator(hass=hass, device_id=device, data=data, options=options)
 
         if mode == MODE_MQTT:
             from .mqtt import SatMqttCoordinator
@@ -286,4 +291,27 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         """Control the setpoint temperature for the thermostat."""
+        pass
+
+
+class SatEntityCoordinator(DataUpdateCoordinator):
+    def get(self, domain: str, key: str) -> Optional[Any]:
+        """Get the value for the given `key` from the boiler data.
+
+        :param domain: Domain of where this value is located.
+        :param key: Key of the value to retrieve from the boiler data.
+        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
+        """
+        entity_id = self._get_entity_id(domain, key)
+        if entity_id is None:
+            return None
+
+        state = self.hass.states.get(self._get_entity_id(domain, key))
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+
+        return state.state
+
+    @abstractmethod
+    def _get_entity_id(self, domain: str, key: str):
         pass

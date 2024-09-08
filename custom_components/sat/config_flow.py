@@ -17,7 +17,6 @@ from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector, device_registry, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
@@ -59,7 +58,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if self.calibration is not None:
             self.calibration.cancel()
 
-    async def async_step_user(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(self, _user_input: dict[str, Any] | None = None):
         """Handle user flow."""
         menu_options = []
 
@@ -75,7 +74,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_menu(step_id="user", menu_options=menu_options)
 
-    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
+    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo):
         """Handle dhcp discovery."""
         _LOGGER.debug("Discovered OTGW at [socket://%s]", discovery_info.hostname)
         self.data[CONF_DEVICE] = f"socket://{discovery_info.hostname}:25238"
@@ -125,6 +124,27 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
                 vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
                     selector.DeviceSelectorConfig(model="otgw-nodo")
+                ),
+            }),
+        )
+
+    async def async_step_esphome(self, _user_input: dict[str, Any] | None = None):
+        self.errors = {}
+
+        if _user_input is not None:
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = MODE_ESPHOME
+
+            return await self.async_step_sensors()
+
+        return self.async_show_form(
+            step_id="esphome",
+            last_step=False,
+            errors=self.errors,
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
+                    selector.DeviceSelectorConfig(integration="esphome")
                 ),
             }),
         )
@@ -435,7 +455,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             menu_options=menu_options
         )
 
-    async def async_step_general(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_general(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -511,7 +531,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
-    async def async_step_presets(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_presets(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -538,7 +558,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_system_configuration(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_system_configuration(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -553,7 +573,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
-    async def async_step_advanced(self, _user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_advanced(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -595,7 +615,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema(schema)
         )
 
-    async def update_options(self, _user_input) -> FlowResult:
+    async def update_options(self, _user_input):
         self._options.update(_user_input)
         return self.async_create_entry(title=self._config_entry.data[CONF_NAME], data=self._options)
 

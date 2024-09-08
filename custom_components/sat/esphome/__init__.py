@@ -5,31 +5,35 @@ from typing import TYPE_CHECKING, Mapping, Any
 
 from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
+from homeassistant.components.esphome import DOMAIN as ESPHOME_DOMAIN
+from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
+from homeassistant.components.number.const import SERVICE_SET_VALUE
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN, SERVICE_TURN_ON, SERVICE_TURN_OFF
 from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.event import async_track_state_change_event
 
-from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
-from ..manufacturers.immergas import Immergas
 
-DATA_FLAME_ACTIVE = "flame"
-DATA_DHW_SETPOINT = "TdhwSet"
-DATA_CONTROL_SETPOINT = "TSet"
-DATA_REL_MOD_LEVEL = "RelModLevel"
-DATA_BOILER_TEMPERATURE = "Tboiler"
-DATA_RETURN_TEMPERATURE = "Tret"
-DATA_DHW_ENABLE = "domestichotwater"
-DATA_CENTRAL_HEATING = "centralheating"
-DATA_SLAVE_MEMBERID = "slave_memberid_code"
-DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
-DATA_REL_MIN_MOD_LEVEL = "MaxCapacityMinModLevel_lb_u8"
-DATA_REL_MIN_MOD_LEVELL = "MaxCapacityMinModLevell_lb_u8"
-DATA_MAX_REL_MOD_LEVEL_SETTING = "MaxRelModLevelSetting"
-DATA_DHW_SETPOINT_MINIMUM = "TdhwSetUBTdhwSetLB_value_lb"
-DATA_DHW_SETPOINT_MAXIMUM = "TdhwSetUBTdhwSetLB_value_hb"
+# Sensors
+DATA_FLAME_ACTIVE = "flame_active"
+DATA_REL_MOD_LEVEL = "modulation"
+DATA_SLAVE_MEMBERID = "boiler_member_id"
+DATA_BOILER_TEMPERATURE = "boiler_temperature"
+DATA_RETURN_TEMPERATURE = "return_temperature"
+
+DATA_DHW_SETPOINT_MINIMUM = "dhw_min_temperature"
+DATA_DHW_SETPOINT_MAXIMUM = "dhw_max_temperature"
+
+# Switch
+DATA_DHW_ENABLE = "dhw_enabled"
+DATA_CENTRAL_HEATING = "ch_enabled"
+
+# Number
+DATA_DHW_SETPOINT = "dhw_setpoint_temperature"
+DATA_CONTROL_SETPOINT = "ch_setpoint_temperature"
+DATA_MAX_REL_MOD_LEVEL_SETTING = "max_modulation"
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
@@ -37,7 +41,7 @@ if TYPE_CHECKING:
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-class SatMqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
+class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
 
     def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
@@ -46,8 +50,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         self.data = {}
 
         self._device = device_registry.async_get(hass).async_get(device_id)
-        self._node_id = list(self._device.identifiers)[0][1]
-        self._topic = data.get(CONF_MQTT_TOPIC)
+        self._mac_address = list(self._device.identifiers)[0][1]
 
         self._entity_registry = entity_registry.async_get(hass)
         self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
@@ -129,26 +132,8 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return super().relative_modulation_value
 
     @property
-    def boiler_capacity(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
-            return float(value)
-
-        return super().boiler_capacity
-
-    @property
-    def minimum_relative_modulation_value(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
-            return float(value)
-
-        # Legacy
-        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL)) is not None:
-            return float(value)
-
-        return super().minimum_relative_modulation_value
-
-    @property
     def maximum_relative_modulation_value(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
+        if (value := self.get(NUMBER_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
             return float(value)
 
         return super().maximum_relative_modulation_value
@@ -160,31 +145,26 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         return None
 
-    async def boot(self) -> SatMqttCoordinator:
-        await self._send_command("PM=3")
-        await self._send_command("PM=48")
-
-        return self
-
     async def async_added_to_hass(self, climate: SatClimate) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)
 
         # Create a list of entities that we track
         entities = list(filter(lambda entity: entity is not None, [
-            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_CENTRAL_HEATING),
-            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE),
-            self._get_entity_id(BINARY_SENSOR_DOMAIN, DATA_DHW_ENABLE),
-
-            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_CONTROL_SETPOINT),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_FLAME_ACTIVE),
             self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID),
             self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_CAPACITY),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING),
+            self._get_entity_id(SENSOR_DOMAIN, DATA_RETURN_TEMPERATURE),
+
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
+
+            self._get_entity_id(SWITCH_DOMAIN, DATA_DHW_ENABLE),
+            self._get_entity_id(SWITCH_DOMAIN, DATA_CENTRAL_HEATING),
+
+            self._get_entity_id(NUMBER_DOMAIN, DATA_DHW_SETPOINT),
+            self._get_entity_id(NUMBER_DOMAIN, DATA_CONTROL_SETPOINT),
+            self._get_entity_id(NUMBER_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING),
         ]))
 
         # Track those entities so the coordinator can be updated when something changes
@@ -199,43 +179,44 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         self.async_update_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        await self._send_command(f"CS={value}")
+        await self._send_command_value(DATA_CONTROL_SETPOINT, value)
 
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
-        await self._send_command(f"SW={value}")
+        await self._send_command_value(DATA_DHW_SETPOINT, value)
 
         await super().async_set_control_hot_water_setpoint(value)
 
-    async def async_set_control_thermostat_setpoint(self, value: float) -> None:
-        await self._send_command(f"TC={value}")
-
-        await super().async_set_control_thermostat_setpoint(value)
-
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        await self._send_command(f"CH={1 if state == DeviceState.ON else 0}")
+        await self._send_command_state(DATA_CENTRAL_HEATING, state == DeviceState.ON)
 
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
-        if isinstance(self.manufacturer, Immergas):
-            await self._send_command(f"TP=11:12={min(value, 80)}")
-
-        await self._send_command(f"MM={value}")
+        await self._send_command_value(DATA_MAX_REL_MOD_LEVEL_SETTING, value)
 
         await super().async_set_control_max_relative_modulation(value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
-        await self._send_command(f"SH={value}")
+        await self._send_command_value(DATA_DHW_SETPOINT_MAXIMUM, value)
 
         await super().async_set_control_max_setpoint(value)
 
     def _get_entity_id(self, domain: str, key: str):
-        return self._entity_registry.async_get_entity_id(domain, MQTT_DOMAIN, f"{self._node_id}-{key}")
+        return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, f"{self._mac_address}-{key}")
 
-    async def _send_command(self, payload: str):
+    async def _send_command_value(self, key: str, value):
         if not self._simulation:
-            await mqtt.async_publish(self.hass, f"{self._topic}/set/{self._node_id}/command", payload)
+            payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key), value: value}
+            await self.hass.services.async_call(NUMBER_DOMAIN, SERVICE_SET_VALUE, payload, blocking=True)
 
-        _LOGGER.debug(f"Publishing '{payload}' to MQTT.")
+        _LOGGER.debug(f"Publishing '{key}':{value} to ESPHome.")
+
+    async def _send_command_state(self, key: str, value: bool):
+        if not self._simulation:
+            service = SERVICE_TURN_ON if value else SERVICE_TURN_OFF
+            payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key)}
+            await self.hass.services.async_call(SWITCH_DOMAIN, service, payload, blocking=True)
+
+        _LOGGER.debug(f"Publishing '{key}':{value} to ESPHome.")

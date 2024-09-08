@@ -10,6 +10,7 @@ MODE_FAKE = "fake"
 MODE_MQTT = "mqtt"
 MODE_SWITCH = "switch"
 MODE_SERIAL = "serial"
+MODE_ESPHOME = "esphome"
 MODE_SIMULATOR = "simulator"
 
 DEADBAND = 0.1
