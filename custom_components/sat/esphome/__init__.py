@@ -212,7 +212,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     async def _send_command_value(self, key: str, value):
         if not self._simulation:
-            payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key), value: value}
+            payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key), "value": value}
             await self.hass.services.async_call(NUMBER_DOMAIN, SERVICE_SET_VALUE, payload, blocking=True)
 
         _LOGGER.debug(f"Publishing '{key}':{value} to ESPHome.")
