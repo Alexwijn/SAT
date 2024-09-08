@@ -209,7 +209,9 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         await super().async_set_control_max_setpoint(value)
 
     def _get_entity_id(self, domain: str, key: str):
-        return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, f"{self._mac_address}-{domain}-{key}")
+        unique_id = f"{self._mac_address}-{domain}-{key}"
+        _LOGGER.debug(f"Attempting to find the unique_id of {unique_id}")
+        return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, unique_id)
 
     async def _send_command_value(self, key: str, value):
         entity_id = self._get_entity_id(NUMBER_DOMAIN, key)
