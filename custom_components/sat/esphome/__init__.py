@@ -49,10 +49,8 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         self.data = {}
 
-
         self._device = device_registry.async_get(hass).async_get(device_id)
-        _LOGGER.debug(self._device)
-        self._mac_address = list(self._device.identifiers)[0]
+        self._mac_address = list(self._device.connections)[0][1]
 
         self._entity_registry = entity_registry.async_get(hass)
         self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
