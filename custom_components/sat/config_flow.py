@@ -66,6 +66,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if MAJOR_VERSION >= 2023 and (MINOR_VERSION >= 5 or MAJOR_VERSION > 2023):
             menu_options.append("mosquitto")
 
+        menu_options.append("esphome")
         menu_options.append("serial")
         menu_options.append("switch")
 

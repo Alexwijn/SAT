@@ -120,6 +120,7 @@
         "menu_options": {
           "mosquitto": "OpenTherm Gateway ( MQTT )",
           "serial": "OpenTherm Gateway ( SERIAL )",
+          "esphome": "OpenTherm Gateway ( ESPHOME )",
           "simulator": "Simulated Gateway ( ADVANCED )",
           "switch": "PID Thermostat with PWM ( ON/OFF )"
         },
