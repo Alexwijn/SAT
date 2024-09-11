@@ -14,6 +14,10 @@ class ManufacturerFactory:
         if member_id == -1:
             from custom_components.sat.manufacturers.simulator import Simulator
             return Simulator()
+        
+        if member_id == 4:
+            from custom_components.sat.manufacturers.geminox import Geminox
+            return Geminox()
 
         if member_id == 6:
             from custom_components.sat.manufacturers.ideal import Ideal
