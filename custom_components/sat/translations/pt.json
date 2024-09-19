@@ -1,0 +1,77 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "O Gateway já está configurado.",
+      "reconfigure_successful": "O Gateway foi reconfigurado com sucesso."
+    },
+    "error": {
+      "connection": "Não foi possível conectar ao gateway.",
+      "mqtt_component": "O componente MQTT está indisponível.",
+      "unable_to_calibrate": "O processo de calibração encontrou um problema e não pôde ser concluído com sucesso. Verifique se o seu sistema de aquecimento está funcionando corretamente e se todos os sensores necessários estão conectados e funcionando corretamente.\n\nSe você continuar a ter problemas com a calibração, considere entrar em contato conosco para obter assistência. Pedimos desculpas por qualquer inconveniente causado."
+    },
+    "progress": {
+      "calibration": "Calibrando e encontrando o valor de proteção contra superaquecimento...\n\nAguarde enquanto otimizamos seu sistema de aquecimento. Este processo pode levar cerca de 20 minutos."
+    },
+    "step": {
+      "areas": {
+        "data": {
+          "main_climates": "Principal",
+          "secondary_climates": "Cômodos"
+        },
+        "description": "Configurações relacionadas aos climas, controle de múltiplos cômodos e controle de temperatura. Climas principais estão no mesmo cômodo que o sensor interno, enquanto os cômodos têm suas próprias temperaturas-alvo, separadas do sistema.",
+        "title": "Áreas"
+      },
+      "automatic_gains": {
+        "data": {
+          "automatic_gains": "Ganho Automático (recomendado)"
+        },
+        "description": "Este recurso ajusta dinamicamente os parâmetros de controle do seu sistema de aquecimento, otimizando o controle de temperatura para maior conforto e eficiência energética. Ativar esta opção permite que o SAT adapte e ajuste continuamente as configurações de aquecimento com base nas condições ambientais. Isso ajuda a manter um ambiente estável e confortável sem a necessidade de intervenção manual.\n\nNota: Se você optar por não ativar os ganhos automáticos, será necessário inserir manualmente os valores PID para um controle de temperatura preciso. Certifique-se de ter valores PID precisos para o seu sistema de aquecimento específico para obter o melhor desempenho.",
+        "title": "Ganho Automático"
+      },
+      "calibrate_system": {
+        "description": "Otimize seu sistema de aquecimento determinando automaticamente os valores PID ideais para sua configuração. Ao selecionar o Ganho Automático, note que o sistema passará por um processo de calibração que pode levar cerca de 20 minutos para ser concluído.\n\nO Ganho Automático é recomendado para a maioria dos usuários, pois simplifica o processo de configuração e garante o melhor desempenho. No entanto, se você estiver familiarizado com o controle PID e preferir definir os valores manualmente, pode optar por pular o Ganho Automático.\n\nObserve que escolher pular o Ganho Automático exige um bom entendimento de controle PID e pode exigir ajustes manuais adicionais para alcançar o desempenho ideal.",
+        "menu_options": {
+          "calibrate": "Calibrar e determinar o valor de proteção contra superaquecimento (aprox. 20 min).",
+          "overshoot_protection": "Inserir manualmente o valor de proteção contra superaquecimento.",
+          "pid_controller": "Inserir manualmente os valores PID (não recomendado)."
+        },
+        "title": "Calibrar Sistema"
+      },
+      "calibrated": {
+        "description": "O processo de calibração foi concluído com sucesso.\n\nParabéns! Seu Termostato Autotune Inteligente (SAT) foi calibrado para otimizar o desempenho de aquecimento do seu sistema. Durante o processo de calibração, o SAT analisou cuidadosamente as características do aquecimento e determinou o valor apropriado de proteção contra superaquecimento para garantir um controle preciso da temperatura.\n\nValor de Proteção contra Superaquecimento: {minimum_setpoint} °C\n\nEste valor representa a quantidade máxima de superaquecimento permitida durante o processo de aquecimento. O SAT monitorará ativamente e ajustará o aquecimento para evitar superaquecimento excessivo, mantendo uma experiência de aquecimento confortável e eficiente em sua casa.\n\nObserve que o valor de proteção contra superaquecimento pode variar dependendo das características específicas do seu sistema de aquecimento e dos fatores ambientais. Ele foi ajustado para fornecer o melhor desempenho com base nos resultados da calibração.",
+        "menu_options": {
+          "calibrate": "Tentar calibração novamente",
+          "finish": "Continuar com a calibração atual"
+        },
+        "title": "Calibração Concluída"
+      },
+      "heating_system": {
+        "data": {
+          "heating_system": "Sistema"
+        },
+        "description": "Selecionar o tipo correto de sistema de aquecimento é importante para que o SAT controle a temperatura com precisão e otimize o desempenho. Escolha a opção que corresponde à sua configuração para garantir uma regulação adequada da temperatura em toda a sua casa.",
+        "title": "Sistema de Aquecimento"
+      },
+      "mosquitto": {
+        "data": {
+          "device": "Dispositivo",
+          "mqtt_topic": "Tópico MQTT",
+          "name": "Nome"
+        },
+        "description": "Por favor, forneça as seguintes informações para configurar o Gateway OpenTherm. No campo Nome, insira um nome para o gateway que o ajudará a identificá-lo dentro do seu sistema.\n\nEspecifique a entidade de clima a ser usada para o Gateway OpenTherm. Esta entidade é fornecida pelo Gateway OpenTherm e representa o seu sistema de aquecimento.\n\nAlém disso, insira o Tópico MQTT que será usado para publicar e subscrever mensagens relacionadas ao Gateway OpenTherm.\n\nEssas configurações são essenciais para estabelecer a comunicação e integração com o seu Gateway OpenTherm por meio do MQTT. Elas permitem a troca de dados e o controle do seu sistema de aquecimento. Certifique-se de que os detalhes fornecidos sejam precisos para garantir a funcionalidade correta.",
+        "title": "Gateway OpenTherm (MQTT)"
+      },
+      "overshoot_protection": {
+        "data": {
+          "minimum_setpoint": "Valor"
+        },
+        "description": "Ao fornecer o valor de proteção contra superaquecimento, o SAT ajustará os parâmetros de controle de acordo para manter um ambiente de aquecimento estável e confortável. Esta configuração manual permite ajustar o sistema com base na sua configuração específica.\n\nNota: Se você não tiver certeza sobre o valor de proteção contra superaquecimento ou não tiver realizado o processo de calibração, é recomendável cancelar a configuração e realizar o processo de calibração para que o SAT determine automaticamente o valor para o melhor desempenho.",
+        "title": "Proteção contra Superaquecimento"
+      },
+      "pid_controller": {
+        "data": {
+          "derivative": "Derivativo (kD)",
+          "integral": "Integral (kI)",
+          "proportional": "Proporcional (kP)"
+        },
+        "description": "Configure manualmente os ganhos proporcional, integral e derivativo para ajustar seu sistema de aquecimento. Use esta opção se pre
