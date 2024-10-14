@@ -22,6 +22,8 @@ DATA_REL_MOD_LEVEL = "modulation"
 DATA_SLAVE_MEMBERID = "boiler_member_id"
 DATA_BOILER_TEMPERATURE = "boiler_temperature"
 DATA_RETURN_TEMPERATURE = "return_temperature"
+DATA_BOILER_CAPACITY = "max_capacity"
+DATA_REL_MIN_MOD_LEVEL = "min_mod_level"
 
 DATA_DHW_SETPOINT_MINIMUM = "dhw_min_temperature"
 DATA_DHW_SETPOINT_MAXIMUM = "dhw_max_temperature"
@@ -135,6 +137,20 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
             return float(value)
 
         return super().relative_modulation_value
+    
+    @property
+    def boiler_capacity(self) -> float | None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
+            return float(value)
+
+        return super().boiler_capacity
+    
+    @property
+    def minimum_relative_modulation_value(self) -> float | None:
+        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
+            return float(value)
+        
+        return super().minimum_relative_modulation_value
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
