@@ -1,0 +1,229 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "O Gateway já está configurado.",
+      "reconfigure_successful": "O Gateway foi reconfigurado com sucesso."
+    },
+    "error": {
+      "connection": "Não foi possível ligar ao gateway.",
+      "mqtt_component": "O componente MQTT não está disponível.",
+      "unable_to_calibrate": "O processo de calibração encontrou um problema e não pôde ser concluído com sucesso. Por favor, assegure-se de que o seu sistema de aquecimento está a funcionar corretamente e que todos os sensores necessários estão ligados e a funcionar corretamente.\n\nSe continuar a ter problemas com a calibração, considere contactar-nos para obter mais assistência. Pedimos desculpa por qualquer inconveniente causado."
+    },
+    "progress": {
+      "calibration": "A calibrar e a encontrar o valor de proteção contra overshoot...\n\nPor favor, aguarde enquanto otimizamos o seu sistema de aquecimento. Este processo pode demorar aproximadamente 20 minutos."
+    },
+    "step": {
+      "areas": {
+        "data": {
+          "main_climates": "Principal",
+          "secondary_climates": "Quartos"
+        },
+        "description": "Definições relacionadas com climas, multi-sala e controlo de temperatura. Climas principais estão na mesma sala que o sensor interior e os quartos têm as suas próprias temperaturas alvo separadas do sistema.",
+        "title": "Áreas"
+      },
+      "automatic_gains": {
+        "data": {
+          "automatic_gains": "Ganhos Automáticos (recomendado)"
+        },
+        "description": "Esta funcionalidade ajusta os parâmetros de controlo do seu sistema de aquecimento dinamicamente, otimizando o controlo de temperatura para melhor conforto e eficiência energética. Ao ativar esta opção, o SAT adapta-se continuamente e afina as definições de aquecimento com base nas condições ambientais. Isto ajuda a manter um ambiente estável e confortável sem intervenção manual.\n\nNota: Se optar por não ativar os ganhos automáticos, terá de introduzir manualmente os valores PID para controlo preciso da temperatura. Por favor, certifique-se de que tem valores PID precisos para o seu sistema de aquecimento específico para obter desempenho ideal.",
+        "title": "Ganhos Automáticos"
+      },
+      "calibrate_system": {
+        "description": "Otimize o seu sistema de aquecimento determinando automaticamente os valores PID ótimos para a sua configuração. Ao selecionar Ganhos Automáticos, por favor note que o sistema passará por um processo de calibração que pode demorar aproximadamente 20 minutos a completar.\n\nGanhos Automáticos é recomendado para a maioria dos utilizadores, pois simplifica o processo de configuração e assegura desempenho ideal. No entanto, se estiver familiarizado com controlo PID e preferir definir os valores manualmente, pode optar por ignorar os Ganhos Automáticos.\n\nPor favor note que escolher ignorar os Ganhos Automáticos requer um bom entendimento de controlo PID e pode requerer ajustes manuais adicionais para alcançar desempenho ótimo.",
+        "menu_options": {
+          "calibrate": "Calibrar e determinar o valor de proteção contra overshoot (aprox. 20 min).",
+          "overshoot_protection": "Introduzir manualmente o valor de proteção contra overshoot.",
+          "pid_controller": "Introduzir manualmente os valores PID (não recomendado)."
+        },
+        "title": "Calibrar Sistema"
+      },
+      "calibrated": {
+        "description": "O processo de calibração foi concluído com sucesso.\n\nParabéns! O seu Termóstato Smart Autotune (SAT) foi calibrado para otimizar o desempenho de aquecimento do seu sistema. Durante o processo de calibração, o SAT analisou cuidadosamente as características de aquecimento e determinou o valor apropriado de proteção contra overshoot para assegurar controlo de temperatura preciso.\n\nValor de Proteção contra Overshoot: {minimum_setpoint} °C\n\nEste valor representa a quantidade máxima de overshoot permitida durante o processo de aquecimento. O SAT irá monitorizar ativamente e ajustar o aquecimento para prevenir overshoot excessivo, mantendo uma experiência de aquecimento confortável e eficiente na sua casa.\n\nPor favor note que o valor de proteção contra overshoot pode variar dependendo das características específicas do seu sistema de aquecimento e fatores ambientais. Foi afinado para fornecer desempenho ótimo com base nos resultados da calibração.",
+        "menu_options": {
+          "calibrate": "Repetir calibração",
+          "finish": "Continuar com a calibração atual"
+        },
+        "title": "Calibração Concluída"
+      },
+      "heating_system": {
+        "data": {
+          "heating_system": "Sistema"
+        },
+        "description": "Selecionar o tipo correto de sistema de aquecimento é importante para que o SAT controle com precisão a temperatura e otimize o desempenho. Escolha a opção que corresponde à sua configuração para assegurar regulação adequada da temperatura em toda a sua casa.",
+        "title": "Sistema de Aquecimento"
+      },
+      "mosquitto": {
+        "data": {
+          "device": "Dispositivo",
+          "mqtt_topic": "Tópico Principal",
+          "name": "Nome"
+        },
+        "description": "Por favor forneça os seguintes detalhes para configurar o OpenTherm Gateway. No campo Nome, insira um nome para o gateway que o ajudará a identificá-lo dentro do seu sistema.\n\nEspecifique a entidade Climate a utilizar para o OpenTherm Gateway. Esta entidade é fornecida pelo OpenTherm Gateway e representa o seu sistema de aquecimento.\n\nAdicionalmente, insira o Tópico Principal que será usado para publicar e subscrever mensagens MQTT relacionadas com o OpenTherm Gateway.\n\nEstas definições são essenciais para estabelecer comunicação e integração com o seu OpenTherm Gateway através do MQTT. Elas permitem troca de dados e controlo do seu sistema de aquecimento de forma fluida. Assegure-se de que os detalhes fornecidos são precisos para garantir funcionalidade adequada.",
+        "title": "OpenTherm Gateway ( MQTT )"
+      },
+      "overshoot_protection": {
+        "data": {
+          "minimum_setpoint": "Valor"
+        },
+        "description": "Ao fornecer o valor de proteção contra overshoot, o SAT ajustará os parâmetros de controlo em conformidade para manter um ambiente de aquecimento confortável e estável. Esta configuração manual permite-lhe afinar o sistema com base na sua configuração específica.\n\nNota: Se não tiver certeza sobre o valor de proteção contra overshoot ou não tiver realizado o processo de calibração, é recomendado cancelar a configuração e passar pelo processo de calibração para permitir que o SAT determine automaticamente o valor para desempenho ótimo.",
+        "title": "Proteção contra Overshoot"
+      },
+      "pid_controller": {
+        "data": {
+          "derivative": "Derivativo (kD)",
+          "integral": "Integral (kI)",
+          "proportional": "Proporcional (kP)"
+        },
+        "description": "Configure os ganhos proporcional, integral e derivativo manualmente para afinar o seu sistema de aquecimento. Use esta opção se preferir ter controlo total sobre os parâmetros do controlador PID. Ajuste os ganhos com base nas características e preferências específicas do seu sistema de aquecimento.",
+        "title": "Configurar o controlador PID manualmente."
+      },
+      "sensors": {
+        "data": {
+          "humidity_sensor_entity_id": "Entidade do Sensor de Humidade",
+          "inside_sensor_entity_id": "Entidade do Sensor Interior",
+          "outside_sensor_entity_id": "Entidade do Sensor Exterior"
+        },
+        "description": "Por favor selecione os sensores que serão usados para monitorizar a temperatura.",
+        "title": "Configurar sensores"
+      },
+      "serial": {
+        "data": {
+          "device": "URL",
+          "name": "Nome"
+        },
+        "description": "Para estabelecer uma ligação com o OpenTherm Gateway usando uma ligação socket, por favor forneça os seguintes detalhes. No campo Nome, insira um nome para o gateway que o ajudará a identificá-lo dentro do seu sistema.\n\nEspecifique o endereço de rede do OpenTherm Gateway no campo Dispositivo. Isto pode ser no formato \"socket://otgw.local:25238\", onde \"otgw.local\" é o nome de host ou endereço IP do gateway e \"25238\" é o número da porta.\n\nEstas definições são essenciais para estabelecer comunicação e integração com o seu OpenTherm Gateway através da ligação socket. Assegure-se de que os detalhes fornecidos são precisos para garantir funcionalidade adequada.",
+        "title": "OpenTherm Gateway ( SERIAL )"
+      },
+      "simulator": {
+        "data": {
+          "maximum_setpoint": "Setpoint Máximo",
+          "minimum_setpoint": "Setpoint Mínimo",
+          "name": "Nome",
+          "simulated_cooling": "Arrefecimento Simulado",
+          "simulated_heating": "Aquecimento Simulado",
+          "simulated_warming_up": "Aquecimento Simulado"
+        },
+        "description": "Este gateway permite-lhe simular uma caldeira para fins de teste e demonstração. Por favor forneça as seguintes informações para configurar o simulador.\n\nNota: O Simulador Gateway destina-se apenas a fins de teste e demonstração e não deve ser usado em ambientes de produção.",
+        "title": "Gateway Simulado ( AVANÇADO )"
+      },
+      "switch": {
+        "data": {
+          "device": "Entidade",
+          "minimum_setpoint": "Definição de Temperatura",
+          "name": "Nome"
+        },
+        "description": "Por favor preencha os seguintes detalhes para configurar o interruptor. Insira um nome para o interruptor no campo Nome, que o ajudará a identificá-lo dentro do seu sistema. Escolha a entidade apropriada a utilizar para o seu interruptor das opções fornecidas.\n\nNo campo Definição de Temperatura, especifique a temperatura alvo desejada para o seu sistema de aquecimento. Se estiver a usar uma caldeira de água quente, preencha a Definição de Temperatura da Caldeira com o valor apropriado. Para sistemas de aquecimento elétrico, insira o valor 100.\n\nEstas definições são essenciais para controlo preciso da temperatura e assegurar desempenho ideal do seu sistema de aquecimento. Fornecer a Definição de Temperatura correta permite regulação precisa e ajuda a alcançar um ambiente confortável e energeticamente eficiente na sua casa.",
+        "title": "Termóstato PID com PWM ( LIGA/DESLIGA )"
+      },
+      "user": {
+        "description": "O SAT é um termóstato inteligente capaz de auto-afinar-se para otimizar o controlo de temperatura. Selecione o modo apropriado que corresponde ao seu sistema de aquecimento.",
+        "menu_options": {
+          "mosquitto": "OpenTherm Gateway ( MQTT )",
+          "serial": "OpenTherm Gateway ( SERIAL )",
+          "esphome": "OpenTherm Gateway ( ESPHOME )",
+          "simulator": "Gateway Simulado ( AVANÇADO )",
+          "switch": "Termóstato PID com PWM ( LIGA/DESLIGA )"
+        },
+        "title": "Termóstato Smart Autotune (SAT)"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "advanced": {
+        "data": {
+          "climate_valve_offset": "Offset da válvula do clima",
+          "dynamic_minimum_setpoint": "Setpoint Mínimo Dinâmico (Experimental)",
+          "force_pulse_width_modulation": "Forçar Modulação por Largura de Pulso",
+          "maximum_consumption": "Consumo Máximo",
+          "maximum_relative_modulation": "Modulação Relativa Máxima",
+          "minimum_consumption": "Consumo Mínimo",
+          "sample_time": "Tempo de Amostragem",
+          "simulation": "Simulação",
+          "target_temperature_step": "Passo da Temperatura Alvo",
+          "thermal_comfort": "Conforto Térmico"
+        },
+        "data_description": {
+          "climate_valve_offset": "Offset para ajustar o grau de abertura da válvula do clima.",
+          "dynamic_minimum_setpoint": "Ativa o ajuste dinâmico do setpoint com base na temperatura de retorno da caldeira, o que também ajuda a identificar se alguma válvula está fechada.",
+          "maximum_consumption": "O consumo máximo de gás quando a caldeira está ativa.",
+          "maximum_relative_modulation": "Representa o nível máximo de modulação para um sistema de aquecimento eficiente.",
+          "minimum_consumption": "O consumo mínimo de gás quando a caldeira está ativa.",
+          "sample_time": "O intervalo de tempo mínimo entre atualizações do controlador PID.",
+          "target_temperature_step": "Ajuste o passo da temperatura alvo para afinação do nível de conforto.",
+          "thermal_comfort": "Ativar o uso do Índice de Simmer para ajuste do conforto térmico."
+        },
+        "title": "Avançado"
+      },
+      "general": {
+        "data": {
+          "automatic_gains_value": "Valor de Ganhos Automáticos",
+          "derivative": "Derivativo (kD)",
+          "derivative_time_weight": "Peso Temporal do Derivativo",
+          "duty_cycle": "Ciclo de Trabalho Máximo para Modulação por Largura de Pulso",
+          "heating_curve_coefficient": "Coeficiente da Curva de Aquecimento",
+          "heating_curve_version": "Versão da Curva de Aquecimento",
+          "integral": "Integral (kI)",
+          "maximum_setpoint": "Setpoint Máximo",
+          "minimum_setpoint_adjustment_factor": "Fator de Ajuste para Temperatura de Retorno",
+          "pid_controller_version": "Versão do Controlador PID",
+          "proportional": "Proporcional (kP)",
+          "sync_with_thermostat": "Sincronizar setpoint com termóstato",
+          "window_sensors": "Sensores de Contato",
+          "heating_mode": "Modo de Aquecimento"
+        },
+        "data_description": {
+          "automatic_gains_value": "O valor usado para ganhos automáticos no controlador PID.",
+          "derivative": "O termo derivativo (kD) no controlador PID, responsável por mitigar overshooting.",
+          "derivative_time_weight": "Um parâmetro para ajustar a influência do termo derivativo ao longo do tempo, particularmente útil para reduzir undershoot durante a fase de aquecimento quando o coeficiente da curva de aquecimento está corretamente definido.",
+          "duty_cycle": "O ciclo de trabalho máximo para Modulação por Largura de Pulso (PWM), controlando os ciclos de ligar/desligar da caldeira.",
+          "heating_curve_coefficient": "O coeficiente usado para ajustar a curva de aquecimento.",
+          "integral": "O termo integral (kI) no controlador PID, responsável por reduzir o erro em regime permanente.",
+          "maximum_setpoint": "A temperatura ótima para operação eficiente da caldeira.",
+          "minimum_setpoint_adjustment_factor": "Este fator ajusta o setpoint de aquecimento com base na temperatura de retorno da caldeira, afetando a resposta e eficiência do aquecimento. Um valor mais alto aumenta a sensibilidade às mudanças de temperatura, melhorando o controlo sobre o conforto e uso de energia. Faixa inicial recomendada é de 0.1 a 0.5. Ajuste para adequar ao seu sistema e preferências de conforto.",
+          "proportional": "O termo proporcional (kP) no controlador PID, responsável pela resposta imediata a erros.",
+          "sync_with_thermostat": "Sincronizar setpoint com termóstato para assegurar controlo de temperatura coordenado.",
+          "window_sensors": "Sensores de Contato que ativam o sistema para reagir quando uma janela ou porta está aberta por um período de tempo."
+        },
+        "description": "Definições e configurações gerais.",
+        "title": "Geral"
+      },
+      "init": {
+        "menu_options": {
+          "advanced": "Opções Avançadas",
+          "general": "Geral",
+          "presets": "Predefinições",
+          "system_configuration": "Configuração do Sistema"
+        }
+      },
+      "presets": {
+        "data": {
+          "activity_temperature": "Temperatura de Atividade",
+          "away_temperature": "Temperatura Ausente",
+          "comfort_temperature": "Temperatura de Conforto",
+          "home_temperature": "Temperatura em Casa",
+          "sleep_temperature": "Temperatura de Sono",
+          "sync_climates_with_preset": "Sincronizar climas com predefinição (sono / ausente / atividade)"
+        },
+        "description": "Definições de temperatura predefinidas para diferentes cenários ou atividades.",
+        "title": "Predefinições"
+      },
+      "system_configuration": {
+        "data": {
+          "automatic_duty_cycle": "Ciclo de trabalho automático",
+          "overshoot_protection": "Proteção contra Overshoot (com PWM)",
+          "sensor_max_value_age": "Idade máxima do valor do sensor de temperatura",
+          "window_minimum_open_time": "Tempo mínimo para a janela estar aberta"
+        },
+        "data_description": {
+          "automatic_duty_cycle": "Ativar ou desativar ciclo de trabalho automático para Modulação por Largura de Pulso (PWM).",
+          "overshoot_protection": "Ativar proteção contra overshoot com Modulação por Largura de Pulso (PWM) para evitar overshooting da temperatura da caldeira.",
+          "sensor_max_value_age": "A idade máxima do valor do sensor de temperatura antes de ser considerado como estagnado.",
+          "window_minimum_open_time": "O tempo mínimo que uma janela deve estar aberta antes de o sistema reagir."
+        },
+        "description": "Para afinação e personalização.",
+        "title": "Configuração do Sistema"
+      }
+    }
+  }
+}
