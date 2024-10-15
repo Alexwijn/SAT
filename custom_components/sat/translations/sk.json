@@ -175,8 +175,7 @@
         "data_description": {
           "automatic_gains_value": "Hodnota používaná pre automatické zosilnenie v PID regulátore.",
           "derivative": "Odvodený člen (kD) v PID regulátore, zodpovedný za zmiernenie prekročenia.",
- "derivative_time_weight": "Parameter na úpravu vplyvu derivačného členu v priebehu času, obzvlášť užitočný na zníženie podkmitu počas zahrievacej fázy, keď je koeficient vykurovacej krivky správne nastavený.
-",
+          "derivative_time_weight": "Parameter na úpravu vplyvu derivačného členu v priebehu času, obzvlášť užitočný na zníženie podkmitu počas zahrievacej fázy, keď je koeficient vykurovacej krivky správne nastavený.",
           "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu (PWM), ktorá riadi cykly zapnutia a vypnutia kotla.",
           "heating_curve_coefficient": "Koeficient použitý na úpravu vykurovacej krivky.",
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",
