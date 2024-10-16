@@ -91,7 +91,7 @@
           "device": "URL",
           "name": "Názov"
         },
-        "description": "Ak chcete vytvoriť spojenie s bránou OpenTherm pomocou zásuvky, uveďte nasledujúce podrobnosti. Do poľa Názov zadajte názov brány, ktorý vám pomôže identifikovať ju vo vašom systéme.\n\nV poli Zariadenie zadajte sieťovú adresu brány OpenTherm. Môže to byť vo formáte \"socket://otgw.local:25238\", kde \"otgw.local\" je názov hostiteľa alebo IP adresa brány a \"25238\" je číslo portu.\ n\nTieto nastavenia sú nevyhnutné pre nadviazanie komunikácie a integráciu s vašou bránou OpenTherm cez pripojenie soketu. Uistite sa, že poskytnuté podrobnosti sú presné, aby sa zabezpečila správna funkčnosť.",
+        "description": "Ak chcete vytvoriť spojenie s bránou OpenTherm pomocou zásuvky, uveďte nasledujúce podrobnosti. Do poľa Názov zadajte názov brány, ktorý vám pomôže identifikovať ju vo vašom systéme.\n\nV poli Zariadenie zadajte sieťovú adresu brány OpenTherm. Môže to byť vo formáte \"socket://otgw.local:25238\", kde \"otgw.local\" je názov hostiteľa alebo IP adresa brány a \"25238\" je číslo portu.\n\nTieto nastavenia sú nevyhnutné pre nadviazanie komunikácie a integráciu s vašou bránou OpenTherm cez pripojenie soketu. Uistite sa, že poskytnuté podrobnosti sú presné, aby sa zabezpečila správna funkčnosť.",
         "title": "OpenTherm Gateway ( SERIAL )"
       },
       "simulator": {
