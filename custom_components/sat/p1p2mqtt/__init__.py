@@ -58,18 +58,18 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def supports_setpoint_management(self):
-        return False
+        return True
 
     @property
     def supports_hot_water_setpoint_management(self):
-        return False
+        return True
 
     def supports_maximum_setpoint_management(self):
         return False
 
     @property
     def supports_relative_modulation_management(self):
-        return False
+        return True
 
     @property
     def device_active(self) -> bool:
@@ -101,6 +101,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     @property
     def minimum_hot_water_setpoint(self) -> float:
         # TODO: Not supported by p1p2, can it be provided by the user?
+        # Seems to be present at MQTT
         # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
         #     return float(setpoint)
 
@@ -109,6 +110,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     @property
     def maximum_hot_water_setpoint(self) -> float | None:
         # TODO: Not supported by p1p2, can it be provided by the user? For all-electric 48 degrees seems best
+        # Seems to be present at MQTT
         # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
         #     return float(setpoint)
 
@@ -146,7 +148,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        # TODO: Not sure what to use here
+        # TODO: Use 0
         # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
         #     return float(value)
 
@@ -158,7 +160,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        # TODO: Not sure what to use here
+        # TODO: 10
         # if (value := self.get(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
         #     return float(value)
 
@@ -173,6 +175,9 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     async def boot(self) -> SatMqttCoordinator:
         # TODO: p1p2 is always powered, no need to boot. So not needed?
+        # We could set the p1p1 bridge to select RT for hc_fieldsettings_rt_lwt
+        # and to use RT_modulation in hc_fieldsettings_rt_modulation
+        # and set the RT_modulation_max to 10
         # await self._send_command("PM=3")
         # await self._send_command("PM=48")
 
@@ -211,7 +216,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         self.async_update_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        # TODO: Can be controlled with absolute value (Abs_Heating) or relative to weather dependent setting (Deviation_Heating)
+        # TODO: Can be controlled with absolute value (Abs_Heating)
         # What is the correct control to use?
         # await self._send_command(f"CS={value}")
 
@@ -224,13 +229,14 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
-        # TODO: could use Room_Heating, but requires p1p2 to be in RT mode (not LWT mode). Is it necessary?
+        # TODO: Use Room_Heating, but requires p1p2 to be in RT mode
         # await self._send_command(f"TC={value}")
 
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        # TODO: Add DHW_Setpoint command
+        # TODO: Is this the CH on/off switch? When will it be used?
+        # Option to use: hc_mode_altherma_on
         # await self._send_command(f"CH={1 if state == DeviceState.ON else 0}")
 
         await super().async_set_heater_state(state)
