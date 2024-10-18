@@ -12,6 +12,7 @@ MODE_SWITCH = "switch"
 MODE_SERIAL = "serial"
 MODE_ESPHOME = "esphome"
 MODE_SIMULATOR = "simulator"
+MODE_P1P2MQTT = "p1p2mqtt"
 
 DEADBAND = 0.1
 HEATER_STARTUP_TIMEFRAME = 180

@@ -59,6 +59,10 @@ class SatDataUpdateCoordinatorFactory:
             from .serial import SatSerialCoordinator
             return await SatSerialCoordinator(hass=hass, port=device, data=data, options=options).async_connect()
 
+        if mode == MODE_P1P2MQTT:
+            from .mqtt import P1P2MqttCoordinator
+            return P1P2MqttCoordinator(hass=hass, device_id=device, data=data, options=options)
+
         raise Exception(f'Invalid mode[{mode}]')
 
 
