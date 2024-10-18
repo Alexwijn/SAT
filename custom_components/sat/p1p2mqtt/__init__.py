@@ -15,7 +15,7 @@ from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
 from ..manufacturers.immergas import Immergas
 
-DATA_FLAME_ACTIVE = "flame"
+DATA_FLAME_ACTIVE = "hc_mode_compressor"
 DATA_DHW_SETPOINT = "hc_dhw_dhw_setpoint"
 DATA_CONTROL_SETPOINT = "hc_lwt_lwt_setpoint"
 DATA_REL_MOD_LEVEL = "RelModLevel"
@@ -77,8 +77,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def flame_active(self) -> bool:
-        # TODO: How to map?
-        # return self.get(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE) == DeviceState.ON
+        return self.get(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE) == DeviceState.ON
         return False
 
     @property
