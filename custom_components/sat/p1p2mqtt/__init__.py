@@ -100,6 +100,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
+        # TODO: Not supported by p1p2, can it be provided by the user?
         # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
         #     return float(setpoint)
 
@@ -107,6 +108,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def maximum_hot_water_setpoint(self) -> float | None:
+        # TODO: Not supported by p1p2, can it be provided by the user? For all-electric 48 degrees seems best
         # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
         #     return float(setpoint)
 
@@ -128,7 +130,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def relative_modulation_value(self) -> float | None:
-        # TODO
+        # TODO: Not sure what to use here
         # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
         #     return float(value)
 
@@ -136,7 +138,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def boiler_capacity(self) -> float | None:
-        # TODO: Should be manually set?
+        # TODO: Should be manually set by user?
         # if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
         #     return float(value)
 
@@ -144,7 +146,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        # TODO:
+        # TODO: Not sure what to use here
         # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
         #     return float(value)
 
@@ -156,7 +158,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        # TODO
+        # TODO: Not sure what to use here
         # if (value := self.get(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
         #     return float(value)
 
@@ -170,7 +172,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return None
 
     async def boot(self) -> SatMqttCoordinator:
-        # TODO: not needed?
+        # TODO: p1p2 is always powered, no need to boot. So not needed?
         # await self._send_command("PM=3")
         # await self._send_command("PM=48")
 
@@ -209,26 +211,32 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         self.async_update_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
+        # TODO: Can be controlled with absolute value (Abs_Heating) or relative to weather dependent setting (Deviation_Heating)
+        # What is the correct control to use?
         # await self._send_command(f"CS={value}")
 
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
+        # TODO: add DHW_Setpoint command
         # await self._send_command(f"SW={value}")
 
         await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
+        # TODO: could use Room_Heating, but requires p1p2 to be in RT mode (not LWT mode). Is it necessary?
         # await self._send_command(f"TC={value}")
 
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
+        # TODO: Add DHW_Setpoint command
         # await self._send_command(f"CH={1 if state == DeviceState.ON else 0}")
 
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
+        # TODO: unclear how to use this (same as sensor value)
         # if isinstance(self.manufacturer, Immergas):
         #     await self._send_command(f"TP=11:12={min(value, 80)}")
 
@@ -237,6 +245,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         await super().async_set_control_max_relative_modulation(value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
+        # TODO: unclear what to use here. Set by user?
         # await self._send_command(f"SH={value}")
 
         await super().async_set_control_max_setpoint(value)
