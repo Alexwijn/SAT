@@ -1,5 +1,9 @@
 from __future__ import annotations, annotations
 
+# Daikin Altherma 3 RF manual: 
+# - English: https://www.daikin.be/content/dam/document-library/Installer-reference-guide/heat/air-to-water-heat-pump-low-temperature/EHFZ-D3V.ERLA-DV_Installer%20reference%20guide_4PEN596821-1B_English.pdf
+# - Dutch: https://www.daikin.eu/content/dam/document-library/Installer-reference-guide/heat/air-to-water-heat-pump-low-temperature/EHFZ-D3V.ERLA-DV_Installer%20reference%20guide_4PNL596821-1B_Dutch.pdf
+
 import logging
 from typing import TYPE_CHECKING, Mapping, Any
 
@@ -15,21 +19,19 @@ from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
 from ..manufacturers.immergas import Immergas
 
-DATA_FLAME_ACTIVE = "hc_mode_compressor"
-DATA_DHW_SETPOINT = "hc_dhw_dhw_setpoint"
-DATA_CONTROL_SETPOINT = "hc_lwt_lwt_setpoint"
-DATA_REL_MOD_LEVEL = "RelModLevel"
-DATA_BOILER_TEMPERATURE = "hc_dhw_temperature_r5t_dhw_tank"
-DATA_RETURN_TEMPERATURE = "hc_sensors_temperature_r4t_return_water"
-DATA_DHW_ENABLE = "hc_dhw_dhw"
-DATA_CENTRAL_HEATING = "hc_mode_climate_heating"
-DATA_SLAVE_MEMBERID = "slave_memberid_code"
-DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
-DATA_REL_MIN_MOD_LEVEL = "MaxCapacityMinModLevel_lb_u8"
-DATA_REL_MIN_MOD_LEVELL = "MaxCapacityMinModLevell_lb_u8"
-DATA_MAX_REL_MOD_LEVEL_SETTING = "MaxRelModLevelSetting"
-DATA_DHW_SETPOINT_MINIMUM = "notsupported"
-DATA_DHW_SETPOINT_MAXIMUM = "notsupported"
+DATA_FLAME_ACTIVE = "P1P2MQTT_bridge0_S1_Compressor_1"
+DATA_DHW_SETPOINT = "P1P2MQTT_bridge0_S1_DHW_Setpoint_1"
+DATA_CONTROL_SETPOINT = "P1P2MQTT_bridge0_S1_LWT_Setpoint_1"
+DATA_REL_MOD_LEVEL = "TODO"
+DATA_BOILER_TEMPERATURE = "P1P2MQTT_bridge0_T1_Temperature_R5T_DHW_Tank_1"
+DATA_RETURN_TEMPERATURE = "P1P2MQTT_bridge0_T1_Temperature_R4T_Return_Water_1"
+DATA_DHW_ENABLE = "P1P2MQTT_bridge0_S0_DHW_Setpoint_0" # mode: off, heat
+DATA_CENTRAL_HEATING = "P1P2MQTT_bridge0_S0_Altherma_On_0"
+DATA_BOILER_CAPACITY = "TODO"
+DATA_REL_MIN_MOD_LEVEL = "P1P2MQTT_bridge0_C9_RT_Modulation_Max_9" # min
+DATA_MAX_REL_MOD_LEVEL_SETTING = "P1P2MQTT_bridge0_C9_RT_Modulation_Max_9" # max
+DATA_DHW_SETPOINT_MINIMUM = "P1P2MQTT_bridge0_S0_DHW_Setpoint_0" # min_temp
+DATA_DHW_SETPOINT_MAXIMUM = "P1P2MQTT_bridge0_S0_DHW_Setpoint_0" # max_temp
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
@@ -45,9 +47,12 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         self.data = {}
 
+        # Device is P1P2
         self._device = device_registry.async_get(hass).async_get(device_id)
+        # node_id is bridge0
         self._node_id = list(self._device.identifiers)[0][1]
-        self._topic = data.get(CONF_MQTT_TOPIC)
+        # Topic is P1P2/P/P1P2MQTT/bridge0
+        self._topic = data.get(CONF_MQTT_TOPIC) 
 
         self._entity_registry = entity_registry.async_get(hass)
         self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
@@ -100,8 +105,6 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
-        # TODO: Not supported by p1p2, can it be provided by the user?
-        # Seems to be present at MQTT
         # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
         #     return float(setpoint)
 
@@ -109,8 +112,6 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def maximum_hot_water_setpoint(self) -> float | None:
-        # TODO: Not supported by p1p2, can it be provided by the user? For all-electric 48 degrees seems best
-        # Seems to be present at MQTT
         # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
         #     return float(setpoint)
 
@@ -132,7 +133,6 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def relative_modulation_value(self) -> float | None:
-        # TODO: Not sure what to use here
         # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
         #     return float(value)
 
@@ -140,7 +140,6 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def boiler_capacity(self) -> float | None:
-        # TODO: Should be manually set by user?
         # if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
         #     return float(value)
 
@@ -148,19 +147,13 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        # TODO: Use 0
         # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
-        #     return float(value)
-
-        # # Legacy
-        # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL)) is not None:
         #     return float(value)
 
         return super().minimum_relative_modulation_value
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        # TODO: 10
         # if (value := self.get(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
         #     return float(value)
 
@@ -168,9 +161,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def member_id(self) -> int | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
-            return int(value)
-
+        # Manufacturer not available on P1P2 bridge
         return None
 
     async def boot(self) -> SatMqttCoordinator:
@@ -198,7 +189,6 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
             self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE),
             self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_CAPACITY),
             self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVELL),
             self._get_entity_id(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING),
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
@@ -216,7 +206,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         self.async_update_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        # TODO: Can be controlled with absolute value (Abs_Heating)
+        # TODO: Can be controlled with absolute value (Abs_Heating) or relative with weather dependent curve
         # What is the correct control to use?
         # await self._send_command(f"CS={value}")
 
@@ -243,9 +233,6 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         # TODO: unclear how to use this (same as sensor value)
-        # if isinstance(self.manufacturer, Immergas):
-        #     await self._send_command(f"TP=11:12={min(value, 80)}")
-
         # await self._send_command(f"MM={value}")
 
         await super().async_set_control_max_relative_modulation(value)
@@ -260,7 +247,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return self._entity_registry.async_get_entity_id(domain, MQTT_DOMAIN, f"{key}")
 
     async def _send_command(self, payload: str):
-        # if not self._simulation:
-            # await mqtt.async_publish(self.hass, f"{self._topic}/set/{self._node_id}/command", payload)
+        #if not self._simulation:
+        #    await mqtt.async_publish(self.hass, f"{self._topic}/set/{self._node_id}/command", payload)
 
         _LOGGER.debug(f"Publishing '{payload}' to MQTT.")
