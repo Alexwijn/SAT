@@ -69,6 +69,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         menu_options.append("esphome")
         menu_options.append("serial")
         menu_options.append("switch")
+        menu_options.append("p1p2mqtt")
 
         if self.show_advanced_options:
             menu_options.append("simulator")
@@ -147,6 +148,32 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
                     selector.DeviceSelectorConfig(integration="esphome")
                 ),
+            }),
+        )
+
+    async def async_step_p1p2mqtt(self, _user_input: dict[str, Any] | None = None):
+        self.errors = {}
+
+        if _user_input is not None:
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = MODE_P1P2MQTT
+
+            # if not await mqtt.async_wait_for_mqtt_client(self.hass):
+            #     self.errors["base"] = "mqtt_component"
+            #     return await self.async_step_mosquitto()
+
+            return await self.async_step_sensors()
+
+        return self.async_show_form(
+            step_id="p1p2mqtt",
+            last_step=False,
+            errors=self.errors,
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+                vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
+                # vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
+                #     selector.DeviceSelectorConfig(model="p1p2mqtt")
+                # ),
             }),
         )
 
@@ -238,7 +265,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
-            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
+            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR, MODE_P1P2MQTT]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()

@@ -17,19 +17,14 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import *
 from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
-from ..manufacturers.immergas import Immergas
 
 DATA_FLAME_ACTIVE = "P1P2MQTT_bridge0_S1_Compressor_1"
 DATA_DHW_SETPOINT = "P1P2MQTT_bridge0_S1_DHW_Setpoint_1"
 DATA_CONTROL_SETPOINT = "P1P2MQTT_bridge0_S1_LWT_Setpoint_1"
-DATA_REL_MOD_LEVEL = "TODO"
 DATA_BOILER_TEMPERATURE = "P1P2MQTT_bridge0_T1_Temperature_R5T_DHW_Tank_1"
 DATA_RETURN_TEMPERATURE = "P1P2MQTT_bridge0_T1_Temperature_R4T_Return_Water_1"
 DATA_DHW_ENABLE = "P1P2MQTT_bridge0_S0_DHW_Setpoint_0" # mode: off, heat
 DATA_CENTRAL_HEATING = "P1P2MQTT_bridge0_S0_Altherma_On_0"
-DATA_BOILER_CAPACITY = "TODO"
-DATA_REL_MIN_MOD_LEVEL = "P1P2MQTT_bridge0_C9_RT_Modulation_Max_9" # min
-DATA_MAX_REL_MOD_LEVEL_SETTING = "P1P2MQTT_bridge0_C9_RT_Modulation_Max_9" # max
 DATA_DHW_SETPOINT_MINIMUM = "P1P2MQTT_bridge0_S0_DHW_Setpoint_0" # min_temp
 DATA_DHW_SETPOINT_MAXIMUM = "P1P2MQTT_bridge0_S0_DHW_Setpoint_0" # max_temp
 
@@ -74,7 +69,7 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def supports_relative_modulation_management(self):
-        return True
+        return False
 
     @property
     def device_active(self) -> bool:
@@ -105,15 +100,15 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
-        # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
-        #     return float(setpoint)
+        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
+            return float(setpoint)
 
         return super().minimum_hot_water_setpoint
 
     @property
     def maximum_hot_water_setpoint(self) -> float | None:
-        # if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
-        #     return float(setpoint)
+        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
+            return float(setpoint)
 
         return super().maximum_hot_water_setpoint
 
@@ -133,32 +128,20 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def relative_modulation_value(self) -> float | None:
-        # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
-        #     return float(value)
-
-        return super().relative_modulation_value
+        return None
 
     @property
     def boiler_capacity(self) -> float | None:
-        # if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
-        #     return float(value)
-
-        return super().boiler_capacity
+        return None
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        # if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
-        #     return float(value)
-
-        return super().minimum_relative_modulation_value
+        return None
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        # if (value := self.get(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
-        #     return float(value)
-
-        return super().maximum_relative_modulation_value
-
+        return None
+        
     @property
     def member_id(self) -> int | None:
         # Manufacturer not available on P1P2 bridge
@@ -185,11 +168,8 @@ class P1P2MqttCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT),
             self._get_entity_id(SENSOR_DOMAIN, DATA_CONTROL_SETPOINT),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL),
             self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE),
             self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_CAPACITY),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING),
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
             self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
         ]))

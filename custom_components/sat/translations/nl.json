@@ -119,6 +119,7 @@
         "description": "SAT is een slimme thermostaat die zichzelf kan afstemmen om de temperatuurregeling te optimaliseren. Selecteer de geschikte modus die overeenkomt met uw verwarmingssysteem.",
         "menu_options": {
           "mosquitto": "OpenTherm Gateway ( MQTT )",
+          "p1p2mqtt": "P1P2 Bridge ( MQTT )",
           "serial": "OpenTherm Gateway ( SERIEEL )",
           "simulator": "Gesimuleerde Gateway ( GEAVANCEERD )",
           "switch": "PID Thermostaat met PWM ( AAN/UIT )"

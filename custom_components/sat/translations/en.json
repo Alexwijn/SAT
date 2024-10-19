@@ -61,6 +61,15 @@
         "description": "Please provide the following details to set up the OpenTherm Gateway. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the Climate entity to use for the OpenTherm Gateway. This entity is provided by the OpenTherm Gateway and represents your heating system.\n\nAdditionally, enter the Top Topic that will be used for publishing and subscribing to MQTT messages related to the OpenTherm Gateway.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through MQTT. They allow for seamless data exchange and control of your heating system. Ensure that the provided details are accurate to ensure proper functionality.",
         "title": "OpenTherm Gateway ( MQTT )"
       },
+      "p1p2mqtt": {
+        "data": {
+          "device": "Device",
+          "mqtt_topic": "Top Topic",
+          "name": "Name"
+        },
+        "description": "Please provide the following details to set up the P1P2 Bridge. In the Name field, enter a name for the bridge that will help you identify it within your system.\n\nSpecify the Climate entity to use for the OpenTherm Gateway. This entity is provided by the OpenTherm Gateway and represents your heating system.\n\nAdditionally, enter the Top Topic that will be used for publishing and subscribing to MQTT messages related to the OpenTherm Gateway.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through MQTT. They allow for seamless data exchange and control of your heating system. Ensure that the provided details are accurate to ensure proper functionality.",
+        "title": "P1P2 bridge ( MQTT )"
+      },
       "overshoot_protection": {
         "data": {
           "minimum_setpoint": "Value"
@@ -120,6 +129,7 @@
         "menu_options": {
           "mosquitto": "OpenTherm Gateway ( MQTT )",
           "serial": "OpenTherm Gateway ( SERIAL )",
+          "p1p2mqtt": "P1P2 Bridge ( MQTT )",
           "esphome": "OpenTherm Gateway ( ESPHOME )",
           "simulator": "Simulated Gateway ( ADVANCED )",
           "switch": "PID Thermostat with PWM ( ON/OFF )"
