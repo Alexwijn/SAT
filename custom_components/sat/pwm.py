@@ -95,7 +95,7 @@ class PWM:
         boiler_temperature = self._last_boiler_temperature or requested_setpoint
         base_offset = self._heating_curve.base_offset
 
-        if boiler_temperature < base_offset:
+        if boiler_temperature <= base_offset:
             boiler_temperature = base_offset + 1
 
         self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (boiler_temperature - base_offset)
