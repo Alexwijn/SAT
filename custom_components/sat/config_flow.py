@@ -569,6 +569,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="system_configuration",
             data_schema=vol.Schema({
                 vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
+                vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
                 vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE]): selector.TimeSelector(),
                 vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]): selector.TimeSelector(),
             })

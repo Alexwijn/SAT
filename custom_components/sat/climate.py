@@ -167,6 +167,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._climate_valve_offset = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
         self._target_temperature_step = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
         self._dynamic_minimum_setpoint = bool(config_options.get(CONF_DYNAMIC_MINIMUM_SETPOINT))
+        self._sync_climates_with_mode = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_MODE))
         self._sync_climates_with_preset = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
         self._maximum_relative_modulation = int(config_options.get(CONF_MAXIMUM_RELATIVE_MODULATION))
         self._force_pulse_width_modulation = bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
@@ -936,8 +937,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the PID controller
         await self._async_control_pid(True)
 
-        # Set the hvac mode for all climate devices
-        for entity_id in (self._climates + self._main_climates):
+        # Collect which climates to control
+        climates = self._main_climates[:]
+        if self._sync_climates_with_mode:
+            climates += self._climates
+
+        # Set the hvac mode for those climate devices
+        for entity_id in climates:
             data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
             await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 

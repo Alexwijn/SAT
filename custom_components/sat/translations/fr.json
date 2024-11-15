@@ -210,6 +210,7 @@
       "system_configuration": {
         "data": {
           "automatic_duty_cycle": "Cycle de fonctionnement automatique",
+          "sync_climates_with_mode": "Synchroniser les climats avec le mode",
           "overshoot_protection": "Protection contre le dépassement (avec PWM)",
           "sensor_max_value_age": "Âge maximal de la valeur du capteur de température",
           "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre"

@@ -211,6 +211,7 @@
         "data": {
           "automatic_duty_cycle": "Automatischer Tastgrad",
           "overshoot_protection": "Überschwingungsschutz (mit PWM)",
+          "sync_climates_with_mode": "Klimazonen mit Modus synchronisieren",
           "sensor_max_value_age": "Maximales Alter des Temperatursensorwerts",
           "window_minimum_open_time": "Mindestzeit für geöffnetes Fenster"
         },

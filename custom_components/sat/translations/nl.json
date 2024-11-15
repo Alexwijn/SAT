@@ -211,6 +211,7 @@
         "data": {
           "automatic_duty_cycle": "Automatische inschakelduur",
           "overshoot_protection": "Overshoot Bescherming (met PWM)",
+          "sync_climates_with_mode": "Synchroniseer klimaten met modus",
           "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor",
           "window_minimum_open_time": "Minimale open tijd van het raam"
         },

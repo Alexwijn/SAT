@@ -53,6 +53,7 @@ CONF_DERIVATIVE_TIME_WEIGHT = "derivative_time_weight"
 CONF_CLIMATE_VALVE_OFFSET = "climate_valve_offset"
 CONF_SENSOR_MAX_VALUE_AGE = "sensor_max_value_age"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
+CONF_SYNC_CLIMATES_WITH_MODE = "sync_climates_with_mode"
 CONF_SYNC_CLIMATES_WITH_PRESET = "sync_climates_with_preset"
 CONF_FORCE_PULSE_WIDTH_MODULATION = "force_pulse_width_modulation"
 CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
@@ -107,6 +108,7 @@ OPTIONS_DEFAULTS = {
     CONF_THERMAL_COMFORT: False,
     CONF_HUMIDITY_SENSOR_ENTITY_ID: None,
     CONF_SYNC_WITH_THERMOSTAT: False,
+    CONF_SYNC_CLIMATES_WITH_MODE: True,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 
     CONF_SIMULATED_HEATING: 20,

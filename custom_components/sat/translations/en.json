@@ -211,6 +211,7 @@
       "system_configuration": {
         "data": {
           "automatic_duty_cycle": "Automatic duty cycle",
+          "sync_climates_with_mode": "Synchronize climates with mode",
           "overshoot_protection": "Overshoot Protection (with PWM)",
           "sensor_max_value_age": "Temperature Sensor maximum value age",
           "window_minimum_open_time": "Minimum time for window to be open"
