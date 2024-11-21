@@ -17,26 +17,26 @@ from homeassistant.helpers.event import async_track_state_change_event
 from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
 
 # Sensors
-DATA_FLAME_ACTIVE = "flame_active"
-DATA_REL_MOD_LEVEL = "modulation"
-DATA_SLAVE_MEMBERID = "boiler_member_id"
-DATA_BOILER_TEMPERATURE = "boiler_temperature"
-DATA_RETURN_TEMPERATURE = "return_temperature"
+DATA_FLAME_ACTIVE = "flame_on"
+DATA_REL_MOD_LEVEL = "rel_mod_level"
+DATA_SLAVE_MEMBERID = "device_id"
+DATA_BOILER_TEMPERATURE = "t_boiler"
+DATA_RETURN_TEMPERATURE = "t_ret"
 DATA_BOILER_CAPACITY = "max_capacity"
 DATA_REL_MIN_MOD_LEVEL = "min_mod_level"
 
-DATA_DHW_SETPOINT_MINIMUM = "dhw_min_temperature"
-DATA_DHW_SETPOINT_MAXIMUM = "dhw_max_temperature"
+DATA_DHW_SETPOINT_MINIMUM = "t_dhw_set_lb"
+DATA_DHW_SETPOINT_MAXIMUM = "t_dhw_set_ub"
 
 # Switch
-DATA_DHW_ENABLE = "dhw_enabled"
-DATA_CENTRAL_HEATING = "ch_enabled"
+DATA_DHW_ENABLE = "dhw_enable"
+DATA_CENTRAL_HEATING = "ch_enable"
 
 # Number
-DATA_DHW_SETPOINT = "dhw_setpoint_temperature"
-DATA_CONTROL_SETPOINT = "ch_setpoint_temperature"
-DATA_MAX_CH_SETPOINT = "max_ch_setpoint_temperature"
-DATA_MAX_REL_MOD_LEVEL_SETTING = "max_modulation_level"
+DATA_DHW_SETPOINT = "t_dhw_set"
+DATA_CONTROL_SETPOINT = "t_set"
+DATA_MAX_CH_SETPOINT = "max_t_set"
+DATA_MAX_REL_MOD_LEVEL_SETTING = "max_rel_mod_level"
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
