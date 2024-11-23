@@ -3,6 +3,7 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
+from .boiler_state import BoilerState
 from .const import HEATER_STARTUP_TIMEFRAME
 from .heating_curve import HeatingCurve
 
@@ -45,7 +46,7 @@ class PWM:
         self._state = PWMState.IDLE
         self._last_update = monotonic()
 
-    async def update(self, requested_setpoint: float, boiler_temperature: float) -> None:
+    async def update(self, requested_setpoint: float, boiler: BoilerState) -> None:
         """Update the PWM state based on the output of a PID controller."""
         if not self._heating_curve.value:
             self._state = PWMState.IDLE
@@ -56,29 +57,29 @@ class PWM:
         if requested_setpoint is None:
             self._state = PWMState.IDLE
             self._last_update = monotonic()
-            self._last_boiler_temperature = boiler_temperature
+            self._last_boiler_temperature = boiler.temperature
             _LOGGER.debug("Turned off PWM due since we do not have a valid requested setpoint.")
             return
 
-        if boiler_temperature is not None and self._last_boiler_temperature is None:
-            self._last_boiler_temperature = boiler_temperature
+        if boiler.temperature is not None and self._last_boiler_temperature is None:
+            self._last_boiler_temperature = boiler.temperature
 
         elapsed = monotonic() - self._last_update
-        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint)
+        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler)
 
         _LOGGER.debug("Calculated duty cycle %.0f seconds ON", self._duty_cycle[0])
         _LOGGER.debug("Calculated duty cycle %.0f seconds OFF", self._duty_cycle[1])
 
-        if self._state == PWMState.ON and boiler_temperature is not None:
+        if self._state == PWMState.ON and boiler.temperature is not None:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
-                self._last_boiler_temperature = self._alpha * boiler_temperature + (1 - self._alpha) * self._last_boiler_temperature
+                self._last_boiler_temperature = self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature
             else:
-                self._last_boiler_temperature = boiler_temperature
+                self._last_boiler_temperature = boiler.temperature
 
         if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             self._state = PWMState.ON
             self._last_update = monotonic()
-            self._last_boiler_temperature = boiler_temperature or 0
+            self._last_boiler_temperature = boiler.temperature or 0
             _LOGGER.debug("Starting duty cycle.")
             return
 
@@ -90,7 +91,7 @@ class PWM:
 
         _LOGGER.debug("Cycle time elapsed %.0f seconds in %s", elapsed, self._state)
 
-    def _calculate_duty_cycle(self, requested_setpoint: float) -> Optional[Tuple[int, int]]:
+    def _calculate_duty_cycle(self, requested_setpoint: float, boiler: BoilerState) -> Optional[Tuple[int, int]]:
         """Calculates the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         boiler_temperature = self._last_boiler_temperature or requested_setpoint
         base_offset = self._heating_curve.base_offset
@@ -109,8 +110,8 @@ class PWM:
         if not self._automatic_duty_cycle:
             return int(self._last_duty_cycle_percentage * self._max_cycle_time), int((1 - self._last_duty_cycle_percentage) * self._max_cycle_time)
 
-        if self._last_duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE:
-            return 0, 1800
+        if self._last_duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE and boiler.flame_active and not boiler.hot_water_active:
+            return 180, 1620
 
         if self._last_duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
             on_time = ON_TIME_20_PERCENT
@@ -132,6 +133,8 @@ class PWM:
 
         if self._last_duty_cycle_percentage > MAX_DUTY_CYCLE_PERCENTAGE:
             return 1800, 0
+
+        return 0, 1800
 
     @property
     def state(self) -> PWMState:
