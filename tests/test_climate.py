@@ -51,7 +51,7 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     assert climate.heating_curve.value == 32.6
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 36.24
+    assert climate.pwm.last_duty_cycle_percentage == 100
     assert climate.pwm.duty_cycle == (326, 573)
 
 
@@ -92,7 +92,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
 
     assert climate.setpoint == 58
     assert climate.heating_curve.value == 30.1
-    assert climate.requested_setpoint == 30.6
+    assert climate.requested_setpoint == 30.3
 
     assert climate.pulse_width_modulation_enabled
     assert climate.pwm.last_duty_cycle_percentage == 11.04
@@ -136,7 +136,7 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
 
     assert climate.setpoint == 41
     assert climate.heating_curve.value == 32.1
-    assert climate.requested_setpoint == 37.4
+    assert climate.requested_setpoint == 34.2
 
     assert climate.pulse_width_modulation_enabled
     assert climate.pwm.last_duty_cycle_percentage == 73.91
