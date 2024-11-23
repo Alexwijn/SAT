@@ -72,9 +72,6 @@ class HeatingCurve:
 
     def _get_heating_curve_value(self, target_temperature: float, outside_temperature: float) -> float:
         """Calculate the heating curve value based on the current outside temperature"""
-        if self._version == 1:
-            return target_temperature - (0.01 * outside_temperature ** 2) - (0.8 * outside_temperature)
-
         if self._version == 2:
             return 2.72 * (target_temperature - 20) + 0.03 * (outside_temperature - 20) ** 2 - 1.2 * (outside_temperature - 20)
 

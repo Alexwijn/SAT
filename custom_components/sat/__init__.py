@@ -88,33 +88,33 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
         new_options = {**_entry.options}
 
         if _entry.version < 2:
-            if not _entry.data.get(CONF_MINIMUM_SETPOINT):
+            if not _entry.data.get("minimum_setpoint"):
                 # Legacy Store
                 store = Store(_hass, 1, DOMAIN)
-                new_data[CONF_MINIMUM_SETPOINT] = MINIMUM_SETPOINT
+                new_data["minimum_setpoint"] = 10
 
                 if (data := await store.async_load()) and (overshoot_protection_value := data.get("overshoot_protection_value")):
-                    new_data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
+                    new_data["minimum_setpoint"] = overshoot_protection_value
 
             if _entry.options.get("heating_system") == "underfloor":
-                new_data[CONF_HEATING_SYSTEM] = HEATING_SYSTEM_UNDERFLOOR
+                new_data["heating_system"] = "underfloor"
             else:
-                new_data[CONF_HEATING_SYSTEM] = HEATING_SYSTEM_RADIATORS
+                new_data["heating_system"] = "radiators"
 
-            if not _entry.data.get(CONF_MAXIMUM_SETPOINT):
-                new_data[CONF_MAXIMUM_SETPOINT] = 55
+            if not _entry.data.get("maximum_setpoint"):
+                new_data["maximum_setpoint"] = 55
 
                 if _entry.options.get("heating_system") == "underfloor":
-                    new_data[CONF_MAXIMUM_SETPOINT] = 50
+                    new_data["maximum_setpoint"] = 50
 
                 if _entry.options.get("heating_system") == "radiator_low_temperatures":
-                    new_data[CONF_MAXIMUM_SETPOINT] = 55
+                    new_data["maximum_setpoint"] = 55
 
                 if _entry.options.get("heating_system") == "radiator_medium_temperatures":
-                    new_data[CONF_MAXIMUM_SETPOINT] = 65
+                    new_data["maximum_setpoint"] = 65
 
                 if _entry.options.get("heating_system") == "radiator_high_temperatures":
-                    new_data[CONF_MAXIMUM_SETPOINT] = 75
+                    new_data["maximum_setpoint"] = 75
 
         if _entry.version < 3:
             if main_climates := _entry.options.get("main_climates"):
@@ -122,16 +122,16 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
                 new_options.pop("main_climates")
 
             if secondary_climates := _entry.options.get("climates"):
-                new_data[CONF_SECONDARY_CLIMATES] = secondary_climates
+                new_data["secondary_climates"] = secondary_climates
                 new_options.pop("climates")
 
             if sync_with_thermostat := _entry.options.get("sync_with_thermostat"):
-                new_data[CONF_SYNC_WITH_THERMOSTAT] = sync_with_thermostat
+                new_data["sync_with_thermostat"] = sync_with_thermostat
                 new_options.pop("sync_with_thermostat")
 
         if _entry.version < 4:
             if _entry.data.get("window_sensor") is not None:
-                new_data[CONF_WINDOW_SENSORS] = [_entry.data.get("window_sensor")]
+                new_data["window_sensors"] = [_entry.data.get("window_sensor")]
                 del new_options["window_sensor"]
 
         if _entry.version < 5:
@@ -139,11 +139,11 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
                 new_data[CONF_OVERSHOOT_PROTECTION] = _entry.options.get("overshoot_protection")
                 del new_options["overshoot_protection"]
 
-        if _entry.version < 6:
-            new_options[CONF_HEATING_CURVE_VERSION] = 1
-
         if _entry.version < 7:
-            new_options[CONF_PID_CONTROLLER_VERSION] = 1
+            new_options["pid_controller_version"] = 1
+
+        if _entry.version < 8 and _entry.options.get("heating_curve_version") < 2:
+            new_options["heating_curve_version"] = 3
 
         _entry.version = SatFlowHandler.VERSION
         _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)
