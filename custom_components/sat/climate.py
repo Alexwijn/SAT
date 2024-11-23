@@ -36,6 +36,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from .boiler_state import BoilerState
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
@@ -873,7 +874,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self._calculated_setpoint, self._coordinator.boiler_temperature)
+            boiler_state = BoilerState(
+                flame_active=self._coordinator.flame_active,
+                device_active=self._coordinator.device_active,
+                hot_water_active=self._coordinator.hot_water_active,
+                temperature=self._coordinator.filtered_boiler_temperature
+            )
+
+            await self.pwm.update(self._calculated_setpoint, boiler_state)
         else:
             self.pwm.reset()
 
