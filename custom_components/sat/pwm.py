@@ -110,8 +110,11 @@ class PWM:
         if not self._automatic_duty_cycle:
             return int(self._last_duty_cycle_percentage * self._max_cycle_time), int((1 - self._last_duty_cycle_percentage) * self._max_cycle_time)
 
-        if self._last_duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE and boiler.flame_active and not boiler.hot_water_active:
-            return 180, 1620
+        if self._last_duty_cycle_percentage < MIN_DUTY_CYCLE_PERCENTAGE:
+            if boiler.flame_active and not boiler.hot_water_active:
+                return 180, 1620
+
+            return 0, 1800
 
         if self._last_duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
             on_time = ON_TIME_20_PERCENT
@@ -133,8 +136,6 @@ class PWM:
 
         if self._last_duty_cycle_percentage > MAX_DUTY_CYCLE_PERCENTAGE:
             return 1800, 0
-
-        return 0, 1800
 
     @property
     def state(self) -> PWMState:
