@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Mapping, Any, Optional
 
-from homeassistant.components.climate import HVACMode
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -255,10 +254,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         """Control the heating loop for the device."""
-        if climate is not None and climate.hvac_mode == HVACMode.OFF and self.device_active:
-            # Send out a new command to turn off the device
-            await self.async_set_heater_state(DeviceState.OFF)
-
         current_time = datetime.now()
 
         # Make sure we have valid value

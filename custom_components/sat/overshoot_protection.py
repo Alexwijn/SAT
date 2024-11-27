@@ -53,8 +53,6 @@ class OvershootProtection:
         previous_average_temperature = float(self._coordinator.boiler_temperature)
 
         while True:
-            await self._coordinator.async_set_heater_state(DeviceState.ON)
-
             current_temperature = float(self._coordinator.boiler_temperature)
             average_temperature, error_value = self._calculate_exponential_moving_average(previous_average_temperature, current_temperature)
 
@@ -70,8 +68,6 @@ class OvershootProtection:
         previous_average_value = float(self._coordinator.relative_modulation_value)
 
         while True:
-            await self._coordinator.async_set_heater_state(DeviceState.ON)
-
             current_value = float(self._coordinator.relative_modulation_value)
             average_value, error_value = self._calculate_exponential_moving_average(previous_average_value, current_value)
 
@@ -94,6 +90,7 @@ class OvershootProtection:
         return average_value, error_value
 
     async def _trigger_heating_cycle(self) -> None:
+        await self._coordinator.async_set_heater_state(DeviceState.ON)
         await self._coordinator.async_set_control_setpoint(self._setpoint)
         await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MOD)
         await asyncio.sleep(SLEEP_INTERVAL)
