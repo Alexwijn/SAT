@@ -32,9 +32,10 @@ class OvershootProtection:
             relative_modulation_value = await asyncio.wait_for(self._wait_for_stable_relative_modulation(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
 
             return self._calculate_overshoot_value(relative_modulation_value)
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as exception:
             _LOGGER.warning("Timed out during overshoot protection calculation")
-            return None
+
+            raise exception
         except asyncio.CancelledError as exception:
             _LOGGER.info("Calculation cancelled, shutting down heating system")
             await self._coordinator.async_set_heater_state(DeviceState.OFF)
