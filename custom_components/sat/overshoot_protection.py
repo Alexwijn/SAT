@@ -22,8 +22,6 @@ class OvershootProtection:
         try:
             _LOGGER.info("Starting overshoot protection calculation")
 
-            await self._coordinator.async_set_heater_state(DeviceState.ON)
-
             # Enforce timeouts to ensure operations do not run indefinitely
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
             await asyncio.wait_for(self._wait_for_stable_temperature(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
@@ -55,6 +53,8 @@ class OvershootProtection:
         previous_average_temperature = float(self._coordinator.boiler_temperature)
 
         while True:
+            await self._coordinator.async_set_heater_state(DeviceState.ON)
+
             current_temperature = float(self._coordinator.boiler_temperature)
             average_temperature, error_value = self._calculate_exponential_moving_average(previous_average_temperature, current_temperature)
 
@@ -70,6 +70,8 @@ class OvershootProtection:
         previous_average_value = float(self._coordinator.relative_modulation_value)
 
         while True:
+            await self._coordinator.async_set_heater_state(DeviceState.ON)
+
             current_value = float(self._coordinator.relative_modulation_value)
             average_value, error_value = self._calculate_exponential_moving_average(previous_average_value, current_value)
 
