@@ -938,7 +938,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
-            await self.async_set_heater_state(DeviceState.ON)
         elif hvac_mode == HVACMode.OFF:
             self._hvac_mode = HVACMode.OFF
             await self.async_set_heater_state(DeviceState.OFF)
