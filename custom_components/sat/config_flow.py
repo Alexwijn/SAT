@@ -7,7 +7,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
-from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
+from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, ATTR_HVAC_MODE, HVACMode, SERVICE_SET_HVAC_MODE
 from homeassistant.components.dhcp import DhcpServiceInfo
 from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
 from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
@@ -15,7 +15,7 @@ from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDevic
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
+from homeassistant.const import MAJOR_VERSION, MINOR_VERSION, ATTR_ENTITY_ID
 from homeassistant.core import callback
 from homeassistant.helpers import selector, device_registry, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode
@@ -40,6 +40,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     MINOR_VERSION = 0
 
     calibration = None
+    previous_hvac_mode = None
     overshoot_protection_value = None
 
     def __init__(self):
@@ -333,6 +334,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_calibrate(self, _user_input: dict[str, Any] | None = None):
         coordinator = await self.async_create_coordinator()
 
+        # Let's see if we have already been configured before
+        entities = entity_registry.async_get(self.hass)
+        device_name = self.config_entry.data.get(CONF_NAME)
+        climate_id = entities.async_get_entity_id(CLIMATE_DOMAIN, DOMAIN, device_name.lower())
+
         async def start_calibration():
             try:
                 overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
@@ -355,6 +361,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 start_calibration()
             )
 
+            # Make sure to turn off the existing climate if we found one
+            if climate_id is not None:
+                self.previous_hvac_mode = self.hass.states.get(climate_id).state
+                data = {ATTR_ENTITY_ID: climate_id, ATTR_HVAC_MODE: HVACMode.OFF}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+
             return self.async_show_progress(
                 step_id="calibrate",
                 progress_task=self.calibration,
@@ -370,6 +382,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         self.calibration = None
         self.overshoot_protection_value = None
+
+        # Make sure to restore the mode after we are done
+        if climate_id is not None:
+            data = {ATTR_ENTITY_ID: climate_id, ATTR_HVAC_MODE: self.previous_hvac_mode}
+            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
         return self.async_show_progress_done(next_step_id="calibrated")
 
