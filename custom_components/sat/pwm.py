@@ -9,12 +9,6 @@ from .heating_curve import HeatingCurve
 
 _LOGGER = logging.getLogger(__name__)
 
-DUTY_CYCLE_20_PERCENT = 0.2
-DUTY_CYCLE_80_PERCENT = 0.8
-
-ON_TIME_20_PERCENT = 180
-ON_TIME_80_PERCENT = 900
-
 
 class PWMState(str, Enum):
     ON = "on"
@@ -38,12 +32,12 @@ class PWM:
 
         # Timing thresholds for duty cycle management
         self._on_time_lower_threshold = 180
-        self._on_time_higher_threshold = 3600 / self._max_cycles
-        self._on_time_max_threshold = self._on_time_higher_threshold * 2
+        self._on_time_upper_threshold = 3600 / self._max_cycles
+        self._on_time_max_threshold = self._on_time_upper_threshold * 2
 
         # Duty cycle percentage thresholds
-        self._duty_cycle_lower_threshold = self._on_time_lower_threshold / self._on_time_higher_threshold
-        self._duty_cycle_max_threshold = 1 - self._duty_cycle_lower_threshold
+        self._duty_cycle_lower_threshold = self._on_time_lower_threshold / self._on_time_upper_threshold
+        self._duty_cycle_upper_threshold = 1 - self._duty_cycle_lower_threshold
         self._min_duty_cycle_percentage = self._duty_cycle_lower_threshold / 2
         self._max_duty_cycle_percentage = 1 - self._min_duty_cycle_percentage
 
@@ -137,7 +131,7 @@ class PWM:
             return int(on_time), int(off_time)
 
         # Handle special low-duty cycle cases
-        if self._last_duty_cycle_percentage < self._min_duty_cycle_percentage:
+        if self._last_duty_cycle_percentage < self._duty_cycle_lower_threshold:
             if boiler.flame_active and not boiler.hot_water_active:
                 on_time = self._on_time_lower_threshold
                 off_time = self._on_time_max_threshold - self._on_time_lower_threshold
@@ -147,21 +141,21 @@ class PWM:
             return 0, int(self._on_time_max_threshold)
 
         # Map duty cycle ranges to on/off times
-        if self._last_duty_cycle_percentage <= DUTY_CYCLE_20_PERCENT:
-            on_time = ON_TIME_20_PERCENT
-            off_time = (ON_TIME_20_PERCENT / self._last_duty_cycle_percentage) - ON_TIME_20_PERCENT
+        if self._last_duty_cycle_percentage <= self._duty_cycle_lower_threshold:
+            on_time = self._on_time_lower_threshold
+            off_time = (self._on_time_lower_threshold / self._last_duty_cycle_percentage) - self._on_time_lower_threshold
 
             return int(on_time), int(off_time)
 
-        if self._last_duty_cycle_percentage <= DUTY_CYCLE_80_PERCENT:
-            on_time = ON_TIME_80_PERCENT * self._last_duty_cycle_percentage
-            off_time = ON_TIME_80_PERCENT * (1 - self._last_duty_cycle_percentage)
+        if self._last_duty_cycle_percentage <= self._duty_cycle_upper_threshold:
+            on_time = self._on_time_upper_threshold * self._last_duty_cycle_percentage
+            off_time = self._on_time_upper_threshold * (1 - self._last_duty_cycle_percentage)
 
             return int(on_time), int(off_time)
 
         if self._last_duty_cycle_percentage <= self._max_duty_cycle_percentage:
-            on_time = ON_TIME_20_PERCENT / (1 - self._last_duty_cycle_percentage) - ON_TIME_20_PERCENT
-            off_time = ON_TIME_20_PERCENT
+            on_time = self._on_time_lower_threshold / (1 - self._last_duty_cycle_percentage) - self._on_time_lower_threshold
+            off_time = self._on_time_lower_threshold
 
             return int(on_time), int(off_time)
 

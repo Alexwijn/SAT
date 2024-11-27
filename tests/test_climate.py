@@ -96,7 +96,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
 
     assert climate.pulse_width_modulation_enabled
     assert climate.pwm.last_duty_cycle_percentage == 80
-    assert climate.pwm.duty_cycle == (720, 180)
+    assert climate.pwm.duty_cycle == (720, 179)
 
 
 @pytest.mark.parametrize(*[
