@@ -367,6 +367,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 data = {ATTR_ENTITY_ID: climate_id, ATTR_HVAC_MODE: HVACMode.OFF}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
+            # Make sure all climate valves are open
+            for entity_id in self.data.get(CONF_MAIN_CLIMATES, []) + self.data.get(CONF_SECONDARY_CLIMATES, []):
+                data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: HVACMode.HEAT}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+
             return self.async_show_progress(
                 step_id="calibrate",
                 progress_task=self.calibration,
