@@ -16,7 +16,7 @@ class BoilerState:
         :param device_active: Whether the boiler is currently operational.
         :param flame_active: Whether the boiler's flame is ignited.
         :param hot_water_active: Whether the boiler is heating water.
-        :param temperature: The current boiler temperature in degrees Celsius.
+        :param temperature: The current boiler temperature in Celsius.
         """
         self._device_active = device_active
         self._flame_active = flame_active

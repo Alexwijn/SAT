@@ -80,12 +80,13 @@ def create_heating_curve_controller(config_data, config_options) -> HeatingCurve
 def create_pwm_controller(heating_curve: HeatingCurve, config_data, config_options) -> PWM | None:
     """Create and return a PWM controller instance with the given configuration options."""
     # Extract the configuration options
+    max_duty_cycles = int(config_options.get(CONF_CYCLES_PER_HOUR))
     automatic_duty_cycle = bool(config_options.get(CONF_AUTOMATIC_DUTY_CYCLE))
     max_cycle_time = int(convert_time_str_to_seconds(config_options.get(CONF_DUTY_CYCLE)))
     force = bool(config_data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
     # Return a new PWM controller instance with the given configuration options
-    return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, force=force)
+    return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, max_cycles=max_duty_cycles, force=force)
 
 
 def create_minimum_setpoint_controller(config_data, config_options) -> MinimumSetpoint:

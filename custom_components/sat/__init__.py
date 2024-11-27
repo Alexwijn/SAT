@@ -146,8 +146,14 @@ async def async_migrate_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool
             if _entry.options.get("heating_curve_version") is not None and int(_entry.options.get("heating_curve_version")) < 2:
                 new_options["heating_curve_version"] = 3
 
-        _entry.version = SatFlowHandler.VERSION
-        _hass.config_entries.async_update_entry(_entry, data=new_data, options=new_options)
+        if _entry.version < 9:
+            if _entry.data.get("heating_system") == "heat_pump":
+                new_options["cycles_per_hour"] = 2
+
+            if _entry.data.get("heating_system") == "radiators":
+                new_options["cycles_per_hour"] = 3
+
+        _hass.config_entries.async_update_entry(_entry, version=SatFlowHandler.VERSION, data=new_data, options=new_options)
 
     _LOGGER.info("Migration to version %s successful", _entry.version)
 

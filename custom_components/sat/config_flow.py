@@ -36,7 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 8
+    VERSION = 9
     MINOR_VERSION = 0
 
     calibration = None
@@ -564,14 +564,33 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         options = await self.get_options()
 
+        schema = {
+            vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
+            vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
+        }
+
+        if options.get(CONF_HEATING_SYSTEM) == HEATING_SYSTEM_HEAT_PUMP:
+            schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value="2", label="Normal (2x per hour)"),
+                    selector.SelectOptionDict(value="3", label="High (3x per hour)"),
+                ])
+            )
+
+        if options.get(CONF_HEATING_SYSTEM) == HEATING_SYSTEM_RADIATORS:
+            schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value="3", label="Normal (3x per hour)"),
+                    selector.SelectOptionDict(value="4", label="High (4x per hour)"),
+                ])
+            )
+
+        schema[vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE])] = selector.TimeSelector()
+        schema[vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME])] = selector.TimeSelector()
+
         return self.async_show_form(
             step_id="system_configuration",
-            data_schema=vol.Schema({
-                vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
-                vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
-                vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE]): selector.TimeSelector(),
-                vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]): selector.TimeSelector(),
-            })
+            data_schema=vol.Schema(schema)
         )
 
     async def async_step_advanced(self, _user_input: dict[str, Any] | None = None):

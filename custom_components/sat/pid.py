@@ -184,7 +184,7 @@ class PID:
         if len(self._errors) < 2:
             return
 
-        # If derivative is disabled, we freeze it
+        # If "derivative" is disabled, we freeze it
         if not self.derivative_enabled:
             return
 

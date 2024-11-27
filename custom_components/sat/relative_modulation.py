@@ -19,7 +19,7 @@ class RelativeModulation:
         """Initialize instance variables"""
         self._heating_system = heating_system  # The heating system that is being controlled
         self._pwm_state = None  # Tracks the current state of the PWM (Pulse Width Modulation) system
-        self._warming_up = False  # Stores data related to the warming up state of the heating system
+        self._warming_up = False  # Stores data related to the warming-up state of the heating system
         self._coordinator = coordinator  # Reference to the data coordinator responsible for system-wide information
 
     async def update(self, warming_up: bool, state: PWMState) -> None:

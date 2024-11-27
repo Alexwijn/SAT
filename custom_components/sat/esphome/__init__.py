@@ -229,7 +229,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         _LOGGER.debug(f"Attempting to find the unique_id of {unique_id}")
         return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, unique_id)
 
-    async def _send_command(self, domain: str, service: str, key: str, payload: dict):
+    async def _send_command(self, domain: str, service: str, _key: str, payload: dict):
         """Helper method to send a command to a specified domain and service."""
         if not self._simulation:
             await self.hass.services.async_call(domain, service, payload, blocking=True)
