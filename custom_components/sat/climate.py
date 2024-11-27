@@ -862,6 +862,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.current_temperature is None or self.target_temperature is None or self.current_outside_temperature is None:
             return
 
+        if self.hvac_mode != HVACMode.HEAT:
+            return
+
         # Control the heating through the coordinator
         await self._coordinator.async_control_heating_loop(self)
 
@@ -903,7 +906,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._minimum_setpoint.calculate(self._coordinator.return_temperature)
 
         # If the setpoint is high and the HVAC is not off, turn on the heater
-        if self._setpoint > MINIMUM_SETPOINT and self.hvac_mode != HVACMode.OFF:
+        if self._setpoint > MINIMUM_SETPOINT:
             await self.async_set_heater_state(DeviceState.ON)
         else:
             await self.async_set_heater_state(DeviceState.OFF)
@@ -935,8 +938,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
+            await self.async_set_heater_state(DeviceState.ON)
         elif hvac_mode == HVACMode.OFF:
             self._hvac_mode = HVACMode.OFF
+            await self.async_set_heater_state(DeviceState.OFF)
         else:
             # If an unsupported mode is passed, log an error message
             _LOGGER.error("Unrecognized hvac mode: %s", hvac_mode)
