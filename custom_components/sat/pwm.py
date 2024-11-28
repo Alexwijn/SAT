@@ -131,7 +131,7 @@ class PWM:
             return int(on_time), int(off_time)
 
         # Handle special low-duty cycle cases
-        if self._last_duty_cycle_percentage < self._duty_cycle_lower_threshold:
+        if self._last_duty_cycle_percentage < self._min_duty_cycle_percentage:
             if boiler.flame_active and not boiler.hot_water_active:
                 on_time = self._on_time_lower_threshold
                 off_time = self._on_time_max_threshold - self._on_time_lower_threshold
