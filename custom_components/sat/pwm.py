@@ -118,7 +118,8 @@ class PWM:
 
         # Calculate duty cycle percentage
         self._last_duty_cycle_percentage = (requested_setpoint - base_offset) / (boiler_temperature - base_offset)
-        self._last_duty_cycle_percentage = min(max(self._last_duty_cycle_percentage, 0), 1)
+        self._last_duty_cycle_percentage = min(self._last_duty_cycle_percentage, 1)
+        self._last_duty_cycle_percentage = max(self._last_duty_cycle_percentage, 0)
 
         _LOGGER.debug("Requested setpoint %.1f", requested_setpoint)
         _LOGGER.debug("Boiler Temperature %.1f", boiler_temperature)
