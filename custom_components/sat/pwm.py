@@ -70,11 +70,12 @@ class PWM:
         if self._first_duty_cycle_start and (monotonic() - self._first_duty_cycle_start) > 3600:
             self._cycles = 0
             self._first_duty_cycle_start = None
+            _LOGGER.debug("Resetting CYCLES to zero, since an hour has passed.")
 
         elapsed = monotonic() - self._last_update
         self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler)
 
-        _LOGGER.debug("Calculated duty cycle %.0f seconds ON, %.0f seconds OFF", self._duty_cycle[0], self._duty_cycle[1])
+        _LOGGER.debug("Calculated duty cycle %.0f seconds ON, %.0f seconds OFF, %d CYCLES this hour.", self._duty_cycle[0], self._duty_cycle[1], self._cycles)
 
         # Update boiler temperature if the heater has just started up
         if self._state == PWMState.ON and boiler.temperature is not None:
