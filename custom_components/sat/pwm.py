@@ -122,7 +122,10 @@ class PWM:
 
         _LOGGER.debug("Requested setpoint %.1f", requested_setpoint)
         _LOGGER.debug("Boiler Temperature %.1f", boiler_temperature)
+
         _LOGGER.debug("Calculated duty cycle %.2f%%", self._last_duty_cycle_percentage * 100)
+        _LOGGER.debug("Calculated duty cycle lower threshold %.2f%%", self._duty_cycle_lower_threshold * 100)
+        _LOGGER.debug("Calculated duty cycle upper threshold %.2f%%", self._duty_cycle_upper_threshold * 100)
 
         # If automatic duty cycle control is disabled
         if not self._automatic_duty_cycle:
