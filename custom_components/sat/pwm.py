@@ -183,7 +183,7 @@ class PWM:
             off_time = self._on_time_upper_threshold * (1 - self._last_duty_cycle_percentage)
 
             _LOGGER.debug(
-                "Mid-range duty cycle, cycles this hour: %d. %d Calculated on_time: %d seconds, off_time: %d seconds.",
+                "Mid-range duty cycle, cycles this hour: %d. Calculated on_time: %d seconds, off_time: %d seconds.",
                 self._cycles, on_time, off_time
             )
 
