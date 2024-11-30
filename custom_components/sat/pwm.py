@@ -64,7 +64,7 @@ class PWM:
             _LOGGER.warning(f"Turned off PWM due to lack of valid {reason}.")
             return
 
-        if boiler.temperature is not None and self._last_boiler_temperature is None:
+        if self._last_boiler_temperature is None:
             self._last_boiler_temperature = boiler.temperature
 
         if self._first_duty_cycle_start and (monotonic() - self._first_duty_cycle_start) > 3600:
@@ -96,7 +96,7 @@ class PWM:
             self._cycles += 1
             self._state = PWMState.ON
             self._last_update = monotonic()
-            self._last_boiler_temperature = boiler.temperature or 0
+            self._last_boiler_temperature = boiler.temperature
             _LOGGER.debug("Starting duty cycle.")
             return
 
@@ -110,7 +110,7 @@ class PWM:
 
     def _calculate_duty_cycle(self, requested_setpoint: float, boiler: BoilerState) -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
-        boiler_temperature = self._last_boiler_temperature or requested_setpoint
+        boiler_temperature = self._last_boiler_temperature
         base_offset = self._heating_curve.base_offset
 
         # Ensure boiler temperature is above the base offset
