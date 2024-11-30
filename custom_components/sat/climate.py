@@ -796,19 +796,35 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def _async_control_setpoint(self, pwm_state: PWMState) -> None:
-        """Control the setpoint of the heating system."""
-        if self.hvac_mode == HVACMode.HEAT:
-            if not self.pulse_width_modulation_enabled or pwm_state == pwm_state.IDLE:
-                _LOGGER.info("Running Normal cycle")
-                self._setpoint = self._calculated_setpoint
-            else:
-                _LOGGER.info(f"Running PWM cycle: {pwm_state}")
-                self._setpoint = self.minimum_setpoint if pwm_state == pwm_state.ON else MINIMUM_SETPOINT
-        else:
+        """Control the setpoint of the heating system based on the current mode and PWM state."""
+
+        # Check if the system is in HEAT mode
+        if self.hvac_mode != HVACMode.HEAT:
+            # If not in HEAT mode, set to minimum setpoint
             self._calculated_setpoint = None
             self._setpoint = MINIMUM_SETPOINT
+            _LOGGER.info("HVAC mode is not HEAT. Setting setpoint to minimum: %.1f°C", MINIMUM_SETPOINT)
 
+        elif not self.pulse_width_modulation_enabled or pwm_state == PWMState.IDLE:
+            # Normal cycle without PWM
+            _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
+            _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
+            self._setpoint = self._calculated_setpoint
+
+        else:
+            # PWM is enabled and actively controlling the cycle
+            _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
+
+            if pwm_state == PWMState.ON and self.max_error > -DEADBAND:
+                self._setpoint = self.minimum_setpoint
+                _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self.minimum_setpoint)
+            else:
+                self._setpoint = MINIMUM_SETPOINT
+                _LOGGER.debug("Setting setpoint to absolute minimum: %.1f°C", MINIMUM_SETPOINT)
+
+        # Apply the setpoint using the coordinator
         await self._coordinator.async_set_control_setpoint(self._setpoint)
+        _LOGGER.info("Control setpoint has been updated to: %.1f°C", self._setpoint)
 
     async def _async_control_relative_modulation(self) -> None:
         """Control the relative modulation value based on the conditions"""
