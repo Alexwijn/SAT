@@ -881,7 +881,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 flame_active=self._coordinator.flame_active,
                 device_active=self._coordinator.device_active,
                 hot_water_active=self._coordinator.hot_water_active,
-                temperature=self._coordinator.filtered_boiler_temperature
+                temperature=self._coordinator.boiler_temperature
             )
 
             await self.pwm.update(self._calculated_setpoint, boiler_state)
