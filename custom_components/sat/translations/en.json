@@ -203,6 +203,7 @@
           "comfort_temperature": "Comfort Temperature",
           "home_temperature": "Home Temperature",
           "sleep_temperature": "Sleep Temperature",
+          "sync_with_thermostat": "Synchronize with thermostat attached to the boiler",
           "sync_climates_with_preset": "Synchronize climates with preset (sleep / away / activity)"
         },
         "description": "Predefined temperature settings for different scenarios or activities.",
