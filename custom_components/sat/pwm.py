@@ -172,7 +172,7 @@ class PWM:
             off_time = (self._on_time_lower_threshold / self._last_duty_cycle_percentage) - self._on_time_lower_threshold
 
             _LOGGER.debug(
-                "Low duty cycle range, cycles this hour: %d Calculated on_time: %d seconds, off_time: %d seconds.",
+                "Low duty cycle range, cycles this hour: %d. Calculated on_time: %d seconds, off_time: %d seconds.",
                 self._cycles, on_time, off_time
             )
 
