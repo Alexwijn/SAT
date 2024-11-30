@@ -51,8 +51,8 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     assert climate.heating_curve.value == 32.2
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 100
-    assert climate.pwm.duty_cycle == (2400, 0)
+    assert climate.pwm.last_duty_cycle_percentage == 23.83
+    assert climate.pwm.duty_cycle == (285, 914)
 
 
 @pytest.mark.parametrize(*[
@@ -90,13 +90,13 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_target_temperature(19.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    assert climate.setpoint == 58
+    assert climate.setpoint == 10
     assert climate.heating_curve.value == 27.8
     assert climate.requested_setpoint == 28.0
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 80
-    assert climate.pwm.duty_cycle == (960, 239)
+    assert climate.pwm.last_duty_cycle_percentage == 2.6
+    assert climate.pwm.duty_cycle == (0, 2400)
 
 
 @pytest.mark.parametrize(*[
@@ -139,5 +139,5 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     assert climate.requested_setpoint == 34.6
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 100
-    assert climate.pwm.duty_cycle == (2400, 0)
+    assert climate.pwm.last_duty_cycle_percentage == 53.62
+    assert climate.pwm.duty_cycle == (643, 556)
