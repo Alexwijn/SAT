@@ -62,13 +62,13 @@ class PWM:
 
     async def update(self, requested_setpoint: float, boiler: BoilerState) -> None:
         """Update the PWM state based on the output of a PID controller."""
-        if not self._heating_curve.value or requested_setpoint is None:
+        if not self._heating_curve.value or requested_setpoint is None or boiler.temperature is None:
             self._state = PWMState.IDLE
             self._last_update = monotonic()
             self._last_boiler_temperature = boiler.temperature
 
-            reason = "missing heating curve value" if not self._heating_curve.value else "missing requested setpoint"
-            _LOGGER.warning("PWM turned off due to %s.", reason)
+            _LOGGER.warning("PWM turned off due missing values.")
+
             return
 
         if self._last_boiler_temperature is None:
@@ -92,7 +92,7 @@ class PWM:
         if self._state == PWMState.ON:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
                 self._last_boiler_temperature = (
-                    self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature
+                        self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature
                 )
 
                 _LOGGER.debug("Updated last boiler temperature with weighted average during startup phase.")
