@@ -83,11 +83,6 @@ class PWM:
         elapsed = monotonic() - self._last_update
         self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler)
 
-        _LOGGER.debug(
-            "Duty cycle calculated: %.0f seconds ON, %.0f seconds OFF, CYCLES this hour: %d",
-            self._duty_cycle[0], self._duty_cycle[1], self._cycles
-        )
-
         # Update boiler temperature if heater has just started up
         if self._state == PWMState.ON:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
@@ -177,8 +172,8 @@ class PWM:
             off_time = (self._on_time_lower_threshold / self._last_duty_cycle_percentage) - self._on_time_lower_threshold
 
             _LOGGER.debug(
-                "Low duty cycle range. Calculated on_time: %d seconds, off_time: %d seconds.",
-                on_time, off_time
+                "Low duty cycle range, cycles this hour: %d Calculated on_time: %d seconds, off_time: %d seconds.",
+                self._cycles, on_time, off_time
             )
 
             return int(on_time), int(off_time)
@@ -188,8 +183,8 @@ class PWM:
             off_time = self._on_time_upper_threshold * (1 - self._last_duty_cycle_percentage)
 
             _LOGGER.debug(
-                "Mid-range duty cycle. Calculated on_time: %d seconds, off_time: %d seconds.",
-                on_time, off_time
+                "Mid-range duty cycle, cycles this hour: %d. %d Calculated on_time: %d seconds, off_time: %d seconds.",
+                self._cycles, on_time, off_time
             )
 
             return int(on_time), int(off_time)
@@ -199,8 +194,8 @@ class PWM:
             off_time = self._on_time_lower_threshold
 
             _LOGGER.debug(
-                "High duty cycle range. Calculated on_time: %d seconds, off_time: %d seconds.",
-                on_time, off_time
+                "High duty cycle range, cycles this hour: %d. Calculated on_time: %d seconds, off_time: %d seconds.",
+                self._cycles, on_time, off_time
             )
 
             return int(on_time), int(off_time)
