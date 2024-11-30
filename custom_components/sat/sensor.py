@@ -54,7 +54,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Boiler Current Power {self._config_entry.data.get(CONF_NAME)} (Boiler)"
+        return f"Current Power {self._config_entry.data.get(CONF_NAME)} (Boiler)"
 
     @property
     def device_class(self):
@@ -95,7 +95,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Boiler Current Consumption {self._config_entry.data.get(CONF_NAME)} (Boiler)"
+        return f"Current Consumption {self._config_entry.data.get(CONF_NAME)} (Boiler)"
 
     @property
     def device_class(self):
