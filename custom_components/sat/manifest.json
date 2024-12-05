@@ -18,9 +18,9 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Alexwijn/SAT/issues",
   "mqtt": [
+    "ems-esp/+",
     "OTGW/value/+"
   ],
-
   "requirements": [
     "pyotgw==2.1.3"
   ],

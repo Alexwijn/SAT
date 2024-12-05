@@ -1,4 +1,4 @@
-from custom_components.sat.manufacturer import Manufacturer
+from ..manufacturer import Manufacturer
 
 
 class Ideal(Manufacturer):

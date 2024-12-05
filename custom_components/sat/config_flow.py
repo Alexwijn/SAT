@@ -36,7 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 9
+    VERSION = 10
     MINOR_VERSION = 0
 
     calibration = None
@@ -84,23 +84,34 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # abort if we already have exactly this gateway id/host
         # reload the integration if the host got updated
         await self.async_set_unique_id(discovery_info.hostname)
-        self._abort_if_unique_id_configured(updates=self.data, reload_on_update=True)
+        self._abort_if_unique_id_configured(updates=self.data)
 
         return await self.async_step_serial()
 
     async def async_step_mqtt(self, discovery_info: MqttServiceInfo):
         """Handle dhcp discovery."""
+        device_id = "unknown"
+        device_name = "unknown"
+
+        if discovery_info.topic[:5] == "OTGW/":
+            device_id = discovery_info.topic[11:]
+            device_name = "OTGW"
+
+        if discovery_info.topic[:8] == "ems-esp/":
+            device_id = "ems-esp"
+            device_name = "EMS-ESP"
+
         device = device_registry.async_get(self.hass).async_get_device(
-            {(MQTT_DOMAIN, discovery_info.topic[11:])}
+            {(MQTT_DOMAIN, device_id)}
         )
 
-        _LOGGER.debug("Discovered OTGW at [mqtt://%s]", discovery_info.topic)
-        self.data[CONF_DEVICE] = device.id
+        _LOGGER.debug("Discovered %s at [mqtt://%s]", device_name, discovery_info.topic)
+        self.data[CONF_DEVICE] = device_id
 
         # abort if we already have exactly this gateway id/host
         # reload the integration if the host got updated
         await self.async_set_unique_id(device.id)
-        self._abort_if_unique_id_configured(updates=self.data, reload_on_update=True)
+        self._abort_if_unique_id_configured(updates=self.data)
 
         return await self.async_step_mosquitto()
 
@@ -109,7 +120,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if _user_input is not None:
             self.data.update(_user_input)
-            self.data[CONF_MODE] = MODE_MQTT
+            self.data[CONF_MODE] = MODE_MQTT_OPENTHERM
 
             if not await mqtt.async_wait_for_mqtt_client(self.hass):
                 self.errors["base"] = "mqtt_component"
@@ -124,9 +135,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
-                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
-                    selector.DeviceSelectorConfig(model="otgw-nodo")
-                ),
+                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE, "otgw-XXXXXXXXXXXX")): str,
             }),
         )
 
@@ -239,7 +248,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
-            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
+            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()
@@ -628,7 +637,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool
         }
 
-        if options.get(CONF_MODE) in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
+        if options.get(CONF_MODE) in [MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:
             schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
 
             schema[vol.Required(CONF_MINIMUM_CONSUMPTION, default=options[CONF_MINIMUM_CONSUMPTION])] = selector.NumberSelector(

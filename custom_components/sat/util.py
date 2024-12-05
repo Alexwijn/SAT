@@ -1,4 +1,6 @@
 from re import sub
+from types import MappingProxyType
+from typing import Any
 
 from homeassistant.util import dt
 
@@ -77,7 +79,7 @@ def create_heating_curve_controller(config_data, config_options) -> HeatingCurve
     return HeatingCurve(heating_system=heating_system, coefficient=coefficient, version=version)
 
 
-def create_pwm_controller(heating_curve: HeatingCurve, config_data, config_options) -> PWM | None:
+def create_pwm_controller(heating_curve: HeatingCurve, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> PWM | None:
     """Create and return a PWM controller instance with the given configuration options."""
     # Extract the configuration options
     max_duty_cycles = int(config_options.get(CONF_CYCLES_PER_HOUR))
@@ -96,8 +98,16 @@ def create_minimum_setpoint_controller(config_data, config_options) -> MinimumSe
     return MinimumSetpoint(configured_minimum_setpoint=minimum_setpoint, adjustment_factor=adjustment_factor)
 
 
-def snake_case(s):
+def snake_case(value: str):
     return '_'.join(
         sub('([A-Z][a-z]+)', r' \1',
             sub('([A-Z]+)', r' \1',
-                s.replace('-', ' '))).split()).lower()
+                value.replace('-', ' '))).split()).lower()
+
+
+def float_value(value) -> float:
+    """Helper method to convert a value to float, handling possible errors."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0

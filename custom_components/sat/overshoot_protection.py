@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from custom_components.sat.const import *
-from custom_components.sat.coordinator import DeviceState, SatDataUpdateCoordinator
+from .const import OVERSHOOT_PROTECTION_SETPOINT, MINIMUM_SETPOINT, DEADBAND, MAXIMUM_RELATIVE_MOD
+from .coordinator import DeviceState, SatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 

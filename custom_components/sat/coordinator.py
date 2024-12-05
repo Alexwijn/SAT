@@ -50,13 +50,17 @@ class SatDataUpdateCoordinatorFactory:
             from .esphome import SatEspHomeCoordinator
             return SatEspHomeCoordinator(hass=hass, device_id=device, data=data, options=options)
 
-        if mode == MODE_MQTT:
-            from .mqtt import SatMqttCoordinator
-            return await SatMqttCoordinator(hass=hass, device_id=device, data=data, options=options).boot()
+        if mode == MODE_MQTT_EMS:
+            from .mqtt.ems import SatEmsMqttCoordinator
+            return SatEmsMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
+
+        if mode == MODE_MQTT_OPENTHERM:
+            from .mqtt.opentherm import SatOpenThermMqttCoordinator
+            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
 
         if mode == MODE_SERIAL:
             from .serial import SatSerialCoordinator
-            return await SatSerialCoordinator(hass=hass, port=device, data=data, options=options).async_connect()
+            return SatSerialCoordinator(hass=hass, port=device, data=data, options=options)
 
         raise Exception(f'Invalid mode[{mode}]')
 

@@ -1,8 +1,8 @@
 from enum import Enum
 
-from custom_components.sat import MINIMUM_SETPOINT, HEATING_SYSTEM_HEAT_PUMP
-from custom_components.sat.coordinator import SatDataUpdateCoordinator
-from custom_components.sat.pwm import PWMState
+from . import MINIMUM_SETPOINT, HEATING_SYSTEM_HEAT_PUMP
+from .coordinator import SatDataUpdateCoordinator
+from .pwm import PWMState
 
 
 # Enum to represent different states of relative modulation
