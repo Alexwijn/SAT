@@ -120,7 +120,15 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if _user_input is not None:
             self.data.update(_user_input)
-            self.data[CONF_MODE] = MODE_MQTT_OPENTHERM
+
+            if self.data[CONF_TYPE] == MODE_MQTT_OPENTHERM:
+                self.data[CONF_MODE] = MODE_MQTT_OPENTHERM
+
+            if self.data[CONF_TYPE] == MODE_MQTT_EMS:
+                self.data[CONF_MODE] = MODE_MQTT_EMS
+
+            # Since we do not require this to be stored
+            del self.data[CONF_TYPE]
 
             if not await mqtt.async_wait_for_mqtt_client(self.hass):
                 self.errors["base"] = "mqtt_component"
@@ -133,6 +141,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             errors=self.errors,
             data_schema=vol.Schema({
+                vol.Required(CONF_TYPE): selector.SelectSelector(
+                    selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                        selector.SelectOptionDict(value=MODE_MQTT_OPENTHERM, label="OpenTherm Gateway"),
+                        selector.SelectOptionDict(value=MODE_MQTT_EMS, label="EMS-ESP"),
+                    ])
+                ),
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
                 vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE, "otgw-XXXXXXXXXXXX")): str,
