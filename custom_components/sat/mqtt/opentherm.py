@@ -38,6 +38,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
     def supports_hot_water_setpoint_management(self):
         return True
 
+    @property
     def supports_maximum_setpoint_management(self):
         return True
 

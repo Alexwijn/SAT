@@ -71,6 +71,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
 
         return self.config.supports_hot_water_setpoint_management
 
+    @property
     def supports_maximum_setpoint_management(self):
         if self.config is None:
             return super().supports_maximum_setpoint_management
