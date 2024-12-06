@@ -148,7 +148,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_max_setpoint(value)
 
     def _get_topic_for_subscription(self, key: str) -> str:
-        return f"{self._topic}/{self.device_id}/{key}"
+        return f"{self._topic}/{key}"
 
     def _get_topic_for_publishing(self) -> str:
-        return f"{self._topic}/{self.device_id}/boiler"
+        return f"{self._topic}/boiler"
