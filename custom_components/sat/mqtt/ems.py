@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.core import Event
-
 from . import SatMqttCoordinator
 from ..coordinator import DeviceState
+from ..util import float_value
 
 DATA_FLAME_ACTIVE = "burngas"
 DATA_DHW_SETPOINT = "dhw/seltemp"
@@ -57,38 +56,35 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     @property
     def setpoint(self) -> float | None:
-        return self.data.get(DATA_CONTROL_SETPOINT)
+        return float_value(self.data.get(DATA_CONTROL_SETPOINT))
 
     @property
     def hot_water_setpoint(self) -> float | None:
-        return self.data.get(DATA_DHW_SETPOINT)
+        return float_value(self.data.get(DATA_DHW_SETPOINT))
 
     @property
     def boiler_temperature(self) -> float | None:
-        return self.data.get(DATA_BOILER_TEMPERATURE)
+        return float_value(self.data.get(DATA_BOILER_TEMPERATURE))
 
     @property
     def return_temperature(self) -> float | None:
-        return self.data.get(DATA_RETURN_TEMPERATURE)
+        return float_value(self.data.get(DATA_RETURN_TEMPERATURE))
 
     @property
     def relative_modulation_value(self) -> float | None:
-        return self.data.get(DATA_REL_MOD_LEVEL)
+        return float_value(self.data.get(DATA_REL_MOD_LEVEL))
 
     @property
     def boiler_capacity(self) -> float | None:
-        value = self.data.get(DATA_BOILER_CAPACITY)
-        return float(value) if value is not None else super().boiler_capacity
+        return float_value(self.data.get(DATA_BOILER_CAPACITY))
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        value = self.data.get(DATA_REL_MIN_MOD_LEVEL)
-        return float(value) if value is not None else super().minimum_relative_modulation_value
+        return float_value(self.data.get(DATA_REL_MIN_MOD_LEVEL))
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        value = self.data.get(DATA_MAX_REL_MOD_LEVEL_SETTING)
-        return float(value) if value is not None else super().maximum_relative_modulation_value
+        return float_value(self.data.get(DATA_MAX_REL_MOD_LEVEL_SETTING))
 
     @property
     def member_id(self) -> int | None:
@@ -112,12 +108,6 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
             DATA_REL_MIN_MOD_LEVEL,
             DATA_MAX_REL_MOD_LEVEL_SETTING,
         ]
-
-    async def async_state_change_event(self, _event: Event) -> None:
-        if self._listeners:
-            self._schedule_refresh()
-
-        self.async_update_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value == 10 else value}}}')

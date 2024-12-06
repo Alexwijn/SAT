@@ -98,16 +98,16 @@ def create_minimum_setpoint_controller(config_data, config_options) -> MinimumSe
     return MinimumSetpoint(configured_minimum_setpoint=minimum_setpoint, adjustment_factor=adjustment_factor)
 
 
-def snake_case(value: str):
+def snake_case(value: str) -> str:
     return '_'.join(
         sub('([A-Z][a-z]+)', r' \1',
             sub('([A-Z]+)', r' \1',
                 value.replace('-', ' '))).split()).lower()
 
 
-def float_value(value) -> float:
+def float_value(value) -> float | None:
     """Helper method to convert a value to float, handling possible errors."""
     try:
         return float(value)
     except (TypeError, ValueError):
-        return 0
+        return None
