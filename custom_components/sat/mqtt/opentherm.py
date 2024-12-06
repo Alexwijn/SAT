@@ -19,7 +19,7 @@ DATA_CENTRAL_HEATING = "centralheating"
 DATA_SLAVE_MEMBERID = "slave_memberid_code"
 DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
 DATA_REL_MIN_MOD_LEVEL = "MaxCapacityMinModLevel_lb_u8"
-DATA_REL_MIN_MOD_LEVELL = "MaxCapacityMinModLevell_lb_u8"
+DATA_REL_MIN_MOD_LEVEL_LEGACY = "MaxCapacityMinModLevell_lb_u8"
 DATA_MAX_REL_MOD_LEVEL_SETTING = "MaxRelModLevelSetting"
 DATA_DHW_SETPOINT_MINIMUM = "TdhwSetUBTdhwSetLB_value_lb"
 DATA_DHW_SETPOINT_MAXIMUM = "TdhwSetUBTdhwSetLB_value_hb"
@@ -120,7 +120,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
             return float(value)
 
         # Legacy
-        if (value := self.data.get(DATA_REL_MIN_MOD_LEVELL)) is not None:
+        if (value := self.data.get(DATA_REL_MIN_MOD_LEVEL_LEGACY)) is not None:
             return float(value)
 
         return super().minimum_relative_modulation_value

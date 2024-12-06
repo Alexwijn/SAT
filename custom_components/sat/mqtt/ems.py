@@ -45,15 +45,15 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     @property
     def device_active(self) -> bool:
-        return self.data.get(DATA_CENTRAL_HEATING)
+        return bool(self.data.get(DATA_CENTRAL_HEATING))
 
     @property
     def flame_active(self) -> bool:
-        return self.data.get(DATA_FLAME_ACTIVE)
+        return bool(self.data.get(DATA_FLAME_ACTIVE))
 
     @property
     def hot_water_active(self) -> bool:
-        return self.data.get(DATA_DHW_ENABLE)
+        return bool(self.data.get(DATA_DHW_ENABLE))
 
     @property
     def setpoint(self) -> float | None:
