@@ -653,7 +653,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self._async_control_pid(True)
 
         # If the current temperature has changed, update the PID controller
-        elif not hasattr(new_state.attributes, SENSOR_TEMPERATURE_ID) and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
+        elif SENSOR_TEMPERATURE_ID not in new_state.attributes and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid()
 
         if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode in [PRESET_HOME, PRESET_COMFORT]:
