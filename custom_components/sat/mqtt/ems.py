@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components import mqtt
 from homeassistant.core import Event
 
 from . import SatMqttCoordinator
@@ -121,11 +120,11 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         self.async_update_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        await self._publish_command(f'{"cmd": "selflowtemp", "value": {0 if value == 10 else value}}')
+        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value == 10 else value}}}')
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
-        await self._publish_command(f'{"cmd": "dhw/seltemp", "value": {value}}')
+        await self._publish_command(f'{{"cmd": "dhw/seltemp", "value": {value}}}')
         await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
@@ -139,27 +138,17 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
-        await self._publish_command(f'{"cmd": "burnmaxpower", "value": {value}}')
+        await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {value}}}')
 
         await super().async_set_control_max_relative_modulation(value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
-        await self._publish_command(f'{"cmd": "heatingtemp", "value": {value}}')
+        await self._publish_command(f'{{"cmd": "heatingtemp", "value": {value}}}')
 
         await super().async_set_control_max_setpoint(value)
 
     def _get_topic_for_subscription(self, key: str) -> str:
-        return f"{self._topic}/ems-esp/{key}"
+        return f"{self._topic}/{self.device_id}/{key}"
 
     def _get_topic_for_publishing(self) -> str:
-        return f"{self._topic}/ems-esp/boiler"
-
-    def _async_subscribe(self, key: str) -> None:
-        topic = self._get_topic_for_subscription(key)
-        mqtt.async_subscribe(self.hass, topic, lambda msg: self._handle_message(key, msg.payload))
-
-    def _handle_message(self, key: str, value: str) -> None:
-        try:
-            self.data[key] = float(value) if value.replace('.', '', 1).isdigit() else value
-        except ValueError:
-            _LOGGER.warning(f"Unable to parse value '{value}' for key '{key}'")
+        return f"{self._topic}/{self.device_id}/boiler"

@@ -158,12 +158,6 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
             DATA_DHW_SETPOINT_MAXIMUM,
         ]
 
-    def _get_topic_for_subscription(self, key: str) -> str:
-        return f"{self._topic}/value/{self._device_id}/{key}"
-
-    def _get_topic_for_publishing(self) -> str:
-        return f"{self._topic}/set/{self._device_id}/command"
-
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f"CS={value}")
 
@@ -196,3 +190,9 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await self._publish_command(f"SH={value}")
 
         await super().async_set_control_max_setpoint(value)
+
+    def _get_topic_for_subscription(self, key: str) -> str:
+        return f"{self._topic}/value/{self._device_id}/{key}"
+
+    def _get_topic_for_publishing(self) -> str:
+        return f"{self._topic}/set/{self._device_id}/command"
