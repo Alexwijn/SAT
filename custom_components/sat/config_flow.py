@@ -560,10 +560,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         if options[CONF_AUTOMATIC_GAINS]:
             schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=5, step=1)
+                selector.NumberSelectorConfig(min=1, max=5, step=0.1)
             )
             schema[vol.Required(CONF_DERIVATIVE_TIME_WEIGHT, default=options[CONF_DERIVATIVE_TIME_WEIGHT])] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=6, step=1)
+                selector.NumberSelectorConfig(min=1, max=6, step=0.1)
             )
         else:
             schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
