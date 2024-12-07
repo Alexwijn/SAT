@@ -13,6 +13,7 @@ from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAI
 from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.valve import DOMAIN as VALVE_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MAJOR_VERSION, MINOR_VERSION, ATTR_ENTITY_ID
@@ -213,7 +214,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_DEVICE): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN, INPUT_BOOLEAN_DOMAIN])
+                    selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN, VALVE_DOMAIN, INPUT_BOOLEAN_DOMAIN])
                 ),
                 vol.Required(CONF_MINIMUM_SETPOINT, default=50): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=10, max=100, step=1)
