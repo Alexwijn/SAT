@@ -16,7 +16,7 @@ from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.components.valve import DOMAIN as VALVE_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MAJOR_VERSION, MINOR_VERSION, ATTR_ENTITY_ID
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import callback
 from homeassistant.helpers import selector, device_registry, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode
@@ -64,10 +64,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle user flow."""
         menu_options = []
 
-        # Since we rely on the availability logic in 2023.5, we do not support below it.
-        if MAJOR_VERSION >= 2023 and (MINOR_VERSION >= 5 or MAJOR_VERSION > 2023):
-            menu_options.append("mosquitto")
-
+        menu_options.append("mosquitto")
         menu_options.append("esphome")
         menu_options.append("serial")
         menu_options.append("switch")
