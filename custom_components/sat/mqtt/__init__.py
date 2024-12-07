@@ -90,22 +90,27 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
         pass
 
     def _create_message_handler(self, key: str):
-        """Create a message handler to properly schedule updates."""
+        """Create a message handler to process incoming MQTT messages."""
 
         @callback
-        def message_handler(msg):
-            """Handle received MQTT message and schedule data update."""
-            _LOGGER.debug(f"Receiving '{key}'='{msg.payload}' from MQTT.")
+        def message_handler(message):
+            """Handle an incoming MQTT message and schedule an update."""
+            _LOGGER.debug("Received MQTT message for key '%s': payload='%s'", key, message.payload)
 
-            # Store the new value
-            self.data[key] = msg.payload
+            # Process the payload and update the data property
+            self._process_message_payload(key, message.payload)
 
-            # Schedule the update so our entities are updated
+            # Notify listeners to ensure the entities are updated
             self.hass.async_create_task(self.async_notify_listeners())
 
         return message_handler
 
+    def _process_message_payload(self, key: str, payload):
+        """Process and store the payload of a received MQTT message."""
+        self.data[key] = payload
+
     async def _publish_command(self, payload: str):
+        """Publish a command to the MQTT topic."""
         _LOGGER.debug(f"Publishing '{payload}' to MQTT.")
 
         if not self._simulation:

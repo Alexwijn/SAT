@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import logging
 
 from . import SatMqttCoordinator
 from ..coordinator import DeviceState
 from ..util import float_value
 
+DATA_BOILER_DATA = "boiler_data"
 DATA_FLAME_ACTIVE = "burngas"
 DATA_DHW_SETPOINT = "dhw/seltemp"
 DATA_CONTROL_SETPOINT = "selflowtemp"
@@ -96,18 +98,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         return self
 
     def get_tracked_entities(self) -> list[str]:
-        return [
-            DATA_CENTRAL_HEATING,
-            DATA_FLAME_ACTIVE,
-            DATA_DHW_ENABLE,
-            DATA_DHW_SETPOINT,
-            DATA_CONTROL_SETPOINT,
-            DATA_REL_MOD_LEVEL,
-            DATA_BOILER_TEMPERATURE,
-            DATA_BOILER_CAPACITY,
-            DATA_REL_MIN_MOD_LEVEL,
-            DATA_MAX_REL_MOD_LEVEL_SETTING,
-        ]
+        return [DATA_BOILER_DATA]
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value == 10 else value}}}')
@@ -142,3 +133,9 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     def _get_topic_for_publishing(self) -> str:
         return f"{self._topic}/boiler"
+
+    def _process_message_payload(self, key: str, payload):
+        try:
+            self.data = json.loads(payload)
+        except json.JSONDecodeError as error:
+            _LOGGER.error("Failed to decode JSON payload: %s. Error: %s", payload, error)
