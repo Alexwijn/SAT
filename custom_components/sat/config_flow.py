@@ -335,8 +335,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         coordinator = await self.async_create_coordinator()
 
         # Let's see if we have already been configured before
+        device_name = self.data[CONF_NAME]
         entities = entity_registry.async_get(self.hass)
-        device_name = self.config_entry.data.get(CONF_NAME)
         climate_id = entities.async_get_entity_id(CLIMATE_DOMAIN, DOMAIN, device_name.lower())
 
         async def start_calibration():
