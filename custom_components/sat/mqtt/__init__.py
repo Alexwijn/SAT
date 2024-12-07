@@ -48,14 +48,15 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
 
         await super().async_added_to_hass(climate)
 
+    async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
+        # Save the updated data to persistent storage
+        await self._save_data()
+
     async def async_notify_listeners(self):
         """Notify listeners of an update asynchronously."""
         # Make sure we do not spam
         self._async_unsub_refresh()
         self._debounced_refresh.async_cancel()
-
-        # Save the updated data to persistent storage
-        await self._save_data()
 
         # Inform the listeners that we are updated
         self.async_update_listeners()
