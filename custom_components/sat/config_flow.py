@@ -5,7 +5,6 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, ATTR_HVAC_MODE, HVACMode, SERVICE_SET_HVAC_MODE
 from homeassistant.components.dhcp import DhcpServiceInfo
@@ -62,12 +61,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, _user_input: dict[str, Any] | None = None):
         """Handle user flow."""
-        menu_options = []
-
-        menu_options.append("mosquitto")
-        menu_options.append("esphome")
-        menu_options.append("serial")
-        menu_options.append("switch")
+        menu_options = [
+            "mosquitto",
+            "esphome",
+            "serial",
+            "switch"
+        ]
 
         if self.show_advanced_options:
             menu_options.append("simulator")
@@ -114,40 +113,65 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_mosquitto()
 
     async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
+        """Entry step to select the MQTT mode and branch to specific setup."""
         self.errors = {}
 
         if _user_input is not None:
             self.data.update(_user_input)
 
-            if self.data[CONF_TYPE] == MODE_MQTT_OPENTHERM:
-                self.data[CONF_MODE] = MODE_MQTT_OPENTHERM
+            if self.data[CONF_MODE] == MODE_MQTT_OPENTHERM:
+                return await self.async_step_mosquitto_opentherm()
 
-            if self.data[CONF_TYPE] == MODE_MQTT_EMS:
-                self.data[CONF_MODE] = MODE_MQTT_EMS
-
-            # Since we do not require this to be stored
-            del self.data[CONF_TYPE]
-
-            if not await mqtt.async_wait_for_mqtt_client(self.hass):
-                self.errors["base"] = "mqtt_component"
-                return await self.async_step_mosquitto()
-
-            return await self.async_step_sensors()
+            if self.data[CONF_MODE] == MODE_MQTT_EMS:
+                return await self.async_step_mosquitto_ems()
 
         return self.async_show_form(
             step_id="mosquitto",
             last_step=False,
             errors=self.errors,
             data_schema=vol.Schema({
-                vol.Required(CONF_TYPE): selector.SelectSelector(
-                    selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
-                        selector.SelectOptionDict(value=MODE_MQTT_OPENTHERM, label="OpenTherm Gateway"),
-                        selector.SelectOptionDict(value=MODE_MQTT_EMS, label="EMS-ESP"),
-                    ])
+                vol.Required(CONF_MODE): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            selector.SelectOptionDict(value=MODE_MQTT_OPENTHERM, label="OpenTherm Gateway (For advanced boiler control)"),
+                            selector.SelectOptionDict(value=MODE_MQTT_EMS, label="EMS-ESP (For Bosch, Junkers, Buderus systems)"),
+                        ]
+                    )
                 ),
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
-                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE, "otgw-XXXXXXXXXXXX")): str,
+            }),
+        )
+
+    async def async_step_mosquitto_opentherm(self, _user_input: dict[str, Any] | None = None):
+        """Setup specific to OpenTherm Gateway."""
+        if _user_input is not None:
+            self.data.update(_user_input)
+
+            return await self.async_step_sensors()
+
+        return self.async_show_form(
+            step_id="mosquitto_opentherm",
+            last_step=False,
+            data_schema=vol.Schema({
+                vol.Required(CONF_MQTT_TOPIC, default="OTGW"): str,
+                vol.Required(CONF_DEVICE, default="otgw-XXXXXXXXXXXX"): str,
+            }),
+        )
+
+    async def async_step_mosquitto_ems(self, _user_input: dict[str, Any] | None = None):
+        """Setup specific to EMS-ESP."""
+        if _user_input is not None:
+            self.data.update(_user_input)
+            self.data[CONF_DEVICE] = "ems-esp"
+
+            return await self.async_step_sensors()
+
+        return self.async_show_form(
+            step_id="mosquitto_ems",
+            last_step=False,
+            data_schema=vol.Schema({
+                vol.Required(CONF_MQTT_TOPIC, default="ems-esp"): str,
             }),
         )
 

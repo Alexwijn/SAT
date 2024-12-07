@@ -53,13 +53,27 @@
         "title": "Sistema de Aquecimento"
       },
       "mosquitto": {
+        "description": "Configure o modo MQTT para o seu sistema de aquecimento. Escolha o modo de gateway e forneça seu nome.",
         "data": {
-          "device": "Dispositivo",
-          "mqtt_topic": "Tópico Principal",
+          "mode": "Modo",
           "name": "Nome"
         },
-        "description": "Por favor forneça os seguintes detalhes para configurar o OpenTherm Gateway. No campo Nome, insira um nome para o gateway que o ajudará a identificá-lo dentro do seu sistema.\n\nEspecifique a entidade Climate a utilizar para o OpenTherm Gateway. Esta entidade é fornecida pelo OpenTherm Gateway e representa o seu sistema de aquecimento.\n\nAdicionalmente, insira o Tópico Principal que será usado para publicar e subscrever mensagens MQTT relacionadas com o OpenTherm Gateway.\n\nEstas definições são essenciais para estabelecer comunicação e integração com o seu OpenTherm Gateway através do MQTT. Elas permitem troca de dados e controlo do seu sistema de aquecimento de forma fluida. Assegure-se de que os detalhes fornecidos são precisos para garantir funcionalidade adequada.",
-        "title": "OpenTherm Gateway ( MQTT )"
+        "title": "Configuração MQTT"
+      },
+      "mosquitto_opentherm": {
+        "description": "Configure o Gateway OpenTherm. Forneça o tópico MQTT principal e o identificador do dispositivo.",
+        "data": {
+          "mqtt_topic": "Tópico MQTT",
+          "device": "ID do dispositivo"
+        },
+        "title": "Configuração do Gateway OpenTherm"
+      },
+      "mosquitto_ems": {
+        "description": "Configure o Gateway EMS-ESP. Forneça o tópico MQTT.",
+        "data": {
+          "mqtt_topic": "Tópico MQTT"
+        },
+        "title": "Configuração do Gateway EMS-ESP"
       },
       "overshoot_protection": {
         "data": {
@@ -116,15 +130,15 @@
         "title": "Termóstato PID com PWM ( LIGA/DESLIGA )"
       },
       "user": {
-        "description": "O SAT é um termóstato inteligente capaz de auto-afinar-se para otimizar o controlo de temperatura. Selecione o modo apropriado que corresponde ao seu sistema de aquecimento.",
+        "description": "SAT é um termostato inteligente capaz de autoajustar-se para otimizar o controle de temperatura. Escolha o modo que corresponde ao seu sistema de aquecimento.",
         "menu_options": {
-          "mosquitto": "OpenTherm Gateway ( MQTT )",
-          "serial": "OpenTherm Gateway ( SERIAL )",
-          "esphome": "OpenTherm Gateway ( ESPHOME )",
-          "simulator": "Gateway Simulado ( AVANÇADO )",
-          "switch": "Termóstato PID com PWM ( LIGA/DESLIGA )"
+          "mosquitto": "Gateway MQTT (OpenTherm, EMS-ESP, outros)",
+          "serial": "Gateway Serial (ex.: OpenTherm)",
+          "esphome": "ESPHome (Serviços e sensores do sistema)",
+          "simulator": "Gateway Simulado (Apenas para desenvolvedores)",
+          "switch": "Termostato PID (Modo PWM Ligado/Desligado)"
         },
-        "title": "Termóstato Smart Autotune (SAT)"
+        "title": "Smart Autotune Thermostat (SAT)"
       }
     }
   },

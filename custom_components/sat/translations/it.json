@@ -53,13 +53,27 @@
         "title": "Sistema di Riscaldamento"
       },
       "mosquitto": {
+        "description": "Configura la modalità MQTT per il tuo sistema di riscaldamento. Seleziona la modalità del gateway e fornisci il suo nome.",
         "data": {
-          "device": "Dispositivo",
-          "mqtt_topic": "Argomento Principale",
+          "mode": "Modalità",
           "name": "Nome"
         },
-        "description": "Si prega di fornire i seguenti dettagli per configurare il Gateway OpenTherm. Nel campo Nome, inserisci un nome per il gateway che ti aiuterà a identificarlo all'interno del tuo sistema.\n\nSpecifica l'entità Climatica da utilizzare per il Gateway OpenTherm. Questa entità è fornita dal Gateway OpenTherm e rappresenta il tuo sistema di riscaldamento.\n\nInoltre, inserisci l'Argomento Principale che verrà utilizzato per pubblicare e sottoscrivere i messaggi MQTT relativi al Gateway OpenTherm.\n\nQueste impostazioni sono essenziali per stabilire la comunicazione e l'integrazione con il tuo Gateway OpenTherm tramite MQTT. Consentono uno scambio di dati e un controllo fluido del tuo sistema di riscaldamento. Assicurati che i dettagli forniti siano accurati per garantire un corretto funzionamento.",
-        "title": "Gateway OpenTherm (MQTT)"
+        "title": "Configurazione MQTT"
+      },
+      "mosquitto_opentherm": {
+        "description": "Configura il Gateway OpenTherm. Fornisci l'argomento principale MQTT e l'identificativo del dispositivo.",
+        "data": {
+          "mqtt_topic": "Argomento MQTT",
+          "device": "ID del dispositivo"
+        },
+        "title": "Configurazione del Gateway OpenTherm"
+      },
+      "mosquitto_ems": {
+        "description": "Configura il Gateway EMS-ESP. Fornisci l'argomento MQTT.",
+        "data": {
+          "mqtt_topic": "Argomento MQTT"
+        },
+        "title": "Configurazione del Gateway EMS-ESP"
       },
       "overshoot_protection": {
         "data": {
@@ -116,12 +130,13 @@
         "title": "Termostato PID con PWM (ON/OFF)"
       },
       "user": {
-        "description": "Il SAT è un termostato intelligente capace di auto-regolarsi per ottimizzare il controllo della temperatura. Seleziona la modalità appropriata che corrisponde al tuo sistema di riscaldamento.",
+        "description": "SAT è un termostato intelligente in grado di auto-regolarsi per ottimizzare il controllo della temperatura. Seleziona la modalità che corrisponde al tuo sistema di riscaldamento.",
         "menu_options": {
-          "mosquitto": "Gateway OpenTherm (MQTT)",
-          "serial": "Gateway OpenTherm (SERIALE)",
-          "simulator": "Gateway Simulato (AVANZATO)",
-          "switch": "Termostato PID con PWM (ON/OFF)"
+          "mosquitto": "Gateway MQTT (OpenTherm, EMS-ESP, altri)",
+          "serial": "Gateway seriale (es. OpenTherm)",
+          "esphome": "ESPHome (Servizi e sensori di sistema)",
+          "simulator": "Gateway simulato (Solo per sviluppatori)",
+          "switch": "Termostato PID (Modalità PWM Acceso/Spento)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       }

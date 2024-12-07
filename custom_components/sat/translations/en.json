@@ -53,13 +53,27 @@
         "title": "Heating System"
       },
       "mosquitto": {
+        "description": "Configure the MQTT mode for your heating system. Select the gateway mode and provide its name.",
         "data": {
-          "device": "Device",
-          "mqtt_topic": "Top Topic",
+          "mode": "Mode",
           "name": "Name"
         },
-        "description": "Please provide the following details to set up the OpenTherm Gateway. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the Climate entity to use for the OpenTherm Gateway. This entity is provided by the OpenTherm Gateway and represents your heating system.\n\nAdditionally, enter the Top Topic that will be used for publishing and subscribing to MQTT messages related to the OpenTherm Gateway.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through MQTT. They allow for seamless data exchange and control of your heating system. Ensure that the provided details are accurate to ensure proper functionality.",
-        "title": "OpenTherm Gateway ( MQTT )"
+        "title": "MQTT Configuration"
+      },
+      "mosquitto_opentherm": {
+        "description": "Set up the OpenTherm Gateway. Provide the top MQTT topic and the device identifier.",
+        "data": {
+          "mqtt_topic": "MQTT Topic",
+          "device": "Device ID"
+        },
+        "title": "OpenTherm Gateway Setup"
+      },
+      "mosquitto_ems": {
+        "description": "Set up the EMS-ESP Gateway. Provide the MQTT topic.",
+        "data": {
+          "mqtt_topic": "MQTT Topic"
+        },
+        "title": "EMS-ESP Gateway Setup"
       },
       "overshoot_protection": {
         "data": {
@@ -116,13 +130,13 @@
         "title": "PID Thermostat with PWM ( ON/OFF )"
       },
       "user": {
-        "description": "SAT is a smart thermostat that is capable of auto-tuning itself to optimize temperature control. Select the appropriate mode that matches your heating system.",
+        "description": "SAT is a smart thermostat capable of auto-tuning itself to optimize temperature control. Select the mode that matches your heating system.",
         "menu_options": {
-          "mosquitto": "OpenTherm Gateway ( MQTT )",
-          "serial": "OpenTherm Gateway ( SERIAL )",
-          "esphome": "OpenTherm Gateway ( ESPHOME )",
-          "simulator": "Simulated Gateway ( ADVANCED )",
-          "switch": "PID Thermostat with PWM ( ON/OFF )"
+          "mosquitto": "MQTT Gateway (OpenTherm, EMS-ESP, others)",
+          "serial": "Serial Gateway (e.g., OpenTherm)",
+          "esphome": "ESPHome (System services and sensors)",
+          "simulator": "Simulated Gateway (Developer use only)",
+          "switch": "PID Thermostat (PWM On/Off mode)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       }
