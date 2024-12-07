@@ -97,8 +97,11 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
             """Handle an incoming MQTT message and schedule an update."""
             _LOGGER.debug("Received MQTT message for key '%s': payload='%s'", key, message.payload)
 
-            # Process the payload and update the data property
-            self._process_message_payload(key, message.payload)
+            try:
+                # Process the payload and update the data property
+                self._process_message_payload(key, message.payload)
+            except Exception as e:
+                _LOGGER.error("Failed to process message for key '%s': %s", key, str(e))
 
             # Notify listeners to ensure the entities are updated
             self.hass.async_create_task(self.async_notify_listeners())
@@ -114,4 +117,9 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
         _LOGGER.debug(f"Publishing '{payload}' to MQTT.")
 
         if not self._simulation:
+            return
+
+        try:
             await mqtt.async_publish(self.hass, self._get_topic_for_publishing(), payload)
+        except Exception as e:
+            _LOGGER.error("Failed to publish command: %s", str(e))
