@@ -55,14 +55,14 @@
       "mosquitto": {
         "description": "Configure el modo MQTT para su sistema de calefacción. Seleccione el modo de la puerta de enlace e introduzca su nombre.",
         "data": {
-          "mode": "Modo",
-          "name": "Nombre"
+          "mode": "Modo"
         },
         "title": "Configuración MQTT"
       },
       "mosquitto_opentherm": {
         "description": "Configure la Puerta de Enlace OpenTherm. Proporcione el tema principal de MQTT y el identificador del dispositivo.",
         "data": {
+          "name": "Nombre",
           "mqtt_topic": "Tema MQTT",
           "device": "ID del dispositivo"
         },
@@ -71,6 +71,7 @@
       "mosquitto_ems": {
         "description": "Configure la Puerta de Enlace EMS-ESP. Proporcione el tema MQTT.",
         "data": {
+          "name": "Nombre",
           "mqtt_topic": "Tema MQTT"
         },
         "title": "Configuración de la Puerta de Enlace EMS-ESP"

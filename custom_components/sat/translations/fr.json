@@ -55,14 +55,14 @@
       "mosquitto": {
         "description": "Configurez le mode MQTT pour votre système de chauffage. Sélectionnez le mode de la passerelle et fournissez son nom.",
         "data": {
-          "mode": "Mode",
-          "name": "Nom"
+          "mode": "Mode"
         },
         "title": "Configuration MQTT"
       },
       "mosquitto_opentherm": {
         "description": "Configurez la passerelle OpenTherm. Fournissez le sujet principal MQTT et l'identifiant de l'appareil.",
         "data": {
+          "name": "Nom",
           "mqtt_topic": "Sujet MQTT",
           "device": "ID de l'appareil"
         },
@@ -71,6 +71,7 @@
       "mosquitto_ems": {
         "description": "Configurez la passerelle EMS-ESP. Fournissez le sujet MQTT.",
         "data": {
+          "name": "Nom",
           "mqtt_topic": "Sujet MQTT"
         },
         "title": "Configuration de la Passerelle EMS-ESP"

@@ -55,14 +55,14 @@
       "mosquitto": {
         "description": "Konfigurieren Sie den MQTT-Modus für Ihr Heizsystem. Wählen Sie den Gateway-Modus aus und geben Sie seinen Namen an.",
         "data": {
-          "mode": "Modus",
-          "name": "Name"
+          "mode": "Modus"
         },
         "title": "MQTT-Konfiguration"
       },
       "mosquitto_opentherm": {
         "description": "Richten Sie das OpenTherm Gateway ein. Geben Sie das Haupt-MQTT-Thema und die Gerätekennung an.",
         "data": {
+          "name": "Name",
           "mqtt_topic": "MQTT-Thema",
           "device": "Geräte-ID"
         },
@@ -71,6 +71,7 @@
       "mosquitto_ems": {
         "description": "Richten Sie das EMS-ESP Gateway ein. Geben Sie das MQTT-Thema an.",
         "data": {
+          "name": "Name",
           "mqtt_topic": "MQTT-Thema"
         },
         "title": "EMS-ESP Gateway Einrichtung"

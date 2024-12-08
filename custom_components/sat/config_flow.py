@@ -85,27 +85,28 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_serial()
 
     async def async_step_mqtt(self, discovery_info: MqttServiceInfo):
-        """Handle dhcp discovery."""
-        device_id = "unknown"
-        device_name = "unknown"
+        """Handle mqtt discovery."""
+        _LOGGER.debug("Discovered at [mqtt://%s]", discovery_info.topic)
 
-        if discovery_info.topic[:5] == "OTGW/":
-            device_id = discovery_info.topic[11:]
-            device_name = "OTGW"
+        # Mapping topic prefixes to handler methods and device IDs
+        topic_mapping = {
+            "ems-esp/": ("ems-esp", self.async_step_mosquitto_ems),
+            "OTGW/": (discovery_info.topic[11:], self.async_step_mosquitto_opentherm),
+        }
 
-        if discovery_info.topic[:8] == "ems-esp/":
-            device_id = "ems-esp"
-            device_name = "EMS-ESP"
+        # Check for matching prefix and handle appropriately
+        for prefix, (device_id, step_method) in topic_mapping.items():
+            if discovery_info.topic.startswith(prefix):
+                _LOGGER.debug("Identified gateway: %s", device_id)
+                self.data[CONF_DEVICE] = device_id
 
-        _LOGGER.debug("Discovered %s at [mqtt://%s]", device_name, discovery_info.topic)
-        self.data[CONF_DEVICE] = device_id
+                # Abort if the gateway is already registered, reload if necessary
+                await self.async_set_unique_id(device_id)
 
-        # abort if we already have exactly this gateway id/host
-        # reload the integration if the host got updated
-        await self.async_set_unique_id(device_id)
-        self._abort_if_unique_id_configured(updates=self.data)
+                return await step_method()
 
-        return await self.async_step_mosquitto()
+        _LOGGER.error("Unsupported MQTT topic format: %s", discovery_info.topic)
+        return self.async_abort(reason="unsupported_gateway")
 
     async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
         """Entry step to select the MQTT mode and branch to specific setup."""
@@ -134,7 +135,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         ]
                     )
                 ),
-                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
             }),
         )
 
@@ -149,6 +149,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="mosquitto_opentherm",
             last_step=False,
             data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_MQTT_TOPIC, default="OTGW"): str,
                 vol.Required(CONF_DEVICE, default="otgw-XXXXXXXXXXXX"): str,
             }),
@@ -166,6 +167,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="mosquitto_ems",
             last_step=False,
             data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_MQTT_TOPIC, default="ems-esp"): str,
             }),
         )

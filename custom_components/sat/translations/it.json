@@ -55,14 +55,14 @@
       "mosquitto": {
         "description": "Configura la modalità MQTT per il tuo sistema di riscaldamento. Seleziona la modalità del gateway e fornisci il suo nome.",
         "data": {
-          "mode": "Modalità",
-          "name": "Nome"
+          "mode": "Modalità"
         },
         "title": "Configurazione MQTT"
       },
       "mosquitto_opentherm": {
         "description": "Configura il Gateway OpenTherm. Fornisci l'argomento principale MQTT e l'identificativo del dispositivo.",
         "data": {
+          "name": "Nome",
           "mqtt_topic": "Argomento MQTT",
           "device": "ID del dispositivo"
         },
@@ -71,6 +71,7 @@
       "mosquitto_ems": {
         "description": "Configura il Gateway EMS-ESP. Fornisci l'argomento MQTT.",
         "data": {
+          "name": "Nome",
           "mqtt_topic": "Argomento MQTT"
         },
         "title": "Configurazione del Gateway EMS-ESP"

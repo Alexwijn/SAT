@@ -55,14 +55,14 @@
       "mosquitto": {
         "description": "Nakonfigurujte režim MQTT pre váš vykurovací systém. Vyberte režim brány a zadajte jej názov.",
         "data": {
-          "mode": "Režim",
-          "name": "Názov"
+          "mode": "Režim"
         },
         "title": "Konfigurácia MQTT"
       },
       "mosquitto_opentherm": {
         "description": "Nakonfigurujte OpenTherm Gateway. Uveďte hlavný predmet MQTT a identifikátor zariadenia.",
         "data": {
+          "name": "Názov",
           "mqtt_topic": "Predmet MQTT",
           "device": "ID zariadenia"
         },
@@ -71,6 +71,7 @@
       "mosquitto_ems": {
         "description": "Nakonfigurujte EMS-ESP Gateway. Uveďte predmet MQTT.",
         "data": {
+          "name": "Názov",
           "mqtt_topic": "Predmet MQTT"
         },
         "title": "Konfigurácia EMS-ESP Gateway"
