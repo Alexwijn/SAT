@@ -48,13 +48,14 @@ class OvershootProtection:
         _LOGGER.info("Heating system has started")
 
     async def _wait_for_stable_temperature(self) -> None:
+        starting_temperature = float(self._coordinator.boiler_temperature)
         previous_average_temperature = float(self._coordinator.boiler_temperature)
 
         while True:
             current_temperature = float(self._coordinator.boiler_temperature)
             average_temperature, error_value = self._calculate_exponential_moving_average(previous_average_temperature, current_temperature)
 
-            if previous_average_temperature is not None and error_value <= DEADBAND:
+            if current_temperature > starting_temperature and previous_average_temperature is not None and error_value <= DEADBAND:
                 _LOGGER.info("Stable temperature reached: %s°C", current_temperature)
                 return
 
