@@ -22,9 +22,6 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         super().__init__(hass, data, options)
 
-        _LOGGER.debug(snake_case(f"{self.__class__.__name__}"))
-        _LOGGER.debug(device_id)
-
         self.data = {}
         self._device_id = device_id
         self._topic = data.get(CONF_MQTT_TOPIC)
@@ -117,7 +114,7 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
         """Publish a command to the MQTT topic."""
         topic = self._get_topic_for_publishing()
 
-        _LOGGER.debug("Publishing MQTT command: payload='%s', topic='%s'", payload, topic)
+        _LOGGER.debug("Publishing MQTT command: payload='%s', topic='%s', simulation='%s'", payload, topic, self._simulation)
 
         if self._simulation:
             return
