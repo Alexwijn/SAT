@@ -31,7 +31,7 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
     def device_id(self) -> str:
         return self._device_id
 
-    async def async_added_to_hass(self, climate: SatClimate) -> None:
+    async def async_added_to_hass(self) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)
 
         for key in self.get_tracked_entities():
@@ -43,7 +43,7 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
 
         await self.boot()
 
-        await super().async_added_to_hass(climate)
+        await super().async_added_to_hass()
 
     async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
         # Save the updated data to persistent storage
@@ -93,7 +93,6 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
         @callback
         def message_handler(message):
             """Handle an incoming MQTT message and schedule an update."""
-            _LOGGER.debug("Received MQTT message for key '%s': payload='%s'", key, message.payload)
 
             try:
                 # Process the payload and update the data property

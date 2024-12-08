@@ -222,7 +222,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._areas.async_added_to_hass(self.hass)
 
         # Let the coordinator know we are ready
-        await self._coordinator.async_added_to_hass(self)
+        await self._coordinator.async_added_to_hass()
 
     async def _register_event_listeners(self):
         """Register event listeners."""

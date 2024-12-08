@@ -374,6 +374,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_calibrate(self, _user_input: dict[str, Any] | None = None):
         coordinator = await self.async_create_coordinator()
+        await coordinator.async_added_to_hass()
 
         # Let's see if we have already been configured before
         device_name = self.data[CONF_NAME]
