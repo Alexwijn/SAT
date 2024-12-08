@@ -115,12 +115,14 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
 
     async def _publish_command(self, payload: str):
         """Publish a command to the MQTT topic."""
-        _LOGGER.debug(f"Publishing '{payload}' to MQTT.")
+        topic = self._get_topic_for_publishing()
 
-        if not self._simulation:
+        _LOGGER.debug("Publishing MQTT command: payload='%s', topic='%s'", payload, topic)
+
+        if self._simulation:
             return
 
         try:
-            await mqtt.async_publish(self.hass, self._get_topic_for_publishing(), payload)
-        except Exception as e:
-            _LOGGER.error("Failed to publish command: %s", str(e))
+            await mqtt.async_publish(self.hass, topic, payload)
+        except Exception as error:
+            _LOGGER.error("Failed to publish MQTT command. Error: %s", error)
