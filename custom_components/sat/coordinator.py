@@ -71,10 +71,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self.boiler_temperatures = []
 
         self._data = data
-        self._options = options
         self._manufacturer = None
+        self._options = options or {}
         self._device_state = DeviceState.OFF
-        self._simulation = bool(options.get(CONF_SIMULATION))
+        self._simulation = bool(self._options.get(CONF_SIMULATION))
         self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
