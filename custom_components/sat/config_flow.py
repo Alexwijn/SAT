@@ -388,11 +388,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
                 await coordinator.async_will_remove_from_hass()
             except asyncio.TimeoutError:
-                _LOGGER.warning("Calibration time-out.")
-                return False
+                _LOGGER.warning("Timed out during overshoot protection calculation.")
             except asyncio.CancelledError:
-                _LOGGER.warning("Cancelled calibration.")
-                return False
+                _LOGGER.warning("Cancelled overshoot protection calculation.")
 
             self.hass.async_create_task(
                 self.hass.config_entries.flow.async_configure(flow_id=self.flow_id)
