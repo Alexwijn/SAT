@@ -145,6 +145,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
 
     def get_tracked_entities(self) -> list[str]:
         return [
+            DATA_SLAVE_MEMBERID,
             DATA_CENTRAL_HEATING,
             DATA_FLAME_ACTIVE,
             DATA_DHW_ENABLE,
@@ -152,8 +153,10 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
             DATA_CONTROL_SETPOINT,
             DATA_REL_MOD_LEVEL,
             DATA_BOILER_TEMPERATURE,
+            DATA_RETURN_TEMPERATURE,
             DATA_BOILER_CAPACITY,
             DATA_REL_MIN_MOD_LEVEL,
+            DATA_REL_MIN_MOD_LEVEL_LEGACY,
             DATA_MAX_REL_MOD_LEVEL_SETTING,
             DATA_DHW_SETPOINT_MINIMUM,
             DATA_DHW_SETPOINT_MAXIMUM,
