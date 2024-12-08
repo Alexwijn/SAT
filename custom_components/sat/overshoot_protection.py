@@ -7,8 +7,8 @@ from .coordinator import DeviceState, SatDataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 OVERSHOOT_PROTECTION_TIMEOUT = 7200  # Two hours in seconds
-OVERSHOOT_PROTECTION_INITIAL_WAIT = 180  # Three minutes in seconds
-STABLE_TEMPERATURE_WAIT = 300  # Five minutes in seconds
+OVERSHOOT_PROTECTION_INITIAL_WAIT = 300  # Five minutes in seconds
+STABLE_TEMPERATURE_WAIT = 900  # Five teen minutes in seconds
 SLEEP_INTERVAL = 5  # Sleep interval in seconds
 
 
