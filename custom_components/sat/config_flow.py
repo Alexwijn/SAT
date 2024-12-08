@@ -90,14 +90,15 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Mapping topic prefixes to handler methods and device IDs
         topic_mapping = {
-            "ems-esp/": ("ems-esp", self.async_step_mosquitto_ems),
-            "OTGW/": (discovery_info.topic[11:], self.async_step_mosquitto_opentherm),
+            "ems-esp/": (MODE_MQTT_EMS, "ems-esp", self.async_step_mosquitto_ems),
+            "OTGW/": (MODE_MQTT_OPENTHERM, discovery_info.topic[11:], self.async_step_mosquitto_opentherm),
         }
 
         # Check for matching prefix and handle appropriately
-        for prefix, (device_id, step_method) in topic_mapping.items():
+        for prefix, (mode, device_id, step_method) in topic_mapping.items():
             if discovery_info.topic.startswith(prefix):
-                _LOGGER.debug("Identified gateway: %s", device_id)
+                _LOGGER.debug("Identified gateway type %s: %s", mode, device_id)
+                self.data[CONF_MODE] = mode
                 self.data[CONF_DEVICE] = device_id
 
                 # Abort if the gateway is already registered, reload if necessary
@@ -281,7 +282,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
-            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:
+            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT_OPENTHERM, MODE_MQTT_EMS, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()
