@@ -59,7 +59,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _climate = hass.data[DOMAIN][entry.entry_id][CLIMATE]
     _coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
 
-    await _coordinator.async_will_remove_from_hass(_climate)
+    await _coordinator.async_will_remove_from_hass()
 
     unloaded = all(
         # Forward entry unload for used platforms

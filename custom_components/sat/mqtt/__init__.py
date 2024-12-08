@@ -6,7 +6,6 @@ from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
-from ..climate import SatClimate
 from ..const import CONF_MQTT_TOPIC
 from ..coordinator import SatDataUpdateCoordinator
 from ..util import snake_case
@@ -45,7 +44,7 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
 
         await super().async_added_to_hass()
 
-    async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
+    async def async_will_remove_from_hass(self) -> None:
         # Save the updated data to persistent storage
         await self._save_data()
 
