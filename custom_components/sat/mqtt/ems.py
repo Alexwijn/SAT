@@ -7,6 +7,9 @@ from . import SatMqttCoordinator
 from ..coordinator import DeviceState
 from ..util import float_value
 
+DATA_ON = "on"
+DATA_OFF = "off"
+
 DATA_BOILER_DATA = "boiler_data"
 DATA_FLAME_ACTIVE = "burngas"
 DATA_DHW_SETPOINT = "dhw/seltemp"
@@ -102,10 +105,12 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value == 10 else value}}}')
+
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
         await self._publish_command(f'{{"cmd": "dhw/seltemp", "value": {value}}}')
+
         await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
@@ -113,8 +118,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        if state == DeviceState.OFF:
-            await self.async_set_control_setpoint(0)
+        await self._publish_command(f'{{"cmd: "forceheatingoff", "value": {DATA_OFF if state == DeviceState.ON else DATA_ON}')
 
         await super().async_set_heater_state(state)
 
