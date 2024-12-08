@@ -9,14 +9,14 @@ _LOGGER = logging.getLogger(__name__)
 # Constants for timeouts and intervals
 OVERSHOOT_PROTECTION_TIMEOUT = 7200  # Two hours in seconds
 OVERSHOOT_PROTECTION_INITIAL_WAIT = 300  # Five minutes in seconds
-STABLE_TEMPERATURE_WAIT = 900  # Fifteen minutes in seconds
-SLEEP_INTERVAL = 5  # Sleep interval in seconds
+OVERSHOOT_PROTECTION_STABLE_WAIT = 900  # Fifteen minutes in seconds
+SLEEP_INTERVAL = 30  # Sleep interval in seconds
 
 
 class OvershootProtection:
     def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize OvershootProtection with a coordinator and heating system configuration."""
-        self._alpha = 0.2
+        self._alpha = 0.5
         self._coordinator = coordinator
         self._setpoint = OVERSHOOT_PROTECTION_SETPOINT.get(heating_system)
 
@@ -29,11 +29,11 @@ class OvershootProtection:
             _LOGGER.info("Starting overshoot protection calculation")
 
             # Sequentially ensure the system is ready
-            await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
+            await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
 
             # Wait for a stable temperature
-            relative_modulation_value = await asyncio.wait_for(self._wait_for_stable_relative_modulation(), timeout=OVERSHOOT_PROTECTION_TIMEOUT)
-            await asyncio.wait_for(self._wait_for_stable_temperature(relative_modulation_value), timeout=STABLE_TEMPERATURE_WAIT)
+            relative_modulation_value = await asyncio.wait_for(self._wait_for_stable_relative_modulation(), timeout=OVERSHOOT_PROTECTION_STABLE_WAIT)
+            await asyncio.wait_for(self._wait_for_stable_temperature(relative_modulation_value), timeout=OVERSHOOT_PROTECTION_STABLE_WAIT)
 
             return self._calculate_overshoot_value(relative_modulation_value)
         except asyncio.CancelledError as exception:
@@ -52,7 +52,7 @@ class OvershootProtection:
 
     async def _wait_for_stable_relative_modulation(self) -> float:
         """Wait until the relative modulation stabilizes."""
-        previous_average_value = float(self._coordinator.relative_modulation_value)
+        previous_average_value = -1
 
         while True:
             current_value = float(self._coordinator.relative_modulation_value)
@@ -80,11 +80,11 @@ class OvershootProtection:
                 return
 
             # Adjust heating cycle based on stable relative modulation
-            setpoint = (self._setpoint if relative_modulation_value == 0 else current_temperature)
+            setpoint = (self._setpoint if relative_modulation_value > 0 else current_temperature)
             await self._trigger_heating_cycle(setpoint)
 
             previous_average_temperature = average_temperature
-            _LOGGER.debug("Temperature: %s°C, Error: %s°C", current_temperature, error_value)
+            _LOGGER.debug("Temperature: %s°C, Error: %s°C", current_temperature, average_temperature)
 
     def _calculate_overshoot_value(self, relative_modulation_value: float) -> float:
         """Calculate and log the overshoot value."""
