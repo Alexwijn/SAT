@@ -147,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Enable error monitoring",
           "climate_valve_offset": "Climate valve offset",
           "dynamic_minimum_setpoint": "Dynamic Minimum Setpoint (Experimental)",
           "force_pulse_width_modulation": "Force Pulse Width Modulation",

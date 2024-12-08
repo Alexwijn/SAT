@@ -147,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Povoliť monitorovanie chýb",
           "climate_valve_offset": "Offset klimatizačného ventilu",
           "dynamic_minimum_setpoint": "Dynamická minimálna nastavená hodnota (experimentálna)",
           "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu",

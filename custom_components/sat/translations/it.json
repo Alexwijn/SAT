@@ -147,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Abilita monitoraggio errori",
           "climate_valve_offset": "Offset della Valvola Climatica",
           "dynamic_minimum_setpoint": "Setpoint Minimo Dinamico (Sperimentale)",
           "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso",

@@ -147,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Fehlerüberwachung aktivieren",
           "climate_valve_offset": "Klimaventil-Offset",
           "dynamic_minimum_setpoint": "Dynamischer Minimaler Sollwert (Experimentell)",
           "force_pulse_width_modulation": "Pulsweitenmodulation erzwingen",

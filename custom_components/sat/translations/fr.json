@@ -147,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Activer la surveillance des erreurs",
           "climate_valve_offset": "Décalage de la vanne climatique",
           "dynamic_minimum_setpoint": "Point de Consigne Minimum Dynamique (Expérimental)",
           "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion",

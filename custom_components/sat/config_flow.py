@@ -174,8 +174,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_esphome(self, _user_input: dict[str, Any] | None = None):
-        self.errors = {}
-
         if _user_input is not None:
             self.data.update(_user_input)
             self.data[CONF_MODE] = MODE_ESPHOME
@@ -185,7 +183,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="esphome",
             last_step=False,
-            errors=self.errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
@@ -346,6 +343,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         ))
 
         return self.async_show_form(
+            last_step=False,
             step_id="areas",
             data_schema=vol.Schema({
                 vol.Optional(CONF_MAIN_CLIMATES, default=self.data.get(CONF_MAIN_CLIMATES, [])): climate_selector,
@@ -493,12 +491,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
-        # Resolve the coordinator by using the factory according to the mode
+        """Resolve the coordinator by using the factory according to the mode"""
         return await SatDataUpdateCoordinatorFactory().resolve(
             hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
     async def _enable_overshoot_protection(self, overshoot_protection_value: float):
+        """Store the value and enable overshoot protection."""
         self.data[CONF_OVERSHOOT_PROTECTION] = True
         self.data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
 
@@ -668,7 +667,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         schema = {
             vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]): bool,
             vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]): bool,
-            vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool
+            vol.Required(CONF_ERROR_MONITORING, default=options[CONF_ERROR_MONITORING]): bool,
+            vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool,
         }
 
         if options.get(CONF_MODE) in [MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:

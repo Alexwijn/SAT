@@ -147,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Foutbewaking inschakelen",
           "climate_valve_offset": "Offset van Klimaatklep",
           "dynamic_minimum_setpoint": "Dynamisch Minimaal Setpoint (Experimenteel)",
           "force_pulse_width_modulation": "Dwing Pulsbreedtemodulatie af",

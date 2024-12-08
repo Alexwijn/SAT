@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import traceback
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
@@ -9,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry
 from homeassistant.helpers.storage import Store
+from sentry_sdk import Client, Hub
 
 from .const import *
 from .coordinator import SatDataUpdateCoordinatorFactory
@@ -28,6 +30,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Create a new dictionary for this entry
     hass.data[DOMAIN][entry.entry_id] = {}
+
+    # Setup error monitoring (if enabled)
+    if entry.options.get(CONF_ERROR_MONITORING, True):
+        await hass.async_add_executor_job(initialize_sentry, hass)
 
     # Resolve the coordinator by using the factory according to the mode
     hass.data[DOMAIN][entry.entry_id][COORDINATOR] = await SatDataUpdateCoordinatorFactory().resolve(
@@ -50,13 +56,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     This function is called by Home Assistant when the integration is being removed.
     """
 
-    climate = hass.data[DOMAIN][entry.entry_id][CLIMATE]
-    await hass.data[DOMAIN][entry.entry_id][COORDINATOR].async_will_remove_from_hass(climate)
+    _climate = hass.data[DOMAIN][entry.entry_id][CLIMATE]
+    _coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
+
+    await _coordinator.async_will_remove_from_hass(_climate)
 
     unloaded = all(
         # Forward entry unload for used platforms
         await asyncio.gather(hass.config_entries.async_unload_platforms(entry, PLATFORMS))
     )
+
+    if SENTRY in hass.data[DOMAIN]:
+        hass.data[DOMAIN][SENTRY].flush()
+        hass.data[DOMAIN][SENTRY].close()
 
     # Remove the entry from the data dictionary if all components are unloaded successfully
     if unloaded:
@@ -165,3 +177,36 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Migration to version %s successful", entry.version)
 
     return True
+
+
+def initialize_sentry(hass: HomeAssistant):
+    """Initialize Sentry synchronously in an offloaded executor job."""
+
+    def exception_filter(event, hint):
+        """Filter events to send only SAT-related exceptions to Sentry."""
+        exc_info = hint.get("exc_info")
+
+        if exc_info:
+            _, _, exc_traceback = exc_info
+            stack = traceback.extract_tb(exc_traceback)
+
+            # Check if the exception originates from the SAT custom component
+            if any("custom_components/sat/" in frame.filename for frame in stack):
+                return event
+
+        # Ignore exceptions not related to SAT
+        return None
+
+    # Configure the Sentry client
+    client = Client(
+        traces_sample_rate=1.0,
+        before_send=exception_filter,
+        dsn="https://90e0ff6b2ca1f2fa4edcd34c5dd65808@o4508432869621760.ingest.de.sentry.io/4508432872898640",
+    )
+
+    # Bind the Sentry client to the Sentry hub
+    hub = Hub(client)
+    hub.bind_client(client)
+
+    # Store the hub in Home Assistant's data for later use
+    hass.data[DOMAIN][SENTRY] = client
