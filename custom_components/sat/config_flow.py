@@ -392,12 +392,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             except asyncio.CancelledError:
                 _LOGGER.warning("Cancelled overshoot protection calculation.")
 
-            self.hass.async_create_task(
-                self.hass.config_entries.flow.async_configure(flow_id=self.flow_id)
-            )
-
-            return True
-
         if not self.calibration:
             self.calibration = self.hass.async_create_task(
                 start_calibration()
