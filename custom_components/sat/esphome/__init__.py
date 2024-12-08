@@ -39,7 +39,7 @@ DATA_MAX_CH_SETPOINT = "max_t_set"
 DATA_MAX_REL_MOD_LEVEL_SETTING = "max_rel_mod_level"
 
 if TYPE_CHECKING:
-    from ..climate import SatClimate
+    pass
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         return None
 
-    async def async_added_to_hass(self, climate: SatClimate) -> None:
+    async def async_added_to_hass(self) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)
 
         # Create a list of entities that we track
@@ -191,7 +191,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         # Track those entities so the coordinator can be updated when something changes
         async_track_state_change_event(self.hass, entities, self.async_state_change_event)
 
-        await super().async_added_to_hass(climate)
+        await super().async_added_to_hass()
 
     async def async_state_change_event(self, _event: Event):
         if self._listeners:

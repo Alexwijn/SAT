@@ -13,7 +13,7 @@ from serial import SerialException
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 
 if TYPE_CHECKING:
-    from ..climate import SatClimate
+    pass
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
         return self
 
-    async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
+    async def async_will_remove_from_hass(self) -> None:
         self._api.unsubscribe(self.async_set_updated_data)
 
         await self._api.set_control_setpoint(0)

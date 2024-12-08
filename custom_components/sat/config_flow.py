@@ -332,8 +332,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_calibrate(self, _user_input: dict[str, Any] | None = None):
-        coordinator = await self.async_create_coordinator()
-
         # Let's see if we have already been configured before
         device_name = self.data[CONF_NAME]
         entities = entity_registry.async_get(self.hass)
@@ -341,8 +339,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         async def start_calibration():
             try:
+                coordinator = await self.async_create_coordinator()
+                await coordinator.async_added_to_hass()
+
                 overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
                 self.overshoot_protection_value = await overshoot_protection.calculate()
+
+                await coordinator.async_will_remove_from_hass()
             except asyncio.TimeoutError:
                 _LOGGER.warning("Calibration time-out.")
                 return False

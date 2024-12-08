@@ -50,8 +50,7 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry) -> bool:
     This function is called by Home Assistant when the integration is being removed.
     """
 
-    climate = _hass.data[DOMAIN][_entry.entry_id][CLIMATE]
-    await _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].async_will_remove_from_hass(climate)
+    await _hass.data[DOMAIN][_entry.entry_id][COORDINATOR].async_will_remove_from_hass()
 
     unloaded = all(
         # Forward entry unload for used platforms

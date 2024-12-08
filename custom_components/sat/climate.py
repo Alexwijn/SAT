@@ -217,7 +217,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._minimum_setpoint.async_initialize(self.hass)
 
         # Let the coordinator know we are ready
-        await self._coordinator.async_added_to_hass(self)
+        await self._coordinator.async_added_to_hass()
 
     async def _register_event_listeners(self):
         """Register event listeners."""

@@ -244,11 +244,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """
         return False
 
-    async def async_added_to_hass(self, climate: SatClimate) -> None:
+    async def async_added_to_hass(self) -> None:
         """Perform setup when the integration is added to Home Assistant."""
         await self.async_set_control_max_setpoint(self.maximum_setpoint)
 
-    async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
+    async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
         pass
 
