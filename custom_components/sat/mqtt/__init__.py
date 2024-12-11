@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from typing import Mapping, Any
@@ -110,7 +111,7 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
         """Process and store the payload of a received MQTT message."""
         self.data[key] = payload
 
-    async def _publish_command(self, payload: str):
+    async def _publish_command(self, payload: str, wait_time: float = 0.5):
         """Publish a command to the MQTT topic."""
         topic = self._get_topic_for_publishing()
 
@@ -121,5 +122,8 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
 
         try:
             await mqtt.async_publish(hass=self.hass, topic=topic, payload=payload, qos=1)
+
+            # Add a small delay to allow processing of the message
+            await asyncio.sleep(wait_time)
         except Exception as error:
             _LOGGER.error("Failed to publish MQTT command. Error: %s", error)
