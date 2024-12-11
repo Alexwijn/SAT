@@ -31,6 +31,8 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
         return self._device_id
 
     async def async_added_to_hass(self) -> None:
+        await self._load_stored_data()
+
         await mqtt.async_wait_for_mqtt_client(self.hass)
 
         for key in self.get_tracked_entities():
