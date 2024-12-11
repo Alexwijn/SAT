@@ -118,6 +118,6 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
             return
 
         try:
-            await mqtt.async_publish(self.hass, topic, payload)
+            await mqtt.async_publish(hass=self.hass, topic=topic, payload=payload, qos=1)
         except Exception as error:
             _LOGGER.error("Failed to publish MQTT command. Error: %s", error)
