@@ -86,7 +86,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_mqtt(self, discovery_info: MqttServiceInfo):
         """Handle mqtt discovery."""
-        _LOGGER.debug("Discovered at [mqtt://%s]", discovery_info.topic)
+        _LOGGER.debug("Discovered MQTT at [mqtt://%s]", discovery_info.topic)
 
         # Mapping topic prefixes to handler methods and device IDs
         topic_mapping = {
@@ -97,12 +97,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # Check for matching prefix and handle appropriately
         for prefix, (mode, device_id, step_method) in topic_mapping.items():
             if discovery_info.topic.startswith(prefix):
-                _LOGGER.debug("Identified gateway type %s: %s", mode, device_id)
+                _LOGGER.debug("Identified gateway type %s: %s", mode[5:], device_id)
                 self.data[CONF_MODE] = mode
                 self.data[CONF_DEVICE] = device_id
 
                 # Abort if the gateway is already registered, reload if necessary
                 await self.async_set_unique_id(device_id)
+                self._abort_if_unique_id_configured(updates=self.data)
 
                 return await step_method()
 
