@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 
-from . import MINIMUM_SETPOINT, HEATING_SYSTEM_HEAT_PUMP
+from .const import MINIMUM_SETPOINT, HEATING_SYSTEM_HEAT_PUMP
 from .coordinator import SatDataUpdateCoordinator
 from .pwm import PWMState
 
