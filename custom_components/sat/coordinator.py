@@ -27,7 +27,7 @@ class DeviceState(str, Enum):
 
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    async def resolve(
+    def resolve(
             hass: HomeAssistant,
             mode: str,
             device: str,

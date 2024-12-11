@@ -147,15 +147,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        return self.async_show_form(
-            step_id="mosquitto_opentherm",
-            last_step=False,
-            data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                vol.Required(CONF_MQTT_TOPIC, default="OTGW"): str,
-                vol.Required(CONF_DEVICE, default="otgw-XXXXXXXXXXXX"): str,
-            }),
-        )
+        return self._create_mqtt_form("mosquitto_opentherm", "OTGW", "otgw-XXXXXXXXXXXX")
 
     async def async_step_mosquitto_ems(self, _user_input: dict[str, Any] | None = None):
         """Setup specific to EMS-ESP."""
@@ -165,14 +157,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        return self.async_show_form(
-            step_id="mosquitto_ems",
-            last_step=False,
-            data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                vol.Required(CONF_MQTT_TOPIC, default="ems-esp"): str,
-            }),
-        )
+        return self._create_mqtt_form("mosquitto_ems", "ems-esp")
 
     async def async_step_esphome(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
@@ -418,7 +403,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if self.overshoot_protection_value is None:
             return self.async_abort(reason="unable_to_calibrate")
 
-        await self._enable_overshoot_protection(
+        self._enable_overshoot_protection(
             self.overshoot_protection_value
         )
 
@@ -441,7 +426,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_overshoot_protection(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
-            await self._enable_overshoot_protection(
+            self._enable_overshoot_protection(
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
 
@@ -488,11 +473,27 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
         """Resolve the coordinator by using the factory according to the mode"""
-        return await SatDataUpdateCoordinatorFactory().resolve(
+        return SatDataUpdateCoordinatorFactory().resolve(
             hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
-    async def _enable_overshoot_protection(self, overshoot_protection_value: float):
+    def _create_mqtt_form(self, step_id: str, default_topic: str, default_device: str = None):
+        """Create a common MQTT configuration form."""
+        schema = {
+            vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+            vol.Required(CONF_MQTT_TOPIC, default=default_topic): str,
+        }
+
+        if default_device:
+            schema[vol.Required(CONF_DEVICE, default=default_device)] = str
+
+        return self.async_show_form(
+            step_id=step_id,
+            last_step=False,
+            data_schema=vol.Schema(schema),
+        )
+
+    def _enable_overshoot_protection(self, overshoot_protection_value: float):
         """Store the value and enable overshoot protection."""
         self.data[CONF_OVERSHOOT_PROTECTION] = True
         self.data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
