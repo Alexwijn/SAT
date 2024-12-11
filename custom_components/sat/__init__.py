@@ -12,7 +12,15 @@ from homeassistant.helpers import device_registry
 from homeassistant.helpers.storage import Store
 from sentry_sdk import Client, Hub
 
-from .const import *
+from .const import (
+    DOMAIN,
+    CLIMATE,
+    SENTRY,
+    COORDINATOR,
+    CONF_MODE,
+    CONF_DEVICE,
+    CONF_ERROR_MONITORING,
+)
 from .coordinator import SatDataUpdateCoordinatorFactory
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
