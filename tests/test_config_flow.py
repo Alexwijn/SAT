@@ -1,8 +1,8 @@
-from custom_components.sat import MODE_FAKE
+from custom_components.sat.const import MODE_FAKE
 from custom_components.sat.config_flow import SatFlowHandler
 
 
-async def test_create_coordinator(hass):
+async def test_create_coordinator(_hass):
     flow_handler = SatFlowHandler()
     flow_handler.data = {
         "name": "Test",

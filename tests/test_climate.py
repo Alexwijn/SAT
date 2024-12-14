@@ -42,7 +42,7 @@ from custom_components.sat.fake import SatFakeCoordinator
             },
     )],
 ])
-async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator) -> None:
+async def test_scenario_1(_hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator) -> None:
     await coordinator.async_set_boiler_temperature(57)
     await climate.async_set_target_temperature(21.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
@@ -85,7 +85,7 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
             },
     )],
 ])
-async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator) -> None:
+async def test_scenario_2(_hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator) -> None:
     await coordinator.async_set_boiler_temperature(58)
     await climate.async_set_target_temperature(19.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
@@ -129,7 +129,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
             },
     )],
 ])
-async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator) -> None:
+async def test_scenario_3(_hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator) -> None:
     await coordinator.async_set_boiler_temperature(41)
     await climate.async_set_target_temperature(20.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
