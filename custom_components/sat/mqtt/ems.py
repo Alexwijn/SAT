@@ -18,11 +18,11 @@ DATA_REL_MOD_LEVEL = "curburnpow"
 DATA_BOILER_TEMPERATURE = "curflowtemp"
 DATA_RETURN_TEMPERATURE = "rettemp"
 
-DATA_DHW_ENABLE = "tapwateractive"
+DATA_DHW_ENABLE = "tapactivated"
 DATA_CENTRAL_HEATING = "heatingactive"
 DATA_BOILER_CAPACITY = "nompower"
 
-DATA_REL_MIN_MOD_LEVEL = "burnminnpower"
+DATA_REL_MIN_MOD_LEVEL = "burnminpower"
 DATA_MAX_REL_MOD_LEVEL_SETTING = "burnmaxpower"
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
