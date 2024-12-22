@@ -323,9 +323,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
-        if self.max_error > 0:
-            self._warming_up = True
-
         self.async_write_ha_state()
 
     async def _register_services(self):
@@ -907,6 +904,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         _LOGGER.debug("Attempting to set heater state to: %s", state)
 
         if state == DeviceState.ON:
+            if not self._coordinator.flame_active:
+                self._warming_up = True
+                self._last_boiler_temperature = None
+
             if self._coordinator.device_active:
                 _LOGGER.info("Heater is already active. No action taken.")
                 return
@@ -914,9 +915,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self.valves_open:
                 _LOGGER.warning("Cannot turn on heater: no valves are open.")
                 return
-
-            self._warming_up = True
-            self._last_boiler_temperature = None
 
         elif state == DeviceState.OFF:
             if not self._coordinator.device_active:
