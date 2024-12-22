@@ -875,6 +875,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             self.pwm.reset()
 
+        # Control our dynamic minimum setpoint
+        if not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
+            if not self._warming_up:
+                self._minimum_setpoint.calculate(self.requested_setpoint, self._coordinator.boiler_temperature)
+            else:
+                self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
+
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
 
@@ -886,13 +893,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Control our areas
         await self._areas.async_control_heating_loops()
-
-        # Control our dynamic minimum setpoint
-        if not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
-            if not self._warming_up:
-                self._minimum_setpoint.calculate(self.requested_setpoint, self._coordinator.boiler_temperature)
-            else:
-                self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
 
         # If the setpoint is high and the HVAC is not off, turn on the heater
         await self.async_set_heater_state(DeviceState.ON if self._setpoint > MINIMUM_SETPOINT else DeviceState.OFF)

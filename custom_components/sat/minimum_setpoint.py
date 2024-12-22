@@ -30,10 +30,11 @@ class MinimumSetpoint:
             _LOGGER.debug("Initialized minimum setpoint to boiler temperature: %.1f°C", boiler_temperature)
 
         old_setpoint = self.current_minimum_setpoint
+        target_setpoint = min(requested_setpoint, boiler_temperature - 2)
         adjustment_factor = 0.0 if self._adjustments < 6 else self._adjustment_factor
 
         # Gradually adjust the setpoint toward the requested setpoint
-        if self.current_minimum_setpoint < requested_setpoint:
+        if self.current_minimum_setpoint < target_setpoint:
             self.current_minimum_setpoint = min(self.current_minimum_setpoint + adjustment_factor, requested_setpoint)
         else:
             self.current_minimum_setpoint = max(self.current_minimum_setpoint - adjustment_factor, requested_setpoint)
