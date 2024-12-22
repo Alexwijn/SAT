@@ -323,6 +323,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self._hvac_mode:
                 self._hvac_mode = HVACMode.OFF
 
+        if self.max_error > 0:
+            self._warming_up = True
+
         self.async_write_ha_state()
 
     async def _register_services(self):
@@ -756,7 +759,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if not self._dynamic_minimum_setpoint:
                     self._setpoint = self._coordinator.minimum_setpoint
                 else:
-                    self._setpoint = self._coordinator.boiler_temperature - 2
+                    self._setpoint = self._minimum_setpoint.current() - 2
 
                 _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self._setpoint)
             else:

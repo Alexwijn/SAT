@@ -93,9 +93,9 @@ def create_pwm_controller(heating_curve: HeatingCurve, config_data: MappingProxy
 
 def create_minimum_setpoint_controller(config_data, config_options) -> MinimumSetpoint:
     minimum_setpoint = config_data.get(CONF_MINIMUM_SETPOINT)
-    adjustment_factor = config_options.get(CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR)
+    adjustment = config_options.get(CONF_MINIMUM_SETPOINT_ADJUSTMENT)
 
-    return MinimumSetpoint(configured_minimum_setpoint=minimum_setpoint, adjustment_factor=adjustment_factor)
+    return MinimumSetpoint(configured_minimum_setpoint=minimum_setpoint, adjustment=adjustment)
 
 
 def snake_case(value: str) -> str:
