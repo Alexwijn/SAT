@@ -756,7 +756,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if not self._dynamic_minimum_setpoint:
                     self._setpoint = self._coordinator.minimum_setpoint
                 else:
-                    self._setpoint = self._minimum_setpoint.current() - 2
+                    self._setpoint = self.adjusted_minimum_setpoint - 2
 
                 _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self._setpoint)
             else:
