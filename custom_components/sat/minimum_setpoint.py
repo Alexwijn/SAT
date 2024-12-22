@@ -1,5 +1,7 @@
 import logging
 
+from .const import BOILER_TEMPERATURE_OFFSET
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -30,8 +32,8 @@ class MinimumSetpoint:
             _LOGGER.debug("Initialized minimum setpoint to boiler temperature: %.1f°C", boiler_temperature)
 
         old_setpoint = self.current_minimum_setpoint
-        target_setpoint = min(requested_setpoint, boiler_temperature - 2)
-        adjustment_factor = 0.0 if self._adjustments < 6 else self._adjustment_factor
+        adjustment_factor = 0.0 if self._adjustments <= 5 else self._adjustment_factor
+        target_setpoint = min(requested_setpoint, boiler_temperature - BOILER_TEMPERATURE_OFFSET)
 
         # Gradually adjust the setpoint toward the requested setpoint
         if self.current_minimum_setpoint < target_setpoint:

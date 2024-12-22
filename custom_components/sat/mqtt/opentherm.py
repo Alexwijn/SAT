@@ -145,7 +145,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await self._publish_command("PM=3")
         await self._publish_command("PM=48")
 
-        if isinstance(self.manufacturer, Ideal) or isinstance(self.manufacturer, Intergas):
+        if isinstance(self.manufacturer, (Ideal, Intergas)):
             await self._publish_command("MI=500")
 
     def get_tracked_entities(self) -> list[str]:
