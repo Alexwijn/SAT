@@ -12,7 +12,7 @@ class MinimumSetpoint:
 
     def __init__(self, adjustment_factor: float, configured_minimum_setpoint: float):
         self._store = None
-        self.base_return_temperature = None
+        self.base_boiler_temperature = None
         self.current_minimum_setpoint = None
 
         self.adjustment_factor = adjustment_factor
@@ -22,28 +22,28 @@ class MinimumSetpoint:
         self._store = Store(hass, self._STORAGE_VERSION, self._STORAGE_KEY)
 
         data = await self._store.async_load()
-        if data and "base_return_temperature" in data:
-            self.base_return_temperature = data["base_return_temperature"]
-            _LOGGER.debug("Loaded base return temperature from storage.")
+        if data and "base_boiler_temperature" in data:
+            self.base_boiler_temperature = data["base_boiler_temperature"]
+            _LOGGER.debug("Loaded base boiler temperature from storage.")
 
-    def warming_up(self, return_temperature: float) -> None:
-        if self.base_return_temperature is not None and self.base_return_temperature > return_temperature:
+    def warming_up(self, boiler_temperature: float) -> None:
+        if self.base_boiler_temperature is not None and self.base_boiler_temperature > boiler_temperature:
             return
 
         # Use the new value if it's higher or none is set
-        self.base_return_temperature = return_temperature
-        _LOGGER.debug(f"Higher temperature set to: {return_temperature}.")
+        self.base_boiler_temperature = boiler_temperature
+        _LOGGER.debug(f"Higher temperature set to: {boiler_temperature}.")
 
         # Make sure to remember this value
         if self._store:
             self._store.async_delay_save(self._data_to_save)
             _LOGGER.debug("Stored base return temperature changes.")
 
-    def calculate(self, return_temperature: float) -> None:
-        if self.base_return_temperature is None:
+    def calculate(self, boiler_temperature: float) -> None:
+        if self.base_boiler_temperature is None:
             return
 
-        adjustment = (return_temperature - self.base_return_temperature) * self.adjustment_factor
+        adjustment = (boiler_temperature - self.base_boiler_temperature) * self.adjustment_factor
         self.current_minimum_setpoint = self.configured_minimum_setpoint + adjustment
 
         _LOGGER.debug("Calculated new minimum setpoint: %d°C", self.current_minimum_setpoint)
@@ -52,4 +52,4 @@ class MinimumSetpoint:
         return self.current_minimum_setpoint if self.current_minimum_setpoint is not None else self.configured_minimum_setpoint
 
     def _data_to_save(self) -> dict:
-        return {"base_return_temperature": self.base_return_temperature}
+        return {"base_boiler_temperature": self.base_boiler_temperature}

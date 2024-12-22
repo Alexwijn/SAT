@@ -43,8 +43,7 @@ from .entity import SatEntity
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
-from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, \
-    calculate_derivative_per_hour, create_minimum_setpoint_controller
+from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, create_minimum_setpoint_controller
 
 ATTR_ROOMS = "rooms"
 ATTR_WARMING_UP = "warming_up_data"
@@ -123,10 +122,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors = []
         self._rooms = None
         self._setpoint = None
+        self._warming_up = False
         self._calculated_setpoint = None
-
-        self._warming_up_data = None
-        self._warming_up_derivative = None
+        self._last_boiler_temperature = None
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -300,12 +298,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if old_state.attributes.get(ATTR_PRESET_MODE):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
 
-            if warming_up := old_state.attributes.get(ATTR_WARMING_UP):
-                self._warming_up_data = SatWarmingUp(warming_up["error"], warming_up["boiler_temperature"], warming_up["started"])
-
-            if old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE):
-                self._warming_up_derivative = old_state.attributes.get(ATTR_WARMING_UP_DERIVATIVE)
-
             if old_state.attributes.get(ATTR_PRE_ACTIVITY_TEMPERATURE):
                 self._pre_activity_temperature = old_state.attributes.get(ATTR_PRE_ACTIVITY_TEMPERATURE)
 
@@ -381,14 +373,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "current_humidity": self._current_humidity,
             "summer_simmer_index": SummerSimmer.index(self._current_temperature, self._current_humidity),
             "summer_simmer_perception": SummerSimmer.perception(self._current_temperature, self._current_humidity),
-            "warming_up_data": vars(self._warming_up_data) if self._warming_up_data is not None else None,
-            "warming_up_derivative": self._warming_up_derivative,
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
             "minimum_setpoint": self.minimum_setpoint,
             "requested_setpoint": self.requested_setpoint,
             "adjusted_minimum_setpoint": self.adjusted_minimum_setpoint,
-            "base_return_temperature": self._minimum_setpoint.base_return_temperature,
+            "base_boiler_temperature": self._minimum_setpoint.base_boiler_temperature,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
@@ -541,11 +531,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def relative_modulation_state(self) -> RelativeModulationState:
         return self._relative_modulation.state
-
-    @property
-    def warming_up(self) -> bool:
-        """Return True if we are warming up, False otherwise."""
-        return self._warming_up_data is not None and self._warming_up_data.elapsed < HEATER_STARTUP_TIMEFRAME
 
     @property
     def minimum_setpoint(self) -> float:
@@ -740,18 +725,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     outside_temperature=self.current_outside_temperature
                 )
 
-            # Since we are in the deadband, we can safely assume we are not warming up anymore
-            if self._warming_up_data and max_error <= DEADBAND:
-                # Calculate the derivative per hour
-                self._warming_up_derivative = calculate_derivative_per_hour(
-                    self._warming_up_data.error,
-                    self._warming_up_data.elapsed
-                )
-
-                # Notify that we are not warming anymore
-                _LOGGER.info("Reached deadband, turning off warming up.")
-                self._warming_up_data = None
-
             self._areas.pids.update(self._coordinator.filtered_boiler_temperature)
             self.pid.update(max_error, self.heating_curve.value, self._coordinator.filtered_boiler_temperature)
         elif max_error != self.pid.last_error:
@@ -760,11 +733,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pid.update_reset(error=max_error, heating_curve_value=self.heating_curve.value)
             self._calculated_setpoint = None
             self.pwm.reset()
-
-            # Determine if we are warming up
-            if self.max_error > DEADBAND:
-                self._warming_up_data = SatWarmingUp(self.max_error, self._coordinator.boiler_temperature)
-                _LOGGER.info("Outside of deadband, we are warming up")
 
         self.async_write_ha_state()
 
@@ -789,8 +757,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
 
             if pwm_state == PWMState.ON and self.max_error > -DEADBAND:
-                self._setpoint = self.minimum_setpoint
-                _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self.minimum_setpoint)
+                if not self._dynamic_minimum_setpoint:
+                    self._setpoint = self._coordinator.minimum_setpoint
+                else:
+                    self._setpoint = self._coordinator.boiler_temperature - 2
+
+                _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self._setpoint)
             else:
                 self._setpoint = MINIMUM_SETPOINT
                 _LOGGER.debug("Setting setpoint to absolute minimum: %.1f°C", MINIMUM_SETPOINT)
@@ -806,7 +778,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Update relative modulation state
-        await self._relative_modulation.update(self.warming_up, self.pwm.state)
+        await self._relative_modulation.update(self._warming_up, self.pwm.state)
 
         # Determine if the value needs to be updated
         if self._coordinator.maximum_relative_modulation_value == self.relative_modulation_value:
@@ -874,6 +846,26 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Apply low filter on requested setpoint
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
+        # Handle warming-up logic
+        if self._warming_up:
+            # Check if the boiler temperature is decreasing, indicating warming-up is complete
+            if self._last_boiler_temperature is not None and self._last_boiler_temperature > self._coordinator.boiler_temperature:
+                self._warming_up = False
+
+                _LOGGER.debug(
+                    "Warming-up phase completed. Last boiler temperature: %.1f°C, Current boiler temperature: %.1f°C",
+                    self._last_boiler_temperature,
+                    self._coordinator.boiler_temperature
+                )
+            else:
+                # Update the last known boiler temperature
+                self._last_boiler_temperature = self._coordinator.boiler_temperature
+
+                _LOGGER.debug(
+                    "Warming-up in progress. Updated last boiler temperature to: %.1f°C",
+                    self._last_boiler_temperature
+                )
+
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
             boiler_state = BoilerState(
@@ -902,7 +894,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control our dynamic minimum setpoint
         if not self._coordinator.hot_water_active and self._coordinator.flame_active:
             # Calculate the base return temperature
-            if self.warming_up:
+            if self._warming_up:
                 self._minimum_setpoint.warming_up(self._coordinator.return_temperature)
 
             # Calculate the dynamic minimum setpoint
@@ -925,6 +917,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if not self.valves_open:
                 _LOGGER.warning("Cannot turn on heater: no valves are open.")
                 return
+
+            self._warming_up = True
+            self._last_boiler_temperature = None
 
         elif state == DeviceState.OFF:
             if not self._coordinator.device_active:
