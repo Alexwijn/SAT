@@ -800,10 +800,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         _LOGGER.info("Control setpoint has been updated to: %.1f°C", self._setpoint)
 
     async def _async_control_relative_modulation(self) -> None:
-        """Control the relative modulation value based on the conditions"""
-        if self._coordinator.supports_relative_modulation_management:
-            await self._relative_modulation.update(self.warming_up, self.pwm.state)
-            await self._coordinator.async_set_control_max_relative_modulation(self.relative_modulation_value)
+        """Control the relative modulation value based on the conditions."""
+        if not self._coordinator.supports_relative_modulation_management:
+            _LOGGER.debug("Relative modulation management is not supported. Skipping control.")
+            return
+
+        # Update relative modulation state
+        await self._relative_modulation.update(self.warming_up, self.pwm.state)
+
+        # Determine if the value needs to be updated
+        if self._coordinator.relative_modulation_value == self.relative_modulation_value:
+            _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", self.relative_modulation_value)
+            return
+
+        await self._coordinator.async_set_control_max_relative_modulation(self.relative_modulation_value)
 
     async def _async_update_rooms_from_climates(self) -> None:
         """Update the temperature setpoint for each room based on their associated climate entity."""
@@ -904,11 +914,24 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def async_set_heater_state(self, state: DeviceState):
-        if state == DeviceState.ON and not self.valves_open:
-            _LOGGER.warning('No valves are open at the moment.')
-            return await self._coordinator.async_set_heater_state(DeviceState.OFF)
+        """Set the heater state, ensuring proper conditions are met."""
+        _LOGGER.debug("Attempting to set heater state to: %s", state)
 
-        return await self._coordinator.async_set_heater_state(state)
+        if state == DeviceState.ON:
+            if self._coordinator.device_active:
+                _LOGGER.info("Heater is already active. No action taken.")
+                return
+
+            if not self.valves_open:
+                _LOGGER.warning("Cannot turn on heater: no valves are open.")
+                return
+
+        elif state == DeviceState.OFF:
+            if not self._coordinator.device_active:
+                _LOGGER.info("Heater is already off. No action taken.")
+                return
+
+        await self._coordinator.async_set_heater_state(state)
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set the target temperature."""
