@@ -124,7 +124,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
-        await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {value}}}')
+        await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {min(value, 20)}}}')
 
         await super().async_set_control_max_relative_modulation(value)
 
