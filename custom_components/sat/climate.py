@@ -888,7 +888,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._areas.async_control_heating_loops()
 
         # Control our dynamic minimum setpoint
-        if not self._coordinator.hot_water_active:
+        if not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
             if not self._warming_up:
                 self._minimum_setpoint.calculate(self.requested_setpoint, self._coordinator.boiler_temperature)
             else:
