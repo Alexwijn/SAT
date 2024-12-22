@@ -809,7 +809,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._relative_modulation.update(self.warming_up, self.pwm.state)
 
         # Determine if the value needs to be updated
-        if self._coordinator.relative_modulation_value == self.relative_modulation_value:
+        if self._coordinator.maximum_relative_modulation_value == self.relative_modulation_value:
             _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", self.relative_modulation_value)
             return
 
