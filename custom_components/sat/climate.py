@@ -213,9 +213,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Register services
         await self._register_services()
 
-        # Initialize minimum setpoint system
-        await self._minimum_setpoint.async_initialize(self.hass)
-
         # Initialize the area system
         await self._areas.async_added_to_hass(self.hass)
 
@@ -378,7 +375,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "minimum_setpoint": self.minimum_setpoint,
             "requested_setpoint": self.requested_setpoint,
             "adjusted_minimum_setpoint": self.adjusted_minimum_setpoint,
-            "base_boiler_temperature": self._minimum_setpoint.base_boiler_temperature,
             "outside_temperature": self.current_outside_temperature,
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
@@ -892,13 +888,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._areas.async_control_heating_loops()
 
         # Control our dynamic minimum setpoint
-        if not self._coordinator.hot_water_active and self._coordinator.flame_active:
-            # Calculate the base return temperature
-            if self._warming_up:
-                self._minimum_setpoint.warming_up(self._coordinator.return_temperature)
-
-            # Calculate the dynamic minimum setpoint
-            self._minimum_setpoint.calculate(self._coordinator.return_temperature)
+        if not self._coordinator.hot_water_active:
+            if not self._warming_up:
+                self._minimum_setpoint.calculate(self.requested_setpoint, self._coordinator.boiler_temperature)
+            else:
+                self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
 
         # If the setpoint is high and the HVAC is not off, turn on the heater
         await self.async_set_heater_state(DeviceState.ON if self._setpoint > MINIMUM_SETPOINT else DeviceState.OFF)
