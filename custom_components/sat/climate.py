@@ -843,8 +843,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
         # Handle warming-up logic
-        if self._warming_up and self._coordinator.filtered_boiler_temperature is not None:
-            current_boiler_temperature = self._coordinator.filtered_boiler_temperature
+        if self._warming_up and self._coordinator.boiler_temperature is not None:
+            current_boiler_temperature = self._coordinator.boiler_temperature
 
             # Initialize the last boiler temperature if it's not already set
             if self._last_boiler_temperature is None:

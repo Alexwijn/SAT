@@ -7,7 +7,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MinimumSetpoint:
-    def __init__(self, configured: float, smoothing_factor: float, adjustment_delay: int = 60):
+    def __init__(self, configured: float, smoothing_factor: float, adjustment_delay: int = 30):
         """Initialize the MinimumSetpoint class."""
         self._last_adjustment_time = None
         self._smoothing_factor = smoothing_factor
