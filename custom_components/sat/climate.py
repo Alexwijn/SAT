@@ -884,7 +884,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pwm.reset()
 
         # Control our dynamic minimum setpoint
-        if self._setpoint > MINIMUM_SETPOINT and not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
+        if self._setpoint is not None and self._setpoint > MINIMUM_SETPOINT and not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
             if not self._warming_up:
                 self._minimum_setpoint.calculate(self.requested_setpoint, self._coordinator.boiler_temperature)
             else:
