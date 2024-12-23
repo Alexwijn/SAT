@@ -844,7 +844,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Handle warming-up logic
         if self._warming_up:
-            boiler_temperature_change = self._last_boiler_temperature > self._coordinator.filtered_boiler_temperature
+            boiler_temperature_change = self._coordinator.filtered_boiler_temperature - self._last_boiler_temperature
 
             # Check if the boiler temperature is decreasing, indicating warming-up is complete
             if self._last_boiler_temperature is not None and boiler_temperature_change > 2.0:
