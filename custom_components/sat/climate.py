@@ -869,6 +869,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     self._last_boiler_temperature
                 )
 
+        if not self._coordinator.flame_active and self._calculated_setpoint > MINIMUM_SETPOINT:
+            self._warming_up = True
+            self._last_boiler_temperature = None
+
         # Create a value object that contains most boiler values
         boiler_state = BoilerState(
             flame_active=self._coordinator.flame_active,
@@ -881,7 +885,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.pwm.update(self._calculated_setpoint, boiler_state)
 
         # Control our dynamic minimum setpoint
-        if self._setpoint is not None and self._setpoint > MINIMUM_SETPOINT and not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
+        if self._setpoint is not None and self._calculated_setpoint > MINIMUM_SETPOINT and not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
             if not self._warming_up:
                 self._minimum_setpoint.calculate(self.requested_setpoint, self._coordinator.boiler_temperature)
             else:
@@ -909,10 +913,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         _LOGGER.debug("Attempting to set heater state to: %s", state)
 
         if state == DeviceState.ON:
-            if not self._coordinator.flame_active:
-                self._warming_up = True
-                self._last_boiler_temperature = None
-
             if self._coordinator.device_active:
                 _LOGGER.info("Heater is already active. No action taken.")
                 return
