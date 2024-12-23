@@ -1,7 +1,7 @@
 # Base component constants
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
-VERSION = "3.0.x"
+VERSION = "3.1.x"
 CLIMATE = "climate"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
