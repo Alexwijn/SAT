@@ -774,7 +774,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Update relative modulation state
-        await self._relative_modulation.update(self._warming_up, self.pwm.state)
+        await self._relative_modulation.update(self.max_error > DEADBAND, self.pwm.state)
 
         # Determine if the value needs to be updated
         if self._coordinator.maximum_relative_modulation_value == self.relative_modulation_value:

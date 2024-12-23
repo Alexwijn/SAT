@@ -86,9 +86,7 @@ class PWM:
         # Update boiler temperature if heater has just started up
         if self._state == PWMState.ON:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
-                self._last_boiler_temperature = (
-                        self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature
-                )
+                self._last_boiler_temperature = (self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature)
 
                 _LOGGER.debug("Updated last boiler temperature with weighted average during startup phase.")
             else:
@@ -96,8 +94,7 @@ class PWM:
                 _LOGGER.debug("Updated last boiler temperature to %.1f°C", boiler.temperature)
 
         # State transitions for PWM
-        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (
-                elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             if self._first_duty_cycle_start is None:
                 self._first_duty_cycle_start = monotonic()
 
@@ -112,8 +109,7 @@ class PWM:
             _LOGGER.info("Starting new duty cycle (ON state). Current CYCLES count: %d", self._cycles)
             return
 
-        if self._state != PWMState.OFF and (
-                self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+        if self._state != PWMState.OFF and (self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
             self._state = PWMState.OFF
             self._last_update = monotonic()
             _LOGGER.info("Duty cycle completed. Switching to OFF state.")
