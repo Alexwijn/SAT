@@ -79,4 +79,4 @@ class MinimumSetpoint:
 
     def current(self) -> float:
         """Return the current minimum setpoint."""
-        return round(self._current, 1) or self._configured
+        return round(self._current, 1) if self._current is not None else self._configured
