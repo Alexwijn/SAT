@@ -518,7 +518,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        return self._overshoot_protection and self._calculate_control_setpoint() < self.minimum_setpoint
+        return self._overshoot_protection and self.pwm.enabled
 
     @property
     def relative_modulation_value(self) -> int:
@@ -747,7 +747,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
             _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
             self._setpoint = self._calculated_setpoint
-
         else:
             # PWM is enabled and actively controlling the cycle
             _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
@@ -870,18 +869,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     self._last_boiler_temperature
                 )
 
-        # Pulse Width Modulation
-        if self.pulse_width_modulation_enabled:
-            boiler_state = BoilerState(
-                flame_active=self._coordinator.flame_active,
-                device_active=self._coordinator.device_active,
-                hot_water_active=self._coordinator.hot_water_active,
-                temperature=self._coordinator.boiler_temperature
-            )
+        # Create a value object that contains most boiler values
+        boiler_state = BoilerState(
+            flame_active=self._coordinator.flame_active,
+            device_active=self._coordinator.device_active,
+            hot_water_active=self._coordinator.hot_water_active,
+            temperature=self._coordinator.boiler_temperature
+        )
 
-            await self.pwm.update(self._calculated_setpoint, boiler_state)
-        else:
-            self.pwm.reset()
+        # Pulse Width Modulation
+        await self.pwm.update(self._calculated_setpoint, boiler_state)
 
         # Control our dynamic minimum setpoint
         if self._setpoint is not None and self._setpoint > MINIMUM_SETPOINT and not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
