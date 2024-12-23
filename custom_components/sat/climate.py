@@ -843,11 +843,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
         # Handle warming-up logic
-        if self._warming_up:
+        if self._warming_up and self._coordinator.filtered_boiler_temperature is not None:
             boiler_temperature_change = self._coordinator.filtered_boiler_temperature - self._last_boiler_temperature
 
             # Check if the boiler temperature is decreasing, indicating warming-up is complete
-            if self._last_boiler_temperature is not None and boiler_temperature_change > 2.0:
+            if boiler_temperature_change > 2.0:
                 self._warming_up = False
 
                 _LOGGER.debug(
