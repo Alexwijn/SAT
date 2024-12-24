@@ -857,6 +857,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 # The Warming-up phase is complete
                 self._warming_up = False
 
+                # Do a final adjustment
+                self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
+
                 _LOGGER.debug(
                     "Warming-up phase completed. Last boiler temperature: %.1f°C, Current boiler temperature: %.1f°C",
                     self._last_boiler_temperature, current_boiler_temperature
