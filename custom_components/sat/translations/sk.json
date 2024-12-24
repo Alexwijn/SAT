@@ -207,7 +207,7 @@
       "init": {
         "menu_options": {
           "advanced": "Rozšírené možnosti",
-          "general": "VŠeobecné",
+          "general": "Všeobecné",
           "presets": "Predvoľby",
           "system_configuration": "Konfigurácia systému"
         }
@@ -219,6 +219,7 @@
           "comfort_temperature": "Komfortná teplota",
           "home_temperature": "Domáca teplota",
           "sleep_temperature": "Teplota spánku",
+          "sync_with_thermostat": "Synchronizujte s termostatom pripojeným ku kotlu",
           "sync_climates_with_preset": "Synchronizujte klímu s predvoľbou (spánok / preč / aktivita)"
         },
         "description": "Preddefinované nastavenia teploty pre rôzne scenáre alebo činnosti.",
@@ -226,12 +227,15 @@
       },
       "system_configuration": {
         "data": {
+          "cycles_per_hour": "Pracovné cykly za hodinu",
           "automatic_duty_cycle": "Automatický pracovný cyklus",
+          "sync_climates_with_mode": "Synchronizujte klímu s režimom",
           "overshoot_protection": "Ochrana proti prekročeniu (s PWM)",
           "sensor_max_value_age": "Vek maximálnej hodnoty snímača teploty",
           "window_minimum_open_time": "Minimálny čas na otvorenie okna"
         },
         "data_description": {
+          "cycles_per_hour": "Maximálny počet pracovných cyklov za hodinu.",
           "automatic_duty_cycle": "Povoliť alebo zakázať automatický pracovný cyklus pre moduláciu šírky impulzu (PWM).",
           "overshoot_protection": "Aktivujte ochranu proti prekročeniu pomocou modulácie šírky impulzov (PWM), aby ste zabránili prekročeniu teploty kotla.",
           "sensor_max_value_age": "Maximálny vek hodnoty teplotného snímača pred tým, než sa považuje za prerušenie.",
