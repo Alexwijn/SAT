@@ -209,7 +209,7 @@ def initialize_sentry(hass: HomeAssistant):
     client = Client(
         traces_sample_rate=1.0,
         before_send=exception_filter,
-        dsn="https://90e0ff6b2ca1f2fa4edcd34c5dd65808@o4508432869621760.ingest.de.sentry.io/4508432872898640",
+        dsn="https://216fc0a74c488abdb79f9839fb7da33e@o4508432869621760.ingest.de.sentry.io/4508432872898640",
     )
 
     # Bind the Sentry client to the Sentry hub
