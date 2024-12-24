@@ -569,6 +569,11 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
             schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
 
+        if options[CONF_DYNAMIC_MINIMUM_SETPOINT]:
+            schema[vol.Required(CONF_MINIMUM_SETPOINT_DELAY_ADJUSTMENT, default=options[CONF_MINIMUM_SETPOINT_DELAY_ADJUSTMENT])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=5, max=120, step=5)
+            )
+
         if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
             schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()
 
@@ -663,7 +668,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool,
         }
 
-        if options.get(CONF_MODE) in [MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:
+        if self._config_entry.data.get(CONF_MODE) in [MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:
             schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
 
             schema[vol.Required(CONF_MINIMUM_CONSUMPTION, default=options[CONF_MINIMUM_CONSUMPTION])] = selector.NumberSelector(

@@ -6,6 +6,7 @@ from homeassistant.util import dt
 
 from .const import *
 from .heating_curve import HeatingCurve
+from .minimum_setpoint import MinimumSetpoint
 from .pid import PID
 from .pwm import PWM
 
@@ -88,6 +89,12 @@ def create_pwm_controller(heating_curve: HeatingCurve, config_data: MappingProxy
 
     # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, max_cycles=max_duty_cycles, force=force)
+
+
+def create_minimum_setpoint_controller(config_options) -> MinimumSetpoint:
+    adjustment_delay = config_options.get(CONF_MINIMUM_SETPOINT_DELAY_ADJUSTMENT)
+
+    return MinimumSetpoint(adjustment_delay=adjustment_delay)
 
 
 def snake_case(value: str) -> str:

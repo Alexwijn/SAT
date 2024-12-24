@@ -40,11 +40,10 @@ from .boiler_state import BoilerState
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
-from .minimum_setpoint import MinimumSetpoint
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
-from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds
+from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, create_minimum_setpoint_controller
 
 ATTR_ROOMS = "rooms"
 ATTR_WARMING_UP = "warming_up_data"
@@ -182,7 +181,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
 
         # Create the Minimum Setpoint controller
-        self._minimum_setpoint = MinimumSetpoint()
+        self._minimum_setpoint = create_minimum_setpoint_controller(config_options)
 
         # Create Relative Modulation controller
         self._relative_modulation = RelativeModulation(coordinator, self._heating_system)
@@ -747,7 +746,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Normal cycle without PWM
             _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
             _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
-            self._setpoint = self._calculated_setpoint
+            self._setpoint = min(self._calculated_setpoint, self.adjusted_minimum_setpoint - BOILER_TEMPERATURE_OFFSET)
         else:
             # PWM is enabled and actively controlling the cycle
             _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
@@ -756,7 +755,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if not self._dynamic_minimum_setpoint:
                     self._setpoint = self._coordinator.minimum_setpoint
                 else:
-                    self._setpoint = self.adjusted_minimum_setpoint - BOILER_TEMPERATURE_OFFSET
+                    self._setpoint = self.adjusted_minimum_setpoint
 
                 _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self._setpoint)
             else:
@@ -844,14 +843,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Handle warming-up logic
         if self._warming_up and self._coordinator.boiler_temperature is not None:
-            current_boiler_temperature = self._coordinator.boiler_temperature
-
             # Initialize the last boiler temperature if it's not already set
             if self._last_boiler_temperature is None:
-                self._last_boiler_temperature = current_boiler_temperature
+                self._last_boiler_temperature = self._coordinator.boiler_temperature
 
             # Calculate the change in boiler temperature
-            boiler_temperature_change = self._last_boiler_temperature - current_boiler_temperature
+            boiler_temperature_change = self._last_boiler_temperature - self._coordinator.boiler_temperature
 
             if boiler_temperature_change >= 1.0:
                 # The Warming-up phase is complete
@@ -861,12 +858,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
 
                 _LOGGER.debug(
-                    "Warming-up phase completed. Last boiler temperature: %.1f°C, Current boiler temperature: %.1f°C",
-                    self._last_boiler_temperature, current_boiler_temperature
+                    "Warming-up phase completed. Last boiler temperature: %.1f°C, Current boiler temperature: %.1f°C, Change: %.1f°C",
+                    self._last_boiler_temperature, self._coordinator.boiler_temperature, boiler_temperature_change
                 )
             else:
                 # Update the last known boiler temperature
-                self._last_boiler_temperature = current_boiler_temperature
+                self._last_boiler_temperature = self._coordinator.boiler_temperature
 
                 _LOGGER.debug(
                     "Warming-up in progress. Updated last boiler temperature to: %.1f°C",
@@ -891,9 +888,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control our dynamic minimum setpoint
         if self._setpoint is not None and self._calculated_setpoint > MINIMUM_SETPOINT and not self._coordinator.hot_water_active and self._coordinator.boiler_temperature is not None:
             if not self._warming_up:
-                self._minimum_setpoint.calculate(self.requested_setpoint, self._coordinator.boiler_temperature)
+                self._minimum_setpoint.calculate(
+                    requested_setpoint=self.requested_setpoint,
+                    boiler_temperature=self._coordinator.boiler_temperature
+                )
             else:
-                self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
+                self._minimum_setpoint.warming_up(
+                    flame_active=self._coordinator.flame_active,
+                    boiler_temperature=self._coordinator.boiler_temperature
+                )
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)

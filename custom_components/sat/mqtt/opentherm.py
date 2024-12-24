@@ -173,6 +173,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f"CS={value}")
+        await self._publish_command(f"PM=25")
 
         await super().async_set_control_setpoint(value)
 
