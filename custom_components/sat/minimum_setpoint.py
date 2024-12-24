@@ -31,7 +31,8 @@ class MinimumSetpoint:
     def calculate(self, requested_setpoint: float, boiler_temperature: float) -> None:
         """Adjust the minimum setpoint based on the requested setpoint and boiler temperature."""
         if self._current is None or self._warmed_up_time is None:
-            self._initialize_setpoint(boiler_temperature)
+            self._warmed_up_time = time()
+            self._current = requested_setpoint
 
         if not self._should_apply_adjustment():
             _LOGGER.debug("Adjustment skipped. Waiting for adjustment delay (%d seconds).", self._adjustment_delay)
@@ -56,16 +57,6 @@ class MinimumSetpoint:
             return False
 
         return (time() - self._warmed_up_time) > self._adjustment_delay
-
-    def _initialize_setpoint(self, boiler_temperature: float) -> None:
-        """Initialize the current minimum setpoint if it is not already set."""
-        self._warmed_up_time = time()
-        self._current = boiler_temperature
-
-        _LOGGER.info(
-            "Initial minimum setpoint set to boiler temperature: %.1f°C. Time: %.1f",
-            boiler_temperature, self._warmed_up_time
-        )
 
     def current(self) -> float:
         """Return the current minimum setpoint."""
