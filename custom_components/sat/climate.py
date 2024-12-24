@@ -40,10 +40,11 @@ from .boiler_state import BoilerState
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
+from .minimum_setpoint import MinimumSetpoint
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
-from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds, create_minimum_setpoint_controller
+from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds
 
 ATTR_ROOMS = "rooms"
 ATTR_WARMING_UP = "warming_up_data"
@@ -181,7 +182,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
 
         # Create the Minimum Setpoint controller
-        self._minimum_setpoint = create_minimum_setpoint_controller(config_entry.data, config_options)
+        self._minimum_setpoint = MinimumSetpoint()
 
         # Create Relative Modulation controller
         self._relative_modulation = RelativeModulation(coordinator, self._heating_system)

@@ -1,20 +1,18 @@
 import logging
 from time import time
 
-from .const import BOILER_TEMPERATURE_OFFSET
+from .const import BOILER_TEMPERATURE_OFFSET, MINIMUM_SETPOINT
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class MinimumSetpoint:
-    def __init__(self, configured: float, smoothing_factor: float, adjustment_delay: int = 30):
+    def __init__(self, adjustment_delay: int = 30):
         """Initialize the MinimumSetpoint class."""
         self._last_adjustment_time = None
-        self._smoothing_factor = smoothing_factor
         self._adjustment_delay = adjustment_delay
 
         self._current = None
-        self._configured = configured
 
     @staticmethod
     def _calculate_threshold(boiler_temperature: float, target_setpoint: float) -> float:
@@ -46,21 +44,15 @@ class MinimumSetpoint:
         # Determine adjustment method based on a threshold
         threshold = self._calculate_threshold(boiler_temperature, target_setpoint)
         adjustment_factor = 0.5 if self._should_apply_adjustment() else 0.0
-        use_smoothing = abs(target_setpoint - self._current) > threshold
 
-        if use_smoothing:
-            self._current += self._smoothing_factor * (target_setpoint - self._current)
+        if self._current < target_setpoint:
+            self._current = min(self._current + adjustment_factor, target_setpoint)
         else:
-            if self._current < target_setpoint:
-                self._current = min(self._current + adjustment_factor, target_setpoint)
-            else:
-                self._current = max(self._current - adjustment_factor, target_setpoint)
+            self._current = max(self._current - adjustment_factor, target_setpoint)
 
         _LOGGER.debug(
-            "Minimum setpoint adjusted (%.1f°C => %.1f°C). Type: %s, Target: %.1f°C, Threshold: %.1f, Adjustment Factor: %.1f",
-            old_value, self._current,
-            "smoothing" if use_smoothing else "incremental",
-            target_setpoint, threshold, adjustment_factor
+            "Minimum setpoint adjusted (%.1f°C => %.1f°C). Target: %.1f°C, Threshold: %.1f, Adjustment Factor: %.1f",
+            old_value, self._current, target_setpoint, threshold, adjustment_factor
         )
 
     def _should_apply_adjustment(self) -> bool:
@@ -79,4 +71,4 @@ class MinimumSetpoint:
 
     def current(self) -> float:
         """Return the current minimum setpoint."""
-        return round(self._current, 1) if self._current is not None else self._configured
+        return round(self._current, 1) if self._current is not None else MINIMUM_SETPOINT

@@ -65,7 +65,6 @@ CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
 CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
-CONF_MINIMUM_SETPOINT_SMOOTHING_FACTOR = "minimum_setpoint_smoothing_factor"
 
 CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
