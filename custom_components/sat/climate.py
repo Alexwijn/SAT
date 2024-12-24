@@ -855,36 +855,37 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
         # Handle warming-up logic
-        if self._warming_up and self._coordinator.boiler_temperature is not None:
-            # Initialize the last boiler temperature if it's not already set
-            if self._last_boiler_temperature is None:
-                self._last_boiler_temperature = self._coordinator.boiler_temperature
+        if self._calculated_setpoint > MINIMUM_SETPOINT:
+            if self._warming_up and self._coordinator.boiler_temperature is not None:
+                # Initialize the last boiler temperature if it's not already set
+                if self._last_boiler_temperature is None:
+                    self._last_boiler_temperature = self._coordinator.boiler_temperature
 
-            # Calculate the change in boiler temperature
-            boiler_temperature_change = self._last_boiler_temperature - self._coordinator.boiler_temperature
+                # Calculate the change in boiler temperature
+                boiler_temperature_change = self._last_boiler_temperature - self._coordinator.boiler_temperature
 
-            if boiler_temperature_change >= 1.0 or self._coordinator.boiler_temperature > self._setpoint:
-                # The Warming-up phase is complete
-                self._warming_up = False
+                if boiler_temperature_change >= 1.0 or self._coordinator.boiler_temperature > self._setpoint:
+                    # The Warming-up phase is complete
+                    self._warming_up = False
 
-                # Do a final adjustment
-                self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
+                    # Do a final adjustment
+                    self._minimum_setpoint.warming_up(self._coordinator.flame_active, self._coordinator.boiler_temperature)
 
-                _LOGGER.debug(
-                    "Warming-up phase completed. Last boiler temperature: %.1f°C, Current boiler temperature: %.1f°C, Change: %.1f°C",
-                    self._last_boiler_temperature, self._coordinator.boiler_temperature, boiler_temperature_change
-                )
-            else:
-                # Update the last known boiler temperature
-                self._last_boiler_temperature = self._coordinator.boiler_temperature
+                    _LOGGER.debug(
+                        "Warming-up phase completed. Last boiler temperature: %.1f°C, Current boiler temperature: %.1f°C, Change: %.1f°C",
+                        self._last_boiler_temperature, self._coordinator.boiler_temperature, boiler_temperature_change
+                    )
+                else:
+                    # Update the last known boiler temperature
+                    self._last_boiler_temperature = self._coordinator.boiler_temperature
 
-                _LOGGER.debug(
-                    "Warming-up in progress. Updated last boiler temperature to: %.1f°C",
-                    self._last_boiler_temperature
-                )
+                    _LOGGER.debug(
+                        "Warming-up in progress. Updated last boiler temperature to: %.1f°C",
+                        self._last_boiler_temperature
+                    )
 
-        if not self._coordinator.flame_active and self._calculated_setpoint > MINIMUM_SETPOINT:
-            self._warming_up = True
+            if not self._coordinator.flame_active:
+                self._warming_up = True
 
         # Create a value object that contains most boiler values
         boiler_state = BoilerState(
