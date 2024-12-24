@@ -26,6 +26,10 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     """
     Add sensors for the serial protocol if the integration is set to use it.
     """
+    # Some sanity checks before we continue
+    if any(key not in _hass.data[DOMAIN][_config_entry.entry_id] for key in (CLIMATE, COORDINATOR)):
+        return
+
     climate = _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE]
     coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
 
