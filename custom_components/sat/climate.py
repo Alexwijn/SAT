@@ -850,7 +850,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._last_boiler_temperature = current_boiler_temperature
 
             # Calculate the change in boiler temperature
-            boiler_temperature_change = current_boiler_temperature - self._last_boiler_temperature
+            boiler_temperature_change = self._last_boiler_temperature - current_boiler_temperature
 
             if boiler_temperature_change >= 1.0:
                 # The Warming-up phase is complete
