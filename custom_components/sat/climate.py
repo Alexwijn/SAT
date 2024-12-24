@@ -192,6 +192,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
 
+    def async_track_coordinator_data(self):
+        """Track changes in the coordinator's boiler temperature and trigger the heating loop."""
+        if self._last_boiler_temperature == self._coordinator.boiler_temperature:
+            return
+
+        # Schedule an asynchronous task to control the heating loop
+        asyncio.create_task(self.async_control_heating_loop())
+        self._last_boiler_temperature = self._coordinator.boiler_temperature
+
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added."""
         await super().async_added_to_hass()
@@ -225,6 +234,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             async_track_time_interval(
                 self.hass, self.async_control_heating_loop, timedelta(seconds=30)
             )
+        )
+
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_track_coordinator_data)
         )
 
         self.async_on_remove(
@@ -872,7 +885,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if not self._coordinator.flame_active and self._calculated_setpoint > MINIMUM_SETPOINT:
             self._warming_up = True
-            self._last_boiler_temperature = None
 
         # Create a value object that contains most boiler values
         boiler_state = BoilerState(
