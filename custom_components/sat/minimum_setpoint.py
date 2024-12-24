@@ -22,10 +22,10 @@ class MinimumSetpoint:
     def warming_up(self, flame_active: bool, boiler_temperature: float) -> None:
         """Set the minimum setpoint to trigger the boiler flame during warm-up."""
         if flame_active:
+            self._last_adjustment_time = time()
             _LOGGER.debug("Flame is already active. Skipping warm-up adjustment.")
             return
 
-        self._last_adjustment_time = time()
         self._current = boiler_temperature + 10
 
         _LOGGER.debug(
