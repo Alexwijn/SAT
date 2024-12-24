@@ -30,6 +30,10 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         return "Fake"
 
     @property
+    def device_type(self) -> str:
+        return "Fake"
+
+    @property
     def member_id(self) -> int | None:
         return -1
 

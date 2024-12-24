@@ -46,6 +46,10 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return self._port
 
     @property
+    def device_type(self) -> str:
+        return "OpenThermGateway (via serial)"
+
+    @property
     def device_active(self) -> bool:
         return bool(self.get(DATA_MASTER_CH_ENABLED) or False)
 

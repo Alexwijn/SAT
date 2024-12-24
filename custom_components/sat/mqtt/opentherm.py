@@ -33,6 +33,10 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
 
     @property
+    def device_type(self) -> str:
+        return "OpenThermGateway (via mqtt)"
+
+    @property
     def supports_setpoint_management(self):
         return True
 

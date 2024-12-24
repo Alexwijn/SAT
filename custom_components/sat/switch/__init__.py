@@ -28,6 +28,10 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         return self._entity.name
 
     @property
+    def device_type(self) -> str:
+        return "Switch"
+
+    @property
     def setpoint(self) -> float:
         return self.minimum_setpoint
 

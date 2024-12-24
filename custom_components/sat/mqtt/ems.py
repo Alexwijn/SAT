@@ -32,6 +32,10 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
     """Class to manage fetching data from the OTGW Gateway using MQTT."""
 
     @property
+    def device_type(self) -> str:
+        return "Energy Management System (via mqtt)"
+
+    @property
     def supports_setpoint_management(self) -> bool:
         return True
 

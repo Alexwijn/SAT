@@ -85,6 +85,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         pass
 
     @property
+    @abstractmethod
+    def device_type(self) -> str:
+        pass
+
+    @property
     def device_state(self):
         """Return the current state of the device."""
         return self._device_state
@@ -247,6 +252,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         If a device doesn't support maximum setpoint management, the coordinator won't be able to control the value.
         """
         return False
+
+    async def setup(self) -> None:
+        """Perform setup when the integration is about to be added to Home Assistant."""
+        pass
 
     async def async_added_to_hass(self) -> None:
         """Perform setup when the integration is added to Home Assistant."""
