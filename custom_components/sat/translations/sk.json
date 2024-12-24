@@ -53,13 +53,28 @@
         "title": "Vykurovací systém"
       },
       "mosquitto": {
+        "description": "Nakonfigurujte režim MQTT pre váš vykurovací systém. Vyberte režim brány a zadajte jej názov.",
         "data": {
-          "device": "Zariadenia",
-          "mqtt_topic": "Hlavná téma",
-          "name": "Meno"
+          "mode": "Režim"
         },
-        "description": "Ak chcete nastaviť bránu OpenTherm, uveďte nasledujúce podrobnosti. Do poľa Názov zadajte názov brány, ktorý vám pomôže identifikovať ju vo vašom systéme.\n\nZadajte entitu Climate, ktorá sa má použiť pre bránu OpenTherm. Túto entitu poskytuje brána OpenTherm a predstavuje váš vykurovací systém.\n\nOkrem toho zadajte hlavnú tému, ktorá sa použije na publikovanie a prihlásenie na odber správ MQTT súvisiacich s bránou OpenTherm.\n\nTieto nastavenia sú nevyhnutné na nadviazanie komunikácie a integráciu s vašou bránou OpenTherm cez MQTT. Umožňujú bezproblémovú výmenu dát a ovládanie vášho vykurovacieho systému. Uistite sa, že poskytnuté podrobnosti sú presné, aby sa zabezpečila správna funkčnosť.",
-        "title": "OpenTherm Gateway ( MQTT )"
+        "title": "Konfigurácia MQTT"
+      },
+      "mosquitto_opentherm": {
+        "description": "Nakonfigurujte OpenTherm Gateway. Uveďte hlavný predmet MQTT a identifikátor zariadenia.",
+        "data": {
+          "name": "Názov",
+          "mqtt_topic": "Predmet MQTT",
+          "device": "ID zariadenia"
+        },
+        "title": "Konfigurácia OpenTherm Gateway"
+      },
+      "mosquitto_ems": {
+        "description": "Nakonfigurujte EMS-ESP Gateway. Uveďte predmet MQTT.",
+        "data": {
+          "name": "Názov",
+          "mqtt_topic": "Predmet MQTT"
+        },
+        "title": "Konfigurácia EMS-ESP Gateway"
       },
       "overshoot_protection": {
         "data": {
@@ -116,13 +131,13 @@
         "title": "PID termostat s PWM (ON/OFF)"
       },
       "user": {
-        "description": "SAT je inteligentný termostat, ktorý je schopný samočinného ladenia na optimalizáciu regulácie teploty. Vyberte vhodný režim, ktorý zodpovedá vášmu vykurovaciemu systému.",
+        "description": "SAT je inteligentný termostat schopný samonastavenia na optimalizáciu regulácie teploty. Vyberte režim, ktorý zodpovedá vášmu vykurovaciemu systému.",
         "menu_options": {
-          "mosquitto": "OpenTherm Gateway ( MQTT )",
-          "serial": "OpenTherm Gateway ( SERIAL )",
-          "esphome": "OpenTherm Gateway ( ESPHOME )",
-          "simulator": "Simulated Gateway ( POKROČILÉ )",
-          "switch": "PID Thermostat with PWM ( ON/OFF )"
+          "mosquitto": "MQTT Gateway (OpenTherm, EMS-ESP, iné)",
+          "serial": "Sériová brána (napr. OpenTherm)",
+          "esphome": "ESPHome (Systémové služby a senzory)",
+          "simulator": "Simulovaná brána (Len pre vývojárov)",
+          "switch": "PID Termostat (PWM režim Zap/Vyp)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       }
@@ -132,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Povoliť monitorovanie chýb",
           "climate_valve_offset": "Offset klimatizačného ventilu",
           "dynamic_minimum_setpoint": "Dynamická minimálna nastavená hodnota (experimentálna)",
           "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu",
@@ -175,7 +191,7 @@
         "data_description": {
           "automatic_gains_value": "Hodnota používaná pre automatické zosilnenie v PID regulátore.",
           "derivative": "Odvodený člen (kD) v PID regulátore, zodpovedný za zmiernenie prekročenia.",
-	  "derivative_time_weight": "Parameter na úpravu vplyvu derivačného členu v priebehu času, obzvlášť užitočný na zníženie podkmitu počas zahrievacej fázy, keď je koeficient vykurovacej krivky správne nastavený.",
+          "derivative_time_weight": "Parameter na úpravu vplyvu derivačného členu v priebehu času, obzvlášť užitočný na zníženie podkmitu počas zahrievacej fázy, keď je koeficient vykurovacej krivky správne nastavený.",
           "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu (PWM), ktorá riadi cykly zapnutia a vypnutia kotla.",
           "heating_curve_coefficient": "Koeficient použitý na úpravu vykurovacej krivky.",
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",

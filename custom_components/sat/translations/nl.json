@@ -53,13 +53,28 @@
         "title": "Verwarmingssysteem"
       },
       "mosquitto": {
+        "description": "Configureer de MQTT-modus voor uw verwarmingssysteem. Kies de gateway-modus en geef de naam op.",
         "data": {
-          "device": "Apparaat",
-          "mqtt_topic": "Top Topic",
-          "name": "Naam"
+          "mode": "Modus"
         },
-        "description": "Gelieve de volgende gegevens te verstrekken om de OpenTherm Gateway in te stellen. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer de Climate entity die gebruikt wordt voor de OpenTherm Gateway. Deze entiteit wordt aangeleverd door de OpenTherm Gateway en vertegenwoordigt uw verwarmingssysteem.\n\nVoer daarnaast het Top Topic in dat gebruikt zal worden voor het publiceren en abonneren op MQTT-berichten gerelateerd aan de OpenTherm Gateway.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via MQTT. Ze zorgen voor een naadloze gegevensuitwisseling en controle over uw verwarmingssysteem. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
-        "title": "OpenTherm Gateway ( MQTT )"
+        "title": "MQTT-configuratie"
+      },
+      "mosquitto_opentherm": {
+        "description": "Stel de OpenTherm Gateway in. Geef het belangrijkste MQTT-onderwerp en het apparaat-ID op.",
+        "data": {
+          "name": "Naam",
+          "mqtt_topic": "MQTT-onderwerp",
+          "device": "Apparaat-ID"
+        },
+        "title": "OpenTherm Gateway Configuratie"
+      },
+      "mosquitto_ems": {
+        "description": "Stel de EMS-ESP Gateway in. Geef het MQTT-onderwerp op.",
+        "data": {
+          "name": "Naam",
+          "mqtt_topic": "MQTT-onderwerp"
+        },
+        "title": "EMS-ESP Gateway Configuratie"
       },
       "overshoot_protection": {
         "data": {
@@ -116,14 +131,15 @@
         "title": "PID Thermostaat met PWM ( AAN/UIT )"
       },
       "user": {
-        "description": "SAT is een slimme thermostaat die zichzelf kan afstemmen om de temperatuurregeling te optimaliseren. Selecteer de geschikte modus die overeenkomt met uw verwarmingssysteem.",
+        "description": "SAT is een slimme thermostaat die zichzelf kan optimaliseren om de temperatuurregeling te verbeteren. Kies de modus die past bij uw verwarmingssysteem.",
         "menu_options": {
-          "mosquitto": "OpenTherm Gateway ( MQTT )",
-          "serial": "OpenTherm Gateway ( SERIEEL )",
-          "simulator": "Gesimuleerde Gateway ( GEAVANCEERD )",
-          "switch": "PID Thermostaat met PWM ( AAN/UIT )"
+          "mosquitto": "MQTT Gateway (OpenTherm, EMS-ESP, andere)",
+          "serial": "Seriële Gateway (bijv. OpenTherm)",
+          "esphome": "ESPHome (Systeemservices en sensoren)",
+          "simulator": "Gesimuleerde Gateway (Alleen voor ontwikkelaars)",
+          "switch": "PID-Thermostaat (PWM Aan/Uit-modus)"
         },
-        "title": "Slimme Autotune Thermostaat (SAT)"
+        "title": "Smart Autotune Thermostat (SAT)"
       }
     }
   },
@@ -131,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Foutbewaking inschakelen",
           "climate_valve_offset": "Offset van Klimaatklep",
           "dynamic_minimum_setpoint": "Dynamisch Minimaal Setpoint (Experimenteel)",
           "force_pulse_width_modulation": "Dwing Pulsbreedtemodulatie af",

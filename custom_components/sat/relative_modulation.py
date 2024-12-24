@@ -1,8 +1,11 @@
+import logging
 from enum import Enum
 
-from custom_components.sat import MINIMUM_SETPOINT, HEATING_SYSTEM_HEAT_PUMP
-from custom_components.sat.coordinator import SatDataUpdateCoordinator
-from custom_components.sat.pwm import PWMState
+from .const import MINIMUM_SETPOINT, HEATING_SYSTEM_HEAT_PUMP
+from .coordinator import SatDataUpdateCoordinator
+from .pwm import PWMState
+
+_LOGGER = logging.getLogger(__name__)
 
 
 # Enum to represent different states of relative modulation
@@ -17,15 +20,19 @@ class RelativeModulationState(str, Enum):
 class RelativeModulation:
     def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize instance variables"""
-        self._heating_system = heating_system  # The heating system that is being controlled
-        self._pwm_state = None  # Tracks the current state of the PWM (Pulse Width Modulation) system
-        self._warming_up = False  # Stores data related to the warming-up state of the heating system
-        self._coordinator = coordinator  # Reference to the data coordinator responsible for system-wide information
+        self._heating_system = heating_system
+        self._pwm_state = None
+        self._warming_up = False
+        self._coordinator = coordinator
+
+        _LOGGER.debug("Relative Modulation initialized for heating system: %s", heating_system)
 
     async def update(self, warming_up: bool, state: PWMState) -> None:
         """Update internal state with new data received from the coordinator"""
         self._pwm_state = state
         self._warming_up = warming_up
+
+        _LOGGER.debug("Updated Relative Modulation: enabled=%s, state=%s", self.enabled, self.state)
 
     @property
     def state(self) -> RelativeModulationState:

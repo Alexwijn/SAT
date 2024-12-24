@@ -5,7 +5,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import assert_setup_component, MockConfigEntry
 
-from custom_components.sat import DOMAIN, CLIMATE, COORDINATOR
+from custom_components.sat.const import DOMAIN, CLIMATE, COORDINATOR
 from custom_components.sat.climate import SatClimate
 from custom_components.sat.fake import SatFakeCoordinator
 from tests.const import DEFAULT_USER_DATA

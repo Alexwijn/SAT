@@ -1,13 +1,15 @@
 # Base component constants
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
-VERSION = "3.0.x"
+VERSION = "4.0.0-alpha"
 CLIMATE = "climate"
+SENTRY = "sentry"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 
 MODE_FAKE = "fake"
-MODE_MQTT = "mqtt"
+MODE_MQTT_EMS = "mqtt_ems"
+MODE_MQTT_OPENTHERM = "mqtt_opentherm"
 MODE_SWITCH = "switch"
 MODE_SERIAL = "serial"
 MODE_ESPHOME = "esphome"
@@ -27,6 +29,7 @@ MAX_BOILER_TEMPERATURE_AGE = 60
 CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
+CONF_ERROR_MONITORING = "error_monitoring"
 CONF_CYCLES_PER_HOUR = "cycles_per_hour"
 CONF_SIMULATED_HEATING = "simulated_heating"
 CONF_SIMULATED_COOLING = "simulated_cooling"
@@ -89,10 +92,10 @@ HEATING_MODE_ECO = "eco"
 HEATING_MODE_COMFORT = "comfort"
 
 OPTIONS_DEFAULTS = {
-    CONF_MODE: MODE_SERIAL,
     CONF_PROPORTIONAL: "45",
     CONF_INTEGRAL: "0",
     CONF_DERIVATIVE: "6000",
+    CONF_ERROR_MONITORING: False,
 
     CONF_CYCLES_PER_HOUR: 4,
     CONF_AUTOMATIC_GAINS: True,
@@ -123,7 +126,6 @@ OPTIONS_DEFAULTS = {
     CONF_MINIMUM_CONSUMPTION: 0,
     CONF_MAXIMUM_CONSUMPTION: 0,
 
-    CONF_MQTT_TOPIC: "OTGW",
     CONF_DUTY_CYCLE: "00:13:00",
     CONF_SAMPLE_TIME: "00:01:00",
     CONF_CLIMATE_VALVE_OFFSET: 0,

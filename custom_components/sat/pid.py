@@ -329,17 +329,7 @@ class PID:
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
-        derivative = self.kd * self._raw_derivative
-        output = self._last_heating_curve_value + self.proportional + self.integral
-
-        if self._last_boiler_temperature is not None:
-            if abs(self._last_error) > 0.1 and abs(self._last_boiler_temperature - output) < 3:
-                return 0
-
-            if abs(self._last_error) <= 0.1 and abs(self._last_boiler_temperature - output) < 7:
-                return 0
-
-        return round(derivative, 3)
+        return round(self.kd * self._raw_derivative, 3)
 
     @property
     def raw_derivative(self) -> float:

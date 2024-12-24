@@ -53,13 +53,28 @@
         "title": "Sistema de Calefacción"
       },
       "mosquitto": {
+        "description": "Configure el modo MQTT para su sistema de calefacción. Seleccione el modo de la puerta de enlace e introduzca su nombre.",
         "data": {
-          "device": "Dispositivo",
-          "mqtt_topic": "Tema Principal",
-          "name": "Nombre"
+          "mode": "Modo"
         },
-        "description": "Proporcione los siguientes detalles para configurar la Puerta de Enlace OpenTherm. En el campo Nombre, introduzca un nombre para la puerta de enlace que le ayude a identificarla dentro de su sistema.\n\nEspecifique la entidad Climática que usará para la Puerta de Enlace OpenTherm. Esta entidad es proporcionada por la Puerta de Enlace OpenTherm y representa su sistema de calefacción.\n\nAdicionalmente, introduzca el Tema Principal que se usará para publicar y suscribirse a mensajes MQTT relacionados con la Puerta de Enlace OpenTherm.\n\nEstos ajustes son esenciales para establecer la comunicación e integración con su Puerta de Enlace OpenTherm a través de MQTT. Permiten un intercambio de datos sin problemas y el control de su sistema de calefacción. Asegúrese de que los detalles proporcionados sean precisos para garantizar una funcionalidad adecuada.",
-        "title": "Puerta de Enlace OpenTherm (MQTT)"
+        "title": "Configuración MQTT"
+      },
+      "mosquitto_opentherm": {
+        "description": "Configure la Puerta de Enlace OpenTherm. Proporcione el tema principal de MQTT y el identificador del dispositivo.",
+        "data": {
+          "name": "Nombre",
+          "mqtt_topic": "Tema MQTT",
+          "device": "ID del dispositivo"
+        },
+        "title": "Configuración de la Puerta de Enlace OpenTherm"
+      },
+      "mosquitto_ems": {
+        "description": "Configure la Puerta de Enlace EMS-ESP. Proporcione el tema MQTT.",
+        "data": {
+          "name": "Nombre",
+          "mqtt_topic": "Tema MQTT"
+        },
+        "title": "Configuración de la Puerta de Enlace EMS-ESP"
       },
       "overshoot_protection": {
         "data": {
@@ -116,12 +131,13 @@
         "title": "Termostato PID con PWM (ON/OFF)"
       },
       "user": {
-        "description": "SAT es un termostato inteligente capaz de autoajustarse para optimizar el control de la temperatura. Seleccione el modo apropiado que coincida con su sistema de calefacción.",
+        "description": "SAT es un termostato inteligente capaz de autoajustarse para optimizar el control de temperatura. Seleccione el modo que se ajuste a su sistema de calefacción.",
         "menu_options": {
-          "mosquitto": "Puerta de Enlace OpenTherm (MQTT)",
-          "serial": "Puerta de Enlace OpenTherm (SERIAL)",
-          "simulator": "Puerta de Enlace Simulada (AVANZADO)",
-          "switch": "Termostato PID con PWM (ON/OFF)"
+          "mosquitto": "Puerta de enlace MQTT (OpenTherm, EMS-ESP, otros)",
+          "serial": "Puerta de enlace serial (p. ej., OpenTherm)",
+          "esphome": "ESPHome (Servicios y sensores del sistema)",
+          "simulator": "Puerta de enlace simulada (Solo para desarrolladores)",
+          "switch": "Termostato PID (Modo PWM Encendido/Apagado)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       }
@@ -131,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Habilitar monitoreo de errores",
           "climate_valve_offset": "Compensación de la Válvula Climática",
           "dynamic_minimum_setpoint": "Punto de Ajuste Mínimo Dinámico (Experimental)",
           "force_pulse_width_modulation": "Forzar Modulación de Ancho de Pulso",

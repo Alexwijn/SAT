@@ -53,13 +53,28 @@
         "title": "Système de chauffage"
       },
       "mosquitto": {
+        "description": "Configurez le mode MQTT pour votre système de chauffage. Sélectionnez le mode de la passerelle et fournissez son nom.",
         "data": {
-          "device": "Appareil",
-          "mqtt_topic": "Sujet Principal",
-          "name": "Nom"
+          "mode": "Mode"
         },
-        "description": "Veuillez fournir les détails suivants pour configurer la passerelle OpenTherm. Dans le champ Nom, entrez un nom pour la passerelle qui vous aidera à l'identifier au sein de votre système.\n\nSpécifiez l'entité Climat à utiliser pour la passerelle OpenTherm. Cette entité est fournie par la passerelle OpenTherm et représente votre système de chauffage.\n\nDe plus, entrez le Sujet principal qui sera utilisé pour publier et s'abonner aux messages MQTT liés à la passerelle OpenTherm.\n\nCes paramètres sont essentiels pour établir la communication et l'intégration avec votre passerelle OpenTherm via MQTT. Ils permettent un échange de données et un contrôle fluides de votre système de chauffage. Assurez-vous que les détails fournis sont précis pour garantir une fonctionnalité appropriée.",
-        "title": "OpenTherm Gateway ( MQTT )"
+        "title": "Configuration MQTT"
+      },
+      "mosquitto_opentherm": {
+        "description": "Configurez la passerelle OpenTherm. Fournissez le sujet principal MQTT et l'identifiant de l'appareil.",
+        "data": {
+          "name": "Nom",
+          "mqtt_topic": "Sujet MQTT",
+          "device": "ID de l'appareil"
+        },
+        "title": "Configuration de la Passerelle OpenTherm"
+      },
+      "mosquitto_ems": {
+        "description": "Configurez la passerelle EMS-ESP. Fournissez le sujet MQTT.",
+        "data": {
+          "name": "Nom",
+          "mqtt_topic": "Sujet MQTT"
+        },
+        "title": "Configuration de la Passerelle EMS-ESP"
       },
       "overshoot_protection": {
         "data": {
@@ -116,12 +131,13 @@
         "title": "Thermostat PID avec PWM (ON/OFF)"
       },
       "user": {
-        "description": "Le SAT est un thermostat intelligent capable de s'auto-ajuster pour optimiser le contrôle de la température. Sélectionnez le mode approprié qui correspond à votre système de chauffage.",
+        "description": "SAT est un thermostat intelligent capable de s'auto-ajuster pour optimiser le contrôle de la température. Sélectionnez le mode correspondant à votre système de chauffage.",
         "menu_options": {
-          "mosquitto": "OpenTherm Gateway ( MQTT )",
-          "serial": "OpenTherm Gateway ( SERIAL )",
-          "simulator": "Passerelle simulée ( AVANCÉ )",
-          "switch": "Thermostat PID avec PWM ( ON/OFF )"
+          "mosquitto": "Passerelle MQTT (OpenTherm, EMS-ESP, autres)",
+          "serial": "Passerelle série (ex. : OpenTherm)",
+          "esphome": "ESPHome (Services et capteurs système)",
+          "simulator": "Passerelle simulée (Réservé aux développeurs)",
+          "switch": "Thermostat PID (Mode PWM Marche/Arrêt)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       }
@@ -131,6 +147,7 @@
     "step": {
       "advanced": {
         "data": {
+          "error_monitoring": "Activer la surveillance des erreurs",
           "climate_valve_offset": "Décalage de la vanne climatique",
           "dynamic_minimum_setpoint": "Point de Consigne Minimum Dynamique (Expérimental)",
           "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion",

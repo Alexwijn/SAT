@@ -27,7 +27,7 @@ class DeviceState(str, Enum):
 
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    async def resolve(
+    def resolve(
             hass: HomeAssistant,
             mode: str,
             device: str,
@@ -50,13 +50,17 @@ class SatDataUpdateCoordinatorFactory:
             from .esphome import SatEspHomeCoordinator
             return SatEspHomeCoordinator(hass=hass, device_id=device, data=data, options=options)
 
-        if mode == MODE_MQTT:
-            from .mqtt import SatMqttCoordinator
-            return await SatMqttCoordinator(hass=hass, device_id=device, data=data, options=options).boot()
+        if mode == MODE_MQTT_EMS:
+            from .mqtt.ems import SatEmsMqttCoordinator
+            return SatEmsMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
+
+        if mode == MODE_MQTT_OPENTHERM:
+            from .mqtt.opentherm import SatOpenThermMqttCoordinator
+            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
 
         if mode == MODE_SERIAL:
             from .serial import SatSerialCoordinator
-            return await SatSerialCoordinator(hass=hass, port=device, data=data, options=options).async_connect()
+            return SatSerialCoordinator(hass=hass, port=device, data=data, options=options)
 
         raise Exception(f'Invalid mode[{mode}]')
 
@@ -67,10 +71,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self.boiler_temperatures = []
 
         self._data = data
-        self._options = options
         self._manufacturer = None
+        self._options = options or {}
         self._device_state = DeviceState.OFF
-        self._simulation = bool(data.get(CONF_SIMULATION))
+        self._simulation = bool(self._options.get(CONF_SIMULATION))
         self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
@@ -272,22 +276,22 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_set_control_setpoint(self, value: float) -> None:
         """Control the boiler setpoint temperature for the device."""
         if self.supports_setpoint_management:
-            _LOGGER.info("Set control boiler setpoint to %d", value)
+            _LOGGER.info("Set control boiler setpoint to %d°C", value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
         """Control the DHW setpoint temperature for the device."""
         if self.supports_hot_water_setpoint_management:
-            _LOGGER.info("Set control hot water setpoint to %d", value)
+            _LOGGER.info("Set control hot water setpoint to %d°C", value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
         """Control the maximum setpoint temperature for the device."""
         if self.supports_maximum_setpoint_management:
-            _LOGGER.info("Set maximum setpoint to %d", value)
+            _LOGGER.info("Set maximum setpoint to %d°C", value)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         """Control the maximum relative modulation for the device."""
         if self.supports_relative_modulation_management:
-            _LOGGER.info("Set maximum relative modulation to %d", value)
+            _LOGGER.info("Set maximum relative modulation to %d%%", value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         """Control the setpoint temperature for the thermostat."""

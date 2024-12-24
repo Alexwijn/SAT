@@ -17,6 +17,7 @@ from custom_components.sat.fake import SatFakeCoordinator
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
+                CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
                 CONF_MINIMUM_SETPOINT: 57,
                 CONF_MAXIMUM_SETPOINT: 75,
@@ -60,6 +61,7 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
+                CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
                 CONF_MINIMUM_SETPOINT: 58,
                 CONF_MAXIMUM_SETPOINT: 75
@@ -104,6 +106,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
+                CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
                 CONF_MINIMUM_SETPOINT: 41,
                 CONF_MAXIMUM_SETPOINT: 75,

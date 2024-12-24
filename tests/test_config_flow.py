@@ -1,4 +1,4 @@
-from custom_components.sat import MODE_FAKE
+from custom_components.sat.const import MODE_FAKE
 from custom_components.sat.config_flow import SatFlowHandler
 
 
