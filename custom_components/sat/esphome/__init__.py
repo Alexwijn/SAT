@@ -63,6 +63,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return self._mac_address
 
     @property
+    def device_type(self) -> str:
+        return "ESPHome"
+
+    @property
     def supports_setpoint_management(self):
         return True
 
@@ -138,19 +142,19 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
             return float(value)
 
         return super().relative_modulation_value
-    
+
     @property
     def boiler_capacity(self) -> float | None:
         if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
             return float(value)
 
         return super().boiler_capacity
-    
+
     @property
     def minimum_relative_modulation_value(self) -> float | None:
         if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
             return float(value)
-        
+
         return super().minimum_relative_modulation_value
 
     @property

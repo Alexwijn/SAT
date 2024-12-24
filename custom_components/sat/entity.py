@@ -4,9 +4,10 @@ import logging
 import typing
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, VERSION, CONF_NAME
+from .const import DOMAIN, NAME, CONF_NAME
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -24,12 +25,13 @@ class SatEntity(CoordinatorEntity):
 
     @property
     def device_info(self):
-        return {
-            "name": NAME,
-            "model": VERSION,
-            "manufacturer": NAME,
-            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_NAME))},
-        }
+        return DeviceInfo(
+            name=NAME,
+            suggested_area="Living Room",
+            model=self._coordinator.device_type,
+            manufacturer=self._coordinator.manufacturer.name,
+            identifiers={(DOMAIN, self._config_entry.data.get(CONF_NAME))}
+        )
 
 
 class SatClimateEntity(SatEntity):

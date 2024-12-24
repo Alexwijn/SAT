@@ -32,6 +32,10 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return 'Simulator'
 
     @property
+    def device_type(self) -> str:
+        return "Simulator"
+
+    @property
     def supports_setpoint_management(self) -> bool:
         return True
 
