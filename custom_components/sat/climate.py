@@ -38,7 +38,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .area import Areas, SENSOR_TEMPERATURE_ID
 from .boiler_state import BoilerState
 from .const import *
-from .coordinator import SatDataUpdateCoordinator, DeviceState
+from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
 from .entity import SatEntity
 from .minimum_setpoint import MinimumSetpoint
 from .pwm import PWMState
@@ -762,7 +762,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if self._dynamic_minimum_setpoint:
                     if not self._coordinator.flame_active:
                         self._setpoint = self._coordinator.boiler_temperature + 10
-                    else:
+                    elif self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
                         self._setpoint = self._minimum_setpoint.calculate(
                             self._coordinator.boiler_temperature - 2
                         )
