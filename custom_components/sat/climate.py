@@ -746,8 +746,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
 
             if self._dynamic_minimum_setpoint:
-                target_setpoint = min(self._calculated_setpoint, self._coordinator.boiler_temperature + 0.2)
-                self._setpoint = self._minimum_setpoint.calculate(target_setpoint, self._coordinator.boiler_temperature)
+                if not self._coordinator.flame_active:
+                    self._setpoint = self._coordinator.boiler_temperature + 10
+                else:
+                    target_setpoint = min(self._calculated_setpoint, self._coordinator.boiler_temperature + 0.2)
+                    self._setpoint = self._minimum_setpoint.calculate(target_setpoint, self._coordinator.boiler_temperature)
             else:
                 self._setpoint = self._calculated_setpoint
         else:
@@ -756,8 +759,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if pwm_state == PWMState.ON and self.max_error > -DEADBAND:
                 if self._dynamic_minimum_setpoint:
-                    target_setpoint = min(self._calculated_setpoint, self._coordinator.boiler_temperature - 2)
-                    self._setpoint = self._minimum_setpoint.calculate(target_setpoint, self._coordinator.boiler_temperature)
+                    if not self._coordinator.flame_active:
+                        self._setpoint = self._coordinator.boiler_temperature + 10
+                    else:
+                        target_setpoint = min(self._calculated_setpoint, self._coordinator.boiler_temperature - 2)
+                        self._setpoint = self._minimum_setpoint.calculate(target_setpoint, self._coordinator.boiler_temperature)
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 
