@@ -760,7 +760,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 elif self._setpoint is None:
                     self._setpoint = self._calculated_setpoint
                 else:
-                    self._setpoint = round(self._alpha * self._calculated_setpoint + (1 - self._alpha) * self._setpoint, 1)
+                    requested_setpoint = self._minimum_setpoint.calculate(
+                        min(self._calculated_setpoint, self._coordinator.boiler_temperature + 0.2)
+                    )
+
+                    self._setpoint = round(self._alpha * requested_setpoint + (1 - self._alpha) * self._setpoint, 1)
             else:
                 self._setpoint = self._calculated_setpoint
         else:
