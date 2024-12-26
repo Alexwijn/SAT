@@ -12,7 +12,7 @@ class MinimumSetpoint:
     def calculate(self, target_setpoint: float, boiler_temperature: float) -> float:
         """Adjust the minimum setpoint based on the requested setpoint and boiler temperature."""
         if self._current is None:
-            self._current = boiler_temperature
+            self._current = target_setpoint
 
         old_value = self._current
 
