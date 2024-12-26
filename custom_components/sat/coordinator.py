@@ -25,15 +25,20 @@ class DeviceState(str, Enum):
     OFF = "off"
 
 
+class DeviceStatus(str, Enum):
+    PREHEATING = "preheating"
+    HEATING_UP = "heating_up"
+    AT_SETPOINT = "at_setpoint"
+    COOLING_DOWN = "cooling_down"
+    OVERSHOOT_HANDLING = "overshoot_handling"
+
+    UNKNOWN = "unknown"
+    INITIALIZING = "initializing"
+
+
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    def resolve(
-            hass: HomeAssistant,
-            mode: str,
-            device: str,
-            data: Mapping[str, Any],
-            options: Mapping[str, Any] | None = None
-    ) -> SatDataUpdateCoordinator:
+    def resolve(hass: HomeAssistant, mode: str, device: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> SatDataUpdateCoordinator:
         if mode == MODE_FAKE:
             from .fake import SatFakeCoordinator
             return SatFakeCoordinator(hass=hass, data=data, options=options)
@@ -72,6 +77,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         self._data = data
         self._manufacturer = None
+        self._tracking_flame = False
         self._options = options or {}
         self._device_state = DeviceState.OFF
         self._simulation = bool(self._options.get(CONF_SIMULATION))
@@ -93,6 +99,29 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def device_state(self):
         """Return the current state of the device."""
         return self._device_state
+
+    @property
+    def device_status(self):
+        """Return the current status of the device."""
+        if self.boiler_temperature is None:
+            return DeviceStatus.INITIALIZING
+
+        if self.setpoint is None or self.setpoint <= MINIMUM_SETPOINT:
+            return DeviceStatus.COOLING_DOWN
+
+        if self.setpoint == self.boiler_temperature:
+            return DeviceStatus.AT_SETPOINT
+
+        if not self.flame_active and self.setpoint > self.boiler_temperature:
+            return DeviceStatus.PREHEATING
+
+        if self._tracking_flame and self.flame_active and self.setpoint > self.boiler_temperature:
+            return DeviceStatus.HEATING_UP
+
+        if not self._tracking_flame and self.flame_active:
+            return DeviceStatus.OVERSHOOT_HANDLING
+
+        return DeviceStatus.UNKNOWN
 
     @property
     def manufacturer(self) -> Manufacturer | None:
@@ -268,6 +297,15 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         """Control the heating loop for the device."""
         current_time = datetime.now()
+        last_boiler_temperature = self.boiler_temperatures[-1][1] if len(self.boiler_temperatures) > 0 else None
+
+        # Make sure we have valid value
+        if last_boiler_temperature is not None:
+            if not self.flame_active:
+                self._tracking_flame = True
+
+            if self._tracking_flame and (self.setpoint - 5) < self.boiler_temperature < last_boiler_temperature:
+                self._tracking_flame = False
 
         # Make sure we have valid value
         if self.boiler_temperature is not None:
