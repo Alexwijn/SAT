@@ -529,7 +529,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        return self._overshoot_protection and self.pwm.enabled
+        if not self._overshoot_protection:
+            return False
+
+        return self.pwm.enabled or self._coordinator.device_status in [DeviceStatus.OVERSHOOT_HANDLING, DeviceStatus.OVERSHOOT_STABILIZED]
 
     @property
     def relative_modulation_value(self) -> int:
@@ -754,10 +757,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if self._dynamic_minimum_setpoint:
                 if not self._coordinator.flame_active:
                     self._setpoint = self._coordinator.boiler_temperature + 10
+                elif self._setpoint is None:
+                    self._setpoint = self._calculated_setpoint
                 else:
-                    self._setpoint = self._minimum_setpoint.calculate(
-                        min(self._calculated_setpoint, self._coordinator.boiler_temperature + 0.2)
-                    )
+                    self._setpoint = round(self._alpha * self._calculated_setpoint + (1 - self._alpha) * self._setpoint, 1)
             else:
                 self._setpoint = self._calculated_setpoint
         else:
@@ -852,12 +855,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control the heating through the coordinator
         await self._coordinator.async_control_heating_loop(self)
 
-        if self._calculated_setpoint is None:
-            # Default to the calculated setpoint
-            self._calculated_setpoint = self._calculate_control_setpoint()
-        else:
-            # Apply low filter on requested setpoint
-            self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
+        # Calculate the setpoint
+        self._calculated_setpoint = self._calculate_control_setpoint()
 
         # Create a value object that contains most boiler values
         boiler_state = BoilerState(
