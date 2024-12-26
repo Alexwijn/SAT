@@ -303,8 +303,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if last_boiler_temperature is not None:
             if not self.flame_active:
                 self._tracking_flame = True
-
-            if self._tracking_flame and (self.setpoint - 5) < self.boiler_temperature < last_boiler_temperature:
+            elif self._tracking_flame and self.boiler_temperature < last_boiler_temperature:
                 self._tracking_flame = False
 
         # Make sure we have valid value
