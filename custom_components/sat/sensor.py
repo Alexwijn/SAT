@@ -234,14 +234,15 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 class SatManufacturerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return f"Boiler Manufacturer"
+        return "Boiler Manufacturer"
 
     @property
     def native_value(self) -> str:
-        if not (manufacturer := self._coordinator.manufacturer):
-            return "Unknown"
+        return self._coordinator.manufacturer.name
 
-        return manufacturer.name
+    @property
+    def available(self) -> bool:
+        return self._coordinator.manufacturer is not None
 
     @property
     def unique_id(self) -> str:
@@ -251,11 +252,15 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 class SatBoilerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return f"Boiler Status"
+        return "Boiler Status"
 
     @property
     def native_value(self) -> str:
         return self._coordinator.device_status
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.device_status is not None
 
     @property
     def unique_id(self) -> str:
