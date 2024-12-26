@@ -48,7 +48,7 @@ class MinimumSetpoint:
 
         _LOGGER.info(
             "Minimum setpoint changed (%.1f°C => %.1f°C). Boiler Temperature: %.1f°C, Requested Setpoint: %.1f°C, Target: %.1f°C",
-            old_value, boiler_temperature, requested_setpoint, self._current, target_setpoint
+            old_value, self._current, boiler_temperature, requested_setpoint, target_setpoint
         )
 
     def _should_apply_adjustment(self) -> bool:
