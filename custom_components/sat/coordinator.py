@@ -110,9 +110,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.setpoint is None or self.setpoint <= MINIMUM_SETPOINT:
             return DeviceStatus.COOLING_DOWN
 
-        if self.setpoint == self.boiler_temperature:
-            return DeviceStatus.AT_SETPOINT
-
         if not self.flame_active and self.setpoint > self.boiler_temperature:
             return DeviceStatus.PREHEATING
 
@@ -124,6 +121,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 return DeviceStatus.OVERSHOOT_STABILIZED
 
             return DeviceStatus.OVERSHOOT_HANDLING
+
+        if self.setpoint == self.boiler_temperature:
+            return DeviceStatus.AT_SETPOINT
 
         if not self.flame_active and self.setpoint < self.boiler_temperature:
             return DeviceStatus.COOLING_DOWN
