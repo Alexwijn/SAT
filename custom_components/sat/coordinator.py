@@ -121,6 +121,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if not self._tracking_flame and self.flame_active:
             return DeviceStatus.OVERSHOOT_HANDLING
 
+        if not self.flame_active and self.setpoint < self.boiler_temperature:
+            return DeviceStatus.COOLING_DOWN
+
         return DeviceStatus.UNKNOWN
 
     @property
