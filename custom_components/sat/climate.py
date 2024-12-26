@@ -749,8 +749,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if not self._coordinator.flame_active:
                     self._setpoint = self._coordinator.boiler_temperature + 10
                 else:
-                    target_setpoint = min(self._calculated_setpoint, self._coordinator.boiler_temperature + 0.2)
-                    self._setpoint = self._minimum_setpoint.calculate(target_setpoint, self._coordinator.boiler_temperature)
+                    self._setpoint = self._minimum_setpoint.calculate(
+                        min(self._calculated_setpoint, self._coordinator.boiler_temperature + 0.2)
+                    )
             else:
                 self._setpoint = self._calculated_setpoint
         else:
@@ -762,8 +763,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     if not self._coordinator.flame_active:
                         self._setpoint = self._coordinator.boiler_temperature + 10
                     else:
-                        target_setpoint = min(self._calculated_setpoint, self._coordinator.boiler_temperature - 2)
-                        self._setpoint = self._minimum_setpoint.calculate(target_setpoint, self._coordinator.boiler_temperature)
+                        self._setpoint = self._minimum_setpoint.calculate(
+                            self._coordinator.boiler_temperature - 2
+                        )
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 

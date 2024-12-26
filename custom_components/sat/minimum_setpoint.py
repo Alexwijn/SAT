@@ -9,7 +9,7 @@ class MinimumSetpoint:
         """Initialize the MinimumSetpoint class."""
         self._current = None
 
-    def calculate(self, target_setpoint: float, boiler_temperature: float) -> float:
+    def calculate(self, target_setpoint: float) -> float:
         """Adjust the minimum setpoint based on the requested setpoint and boiler temperature."""
         if self._current is None:
             self._current = target_setpoint
@@ -17,13 +17,13 @@ class MinimumSetpoint:
         old_value = self._current
 
         if self._current < target_setpoint:
-            self._current = min(self._current + ADJUSTMENT_FACTOR, boiler_temperature)
+            self._current = min(self._current + ADJUSTMENT_FACTOR, target_setpoint)
         else:
-            self._current = max(self._current - ADJUSTMENT_FACTOR, boiler_temperature)
+            self._current = max(self._current - ADJUSTMENT_FACTOR, target_setpoint)
 
         _LOGGER.info(
-            "Minimum setpoint changed (%.1f°C => %.1f°C). Boiler Temperature: %.1f°C, Target Setpoint: %.1f°C",
-            old_value, self._current, boiler_temperature, target_setpoint
+            "Minimum setpoint changed (%.1f°C => %.1f°C). Target Setpoint: %.1f°C",
+            old_value, self._current, target_setpoint
         )
 
         return self._current
