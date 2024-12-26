@@ -771,7 +771,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if self._dynamic_minimum_setpoint:
                     if not self._coordinator.flame_active:
                         self._setpoint = self._coordinator.boiler_temperature + 10
-                    elif self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
+                    elif self._setpoint is None or self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
                         self._setpoint = self._minimum_setpoint.calculate(
                             self._coordinator.boiler_temperature - 2
                         )
