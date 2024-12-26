@@ -123,6 +123,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._rooms = None
         self._setpoint = None
         self._calculated_setpoint = None
+        self._last_boiler_temperature = None
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -191,8 +192,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.warning("Simulation mode!")
 
     def async_track_coordinator_data(self):
-        """Track changes in the coordinator's data and trigger the heating loop."""
+        """Track changes in the coordinator's boiler temperature and trigger the heating loop."""
+        if self._coordinator.boiler_temperature is not None and self._last_boiler_temperature == self._coordinator.boiler_temperature:
+            return
+
+        # Schedule an asynchronous task to control the heating loop
         asyncio.create_task(self.async_control_heating_loop())
+        self._last_boiler_temperature = self._coordinator.boiler_temperature
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added."""
