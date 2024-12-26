@@ -16,7 +16,7 @@ class MinimumSetpoint:
 
         old_value = self._current
 
-        if self._current < boiler_temperature:
+        if self._current < target_setpoint:
             self._current = min(self._current + ADJUSTMENT_FACTOR, boiler_temperature)
         else:
             self._current = max(self._current - ADJUSTMENT_FACTOR, boiler_temperature)
