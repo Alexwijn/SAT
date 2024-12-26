@@ -25,11 +25,15 @@ class SatEntity(CoordinatorEntity):
 
     @property
     def device_info(self):
+        manufacturer = "Unknown"
+        if self._coordinator.manufacturer is not None:
+            manufacturer = self._coordinator.manufacturer.name
+
         return DeviceInfo(
             name=NAME,
+            manufacturer=manufacturer,
             suggested_area="Living Room",
             model=self._coordinator.device_type,
-            manufacturer=self._coordinator.manufacturer.name,
             identifiers={(DOMAIN, self._config_entry.data.get(CONF_NAME))}
         )
 
