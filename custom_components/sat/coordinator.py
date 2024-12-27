@@ -289,7 +289,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """
         return False
 
-    async def setup(self) -> None:
+    async def async_setup(self) -> None:
         """Perform setup when the integration is about to be added to Home Assistant."""
         pass
 
@@ -310,8 +310,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if last_boiler_temperature is not None:
             if not self.flame_active:
                 self._tracking_flame = True
-            elif self._tracking_flame and self.boiler_temperature < last_boiler_temperature:
-                self._tracking_flame = False
+            elif self._tracking_flame:
+                if self.setpoint > self.boiler_temperature and self.setpoint - 3 < self.boiler_temperature < last_boiler_temperature:
+                    self._tracking_flame = False
+                    _LOGGER.debug("No longer tracking flame due to temperature stabilizing below setpoint.")
+                elif self.setpoint < self.boiler_temperature and self.boiler_temperature > last_boiler_temperature > self.setpoint + 3:
+                    self._tracking_flame = False
+                    _LOGGER.warning("No longer tracking flame due to persistent overshooting above setpoint.")
 
         # Make sure we have valid value
         if self.boiler_temperature is not None:

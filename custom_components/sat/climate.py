@@ -754,20 +754,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
             _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
 
-            if self._dynamic_minimum_setpoint:
-                if not self._coordinator.flame_active:
-                    self._setpoint = self._coordinator.boiler_temperature + 10
-                else:
-                    requested_setpoint = self._minimum_setpoint.calculate(
-                        min(self._calculated_setpoint, self._coordinator.boiler_temperature + 0.2)
-                    )
-
-                    if self._setpoint is None:
-                        self._setpoint = requested_setpoint
-                    else:
-                        self._setpoint = round(self._alpha * requested_setpoint + (1 - self._alpha) * self._setpoint, 1)
-            else:
+            if not self._dynamic_minimum_setpoint or self._coordinator.flame_active:
                 self._setpoint = self._calculated_setpoint
+            else:
+                self._setpoint = max(self._calculated_setpoint, self._coordinator.boiler_temperature + 10)
         else:
             # PWM is enabled and actively controlling the cycle
             _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
