@@ -18,6 +18,7 @@ class PID:
     def __init__(self,
                  heating_system: str,
                  automatic_gain_value: float,
+                 heating_curve_coefficient: float,
                  derivative_time_weight: float,
                  kp: float, ki: float, kd: float,
                  max_history: int = 2,
@@ -25,13 +26,13 @@ class PID:
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
                  sample_time_limit: Optional[float] = 10,
-                 version: int = 2):
+                 version: int = 3):
         """
         Initialize the PID controller.
 
         :param heating_system: The type of heating system, either "underfloor" or "radiator"
-        :param automatic_gain_value: The value to finetune the aggression value.
-        :param derivative_time_weight: The weight to finetune the derivative.
+        :param automatic_gain_value: The value to fine-tune the aggression value.
+        :param derivative_time_weight: The weight to fine-tune the derivative.
         :param kp: The proportional gain of the PID controller.
         :param ki: The integral gain of the PID controller.
         :param kd: The derivative gain of the PID controller.
@@ -51,6 +52,7 @@ class PID:
         self._automatic_gains = automatic_gains
         self._automatic_gains_value = automatic_gain_value
         self._derivative_time_weight = derivative_time_weight
+        self._heating_curve_coefficient = heating_curve_coefficient
 
         self._last_interval_updated = monotonic()
         self._sample_time_limit = max(sample_time_limit, 1)
@@ -259,6 +261,9 @@ class PID:
         if self._version == 2:
             return 73 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 81.5
 
+        if self._version == 3:
+            return 8400
+
         raise Exception("Invalid version")
 
     @property
@@ -283,6 +288,10 @@ class PID:
     def kp(self) -> float | None:
         """Return the value of kp based on the current configuration."""
         if self._automatic_gains:
+            if self._version == 3:
+                automatic_gain_value = 4 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 3
+                return round((self._heating_curve_coefficient * self._last_heating_curve_value) / automatic_gain_value, 6)
+
             automatic_gain_value = 0.243 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 0.33
             return round(self._automatic_gains_value * automatic_gain_value * self._last_heating_curve_value, 6)
 
@@ -301,6 +310,9 @@ class PID:
             if self._version == 2:
                 return round(self._automatic_gains_value * (self._last_heating_curve_value / 7200), 6)
 
+            if self._version == 3:
+                return round(self.kp / self._get_aggression_value(), 6)
+
             raise Exception("Invalid version")
 
         return float(self._ki)
@@ -311,6 +323,9 @@ class PID:
         if self._automatic_gains:
             if self._last_heating_curve_value is None:
                 return 0
+
+            if self._version == 3:
+                return round(0.07 * self._get_aggression_value() * self.kp, 6)
 
             return round(self._automatic_gains_value * self._get_aggression_value() * self._derivative_time_weight * self._last_heating_curve_value, 6)
 
