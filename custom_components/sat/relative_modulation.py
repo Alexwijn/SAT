@@ -52,5 +52,5 @@ class RelativeModulation:
     @property
     def enabled(self) -> bool:
         """Check if the relative modulation is enabled based on its current state"""
-        # Relative modulation is considered enabled if it's not in the OFF state or in the WARMING_UP state
+        # Relative modulation is considered enabled if it's not in the OFF state
         return self.state != RelativeModulationState.OFF
