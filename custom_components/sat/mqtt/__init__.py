@@ -31,7 +31,7 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
     def device_id(self) -> str:
         return self._device_id
 
-    async def setup(self):
+    async def async_setup(self):
         await self._load_stored_data()
 
     async def async_added_to_hass(self) -> None:
