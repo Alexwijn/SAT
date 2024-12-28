@@ -40,9 +40,9 @@ from .boiler_state import BoilerState
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
 from .entity import SatEntity
-from .minimum_setpoint import SetpointAdjuster
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
+from .setpoint_adjuster import SetpointAdjuster
 from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds
 
