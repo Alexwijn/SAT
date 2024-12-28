@@ -309,7 +309,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         # Check and handle boiler temperature tracking
         if last_boiler_temperature is not None:
             if not self.flame_active:
-                self._tracking_flame = True
+                self._tracking_boiler_temperature = True
             elif self._tracking_flame:
                 if self.setpoint > self.boiler_temperature and self.setpoint - 3 < self.boiler_temperature < last_boiler_temperature:
                     self._tracking_boiler_temperature = False
