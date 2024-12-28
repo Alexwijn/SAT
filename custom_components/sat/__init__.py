@@ -19,7 +19,7 @@ from .const import (
     COORDINATOR,
     CONF_MODE,
     CONF_DEVICE,
-    CONF_ERROR_MONITORING,
+    CONF_ERROR_MONITORING, OPTIONS_DEFAULTS,
 )
 from .coordinator import SatDataUpdateCoordinatorFactory
 
@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN][entry.entry_id] = {}
 
     # Setup error monitoring (if enabled)
-    if entry.options.get(CONF_ERROR_MONITORING, True):
+    if entry.options.get(CONF_ERROR_MONITORING, OPTIONS_DEFAULTS[CONF_ERROR_MONITORING]):
         await hass.async_add_executor_job(initialize_sentry, hass)
 
     # Resolve the coordinator by using the factory according to the mode
