@@ -538,7 +538,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                 selector.SelectOptionDict(value="1", label="Classic Controller"),
                 selector.SelectOptionDict(value="2", label="Improved Controller"),
-                selector.SelectOptionDict(value="3", label="Optimized Controller")
+                selector.SelectOptionDict(value="3", label="Adaptive Controller")
             ])
         )
 
