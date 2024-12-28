@@ -1,29 +1,29 @@
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-ADJUSTMENT_FACTOR = 0.5
+ADJUSTMENT_STEP = 0.5  # Renamed for clarity
 
 
-class MinimumSetpoint:
+class SetpointAdjuster:
     def __init__(self):
-        """Initialize the MinimumSetpoint class."""
+        """Initialize the SetpointAdjuster with no current setpoint."""
         self._current = None
 
-    def calculate(self, target_setpoint: float) -> float:
-        """Adjust the minimum setpoint based on the requested setpoint and boiler temperature."""
+    def adjust(self, target_setpoint: float) -> float:
+        """Gradually adjust the current setpoint toward the target setpoint."""
         if self._current is None:
             self._current = target_setpoint
 
-        old_value = self._current
+        previous_setpoint = self._current
 
         if self._current < target_setpoint:
-            self._current = min(self._current + ADJUSTMENT_FACTOR, target_setpoint)
-        else:
-            self._current = max(self._current - ADJUSTMENT_FACTOR, target_setpoint)
+            self._current = min(self._current + ADJUSTMENT_STEP, target_setpoint)
+        elif self._current > target_setpoint:
+            self._current = max(self._current - ADJUSTMENT_STEP, target_setpoint)
 
         _LOGGER.info(
-            "Minimum setpoint changed (%.1f°C => %.1f°C). Target Setpoint: %.1f°C",
-            old_value, self._current, target_setpoint
+            "Setpoint updated: %.1f°C -> %.1f°C (Target: %.1f°C)",
+            previous_setpoint, self._current, target_setpoint
         )
 
         return self._current

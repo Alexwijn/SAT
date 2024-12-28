@@ -40,7 +40,7 @@ from .boiler_state import BoilerState
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
 from .entity import SatEntity
-from .minimum_setpoint import MinimumSetpoint
+from .minimum_setpoint import SetpointAdjuster
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
@@ -170,8 +170,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
 
-        # Create the Minimum Setpoint controller
-        self._minimum_setpoint = MinimumSetpoint()
+        # Create the Setpoint Adjuster controller
+        self._setpoint_adjuster = SetpointAdjuster()
 
         # Create PID controller with given configuration options
         self.pid = create_pid_controller(config_options)
@@ -751,13 +751,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         elif not self.pulse_width_modulation_enabled or pwm_state == PWMState.IDLE:
             # Normal cycle without PWM
+            self._setpoint = self._calculated_setpoint
             _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
             _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
-
-            if not self._dynamic_minimum_setpoint or self._coordinator.flame_active:
-                self._setpoint = self._calculated_setpoint
-            else:
-                self._setpoint = max(self._calculated_setpoint, self._coordinator.boiler_temperature + 10)
         else:
             # PWM is enabled and actively controlling the cycle
             _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
@@ -767,9 +763,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     if not self._coordinator.flame_active:
                         self._setpoint = self._coordinator.boiler_temperature + 10
                     elif self._setpoint is None or self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
-                        self._setpoint = self._minimum_setpoint.calculate(
-                            self._coordinator.boiler_temperature - 2
-                        )
+                        self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 
@@ -789,7 +783,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Update relative modulation state
-        await self._relative_modulation.update(self.max_error > DEADBAND, self.pwm.state)
+        await self._relative_modulation.update(self.pwm.state)
 
         # Determine if the value needs to be updated
         if self._coordinator.maximum_relative_modulation_value == self.relative_modulation_value:

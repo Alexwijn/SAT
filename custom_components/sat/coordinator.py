@@ -304,27 +304,27 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         """Control the heating loop for the device."""
         current_time = datetime.now()
-        last_boiler_temperature = self.boiler_temperatures[-1][1] if len(self.boiler_temperatures) > 0 else None
+        last_boiler_temperature = self.boiler_temperatures[-1][1] if self.boiler_temperatures else None
 
-        # Make sure we have valid value
+        # Check and handle boiler temperature tracking
         if last_boiler_temperature is not None:
-            if not self.flame_active:
-                self._tracking_flame = True
-            elif self._tracking_flame:
-                if self.setpoint > self.boiler_temperature and self.setpoint - 3 < self.boiler_temperature < last_boiler_temperature:
-                    self._tracking_flame = False
-                    _LOGGER.debug("No longer tracking flame due to temperature stabilizing below setpoint.")
-                elif self.setpoint < self.boiler_temperature and self.boiler_temperature > last_boiler_temperature > self.setpoint + 3:
-                    self._tracking_flame = False
-                    _LOGGER.warning("No longer tracking flame due to persistent overshooting above setpoint.")
+            if self.setpoint > self.boiler_temperature and self.setpoint - 3 < self.boiler_temperature < last_boiler_temperature:
+                self._tracking_boiler_temperature = False
+                _LOGGER.debug("Stopped tracking boiler temperature: stabilizing below setpoint.")
+            elif self.setpoint < self.boiler_temperature and self.boiler_temperature > last_boiler_temperature > self.setpoint + 3:
+                self._tracking_boiler_temperature = False
+                _LOGGER.warning("Stopped tracking boiler temperature: persistent overshooting above setpoint.")
 
-        # Make sure we have valid value
+        # Append current boiler temperature if valid
         if self.boiler_temperature is not None:
             self.boiler_temperatures.append((current_time, self.boiler_temperature))
 
-        # Clear up any values that are older than the specified age
-        while self.boiler_temperatures and current_time - self.boiler_temperatures[0][0] > timedelta(seconds=MAX_BOILER_TEMPERATURE_AGE):
-            self.boiler_temperatures.pop()
+        # Remove old temperature records beyond the allowed age
+        self.boiler_temperatures = [
+            (timestamp, temp)
+            for timestamp, temp in self.boiler_temperatures
+            if current_time - timestamp <= timedelta(seconds=MAX_BOILER_TEMPERATURE_AGE)
+        ]
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
