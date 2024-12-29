@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, Any, TYPE_CHECKING, Mapping
+from typing import Optional, Any, Mapping
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -11,9 +11,6 @@ from pyotgw.vars import *
 from serial import SerialException
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
-
-if TYPE_CHECKING:
-    pass
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
