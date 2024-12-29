@@ -893,8 +893,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control our areas
         await self._areas.async_control_heating_loops()
 
-        # If the setpoint is high and the HVAC is not off, turn on the heater
-        await self.async_set_heater_state(DeviceState.ON if self._setpoint > MINIMUM_SETPOINT else DeviceState.OFF)
+        # If the setpoint is high or PWM is on, turn on the heater
+        await self.async_set_heater_state(DeviceState.ON if self._setpoint > MINIMUM_SETPOINT or self.pulse_width_modulation_enabled else DeviceState.OFF)
 
         self.async_write_ha_state()
 
