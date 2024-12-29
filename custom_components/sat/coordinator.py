@@ -81,7 +81,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._manufacturer = None
         self._options = options or {}
         self._device_state = DeviceState.OFF
-        self._tracking_boiler_temperature = None
+        self._tracking_boiler_temperature = True
         self._simulation = bool(self._options.get(CONF_SIMULATION))
         self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
 
@@ -293,10 +293,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """
         return False
 
-    async def reset_tracking_boiler_temperature(self):
-        """Reset the tracking boiler temperature, so we can re-detect an overshoot again."""
-        self._tracking_boiler_temperature = None
-
     async def async_setup(self) -> None:
         """Perform setup when the integration is about to be added to Home Assistant."""
         pass
@@ -316,7 +312,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Check and handle boiler temperature tracking
         if last_boiler_temperature is not None:
-            if not self.flame_active and self._tracking_boiler_temperature is None:
+            if not self.flame_active:
                 self._tracking_boiler_temperature = True
             elif self._tracking_boiler_temperature:
                 if self.setpoint > self.boiler_temperature and self.setpoint - 3 < self.boiler_temperature < last_boiler_temperature:

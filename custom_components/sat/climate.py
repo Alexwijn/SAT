@@ -639,17 +639,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # If the state has changed or the old state is not available, update the PID controller
         if not old_state or new_state.state != old_state.state:
-            self._pulse_width_modulation_enabled = False
-
             await self._async_control_pid(True)
-            await self._coordinator.reset_tracking_boiler_temperature()
+            self._pulse_width_modulation_enabled = False
 
         # If the target temperature has changed, update the PID controller
         elif new_attrs.get("temperature") != old_attrs.get("temperature"):
-            self._pulse_width_modulation_enabled = False
-
             await self._async_control_pid(True)
-            await self._coordinator.reset_tracking_boiler_temperature()
+            self._pulse_width_modulation_enabled = False
 
         # If the current temperature has changed, update the PID controller
         elif SENSOR_TEMPERATURE_ID not in new_state.attributes and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
@@ -948,9 +944,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the PID controller
         await self._async_control_pid(True)
 
-        # Reset the tracker so we re-detect overshooting
-        await self._coordinator.reset_tracking_boiler_temperature()
-
         # Reset the pulse width modulation
         self._pulse_width_modulation_enabled = False
 
@@ -1024,9 +1017,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the PID controller
         await self._async_control_pid(True)
-
-        # Reset the tracker so we re-detect overshooting
-        await self._coordinator.reset_tracking_boiler_temperature()
 
         # Reset the pulse width modulation
         self._pulse_width_modulation_enabled = False
