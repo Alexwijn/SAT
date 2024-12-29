@@ -464,7 +464,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
 
-        if not self._coordinator.flame_active:
+        if not self._coordinator.device_active:
             return HVACAction.IDLE
 
         return HVACAction.HEATING
