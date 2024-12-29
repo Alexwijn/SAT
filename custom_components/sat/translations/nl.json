@@ -181,7 +181,6 @@
           "heating_curve_version": "Versie van de Verwarmingscurve",
           "integral": "Integraal (kI)",
           "maximum_setpoint": "Maximaal Setpoint",
-          "minimum_setpoint_adjustment_factor": "Aanpassingsfactor voor de minimale instelwaarde",
           "pid_controller_version": "Versie van de PID-regelaar",
           "proportional": "Proportioneel (kP)",
           "sync_with_thermostat": "Synchroniseer setpoint met thermostaat",
@@ -196,7 +195,6 @@
           "heating_curve_coefficient": "De coëfficiënt die wordt gebruikt om de verwarmingscurve aan te passen.",
           "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
           "maximum_setpoint": "De optimale temperatuur voor efficiënte werking van de ketel.",
-          "minimum_setpoint_adjustment_factor": "Deze factor past de instelwaarde voor verwarming aan op basis van de retourtemperatuur van de ketel, wat de responsiviteit en efficiëntie van de verwarming beïnvloedt. Een hogere waarde verhoogt de gevoeligheid voor temperatuurveranderingen, waardoor de controle over comfort en energieverbruik wordt verbeterd. Het aanbevolen startbereik is 0,1 tot 0,5. Aanpassen om aan uw systeem en comfortvoorkeuren te voldoen.",
           "proportional": "De proportionele term (kP) in de PID-regelaar, verantwoordelijk voor de directe reactie op fouten.",
           "sync_with_thermostat": "Synchroniseer het setpoint met de thermostaat om een gecoördineerde temperatuurregeling te waarborgen.",
           "window_sensors": "Contact Sensoren die het systeem activeren wanneer een raam of deur voor een periode geopend is."
