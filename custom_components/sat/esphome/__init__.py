@@ -1,7 +1,7 @@
 from __future__ import annotations, annotations
 
 import logging
-from typing import TYPE_CHECKING, Mapping, Any
+from typing import Mapping, Any
 
 from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -37,9 +37,6 @@ DATA_DHW_SETPOINT = "t_dhw_set"
 DATA_CONTROL_SETPOINT = "t_set"
 DATA_MAX_CH_SETPOINT = "max_t_set"
 DATA_MAX_REL_MOD_LEVEL_SETTING = "max_rel_mod_level"
-
-if TYPE_CHECKING:
-    pass
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
