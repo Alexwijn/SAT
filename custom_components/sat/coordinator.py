@@ -26,6 +26,7 @@ class DeviceState(str, Enum):
 
 
 class DeviceStatus(str, Enum):
+    HOT_WATER = "hot_water"
     PREHEATING = "preheating"
     HEATING_UP = "heating_up"
     AT_SETPOINT = "at_setpoint"
@@ -106,6 +107,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Return the current status of the device."""
         if self.boiler_temperature is None:
             return DeviceStatus.INITIALIZING
+
+        if self.hot_water_active:
+            return DeviceStatus.HOT_WATER
 
         if self.setpoint is None or self.setpoint <= MINIMUM_SETPOINT:
             return DeviceStatus.COOLING_DOWN
