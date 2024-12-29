@@ -12,7 +12,7 @@ class RelativeModulationState(str, Enum):
     OFF = "off"
     COLD = "cold"
     HOT_WATER = "hot_water"
-    PULSE_WIDTH_MODULATION = "pulse_width_modulation"
+    PULSE_WIDTH_MODULATION_OFF = "pulse_width_modulation_off"
 
 
 class RelativeModulation:
@@ -37,8 +37,8 @@ class RelativeModulation:
         if self._coordinator.hot_water_active:
             return RelativeModulationState.HOT_WATER
 
-        if self._pulse_width_modulation_enabled:
-            return RelativeModulationState.PULSE_WIDTH_MODULATION
+        if not self._pulse_width_modulation_enabled:
+            return RelativeModulationState.PULSE_WIDTH_MODULATION_OFF
 
         return RelativeModulationState.OFF
 
