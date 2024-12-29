@@ -167,10 +167,8 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
         return self
 
-    async def async_added_to_hass(self) -> None:
+    async def async_setup(self) -> None:
         await self.async_connect()
-
-        await super().async_added_to_hass()
 
     async def async_will_remove_from_hass(self) -> None:
         self._api.unsubscribe(self.async_set_updated_data)
