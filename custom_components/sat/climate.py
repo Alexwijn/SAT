@@ -767,13 +767,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if pwm_state == PWMState.ON and self.max_error > -DEADBAND:
                 if self._dynamic_minimum_setpoint:
-                    if not self._coordinator.flame_active:
-                        self._setpoint_adjuster.reset()
-                        self._setpoint = self._coordinator.boiler_temperature + 10
-                    elif self._setpoint is None or self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
+                    if self._setpoint is None or self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
                         self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
                     elif self._setpoint_adjuster.current is not None:
                         self._setpoint = self._setpoint_adjuster.current
+                    elif not self._coordinator.flame_active:
+                        self._setpoint = self._coordinator.boiler_temperature + 10
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 
