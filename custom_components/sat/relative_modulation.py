@@ -31,14 +31,14 @@ class RelativeModulation:
     @property
     def state(self) -> RelativeModulationState:
         """Determine the current state of relative modulation based on coordinator and internal data"""
-        if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
-            return RelativeModulationState.COLD
-
         if self._coordinator.hot_water_active:
             return RelativeModulationState.HOT_WATER
 
         if not self._pulse_width_modulation_enabled:
             return RelativeModulationState.PULSE_WIDTH_MODULATION_OFF
+
+        if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
+            return RelativeModulationState.COLD
 
         return RelativeModulationState.OFF
 
