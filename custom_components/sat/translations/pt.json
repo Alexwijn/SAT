@@ -116,7 +116,7 @@
           "name": "Nome",
           "simulated_cooling": "Arrefecimento Simulado",
           "simulated_heating": "Aquecimento Simulado",
-          "simulated_warming_up": "Aquecimento Simulado"
+          "simulated_warming_up": "Aquecimento Inicial Simulado"
         },
         "description": "Este gateway permite-lhe simular uma caldeira para fins de teste e demonstração. Por favor forneça as seguintes informações para configurar o simulador.\n\nNota: O Simulador Gateway destina-se apenas a fins de teste e demonstração e não deve ser usado em ambientes de produção.",
         "title": "Gateway Simulado ( AVANÇADO )"
