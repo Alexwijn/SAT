@@ -53,6 +53,7 @@ ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
+ATTR_PULSE_WIDTH_MODULATION_ENABLED = "pulse_width_modulation_enabled"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._setpoint = None
         self._calculated_setpoint = None
         self._last_boiler_temperature = None
+        self._pulse_width_modulation_enabled = False
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -312,6 +314,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE):
                 self._pre_custom_temperature = old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE)
+
+            if old_state.attributes.get(ATTR_PULSE_WIDTH_MODULATION_ENABLED):
+                self._pulse_width_modulation_enabled = old_state.attributes.get(ATTR_PULSE_WIDTH_MODULATION_ENABLED)
 
             if old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT):
                 self.heating_curve.restore_autotune(
@@ -532,7 +537,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._overshoot_protection:
             return False
 
-        return self.pwm.enabled or self._coordinator.device_status in [DeviceStatus.OVERSHOOT_HANDLING, DeviceStatus.OVERSHOOT_STABILIZED]
+        return self._pulse_width_modulation_enabled
 
     @property
     def relative_modulation_value(self) -> int:
@@ -634,12 +639,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # If the state has changed or the old state is not available, update the PID controller
         if not old_state or new_state.state != old_state.state:
+            self._pulse_width_modulation_enabled = False
+
             self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
             await self._coordinator.reset_tracking_boiler_temperature()
 
         # If the target temperature has changed, update the PID controller
         elif new_attrs.get("temperature") != old_attrs.get("temperature"):
+            self._pulse_width_modulation_enabled = False
+
             self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
             await self._coordinator.reset_tracking_boiler_temperature()
@@ -850,19 +859,29 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control the heating through the coordinator
         await self._coordinator.async_control_heating_loop(self)
 
-        # Calculate the setpoint
-        self._calculated_setpoint = self._calculate_control_setpoint()
+        if self._calculated_setpoint is None:
+            # Default to the calculated setpoint
+            self._calculated_setpoint = self._calculate_control_setpoint()
+        else:
+            # Apply low filter on requested setpoint
+            self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
-        # Create a value object that contains most boiler values
-        boiler_state = BoilerState(
-            flame_active=self._coordinator.flame_active,
-            device_active=self._coordinator.device_active,
-            hot_water_active=self._coordinator.hot_water_active,
-            temperature=self._coordinator.boiler_temperature
-        )
+        # Check for overshoot
+        if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
+            self._pulse_width_modulation_enabled = True
 
         # Pulse Width Modulation
-        await self.pwm.update(self._calculated_setpoint, boiler_state)
+        if self.pulse_width_modulation_enabled:
+            boiler_state = BoilerState(
+                flame_active=self._coordinator.flame_active,
+                device_active=self._coordinator.device_active,
+                hot_water_active=self._coordinator.hot_water_active,
+                temperature=self._coordinator.boiler_temperature
+            )
+
+            await self.pwm.update(self._calculated_setpoint, boiler_state)
+        else:
+            self.pwm.reset()
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
@@ -935,6 +954,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the tracker so we re-detect overshooting
         await self._coordinator.reset_tracking_boiler_temperature()
+
+        # Reset the pulse width modulation
+        self._pulse_width_modulation_enabled = False
 
         # Collect which climates to control
         climates = self._main_climates[:]
@@ -1012,6 +1034,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the tracker so we re-detect overshooting
         await self._coordinator.reset_tracking_boiler_temperature()
+
+        # Reset the pulse width modulation
+        self._pulse_width_modulation_enabled = False
 
         # Write the state to Home Assistant
         self.async_write_ha_state()

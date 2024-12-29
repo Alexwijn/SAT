@@ -204,13 +204,6 @@ class PWM:
         return int(on_time), int(off_time)
 
     @property
-    def enabled(self) -> bool:
-        if self._last_duty_cycle_percentage is None:
-            return False
-
-        return self._last_duty_cycle_percentage <= self._max_duty_cycle_percentage
-
-    @property
     def state(self) -> PWMState:
         """Current PWM state."""
         return self._state
