@@ -113,7 +113,7 @@
         "data": {
           "maximum_setpoint": "Maximálna požadovaná hodnota",
           "minimum_setpoint": "Minimálna požadovaná hodnota",
-          "name": "Name",
+          "name": "Názov",
           "simulated_cooling": "Simulované chladenie",
           "simulated_heating": "Simulovaný ohrev",
           "simulated_warming_up": "Simulované zahrievanie"
