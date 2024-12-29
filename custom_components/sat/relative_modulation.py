@@ -35,9 +35,10 @@ class RelativeModulation:
             return RelativeModulationState.HOT_WATER
 
         if not self._pulse_width_modulation_enabled:
+            if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
+                return RelativeModulationState.COLD
+
             return RelativeModulationState.PULSE_WIDTH_MODULATION_OFF
-        elif self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
-            return RelativeModulationState.COLD
 
         return RelativeModulationState.OFF
 
