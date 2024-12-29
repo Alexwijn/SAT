@@ -641,7 +641,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not old_state or new_state.state != old_state.state:
             self._pulse_width_modulation_enabled = False
 
-            self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
             await self._coordinator.reset_tracking_boiler_temperature()
 
@@ -649,7 +648,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif new_attrs.get("temperature") != old_attrs.get("temperature"):
             self._pulse_width_modulation_enabled = False
 
-            self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
             await self._coordinator.reset_tracking_boiler_temperature()
 
@@ -774,6 +772,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if pwm_state == PWMState.ON and self.max_error > -DEADBAND:
                 if self._dynamic_minimum_setpoint:
                     if not self._coordinator.flame_active:
+                        self._setpoint_adjuster.reset()
                         self._setpoint = self._coordinator.boiler_temperature + 10
                     elif self._setpoint is None or self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
                         self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
@@ -946,9 +945,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.error("Unrecognized hvac mode: %s", hvac_mode)
             return
 
-        # Reset the setpoint adjuster
-        self._setpoint_adjuster.reset()
-
         # Reset the PID controller
         await self._async_control_pid(True)
 
@@ -1025,9 +1021,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._sync_with_thermostat:
             # Set the target temperature for the connected boiler
             await self._coordinator.async_set_control_thermostat_setpoint(temperature)
-
-        # Reset the setpoint adjuster
-        self._setpoint_adjuster.reset()
 
         # Reset the PID controller
         await self._async_control_pid(True)
