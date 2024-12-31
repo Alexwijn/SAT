@@ -486,7 +486,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.heating_curve.value is None:
             return MINIMUM_SETPOINT
 
-        return round(max(self.heating_curve.value + self.pid.output, MINIMUM_SETPOINT), 0)
+        return round(max(self.heating_curve.value + self.pid.output, MINIMUM_SETPOINT), 1)
 
     @property
     def valves_open(self) -> bool:
@@ -862,7 +862,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._calculated_setpoint = self._calculate_control_setpoint()
         else:
             # Apply low filter on requested setpoint
-            self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 0)
+            self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
         # Check for overshoot
         if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
