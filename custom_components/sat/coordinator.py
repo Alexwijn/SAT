@@ -315,10 +315,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             if not self.flame_active:
                 self._tracking_boiler_temperature = True
             elif self._tracking_boiler_temperature:
-                if self.setpoint > self.boiler_temperature and self.setpoint - 3 < self.boiler_temperature < last_boiler_temperature:
+                if self.setpoint - 3 < self.boiler_temperature < last_boiler_temperature:
                     self._tracking_boiler_temperature = False
                     _LOGGER.debug("Stopped tracking boiler temperature: stabilizing below setpoint.")
-                elif self.setpoint < self.boiler_temperature and self.boiler_temperature > last_boiler_temperature > self.setpoint + 3:
+                elif self.boiler_temperature > last_boiler_temperature > self.setpoint + 3:
                     self._tracking_boiler_temperature = False
                     _LOGGER.warning("Stopped tracking boiler temperature: persistent overshooting above setpoint.")
 
