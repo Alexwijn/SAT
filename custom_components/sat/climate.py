@@ -860,6 +860,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Apply low filter on requested setpoint
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
+        # Check for overshoot
+        if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
+            self._pulse_width_modulation_enabled = True
+
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
             boiler_state = BoilerState(
@@ -878,12 +882,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Set the relative modulation value, if supported
         await self._async_control_relative_modulation()
-
-        # Check if we are above minimum setpoint
-        if self._setpoint_adjuster.current is not None and self._calculated_setpoint > self._setpoint_adjuster.current:
-            self._pulse_width_modulation_enabled = False
-        elif self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
-            self._pulse_width_modulation_enabled = True
 
         # Control the integral (if exceeded the time limit)
         self.pid.update_integral(self.max_error, self.heating_curve.value)
@@ -947,6 +945,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the minimum setpoint
         self._setpoint_adjuster.reset()
+
+        # Reset the pulse width modulation
+        self._pulse_width_modulation_enabled = False
 
         # Collect which climates to control
         climates = self._main_climates[:]
@@ -1021,6 +1022,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the minimum setpoint
         self._setpoint_adjuster.reset()
+
+        # Reset the pulse width modulation
+        self._pulse_width_modulation_enabled = False
 
         # Write the state to Home Assistant
         self.async_write_ha_state()
