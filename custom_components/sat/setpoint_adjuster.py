@@ -20,7 +20,7 @@ class SetpointAdjuster:
     def adjust(self, target_setpoint: float) -> float:
         """Gradually adjust the current setpoint toward the target setpoint."""
         if self._current is None:
-            self._current = target_setpoint
+            self._current = target_setpoint + 10
 
         previous_setpoint = self._current
 
