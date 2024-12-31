@@ -75,10 +75,10 @@ class PWM:
             self._last_boiler_temperature = boiler.temperature
             _LOGGER.debug("Initialized last boiler temperature to %.1f°C", boiler.temperature)
 
-        if self._first_duty_cycle_start and (monotonic() - self._first_duty_cycle_start) > 3600:
+        if self._first_duty_cycle_start is None or (monotonic() - self._first_duty_cycle_start) > 3600:
             self._cycles = 0
-            self._first_duty_cycle_start = None
-            _LOGGER.info("CYCLES count reset after an hour.")
+            self._first_duty_cycle_start = monotonic()
+            _LOGGER.info("CYCLES count reset for the rolling hour.")
 
         elapsed = monotonic() - self._last_update
         self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler)

@@ -45,7 +45,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 class SatSynchroSensor:
     """Mixin to add delayed state change for binary sensors."""
 
-    def __init__(self, delay: int = 5):
+    def __init__(self, delay: int = 30):
         """Initialize the mixin with a delay."""
         self._delay = delay
         self._last_mismatch = None
