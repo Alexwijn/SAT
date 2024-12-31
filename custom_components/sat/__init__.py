@@ -49,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     # Making sure everything is loaded
-    await hass.data[DOMAIN][entry.entry_id][COORDINATOR].setup()
+    await hass.data[DOMAIN][entry.entry_id][COORDINATOR].async_setup()
 
     # Forward entry setup for used platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

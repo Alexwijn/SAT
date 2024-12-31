@@ -253,7 +253,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """
         return False
 
-    async def setup(self) -> None:
+    async def async_setup(self) -> None:
         """Perform setup when the integration is about to be added to Home Assistant."""
         pass
 
