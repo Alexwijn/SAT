@@ -25,7 +25,7 @@ class SetpointAdjuster:
         previous_setpoint = self._current
 
         if self._current < target_setpoint:
-            self._current = min(self._current + 0.1, target_setpoint)
+            self._current = min(self._current + 0.2, target_setpoint)
         elif self._current > target_setpoint:
             self._current = max(self._current - 2.0, target_setpoint)
 
