@@ -47,10 +47,9 @@ from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, convert_time_str_to_seconds
 
 ATTR_ROOMS = "rooms"
-ATTR_WARMING_UP = "warming_up_data"
+ATTR_SETPOINT = "setpoint"
 ATTR_OPTIMAL_COEFFICIENT = "optimal_coefficient"
 ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
-ATTR_WARMING_UP_DERIVATIVE = "warming_up_derivative"
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
 ATTR_PULSE_WIDTH_MODULATION_ENABLED = "pulse_width_modulation_enabled"
@@ -307,6 +306,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if old_state.state:
                 self._hvac_mode = old_state.state
+
+            if old_state.attributes.get(ATTR_SETPOINT):
+                self._setpoint = old_state.attributes.get(ATTR_SETPOINT)
 
             if old_state.attributes.get(ATTR_PRESET_MODE):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
@@ -807,7 +809,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     elif not self._coordinator.flame_active:
                         self._setpoint = self._coordinator.boiler_temperature + 10
                     elif self._setpoint is None:
-                        self._setpoint = self._coordinator.setpoint
+                        _LOGGER.debug("Setpoint not available.")
+                        return
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 
