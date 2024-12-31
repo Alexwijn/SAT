@@ -788,7 +788,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # PWM is enabled and actively controlling the cycle
             _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
 
-            if pwm_state == PWMState.ON and self.max_error > -DEADBAND:
+            if pwm_state == PWMState.ON:
                 self._setpoint = self.minimum_setpoint
                 _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self.minimum_setpoint)
             else:
