@@ -804,8 +804,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                         self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
                     elif self._setpoint_adjuster.current is not None:
                         self._setpoint = self._setpoint_adjuster.current
-                    elif not self._coordinator.flame_active or self._setpoint is None:
+                    elif not self._coordinator.flame_active:
                         self._setpoint = self._coordinator.boiler_temperature + 10
+                    elif self._setpoint is None:
+                        return
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 
