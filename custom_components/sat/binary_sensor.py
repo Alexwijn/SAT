@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
@@ -41,7 +42,38 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     _async_add_entities([SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)])
 
 
-class SatControlSetpointSynchroSensor(SatClimateEntity, BinarySensorEntity):
+class SatSynchroSensor:
+    """Mixin to add delayed state change for binary sensors."""
+
+    def __init__(self, delay: int = 5):
+        """Initialize the mixin with a delay."""
+        self._delay = delay
+        self._last_mismatch = None
+
+    def state_delayed(self, condition: bool) -> bool:
+        """Determine the delayed state based on a condition."""
+        if not condition:
+            self._last_mismatch = None
+            return False
+
+        if self._last_mismatch is None:
+            self._last_mismatch = self._get_current_time()
+
+        if self._get_current_time() - self._last_mismatch >= self._delay:
+            return True
+
+        return False
+
+    @staticmethod
+    def _get_current_time() -> float:
+        """Get the current time in seconds since epoch."""
+        return asyncio.get_event_loop().time()
+
+
+class SatControlSetpointSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
+    def __init__(self, coordinator, _config_entry, climate):
+        SatSynchroSensor.__init__(self)
+        SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
 
     @property
     def name(self):
@@ -61,7 +93,7 @@ class SatControlSetpointSynchroSensor(SatClimateEntity, BinarySensorEntity):
     @property
     def is_on(self):
         """Return the state of the sensor."""
-        return round(self._climate.setpoint, 1) != round(self._coordinator.setpoint, 1)
+        return self.state_delayed(round(self._climate.setpoint, 1) != round(self._coordinator.setpoint, 1))
 
     @property
     def unique_id(self):
@@ -69,7 +101,10 @@ class SatControlSetpointSynchroSensor(SatClimateEntity, BinarySensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-control-setpoint-synchro"
 
 
-class SatRelativeModulationSynchroSensor(SatClimateEntity, BinarySensorEntity):
+class SatRelativeModulationSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
+    def __init__(self, coordinator, _config_entry, climate):
+        SatSynchroSensor.__init__(self)
+        SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
 
     @property
     def name(self):
@@ -89,7 +124,7 @@ class SatRelativeModulationSynchroSensor(SatClimateEntity, BinarySensorEntity):
     @property
     def is_on(self):
         """Return the state of the sensor."""
-        return int(self._climate.relative_modulation_value) != int(self._coordinator.maximum_relative_modulation_value)
+        return self.state_delayed(int(self._climate.relative_modulation_value) != int(self._coordinator.maximum_relative_modulation_value))
 
     @property
     def unique_id(self):
@@ -97,7 +132,10 @@ class SatRelativeModulationSynchroSensor(SatClimateEntity, BinarySensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-relative-modulation-synchro"
 
 
-class SatCentralHeatingSynchroSensor(SatClimateEntity, BinarySensorEntity):
+class SatCentralHeatingSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
+    def __init__(self, coordinator, _config_entry, climate):
+        SatSynchroSensor.__init__(self)
+        SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
 
     @property
     def name(self) -> str:
@@ -120,11 +158,11 @@ class SatCentralHeatingSynchroSensor(SatClimateEntity, BinarySensorEntity):
         device_active = self._coordinator.device_active
         climate_hvac_action = self._climate.state_attributes.get("hvac_action")
 
-        return not (
+        return self.state_delayed(not (
                 (climate_hvac_action == HVACAction.OFF and not device_active) or
                 (climate_hvac_action == HVACAction.IDLE and not device_active) or
                 (climate_hvac_action == HVACAction.HEATING and device_active)
-        )
+        ))
 
     @property
     def unique_id(self) -> str:
