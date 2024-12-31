@@ -36,7 +36,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .area import Areas, SENSOR_TEMPERATURE_ID
-from .boiler_state import BoilerState
+from .boiler import BoilerState
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
 from .entity import SatEntity

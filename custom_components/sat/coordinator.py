@@ -10,6 +10,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
+from .boiler import BoilerTemperatureTracker
 from .const import *
 from .manufacturer import ManufacturerFactory, Manufacturer
 from .util import calculate_default_maximum_setpoint
@@ -81,8 +82,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._manufacturer = None
         self._options = options or {}
         self._device_state = DeviceState.OFF
-        self._tracking_boiler_temperature = True
         self._simulation = bool(self._options.get(CONF_SIMULATION))
+        self._boiler_temperature_tracker = BoilerTemperatureTracker()
         self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
@@ -117,10 +118,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if not self.flame_active and self.setpoint > self.boiler_temperature:
             return DeviceStatus.PREHEATING
 
-        if self._tracking_boiler_temperature and self.flame_active and self.setpoint > self.boiler_temperature:
+        if self._boiler_temperature_tracker.active and self.flame_active and self.setpoint > self.boiler_temperature:
             return DeviceStatus.HEATING_UP
 
-        if not self._tracking_boiler_temperature and self.flame_active:
+        if not self._boiler_temperature_tracker.active and self.flame_active:
             if self.setpoint == self.boiler_temperature - 2:
                 return DeviceStatus.OVERSHOOT_STABILIZED
 
@@ -308,16 +309,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         """Control the heating loop for the device."""
         current_time = datetime.now()
-        last_boiler_temperature = self.boiler_temperatures[-1][1] if self.boiler_temperatures else None
 
-        # Check and handle boiler temperature tracking
-        if last_boiler_temperature is not None:
-            if not self.flame_active:
-                self._tracking_boiler_temperature = True
-            elif  self._tracking_boiler_temperature:
-                if self.setpoint > self.boiler_temperature and self.setpoint - 5 < self.boiler_temperature < last_boiler_temperature:
-                    self._tracking_boiler_temperature = False
-                    _LOGGER.debug("Stopped tracking boiler temperature: stabilizing below setpoint.")
+        # Handle the temperature tracker
+        self._boiler_temperature_tracker.update(
+            setpoint=self.setpoint,
+            flame_active=self.flame_active,
+            boiler_temperature=self.boiler_temperature,
+        )
 
         # Append current boiler temperature if valid
         if self.boiler_temperature is not None:

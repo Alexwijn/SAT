@@ -3,7 +3,7 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
-from .boiler_state import BoilerState
+from .boiler import BoilerState
 from .const import HEATER_STARTUP_TIMEFRAME
 from .heating_curve import HeatingCurve
 
