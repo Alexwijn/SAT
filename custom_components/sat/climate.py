@@ -486,7 +486,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.heating_curve.value is None:
             return MINIMUM_SETPOINT
 
-        return round(max(self.heating_curve.value + self.pid.output, MINIMUM_SETPOINT), 1)
+        return round(max(self.heating_curve.value + self.pid.output, MINIMUM_SETPOINT), 0)
 
     @property
     def valves_open(self) -> bool:
@@ -639,13 +639,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # If the state has changed or the old state is not available, update the PID controller
         if not old_state or new_state.state != old_state.state:
-            self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
+
+            self._setpoint_adjuster.reset()
+            self._pulse_width_modulation_enabled = False
 
         # If the target temperature has changed, update the PID controller
         elif new_attrs.get("temperature") != old_attrs.get("temperature"):
-            self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
+
+            self._setpoint_adjuster.reset()
+            self._pulse_width_modulation_enabled = False
 
         # If the current temperature has changed, update the PID controller
         elif SENSOR_TEMPERATURE_ID not in new_state.attributes and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
@@ -858,7 +862,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._calculated_setpoint = self._calculate_control_setpoint()
         else:
             # Apply low filter on requested setpoint
-            self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
+            self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 0)
 
         # Check for overshoot
         if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
@@ -882,10 +886,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Set the relative modulation value, if supported
         await self._async_control_relative_modulation()
-
-        # Check if we are above minimum setpoint
-        if self._setpoint_adjuster.current is not None and self._calculated_setpoint > self._setpoint_adjuster.current:
-            self._pulse_width_modulation_enabled = False
 
         # Control the integral (if exceeded the time limit)
         self.pid.update_integral(self.max_error, self.heating_curve.value)
@@ -949,6 +949,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the minimum setpoint
         self._setpoint_adjuster.reset()
+
+        # Reset the pulse width modulation
+        self._pulse_width_modulation_enabled = False
 
         # Collect which climates to control
         climates = self._main_climates[:]
@@ -1023,6 +1026,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the minimum setpoint
         self._setpoint_adjuster.reset()
+
+        # Reset the pulse width modulation
+        self._pulse_width_modulation_enabled = False
 
         # Write the state to Home Assistant
         self.async_write_ha_state()
