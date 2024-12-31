@@ -639,17 +639,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # If the state has changed or the old state is not available, update the PID controller
         if not old_state or new_state.state != old_state.state:
-            await self._async_control_pid(True)
-
             self._setpoint_adjuster.reset()
-            self._pulse_width_modulation_enabled = False
+            await self._async_control_pid(True)
 
         # If the target temperature has changed, update the PID controller
         elif new_attrs.get("temperature") != old_attrs.get("temperature"):
-            await self._async_control_pid(True)
-
             self._setpoint_adjuster.reset()
-            self._pulse_width_modulation_enabled = False
+            await self._async_control_pid(True)
 
         # If the current temperature has changed, update the PID controller
         elif SENSOR_TEMPERATURE_ID not in new_state.attributes and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
@@ -887,6 +883,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Set the relative modulation value, if supported
         await self._async_control_relative_modulation()
 
+        # Check if we are above minimum setpoint
+        if self._setpoint_adjuster.current is not None and self._calculated_setpoint > self._setpoint_adjuster.current:
+            self._pulse_width_modulation_enabled = False
+
         # Control the integral (if exceeded the time limit)
         self.pid.update_integral(self.max_error, self.heating_curve.value)
 
@@ -949,9 +949,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the minimum setpoint
         self._setpoint_adjuster.reset()
-
-        # Reset the pulse width modulation
-        self._pulse_width_modulation_enabled = False
 
         # Collect which climates to control
         climates = self._main_climates[:]
@@ -1026,9 +1023,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Reset the minimum setpoint
         self._setpoint_adjuster.reset()
-
-        # Reset the pulse width modulation
-        self._pulse_width_modulation_enabled = False
 
         # Write the state to Home Assistant
         self.async_write_ha_state()
