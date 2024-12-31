@@ -44,6 +44,10 @@ def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: 
     # Convert time taken from seconds to hours
     time_taken_hours = time_taken_seconds / 3600
 
+    # Avoid division-by-zero error
+    if time_taken_hours == 0:
+        return 0
+
     # Calculate the derivative per hour by dividing temperature error by time taken
     return round(temperature_error / time_taken_hours, 2)
 
