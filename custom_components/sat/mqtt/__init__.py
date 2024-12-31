@@ -112,7 +112,7 @@ class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
         """Process and store the payload of a received MQTT message."""
         self.data[key] = payload
 
-    async def _publish_command(self, payload: str, wait_time: float = 0.5):
+    async def _publish_command(self, payload: str, wait_time: float = 1.0):
         """Publish a command to the MQTT topic."""
         topic = self._get_topic_for_publishing()
 

@@ -19,7 +19,7 @@ from .const import (
     COORDINATOR,
     CONF_MODE,
     CONF_DEVICE,
-    CONF_ERROR_MONITORING,
+    CONF_ERROR_MONITORING, OPTIONS_DEFAULTS,
 )
 from .coordinator import SatDataUpdateCoordinatorFactory
 
@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN][entry.entry_id] = {}
 
     # Setup error monitoring (if enabled)
-    if entry.options.get(CONF_ERROR_MONITORING, True):
+    if entry.options.get(CONF_ERROR_MONITORING, OPTIONS_DEFAULTS[CONF_ERROR_MONITORING]):
         await hass.async_add_executor_job(initialize_sentry, hass)
 
     # Resolve the coordinator by using the factory according to the mode
@@ -77,9 +77,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await asyncio.gather(hass.config_entries.async_unload_platforms(entry, PLATFORMS))
     )
 
-    if SENTRY in hass.data[DOMAIN]:
-        hass.data[DOMAIN][SENTRY].flush()
-        hass.data[DOMAIN][SENTRY].close()
+    try:
+        if SENTRY in hass.data[DOMAIN]:
+            hass.data[DOMAIN][SENTRY].flush()
+            hass.data[DOMAIN][SENTRY].close()
+            hass.data[DOMAIN].pop(SENTRY, None)
+    except Exception as ex:
+        _LOGGER.error("Error during Sentry cleanup: %s", str(ex))
 
     # Remove the entry from the data dictionary if all components are unloaded successfully
     if unloaded:
