@@ -40,7 +40,7 @@ from .boiler import BoilerState
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
 from .entity import SatEntity
-from .helpers import convert_time_str_to_seconds, seconds_since
+from .helpers import convert_time_str_to_seconds
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .setpoint_adjuster import SetpointAdjuster
@@ -803,7 +803,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if pwm_state == PWMState.ON:
                 if self._dynamic_minimum_setpoint:
-                    if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING and seconds_since(self._coordinator.flame_on_since) > 10:
+                    if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
                         self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
                     elif self._setpoint_adjuster.current is not None:
                         self._setpoint = self._setpoint_adjuster.current
