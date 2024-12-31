@@ -57,7 +57,6 @@ class BoilerTemperatureTracker:
         """Update the tracker based on the current boiler temperature, flame status, and setpoint."""
         if self._last_boiler_temperature is None:
             self._last_boiler_temperature = boiler_temperature
-            _LOGGER.debug("Initialized last_boiler_temperature to %s.", boiler_temperature)
 
         if not flame_active:
             self._handle_flame_inactive()
@@ -65,7 +64,6 @@ class BoilerTemperatureTracker:
             self._handle_tracking(boiler_temperature, setpoint)
 
         self._last_boiler_temperature = boiler_temperature
-        _LOGGER.debug("Updated last_boiler_temperature to %s.", boiler_temperature)
 
     def _handle_flame_inactive(self):
         """Handle the case where the flame is inactive."""
