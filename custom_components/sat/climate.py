@@ -806,7 +806,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Update relative modulation state
-        await self._relative_modulation.update(self.warming_up, self.pwm.state)
+        await self._relative_modulation.update(self.pulse_width_modulation_enabled)
 
         # Determine if the value needs to be updated
         if self._coordinator.maximum_relative_modulation_value == self.relative_modulation_value:
