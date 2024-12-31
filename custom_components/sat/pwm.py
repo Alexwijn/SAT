@@ -75,10 +75,10 @@ class PWM:
             self._last_boiler_temperature = boiler.temperature
             _LOGGER.debug("Initialized last boiler temperature to %.1f°C", boiler.temperature)
 
-        if self._first_duty_cycle_start and (monotonic() - self._first_duty_cycle_start) > 3600:
+        if self._first_duty_cycle_start is None or (monotonic() - self._first_duty_cycle_start) > 3600:
             self._cycles = 0
-            self._first_duty_cycle_start = None
-            _LOGGER.info("CYCLES count reset after an hour.")
+            self._first_duty_cycle_start = monotonic()
+            _LOGGER.info("CYCLES count reset for the rolling hour.")
 
         elapsed = monotonic() - self._last_update
         self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler)
@@ -98,9 +98,6 @@ class PWM:
         # State transitions for PWM
         if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (
                 elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
-            if self._first_duty_cycle_start is None:
-                self._first_duty_cycle_start = monotonic()
-
             if self._cycles >= self._max_cycles:
                 _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
                 return
