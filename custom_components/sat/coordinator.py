@@ -311,11 +311,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         current_time = datetime.now()
 
         # Handle the temperature tracker
-        self._boiler_temperature_tracker.update(
-            setpoint=self.setpoint,
-            flame_active=self.flame_active,
-            boiler_temperature=self.boiler_temperature,
-        )
+        if self.device_status is not DeviceStatus.HOT_WATER:
+            self._boiler_temperature_tracker.update(
+                setpoint=self.setpoint,
+                flame_active=self.flame_active,
+                boiler_temperature=self.boiler_temperature,
+            )
 
         # Append current boiler temperature if valid
         if self.boiler_temperature is not None:
