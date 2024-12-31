@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Mapping, Any
 
 from homeassistant.core import HomeAssistant
 
-from .. import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
+from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 from ..util import convert_time_str_to_seconds
 
@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 
 
 class SatSimulatorCoordinator(SatDataUpdateCoordinator):
-    """Class to manage the Switch."""
-
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
         super().__init__(hass, data, options)
@@ -28,6 +26,14 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         self._cooling = data.get(CONF_SIMULATED_COOLING)
         self._maximum_setpoint = data.get(CONF_MAXIMUM_SETPOINT)
         self._warming_up = convert_time_str_to_seconds(data.get(CONF_SIMULATED_WARMING_UP))
+
+    @property
+    def device_id(self) -> str:
+        return 'Simulator'
+
+    @property
+    def device_type(self) -> str:
+        return "Simulator"
 
     @property
     def supports_setpoint_management(self) -> bool:
@@ -60,6 +66,10 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
     @property
     def relative_modulation_value(self) -> float | None:
         return 100 if self.flame_active else 0
+
+    @property
+    def member_id(self) -> int | None:
+        return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         self._started_on = monotonic() if state == DeviceState.ON else None

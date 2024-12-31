@@ -4,13 +4,14 @@ import logging
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Mapping, Any
+from typing import TYPE_CHECKING, Mapping, Any, Optional
 
-from homeassistant.components.climate import HVACMode
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import *
+from .manufacturer import ManufacturerFactory, Manufacturer
 from .util import calculate_default_maximum_setpoint
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ class DeviceState(str, Enum):
 
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    async def resolve(
+    def resolve(
             hass: HomeAssistant,
             mode: str,
             device: str,
@@ -41,17 +42,25 @@ class SatDataUpdateCoordinatorFactory:
             from .simulator import SatSimulatorCoordinator
             return SatSimulatorCoordinator(hass=hass, data=data, options=options)
 
-        if mode == MODE_MQTT:
-            from .mqtt import SatMqttCoordinator
-            return SatMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
-
         if mode == MODE_SWITCH:
             from .switch import SatSwitchCoordinator
             return SatSwitchCoordinator(hass=hass, entity_id=device, data=data, options=options)
 
+        if mode == MODE_ESPHOME:
+            from .esphome import SatEspHomeCoordinator
+            return SatEspHomeCoordinator(hass=hass, device_id=device, data=data, options=options)
+
+        if mode == MODE_MQTT_EMS:
+            from .mqtt.ems import SatEmsMqttCoordinator
+            return SatEmsMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
+
+        if mode == MODE_MQTT_OPENTHERM:
+            from .mqtt.opentherm import SatOpenThermMqttCoordinator
+            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
+
         if mode == MODE_SERIAL:
             from .serial import SatSerialCoordinator
-            return await SatSerialCoordinator(hass=hass, port=device, data=data, options=options).async_connect()
+            return SatSerialCoordinator(hass=hass, port=device, data=data, options=options)
 
         raise Exception(f'Invalid mode[{mode}]')
 
@@ -62,17 +71,38 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self.boiler_temperatures = []
 
         self._data = data
-        self._options = options
+        self._manufacturer = None
+        self._options = options or {}
         self._device_state = DeviceState.OFF
-        self._simulation = bool(data.get(CONF_SIMULATION))
+        self._simulation = bool(self._options.get(CONF_SIMULATION))
         self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
     @property
+    @abstractmethod
+    def device_id(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def device_type(self) -> str:
+        pass
+
+    @property
     def device_state(self):
         """Return the current state of the device."""
         return self._device_state
+
+    @property
+    def manufacturer(self) -> Manufacturer | None:
+        if self.member_id is None:
+            return None
+
+        if self._manufacturer is None:
+            self._manufacturer = ManufacturerFactory().resolve(self.member_id)
+
+        return self._manufacturer
 
     @property
     @abstractmethod
@@ -82,6 +112,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     @abstractmethod
     def device_active(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def member_id(self) -> int | None:
         pass
 
     @property
@@ -101,10 +136,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
-    def filtered_boiler_temperature(self) -> float | None:
+    def return_temperature(self) -> float | None:
+        return None
+
+    @property
+    def filtered_boiler_temperature(self) -> float:
         # Not able to use if we do not have at least two values
         if len(self.boiler_temperatures) < 2:
-            return None
+            return self.boiler_temperature
 
         # Some noise filtering on the boiler temperature
         difference_boiler_temperature_sum = sum(
@@ -214,20 +253,20 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """
         return False
 
-    async def async_added_to_hass(self, climate: SatClimate) -> None:
+    async def async_setup(self) -> None:
+        """Perform setup when the integration is about to be added to Home Assistant."""
+        pass
+
+    async def async_added_to_hass(self) -> None:
         """Perform setup when the integration is added to Home Assistant."""
         await self.async_set_control_max_setpoint(self.maximum_setpoint)
 
-    async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
+    async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
         pass
 
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         """Control the heating loop for the device."""
-        if climate is not None and climate.hvac_mode == HVACMode.OFF and self.device_active:
-            # Send out a new command to turn off the device
-            await self.async_set_heater_state(DeviceState.OFF)
-
         current_time = datetime.now()
 
         # Make sure we have valid value
@@ -246,23 +285,46 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_set_control_setpoint(self, value: float) -> None:
         """Control the boiler setpoint temperature for the device."""
         if self.supports_setpoint_management:
-            _LOGGER.info("Set control boiler setpoint to %d", value)
+            _LOGGER.info("Set control boiler setpoint to %d°C", value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
         """Control the DHW setpoint temperature for the device."""
         if self.supports_hot_water_setpoint_management:
-            _LOGGER.info("Set control hot water setpoint to %d", value)
+            _LOGGER.info("Set control hot water setpoint to %d°C", value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
         """Control the maximum setpoint temperature for the device."""
         if self.supports_maximum_setpoint_management:
-            _LOGGER.info("Set maximum setpoint to %d", value)
+            _LOGGER.info("Set maximum setpoint to %d°C", value)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         """Control the maximum relative modulation for the device."""
         if self.supports_relative_modulation_management:
-            _LOGGER.info("Set maximum relative modulation to %d", value)
+            _LOGGER.info("Set maximum relative modulation to %d%%", value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         """Control the setpoint temperature for the thermostat."""
+        pass
+
+
+class SatEntityCoordinator(DataUpdateCoordinator):
+    def get(self, domain: str, key: str) -> Optional[Any]:
+        """Get the value for the given `key` from the boiler data.
+
+        :param domain: Domain of where this value is located.
+        :param key: Key of the value to retrieve from the boiler data.
+        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
+        """
+        entity_id = self._get_entity_id(domain, key)
+        if entity_id is None:
+            return None
+
+        state = self.hass.states.get(self._get_entity_id(domain, key))
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+
+        return state.state
+
+    @abstractmethod
+    def _get_entity_id(self, domain: str, key: str):
         pass

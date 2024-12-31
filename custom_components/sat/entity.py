@@ -4,9 +4,10 @@ import logging
 import typing
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, VERSION, CONF_NAME
+from .const import DOMAIN, NAME, CONF_NAME
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -24,16 +25,21 @@ class SatEntity(CoordinatorEntity):
 
     @property
     def device_info(self):
-        return {
-            "name": NAME,
-            "model": VERSION,
-            "manufacturer": NAME,
-            "identifiers": {(DOMAIN, self._config_entry.data.get(CONF_NAME))},
-        }
+        manufacturer = "Unknown"
+        if self._coordinator.manufacturer is not None:
+            manufacturer = self._coordinator.manufacturer.name
+
+        return DeviceInfo(
+            name=NAME,
+            manufacturer=manufacturer,
+            suggested_area="Living Room",
+            model=self._coordinator.device_type,
+            identifiers={(DOMAIN, self._config_entry.data.get(CONF_NAME))}
+        )
 
 
 class SatClimateEntity(SatEntity):
-    def __init__(self, coordinator, climate: SatClimate, config_entry: ConfigEntry):
+    def __init__(self, coordinator, config_entry: ConfigEntry, climate: SatClimate):
         super().__init__(coordinator, config_entry)
 
         self._climate = climate

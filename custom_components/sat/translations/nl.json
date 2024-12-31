@@ -1,221 +1,245 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Slimme Autotune Thermostaat (SAT)",
-        "description": "SAT is een slimme thermostaat die zichzelf kan afstemmen om de temperatuurregeling te optimaliseren. Selecteer de geschikte modus die overeenkomt met uw verwarmingssysteem.",
-        "menu_options": {
-          "mosquitto": "OpenTherm Gateway ( MQTT )",
-          "serial": "OpenTherm Gateway ( SERIEEL )",
-          "switch": "PID Thermostaat met PWM ( AAN/UIT )",
-          "simulator": "Gesimuleerde Gateway ( GEAVANCEERD )"
-        }
-      },
-      "mosquitto": {
-        "title": "OpenTherm Gateway ( MQTT )",
-        "description": "Gelieve de volgende gegevens te verstrekken om de OpenTherm Gateway in te stellen. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer de Climate entity die gebruikt wordt voor de OpenTherm Gateway. Deze entiteit wordt aangeleverd door de OpenTherm Gateway en vertegenwoordigt uw verwarmingssysteem.\n\nVoer daarnaast het Top Topic in dat gebruikt zal worden voor het publiceren en abonneren op MQTT-berichten gerelateerd aan de OpenTherm Gateway.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via MQTT. Ze zorgen voor een naadloze gegevensuitwisseling en controle over uw verwarmingssysteem. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
-        "data": {
-          "name": "Naam",
-          "device": "Apparaat",
-          "mqtt_topic": "Top Topic"
-        }
-      },
-      "serial": {
-        "title": "OpenTherm Gateway ( SERIEEL )",
-        "description": "Om een verbinding met de OpenTherm Gateway te maken via een socketverbinding, gelieve de volgende details te verstrekken. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer het netwerkadres van de OpenTherm Gateway in het veld Apparaat. Dit kan in het formaat zijn van \"socket://otgw.local:25238\", waarbij \"otgw.local\" de hostnaam of het IP-adres van de gateway is en \"25238\" het poortnummer.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via de socketverbinding. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
-        "data": {
-          "name": "Naam",
-          "device": "URL"
-        }
-      },
-      "switch": {
-        "title": "PID Thermostaat met PWM ( AAN/UIT )",
-        "description": "Gelieve de volgende details in te vullen om de schakelaar in te stellen. Voer in het veld Naam een naam in voor de schakelaar, die u helpt deze te identificeren binnen uw systeem. Kies de geschikte entiteit om voor uw schakelaar te gebruiken uit de aangeboden opties.\n\nIn het veld Temperatuurinstelling specificeert u de gewenste doeltemperatuur voor uw verwarmingssysteem. Als u een warmwaterboiler gebruikt, vul dan de Boiler Temperatuurinstelling in met de geschikte waarde. Voor elektrische verwarmingssystemen, voer de waarde 100 in.\n\nDeze instellingen zijn essentieel voor precieze temperatuurregeling en zorgen voor optimale prestaties van uw verwarmingssysteem. Het verstrekken van de juiste Temperatuurinstelling zorgt voor nauwkeurige regulatie en helpt een comfortabele en energie-efficiënte omgeving in uw huis te bereiken.",
-        "data": {
-          "name": "Naam",
-          "device": "Entiteit",
-          "minimum_setpoint": "Temperatuurinstelling"
-        }
-      },
-      "simulator": {
-        "title": "Gesimuleerde Gateway ( GEAVANCEERD )",
-        "description": "Deze gateway stelt u in staat om een ketel te simuleren voor test- en demonstratiedoeleinden. Gelieve de volgende informatie te verstrekken om de simulator te configureren.\n\nLet op: De Simulator Gateway is alleen bedoeld voor test- en demonstratiedoeleinden en mag niet worden gebruikt in productieomgevingen.",
-        "data": {
-          "name": "Naam",
-          "minimum_setpoint": "Minimum Setpoint",
-          "maximum_setpoint": "Maximum Setpoint",
-          "simulated_heating": "Gesimuleerde Verwarming",
-          "simulated_cooling": "Gesimuleerde Koeling",
-          "simulated_warming_up": "Gesimuleerde Opwarming"
-        }
-      },
-      "sensors": {
-        "title": "Configureer sensoren",
-        "description": "Selecteer de sensoren die gebruikt zullen worden om de temperatuur te volgen.",
-        "data": {
-          "inside_sensor_entity_id": "Binnensensor Entiteit",
-          "outside_sensor_entity_id": "Buitensensor Entiteit",
-          "humidity_sensor_entity_id": "Vochtigheidssensor Entiteit"
-        }
-      },
-      "heating_system": {
-        "title": "Verwarmingssysteem",
-        "description": "Het kiezen van het juiste type verwarmingssysteem is belangrijk voor SAT om de temperatuur nauwkeurig te regelen en prestaties te optimaliseren. Kies de optie die overeenkomt met uw opstelling om een correcte temperatuurregeling in uw huis te verzekeren.",
-        "data": {
-          "heating_system": "Systeem"
-        }
-      },
-      "areas": {
-        "title": "Gebieden",
-        "description": "Instellingen met betrekking tot klimaten, multi-kamer en temperatuurregeling. Primaire klimaten bevinden zich in dezelfde kamer als de binnensensor en de kamers hebben hun eigen doeltemperaturen los van het systeem.",
-        "data": {
-          "main_climates": "Primair",
-          "secondary_climates": "Kamers"
-        }
-      },
-      "automatic_gains": {
-        "title": "Automatische Versterkingen",
-        "description": "Deze functie past de regelparameters van uw verwarmingssysteem dynamisch aan, waardoor de temperatuurregeling wordt geoptimaliseerd voor meer comfort en energie-efficiëntie. Het inschakelen van deze optie stelt SAT in staat om de verwarmingsinstellingen voortdurend aan te passen en te verfijnen op basis van de omgevingsomstandigheden. Dit helpt een stabiele en comfortabele omgeving te handhaven zonder handmatige tussenkomst.\n\nLet op: Als u ervoor kiest om automatische versterkingen niet in te schakelen, moet u handmatig de PID-waarden invoeren voor nauwkeurige temperatuurregeling. Zorg ervoor dat u nauwkeurige PID-waarden heeft voor uw specifieke verwarmingssysteem om optimale prestaties te bereiken.",
-        "data": {
-          "automatic_gains": "Automatische Versterkingen (aanbevolen)"
-        }
-      },
-      "calibrate_system": {
-        "title": "Systeem Kalibreren",
-        "description": "Optimaliseer uw verwarmingssysteem door automatisch de optimale PID-waarden voor uw opstelling te bepalen. Let op dat het systeem bij het selecteren van Automatische Versterkingen een kalibratieproces zal ondergaan dat ongeveer 20 minuten kan duren.\n\nAutomatische Versterkingen worden aanbevolen voor de meeste gebruikers omdat het het instelproces vereenvoudigt en optimale prestaties verzekert. Echter, als u bekend bent met PID-regeling en de voorkeur geeft aan het handmatig instellen van de waarden, kunt u ervoor kiezen om Automatische Versterkingen over te slaan.\n\nLet op dat het kiezen om Automatische Versterkingen over te slaan een goede kennis van PID-regeling vereist en mogelijk extra handmatige aanpassingen nodig heeft om optimale prestaties te bereiken.",
-        "menu_options": {
-          "calibrate": "Kalibreer en bepaal uw overshoot-beveiligingswaarde (ong. 20 min).",
-          "overshoot_protection": "Voer handmatig de overshoot-beveiligingswaarde in.",
-          "pid_controller": "Voer handmatig PID-waarden in (niet aanbevolen)."
-        }
-      },
-      "overshoot_protection": {
-        "title": "Overshoot-beveiliging",
-        "description": "Door het verstrekken van de overshoot-beveiligingswaarde zal SAT de regelparameters dienovereenkomstig aanpassen om een stabiele en comfortabele verwarmingsomgeving te behouden. Deze handmatige configuratie stelt u in staat het systeem fijn af te stemmen op basis van uw specifieke opstelling.\n\nLet op: Als u niet zeker bent over de overshoot-beveiligingswaarde of het kalibratieproces niet heeft uitgevoerd, wordt aanbevolen de configuratie te annuleren en het kalibratieproces te doorlopen zodat SAT automatisch de waarde voor optimale prestaties kan bepalen.",
-        "data": {
-          "minimum_setpoint": "Waarde"
-        }
-      },
-      "pid_controller": {
-        "title": "Configureer de PID-regelaar handmatig.",
-        "description": "Configureer de proportionele, integrale en afgeleide versterkingen handmatig om uw verwarmingssysteem fijn te stemmen. Gebruik deze optie als u volledige controle wilt hebben over de PID-regelaarparameters. Stel de versterkingen in op basis van de specifieke kenmerken van uw verwarmingssysteem en voorkeuren.",
-        "data": {
-          "integral": "Integraal (kI)",
-          "derivative": "Afgeleid (kD)",
-          "proportional": "Proportioneel (kP)"
-        }
-      },
-      "calibrated": {
-        "title": "Kalibratie Voltooid",
-        "description": "Het kalibratieproces is succesvol voltooid.\n\nGefeliciteerd! Uw Slimme Autotune Thermostaat (SAT) is gekalibreerd om de verwarmingsprestaties van uw systeem te optimaliseren. Tijdens het kalibratieproces heeft SAT zorgvuldig de verwarmingskenmerken geanalyseerd en de geschikte overshoot-beveiligingswaarde bepaald om nauwkeurige temperatuurregeling te verzekeren.\n\nOvershoot-beveiligingswaarde: {minimum_setpoint} °C\n\nDeze waarde vertegenwoordigt de maximale hoeveelheid overshoot die is toegestaan tijdens het verwarmingsproces. SAT zal actief de verwarming monitoren en aanpassen om overmatig overshoot te voorkomen, en zo een comfortabele en efficiënte verwarmingservaring in uw huis te handhaven.\n\nLet op dat de overshoot-beveiligingswaarde kan variëren afhankelijk van de specifieke kenmerken van uw verwarmingssysteem en omgevingsfactoren. Het is fijn afgestemd om optimale prestaties te bieden op basis van de kalibratieresultaten.",
-        "menu_options": {
-          "calibrate": "Kalibratie opnieuw proberen",
-          "finish": "Doorgaan met huidige kalibratie"
-        }
-      }
+    "abort": {
+      "already_configured": "Gateway is al geconfigureerd.",
+      "reconfigure_successful": "Gateway is opnieuw geconfigureerd."
     },
     "error": {
       "connection": "Kan geen verbinding maken met de gateway.",
       "mqtt_component": "Het MQTT-component is niet beschikbaar.",
       "unable_to_calibrate": "Het kalibratieproces is op een probleem gestuit en kon niet succesvol worden voltooid. Zorg ervoor dat uw verwarmingssysteem correct functioneert en dat alle vereiste sensoren zijn aangesloten en correct werken.\n\nAls u problemen blijft ondervinden met de kalibratie, overweeg dan om contact met ons op te nemen voor verdere hulp. Onze excuses voor het ongemak."
     },
-    "abort": {
-      "already_configured": "Gateway is al geconfigureerd."
-    },
     "progress": {
       "calibration": "Kalibreren en de waarde van de overshootbeveiliging vinden...\n\nEven geduld a.u.b. terwijl wij uw verwarmingssysteem optimaliseren. Dit proces kan ongeveer 20 minuten duren."
+    },
+    "step": {
+      "areas": {
+        "data": {
+          "main_climates": "Primair",
+          "secondary_climates": "Kamers"
+        },
+        "description": "Instellingen met betrekking tot klimaten, multi-kamer en temperatuurregeling. Primaire klimaten bevinden zich in dezelfde kamer als de binnensensor en de kamers hebben hun eigen doeltemperaturen los van het systeem.",
+        "title": "Gebieden"
+      },
+      "automatic_gains": {
+        "data": {
+          "automatic_gains": "Automatische Versterkingen (aanbevolen)"
+        },
+        "description": "Deze functie past de regelparameters van uw verwarmingssysteem dynamisch aan, waardoor de temperatuurregeling wordt geoptimaliseerd voor meer comfort en energie-efficiëntie. Het inschakelen van deze optie stelt SAT in staat om de verwarmingsinstellingen voortdurend aan te passen en te verfijnen op basis van de omgevingsomstandigheden. Dit helpt een stabiele en comfortabele omgeving te handhaven zonder handmatige tussenkomst.\n\nLet op: Als u ervoor kiest om automatische versterkingen niet in te schakelen, moet u handmatig de PID-waarden invoeren voor nauwkeurige temperatuurregeling. Zorg ervoor dat u nauwkeurige PID-waarden heeft voor uw specifieke verwarmingssysteem om optimale prestaties te bereiken.",
+        "title": "Automatische Versterkingen"
+      },
+      "calibrate_system": {
+        "description": "Optimaliseer uw verwarmingssysteem door automatisch de optimale PID-waarden voor uw opstelling te bepalen. Let op dat het systeem bij het selecteren van Automatische Versterkingen een kalibratieproces zal ondergaan dat ongeveer 20 minuten kan duren.\n\nAutomatische Versterkingen worden aanbevolen voor de meeste gebruikers omdat het het instelproces vereenvoudigt en optimale prestaties verzekert. Echter, als u bekend bent met PID-regeling en de voorkeur geeft aan het handmatig instellen van de waarden, kunt u ervoor kiezen om Automatische Versterkingen over te slaan.\n\nLet op dat het kiezen om Automatische Versterkingen over te slaan een goede kennis van PID-regeling vereist en mogelijk extra handmatige aanpassingen nodig heeft om optimale prestaties te bereiken.",
+        "menu_options": {
+          "calibrate": "Kalibreer en bepaal uw overshoot-beveiligingswaarde (ong. 20 min).",
+          "overshoot_protection": "Voer handmatig de overshoot-beveiligingswaarde in.",
+          "pid_controller": "Voer handmatig PID-waarden in (niet aanbevolen)."
+        },
+        "title": "Systeem Kalibreren"
+      },
+      "calibrated": {
+        "description": "Het kalibratieproces is succesvol voltooid.\n\nGefeliciteerd! Uw Slimme Autotune Thermostaat (SAT) is gekalibreerd om de verwarmingsprestaties van uw systeem te optimaliseren. Tijdens het kalibratieproces heeft SAT zorgvuldig de verwarmingskenmerken geanalyseerd en de geschikte overshoot-beveiligingswaarde bepaald om nauwkeurige temperatuurregeling te verzekeren.\n\nOvershoot-beveiligingswaarde: {minimum_setpoint} °C\n\nDeze waarde vertegenwoordigt de maximale hoeveelheid overshoot die is toegestaan tijdens het verwarmingsproces. SAT zal actief de verwarming monitoren en aanpassen om overmatig overshoot te voorkomen, en zo een comfortabele en efficiënte verwarmingservaring in uw huis te handhaven.\n\nLet op dat de overshoot-beveiligingswaarde kan variëren afhankelijk van de specifieke kenmerken van uw verwarmingssysteem en omgevingsfactoren. Het is fijn afgestemd om optimale prestaties te bieden op basis van de kalibratieresultaten.",
+        "menu_options": {
+          "calibrate": "Kalibratie opnieuw proberen",
+          "finish": "Doorgaan met huidige kalibratie"
+        },
+        "title": "Kalibratie Voltooid"
+      },
+      "heating_system": {
+        "data": {
+          "heating_system": "Systeem"
+        },
+        "description": "Het kiezen van het juiste type verwarmingssysteem is belangrijk voor SAT om de temperatuur nauwkeurig te regelen en prestaties te optimaliseren. Kies de optie die overeenkomt met uw opstelling om een correcte temperatuurregeling in uw huis te verzekeren.",
+        "title": "Verwarmingssysteem"
+      },
+      "mosquitto": {
+        "description": "Configureer de MQTT-modus voor uw verwarmingssysteem. Kies de gateway-modus en geef de naam op.",
+        "data": {
+          "mode": "Modus"
+        },
+        "title": "MQTT-configuratie"
+      },
+      "mosquitto_opentherm": {
+        "description": "Stel de OpenTherm Gateway in. Geef het belangrijkste MQTT-onderwerp en het apparaat-ID op.",
+        "data": {
+          "name": "Naam",
+          "mqtt_topic": "MQTT-onderwerp",
+          "device": "Apparaat-ID"
+        },
+        "title": "OpenTherm Gateway Configuratie"
+      },
+      "mosquitto_ems": {
+        "description": "Stel de EMS-ESP Gateway in. Geef het MQTT-onderwerp op.",
+        "data": {
+          "name": "Naam",
+          "mqtt_topic": "MQTT-onderwerp"
+        },
+        "title": "EMS-ESP Gateway Configuratie"
+      },
+      "overshoot_protection": {
+        "data": {
+          "minimum_setpoint": "Waarde"
+        },
+        "description": "Door het verstrekken van de overshoot-beveiligingswaarde zal SAT de regelparameters dienovereenkomstig aanpassen om een stabiele en comfortabele verwarmingsomgeving te behouden. Deze handmatige configuratie stelt u in staat het systeem fijn af te stemmen op basis van uw specifieke opstelling.\n\nLet op: Als u niet zeker bent over de overshoot-beveiligingswaarde of het kalibratieproces niet heeft uitgevoerd, wordt aanbevolen de configuratie te annuleren en het kalibratieproces te doorlopen zodat SAT automatisch de waarde voor optimale prestaties kan bepalen.",
+        "title": "Overshoot-beveiliging"
+      },
+      "pid_controller": {
+        "data": {
+          "derivative": "Afgeleid (kD)",
+          "integral": "Integraal (kI)",
+          "proportional": "Proportioneel (kP)"
+        },
+        "description": "Configureer de proportionele, integrale en afgeleide versterkingen handmatig om uw verwarmingssysteem fijn te stemmen. Gebruik deze optie als u volledige controle wilt hebben over de PID-regelaarparameters. Stel de versterkingen in op basis van de specifieke kenmerken van uw verwarmingssysteem en voorkeuren.",
+        "title": "Configureer de PID-regelaar handmatig."
+      },
+      "sensors": {
+        "data": {
+          "humidity_sensor_entity_id": "Vochtigheidssensor Entiteit",
+          "inside_sensor_entity_id": "Binnensensor Entiteit",
+          "outside_sensor_entity_id": "Buitensensor Entiteit"
+        },
+        "description": "Selecteer de sensoren die gebruikt zullen worden om de temperatuur te volgen.",
+        "title": "Configureer sensoren"
+      },
+      "serial": {
+        "data": {
+          "device": "URL",
+          "name": "Naam"
+        },
+        "description": "Om een verbinding met de OpenTherm Gateway te maken via een socketverbinding, gelieve de volgende details te verstrekken. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer het netwerkadres van de OpenTherm Gateway in het veld Apparaat. Dit kan in het formaat zijn van \"socket://otgw.local:25238\", waarbij \"otgw.local\" de hostnaam of het IP-adres van de gateway is en \"25238\" het poortnummer.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via de socketverbinding. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
+        "title": "OpenTherm Gateway ( SERIEEL )"
+      },
+      "simulator": {
+        "data": {
+          "maximum_setpoint": "Maximum Setpoint",
+          "minimum_setpoint": "Minimum Setpoint",
+          "name": "Naam",
+          "simulated_cooling": "Gesimuleerde Koeling",
+          "simulated_heating": "Gesimuleerde Verwarming",
+          "simulated_warming_up": "Gesimuleerde Opwarming"
+        },
+        "description": "Deze gateway stelt u in staat om een ketel te simuleren voor test- en demonstratiedoeleinden. Gelieve de volgende informatie te verstrekken om de simulator te configureren.\n\nLet op: De Simulator Gateway is alleen bedoeld voor test- en demonstratiedoeleinden en mag niet worden gebruikt in productieomgevingen.",
+        "title": "Gesimuleerde Gateway ( GEAVANCEERD )"
+      },
+      "switch": {
+        "data": {
+          "device": "Entiteit",
+          "minimum_setpoint": "Temperatuurinstelling",
+          "name": "Naam"
+        },
+        "description": "Gelieve de volgende details in te vullen om de schakelaar in te stellen. Voer in het veld Naam een naam in voor de schakelaar, die u helpt deze te identificeren binnen uw systeem. Kies de geschikte entiteit om voor uw schakelaar te gebruiken uit de aangeboden opties.\n\nIn het veld Temperatuurinstelling specificeert u de gewenste doeltemperatuur voor uw verwarmingssysteem. Als u een warmwaterboiler gebruikt, vul dan de Boiler Temperatuurinstelling in met de geschikte waarde. Voor elektrische verwarmingssystemen, voer de waarde 100 in.\n\nDeze instellingen zijn essentieel voor precieze temperatuurregeling en zorgen voor optimale prestaties van uw verwarmingssysteem. Het verstrekken van de juiste Temperatuurinstelling zorgt voor nauwkeurige regulatie en helpt een comfortabele en energie-efficiënte omgeving in uw huis te bereiken.",
+        "title": "PID Thermostaat met PWM ( AAN/UIT )"
+      },
+      "user": {
+        "description": "SAT is een slimme thermostaat die zichzelf kan optimaliseren om de temperatuurregeling te verbeteren. Kies de modus die past bij uw verwarmingssysteem.",
+        "menu_options": {
+          "mosquitto": "MQTT Gateway (OpenTherm, EMS-ESP, andere)",
+          "serial": "Seriële Gateway (bijv. OpenTherm)",
+          "esphome": "ESPHome (Systeemservices en sensoren)",
+          "simulator": "Gesimuleerde Gateway (Alleen voor ontwikkelaars)",
+          "switch": "PID-Thermostaat (PWM Aan/Uit-modus)"
+        },
+        "title": "Smart Autotune Thermostat (SAT)"
+      }
     }
   },
   "options": {
     "step": {
+      "advanced": {
+        "data": {
+          "error_monitoring": "Foutbewaking inschakelen",
+          "climate_valve_offset": "Offset van Klimaatklep",
+          "dynamic_minimum_setpoint": "Dynamisch Minimaal Setpoint (Experimenteel)",
+          "force_pulse_width_modulation": "Dwing Pulsbreedtemodulatie af",
+          "maximum_consumption": "Maximaal Verbruik",
+          "maximum_relative_modulation": "Maximale Relatieve Modulatie",
+          "minimum_consumption": "Minimaal Verbruik",
+          "sample_time": "Sampletijd",
+          "simulation": "Simulatie",
+          "target_temperature_step": "Stap van Doeltemperatuur",
+          "thermal_comfort": "Thermisch Comfort"
+        },
+        "data_description": {
+          "climate_valve_offset": "Offset om de openingsgraad van de klimaatklep aan te passen.",
+          "dynamic_minimum_setpoint": "Activeert de dynamische aanpassing van de minimale instelwaarde op basis van de retourtemperatuur van de ketel, wat ook helpt te identificeren of er kleppen gesloten zijn.",
+          "maximum_consumption": "Het maximale gasverbruik wanneer de ketel actief is.",
+          "maximum_relative_modulation": "Vertegenwoordigt het hoogste modulatieniveau voor een efficiënt verwarmingssysteem.",
+          "minimum_consumption": "Het minimale gasverbruik wanneer de ketel actief is.",
+          "sample_time": "Het minimale tijdsinterval tussen updates aan de PID-regelaar.",
+          "target_temperature_step": "De stap van de doeltemperatuur aanpassen voor fijnafstemming van comfortniveaus.",
+          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen."
+        },
+        "title": "Geavanceerd"
+      },
+      "general": {
+        "data": {
+          "automatic_gains_value": "Automatische Versterkingswaarde",
+          "derivative": "Afgeleide (kD)",
+          "derivative_time_weight": "Tijdgewicht van de Afgeleide",
+          "duty_cycle": "Maximale Inschakelduur voor Pulsbreedtemodulatie",
+          "heating_curve_coefficient": "Coëfficiënt van de Verwarmingscurve",
+          "heating_curve_version": "Versie van de Verwarmingscurve",
+          "integral": "Integraal (kI)",
+          "maximum_setpoint": "Maximaal Setpoint",
+          "minimum_setpoint_adjustment_factor": "Aanpassingsfactor voor de minimale instelwaarde",
+          "pid_controller_version": "Versie van de PID-regelaar",
+          "proportional": "Proportioneel (kP)",
+          "sync_with_thermostat": "Synchroniseer setpoint met thermostaat",
+          "window_sensors": "Contact Sensoren",
+          "heating_mode": "Verwarmingsmodus"
+        },
+        "data_description": {
+          "automatic_gains_value": "De waarde die wordt gebruikt voor automatische versterkingen in de PID-regelaar.",
+          "derivative": "De afgeleideterm (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
+          "derivative_time_weight": "Een parameter om de invloed van de afgeleideterm over tijd aan te passen, vooral nuttig om undershoot te verminderen tijdens de opwarmfase wanneer de coëfficiënt van de verwarmingscurve correct is ingesteld.",
+          "duty_cycle": "De maximale inschakelduur voor Pulsbreedtemodulatie (PWM), die de aan/uit-cycli van de ketel regelt.",
+          "heating_curve_coefficient": "De coëfficiënt die wordt gebruikt om de verwarmingscurve aan te passen.",
+          "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
+          "maximum_setpoint": "De optimale temperatuur voor efficiënte werking van de ketel.",
+          "minimum_setpoint_adjustment_factor": "Deze factor past de instelwaarde voor verwarming aan op basis van de retourtemperatuur van de ketel, wat de responsiviteit en efficiëntie van de verwarming beïnvloedt. Een hogere waarde verhoogt de gevoeligheid voor temperatuurveranderingen, waardoor de controle over comfort en energieverbruik wordt verbeterd. Het aanbevolen startbereik is 0,1 tot 0,5. Aanpassen om aan uw systeem en comfortvoorkeuren te voldoen.",
+          "proportional": "De proportionele term (kP) in de PID-regelaar, verantwoordelijk voor de directe reactie op fouten.",
+          "sync_with_thermostat": "Synchroniseer het setpoint met de thermostaat om een gecoördineerde temperatuurregeling te waarborgen.",
+          "window_sensors": "Contact Sensoren die het systeem activeren wanneer een raam of deur voor een periode geopend is."
+        },
+        "description": "Algemene instellingen en configuraties.",
+        "title": "Algemeen"
+      },
       "init": {
         "menu_options": {
+          "advanced": "Geavanceerde Opties",
           "general": "Algemeen",
           "presets": "Voorinstellingen",
-          "advanced": "Geavanceerde Opties",
           "system_configuration": "Systeemconfiguratie"
         }
       },
-      "general": {
-        "title": "Algemeen",
-        "description": "Algemene instellingen en configuraties.",
-        "data": {
-          "integral": "Integraal (kI)",
-          "derivative": "Afgeleide (kD)",
-          "proportional": "Proportioneel (kP)",
-          "maximum_setpoint": "Maximaal Setpoint",
-          "window_sensors": "Contact Sensoren",
-          "automatic_gains_value": "Automatische Versterkingswaarde",
-          "derivative_time_weight": "Tijdgewicht van de Afgeleide",
-          "heating_curve_version": "Versie van de Verwarmingscurve",
-          "heating_curve_coefficient": "Coëfficiënt van de Verwarmingscurve",
-          "duty_cycle": "Maximale Inschakelduur voor Pulsbreedtemodulatie",
-          "sync_with_thermostat": "Synchroniseer setpoint met thermostaat"
-        },
-        "data_description": {
-          "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
-          "derivative": "De afgeleideterm (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
-          "proportional": "De proportionele term (kP) in de PID-regelaar, verantwoordelijk voor de directe reactie op fouten.",
-          "maximum_setpoint": "De optimale temperatuur voor efficiënte werking van de ketel.",
-          "window_sensors": "Contact Sensoren die het systeem activeren wanneer een raam of deur voor een periode geopend is.",
-          "automatic_gains_value": "De waarde die wordt gebruikt voor automatische versterkingen in de PID-regelaar.",
-          "heating_curve_coefficient": "De coëfficiënt die wordt gebruikt om de verwarmingscurve aan te passen.",
-          "duty_cycle": "De maximale inschakelduur voor Pulsbreedtemodulatie (PWM), die de aan/uit-cycli van de ketel regelt.",
-          "sync_with_thermostat": "Synchroniseer het setpoint met de thermostaat om een gecoördineerde temperatuurregeling te waarborgen.",
-          "derivative_time_weight": "Een parameter om de invloed van de afgeleideterm over tijd aan te passen, vooral nuttig om undershoot te verminderen tijdens de opwarmfase wanneer de coëfficiënt van de verwarmingscurve correct is ingesteld."
-        }
-      },
       "presets": {
-        "title": "Voorinstellingen",
-        "description": "Vooraf gedefinieerde temperatuurinstellingen voor verschillende scenario's of activiteiten.",
         "data": {
+          "activity_temperature": "Activiteit Temperatuur",
           "away_temperature": "Temperatuur bij Afwezigheid",
+          "comfort_temperature": "Comfort Temperatuur",
           "home_temperature": "Thuis Temperatuur",
           "sleep_temperature": "Slaap Temperatuur",
-          "comfort_temperature": "Comfort Temperatuur",
-          "activity_temperature": "Activiteit Temperatuur",
           "sync_climates_with_preset": "Synchroniseer klimaten met voorinstelling (slaap / afwezig / activiteit)"
-        }
+        },
+        "description": "Vooraf gedefinieerde temperatuurinstellingen voor verschillende scenario's of activiteiten.",
+        "title": "Voorinstellingen"
       },
       "system_configuration": {
-        "title": "Systeemconfiguratie",
-        "description": "Voor fijnafstelling en aanpassing.",
         "data": {
           "automatic_duty_cycle": "Automatische inschakelduur",
           "overshoot_protection": "Overshoot Bescherming (met PWM)",
-          "window_minimum_open_time": "Minimale open tijd van het raam",
-          "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor"
+          "sync_climates_with_mode": "Synchroniseer klimaten met modus",
+          "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor",
+          "window_minimum_open_time": "Minimale open tijd van het raam"
         },
         "data_description": {
           "automatic_duty_cycle": "Automatische inschakelduur voor Pulsbreedtemodulatie (PWM) in- of uitschakelen.",
           "overshoot_protection": "Overshoot Bescherming inschakelen met Pulsbreedtemodulatie (PWM) om temperatuur-overshoot van de ketel te voorkomen.",
-          "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert.",
-          "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd."
-        }
-      },
-      "advanced": {
-        "title": "Geavanceerd",
-        "data": {
-          "simulation": "Simulatie",
-          "sample_time": "Sampletijd",
-          "thermal_comfort": "Thermisch Comfort",
-          "minimum_consumption": "Minimaal Verbruik",
-          "maximum_consumption": "Maximaal Verbruik",
-          "climate_valve_offset": "Offset van Klimaatklep",
-          "target_temperature_step": "Stap van Doeltemperatuur",
-          "maximum_relative_modulation": "Maximale Relatieve Modulatie",
-          "force_pulse_width_modulation": "Dwing Pulsbreedtemodulatie af",
-          "dynamic_minimum_setpoint": "Dynamisch Minimaal Setpoint (Experimenteel)"
+          "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd.",
+          "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert."
         },
-        "data_description": {
-          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen.",
-          "minimum_consumption": "Het minimale gasverbruik wanneer de ketel actief is.",
-          "maximum_consumption": "Het maximale gasverbruik wanneer de ketel actief is.",
-          "climate_valve_offset": "Offset om de openingsgraad van de klimaatklep aan te passen.",
-          "target_temperature_step": "De stap van de doeltemperatuur aanpassen voor fijnafstemming van comfortniveaus.",
-          "sample_time": "Het minimale tijdsinterval tussen updates aan de PID-regelaar.",
-          "maximum_relative_modulation": "Vertegenwoordigt het hoogste modulatieniveau voor een efficiënt verwarmingssysteem."
-        }
+        "description": "Voor fijnafstelling en aanpassing.",
+        "title": "Systeemconfiguratie"
       }
     }
   }

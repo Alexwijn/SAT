@@ -1,0 +1,19 @@
+[MASTER]
+# Specify a configuration file.
+rcfile=
+
+[REPORTS]
+# Set the output format. Available formats: text, parseable, colorized, msvs (visual studio).
+output-format=text
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=200
+
+[DESIGN]
+# Maximum number of arguments for function / method.
+max-args=5
+
+[TYPECHECK]
+# Tells whether missing members accessed in mixin class should be ignored.
+ignore-mixin-members=yes

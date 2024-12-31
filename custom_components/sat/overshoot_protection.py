@@ -1,97 +1,118 @@
 import asyncio
 import logging
+import time
 
-from custom_components.sat.const import *
-from custom_components.sat.coordinator import DeviceState, SatDataUpdateCoordinator
+from .const import OVERSHOOT_PROTECTION_SETPOINT, MINIMUM_SETPOINT, DEADBAND, MAXIMUM_RELATIVE_MOD
+from .coordinator import DeviceState, SatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-OVERSHOOT_PROTECTION_TIMEOUT = 7200  # Two hours in seconds
-OVERSHOOT_PROTECTION_INITIAL_WAIT = 180  # Three minutes in seconds
+# Constants for timeouts and intervals
+OVERSHOOT_PROTECTION_INITIAL_WAIT = 300  # Five minutes in seconds
+OVERSHOOT_PROTECTION_STABLE_WAIT = 900  # Fifteen minutes in seconds
+OVERSHOOT_PROTECTION_RELATIVE_MODULATION_WAIT = 300  # Five minutes in seconds
+SLEEP_INTERVAL = 15  # Sleep interval in seconds
 
 
 class OvershootProtection:
-    def __init__(self, coordinator: SatDataUpdateCoordinator):
-        self._alpha = 0.2
+    def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
+        """Initialize OvershootProtection with a coordinator and heating system configuration."""
+        self._alpha = 0.5
         self._coordinator = coordinator
+        self._stable_temperature = None
+        self._setpoint = OVERSHOOT_PROTECTION_SETPOINT.get(heating_system)
+
+        if self._setpoint is None:
+            raise ValueError(f"Invalid heating system: {heating_system}")
 
     async def calculate(self) -> float | None:
-        _LOGGER.info("Starting calculation")
-
-        await self._coordinator.async_set_heater_state(DeviceState.ON)
-
+        """Calculate the overshoot protection value."""
         try:
-            # First wait for a flame
+            _LOGGER.info("Starting overshoot protection calculation")
+
+            # Sequentially ensure the system is ready
             await asyncio.wait_for(self._wait_for_flame(), timeout=OVERSHOOT_PROTECTION_INITIAL_WAIT)
 
-            # Since the coordinator doesn't support modulation management, so we need to fall back to find it with modulation
-            if not self._coordinator.supports_relative_modulation_management:
-                return await self._calculate_with_no_modulation_management()
+            # Wait for a stable temperature
+            await asyncio.wait_for(self._wait_for_stable_temperature(), timeout=OVERSHOOT_PROTECTION_STABLE_WAIT)
 
-            # Run with maximum power of the boiler, zero modulation.
-            return await self._calculate_with_zero_modulation()
-        except asyncio.TimeoutError:
-            _LOGGER.warning("Timed out waiting for stable temperature")
-            return None
+            # Wait a bit before calculating the overshoot value, if required
+            if self._coordinator.relative_modulation_value > 0:
+                await self._wait_a_moment(OVERSHOOT_PROTECTION_RELATIVE_MODULATION_WAIT)
+
+            return self._calculate_overshoot_value()
         except asyncio.CancelledError as exception:
             await self._coordinator.async_set_heater_state(DeviceState.OFF)
             await self._coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)
-            await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MOD)
 
             raise exception
 
-    async def _calculate_with_zero_modulation(self) -> float:
-        _LOGGER.info("Running calculation with zero modulation")
-        await self._coordinator.async_set_control_max_relative_modulation(MINIMUM_RELATIVE_MOD)
+    async def _wait_for_flame(self) -> None:
+        """Wait until the heating system flame is active."""
+        while not self._coordinator.flame_active:
+            _LOGGER.warning("Waiting for heating system to start")
+            await self._trigger_heating_cycle(is_ready=False)
 
-        try:
-            return await asyncio.wait_for(
-                self._wait_for_stable_temperature(0),
-                timeout=OVERSHOOT_PROTECTION_TIMEOUT,
-            )
-        except asyncio.TimeoutError:
-            _LOGGER.warning("Timed out waiting for stable temperature")
+        _LOGGER.info("Heating system has started")
 
-    async def _calculate_with_no_modulation_management(self) -> float:
-        _LOGGER.info("Running calculation with no modulation management")
+    async def _wait_a_moment(self, wait_time: int) -> None:
+        """Wait until the relative modulation stabilizes."""
 
-        try:
-            return await asyncio.wait_for(
-                self._wait_for_stable_temperature(100),
-                timeout=OVERSHOOT_PROTECTION_TIMEOUT,
-            )
-        except asyncio.TimeoutError:
-            _LOGGER.warning("Timed out waiting for stable temperature")
+        start_time = time.time()
+        while time.time() - start_time < wait_time:
+            await self._trigger_heating_cycle(True)
+            await asyncio.sleep(SLEEP_INTERVAL)
 
-    async def _wait_for_flame(self):
-        while True:
-            if bool(self._coordinator.flame_active):
-                _LOGGER.info("Heating system has started to run")
-                break
+    async def _wait_for_stable_temperature(self) -> None:
+        """Wait until the boiler temperature stabilizes, influenced by relative modulation."""
+        while not self._coordinator.boiler_temperature:
+            _LOGGER.warning("Waiting for boiler temperature")
 
-            _LOGGER.warning("Heating system is not running yet")
-            await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
-
-            await asyncio.sleep(5)
-            await self._coordinator.async_control_heating_loop()
-
-    async def _wait_for_stable_temperature(self, max_modulation: float) -> float:
-        previous_average_temperature = float(self._coordinator.boiler_temperature)
+        starting_temperature = self._coordinator.boiler_temperature
+        previous_average_temperature = self._coordinator.boiler_temperature
 
         while True:
-            actual_temperature = float(self._coordinator.boiler_temperature)
-            average_temperature = self._alpha * actual_temperature + (1 - self._alpha) * previous_average_temperature
+            current_temperature = float(self._coordinator.boiler_temperature)
+            average_temperature, error_value = self._calculate_exponential_moving_average(previous_average_temperature, current_temperature)
 
-            if previous_average_temperature is not None and abs(actual_temperature - previous_average_temperature) <= DEADBAND:
-                _LOGGER.info("Stable temperature reached: %s", actual_temperature)
-                return actual_temperature
+            if current_temperature > starting_temperature and error_value <= DEADBAND:
+                self._stable_temperature = current_temperature
+                _LOGGER.info("Stable temperature reached: %.2f°C", current_temperature)
+                return
+
+            await self._trigger_heating_cycle(is_ready=True)
 
             previous_average_temperature = average_temperature
+            _LOGGER.warning("Waiting for a stable temperature")
+            _LOGGER.debug("Temperature: %s°C, Error: %s°C", current_temperature, error_value)
 
-            if max_modulation > 0:
-                await self._coordinator.async_set_control_setpoint(actual_temperature)
-            else:
-                await self._coordinator.async_set_control_setpoint(OVERSHOOT_PROTECTION_SETPOINT)
+    def _calculate_overshoot_value(self) -> float:
+        """Calculate and log the overshoot value."""
+        if self._coordinator.relative_modulation_value == 0:
+            return self._stable_temperature
 
-            await asyncio.sleep(2)
-            await self._coordinator.async_control_heating_loop()
+        return (100 - self._coordinator.relative_modulation_value) / 100 * self._setpoint
+
+    def _calculate_exponential_moving_average(self, previous_average: float, current_value: float) -> tuple[float, float]:
+        """Calculate the exponential moving average and error."""
+        average_value = self._alpha * current_value + (1 - self._alpha) * previous_average
+        error_value = abs(current_value - previous_average)
+        return average_value, error_value
+
+    async def _trigger_heating_cycle(self, is_ready: bool) -> None:
+        """Trigger a heating cycle with the coordinator."""
+        await self._coordinator.async_set_heater_state(DeviceState.ON)
+        await self._coordinator.async_set_control_setpoint(await self._get_setpoint(is_ready))
+        await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MOD)
+
+        await asyncio.sleep(SLEEP_INTERVAL)
+        await self._coordinator.async_control_heating_loop()
+
+    async def _get_setpoint(self, is_ready) -> float:
+        """Get the setpoint for the heating cycle."""
+        return self._setpoint if not is_ready or self._coordinator.relative_modulation_value > 0 else self._coordinator.boiler_temperature
+
+    async def _reset_heater_state(self) -> None:
+        """Reset the heater state to default settings."""
+        await self._coordinator.async_set_heater_state(DeviceState.OFF)
+        await self._coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)

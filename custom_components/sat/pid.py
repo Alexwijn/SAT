@@ -18,19 +18,21 @@ class PID:
     def __init__(self,
                  heating_system: str,
                  automatic_gain_value: float,
+                 heating_curve_coefficient: float,
                  derivative_time_weight: float,
                  kp: float, ki: float, kd: float,
                  max_history: int = 2,
                  deadband: float = DEADBAND,
                  automatic_gains: bool = False,
                  integral_time_limit: float = 300,
-                 sample_time_limit: Optional[float] = 10):
+                 sample_time_limit: Optional[float] = 10,
+                 version: int = 3):
         """
         Initialize the PID controller.
 
         :param heating_system: The type of heating system, either "underfloor" or "radiator"
-        :param automatic_gain_value: The value to finetune the aggression value.
-        :param derivative_time_weight: The weight to finetune the derivative.
+        :param automatic_gain_value: The value to fine-tune the aggression value.
+        :param derivative_time_weight: The weight to fine-tune the derivative.
         :param kp: The proportional gain of the PID controller.
         :param ki: The integral gain of the PID controller.
         :param kd: The derivative gain of the PID controller.
@@ -38,16 +40,19 @@ class PID:
         :param deadband: The deadband of the PID controller. The range of error values where the controller will not make adjustments.
         :param integral_time_limit: The minimum time interval between integral updates to the PID controller, in seconds.
         :param sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
+        :param version: The version of math calculation for the controller.
         """
         self._kp = kp
         self._ki = ki
         self._kd = kd
+        self._version = version
         self._deadband = deadband
         self._history_size = max_history
         self._heating_system = heating_system
         self._automatic_gains = automatic_gains
         self._automatic_gains_value = automatic_gain_value
         self._derivative_time_weight = derivative_time_weight
+        self._heating_curve_coefficient = heating_curve_coefficient
 
         self._last_interval_updated = monotonic()
         self._sample_time_limit = max(sample_time_limit, 1)
@@ -123,6 +128,10 @@ class PID:
         :param heating_curve_value: The current value of the heating curve.
         :param force: Boolean flag indicating whether to force an update even if the integral time limit has not been reached.
         """
+        # Make sure we reset the time if we just entered deadband
+        if abs(self.last_error) > self._deadband >= abs(error):
+            self._last_interval_updated = monotonic()
+
         # Make sure the integral term is enabled
         if not self.integral_enabled:
             self._integral = 0
@@ -134,7 +143,6 @@ class PID:
             return
 
         current_time = monotonic()
-        limit = heating_curve_value / 10
         time_elapsed = current_time - self._last_interval_updated
 
         # Check if the integral gain `ki` is set
@@ -145,8 +153,8 @@ class PID:
         self._integral += self.ki * error * time_elapsed
 
         # Clamp the integral value within the limit
-        self._integral = min(self._integral, float(+limit))
-        self._integral = max(self._integral, float(-limit))
+        self._integral = min(self._integral, float(+heating_curve_value))
+        self._integral = max(self._integral, float(-heating_curve_value))
 
         # Record the time of the latest update
         self._last_interval_updated = current_time
@@ -176,6 +184,10 @@ class PID:
 
         # If there are less than two errors in the history, we cannot calculate the derivative.
         if len(self._errors) < 2:
+            return
+
+        # If "derivative" is disabled, we freeze it
+        if not self.derivative_enabled:
             return
 
         # Calculate the derivative using the errors and times in the error history.
@@ -242,6 +254,18 @@ class PID:
         if last_heating_curve := state.attributes.get("heating_curve"):
             self._last_heating_curve_value = last_heating_curve
 
+    def _get_aggression_value(self):
+        if self._version == 1:
+            return 73 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 99
+
+        if self._version == 2:
+            return 73 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 81.5
+
+        if self._version == 3:
+            return 8400
+
+        raise Exception("Invalid version")
+
     @property
     def last_error(self) -> float:
         """Return the last error value used by the PID controller."""
@@ -264,6 +288,10 @@ class PID:
     def kp(self) -> float | None:
         """Return the value of kp based on the current configuration."""
         if self._automatic_gains:
+            if self._version == 3:
+                automatic_gain_value = 4 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 3
+                return round((self._heating_curve_coefficient * self._last_heating_curve_value) / automatic_gain_value, 6)
+
             automatic_gain_value = 0.243 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 0.33
             return round(self._automatic_gains_value * automatic_gain_value * self._last_heating_curve_value, 6)
 
@@ -276,22 +304,30 @@ class PID:
             if self._last_heating_curve_value is None:
                 return 0
 
-            return round(self._last_heating_curve_value / 73900, 6)
+            if self._version == 1:
+                return round(self._last_heating_curve_value / 73900, 6)
+
+            if self._version == 2:
+                return round(self._automatic_gains_value * (self._last_heating_curve_value / 7200), 6)
+
+            if self._version == 3:
+                return round(self.kp / self._get_aggression_value(), 6)
+
+            raise Exception("Invalid version")
 
         return float(self._ki)
 
     @property
     def kd(self) -> float | None:
         """Return the value of kd based on the current configuration."""
-        if not self.derivative_enabled:
-            return 0
-
         if self._automatic_gains:
             if self._last_heating_curve_value is None:
                 return 0
 
-            aggression_value = 73 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 99
-            return round(self._automatic_gains_value * aggression_value * self._derivative_time_weight * self._last_heating_curve_value, 6)
+            if self._version == 3:
+                return round(0.07 * self._get_aggression_value() * self.kp, 6)
+
+            return round(self._automatic_gains_value * self._get_aggression_value() * self._derivative_time_weight * self._last_heating_curve_value, 6)
 
         return float(self._kd)
 
@@ -308,17 +344,7 @@ class PID:
     @property
     def derivative(self) -> float:
         """Return the derivative value."""
-        derivative = self.kd * self._raw_derivative
-        output = self._last_heating_curve_value + self.proportional + self.integral
-
-        if self._last_boiler_temperature is not None:
-            if abs(self._last_error) > 0.1 and abs(self._last_boiler_temperature - output) < 3:
-                return 0
-
-            if abs(self._last_error) <= 0.1 and abs(self._last_boiler_temperature - output) < 7:
-                return 0
-
-        return round(derivative, 3)
+        return round(self.kd * self._raw_derivative, 3)
 
     @property
     def raw_derivative(self) -> float:
@@ -338,7 +364,7 @@ class PID:
     @property
     def derivative_enabled(self) -> bool:
         """Return whether the updates of the derivative are enabled."""
-        return abs(self.last_error) > self._deadband or abs(self.previous_error) > self._deadband
+        return abs(self._last_error) > self._deadband
 
     @property
     def num_errors(self) -> int:

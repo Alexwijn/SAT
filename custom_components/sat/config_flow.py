@@ -1,26 +1,26 @@
 """Adds config flow for SAT."""
 import asyncio
 import logging
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
-from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
+from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, ATTR_HVAC_MODE, HVACMode, SERVICE_SET_HVAC_MODE
 from homeassistant.components.dhcp import DhcpServiceInfo
 from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
-from homeassistant.components.mqtt import DOMAIN as MQTT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.valve import DOMAIN as VALVE_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import selector, device_registry, entity_registry
+from homeassistant.helpers import selector, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
 from pyotgw import OpenThermGateway
+from voluptuous import UNDEFINED
 
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
@@ -35,16 +35,18 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 6
+    VERSION = 10
     MINOR_VERSION = 0
 
     calibration = None
+    previous_hvac_mode = None
     overshoot_protection_value = None
 
     def __init__(self):
         """Initialize."""
         self.data = {}
         self.errors = {}
+        self.config_entry = None
 
     @staticmethod
     @callback
@@ -56,23 +58,21 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if self.calibration is not None:
             self.calibration.cancel()
 
-    async def async_step_user(self, _user_input=None) -> FlowResult:
+    async def async_step_user(self, _user_input: dict[str, Any] | None = None):
         """Handle user flow."""
-        menu_options = []
-
-        # Since we rely on the availability logic in 2023.5, we do not support below it.
-        if MAJOR_VERSION >= 2023 and (MINOR_VERSION >= 5 or MAJOR_VERSION > 2023):
-            menu_options.append("mosquitto")
-
-        menu_options.append("serial")
-        menu_options.append("switch")
+        menu_options = [
+            "mosquitto",
+            "esphome",
+            "serial",
+            "switch"
+        ]
 
         if self.show_advanced_options:
             menu_options.append("simulator")
 
         return self.async_show_menu(step_id="user", menu_options=menu_options)
 
-    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
+    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo):
         """Handle dhcp discovery."""
         _LOGGER.debug("Discovered OTGW at [socket://%s]", discovery_info.hostname)
         self.data[CONF_DEVICE] = f"socket://{discovery_info.hostname}:25238"
@@ -80,53 +80,104 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # abort if we already have exactly this gateway id/host
         # reload the integration if the host got updated
         await self.async_set_unique_id(discovery_info.hostname)
-        self._abort_if_unique_id_configured(updates=self.data, reload_on_update=True)
+        self._abort_if_unique_id_configured(updates=self.data)
 
         return await self.async_step_serial()
 
     async def async_step_mqtt(self, discovery_info: MqttServiceInfo):
-        """Handle dhcp discovery."""
-        device = device_registry.async_get(self.hass).async_get_device(
-            {(MQTT_DOMAIN, discovery_info.topic[11:])}
-        )
+        """Handle mqtt discovery."""
+        _LOGGER.debug("Discovered MQTT at [mqtt://%s]", discovery_info.topic)
 
-        _LOGGER.debug("Discovered OTGW at [mqtt://%s]", discovery_info.topic)
-        self.data[CONF_DEVICE] = device.id
+        # Mapping topic prefixes to handler methods and device IDs
+        topic_mapping = {
+            "ems-esp/": (MODE_MQTT_EMS, "ems-esp", self.async_step_mosquitto_ems),
+            "OTGW/": (MODE_MQTT_OPENTHERM, discovery_info.topic[11:], self.async_step_mosquitto_opentherm),
+        }
 
-        # abort if we already have exactly this gateway id/host
-        # reload the integration if the host got updated
-        await self.async_set_unique_id(device.id)
-        self._abort_if_unique_id_configured(updates=self.data, reload_on_update=True)
+        # Check for matching prefix and handle appropriately
+        for prefix, (mode, device_id, step_method) in topic_mapping.items():
+            if discovery_info.topic.startswith(prefix):
+                _LOGGER.debug("Identified gateway type %s: %s", mode[5:], device_id)
+                self.data[CONF_MODE] = mode
+                self.data[CONF_DEVICE] = device_id
 
-        return await self.async_step_mosquitto()
+                # Abort if the gateway is already registered, reload if necessary
+                await self.async_set_unique_id(device_id)
+                self._abort_if_unique_id_configured(updates=self.data)
 
-    async def async_step_mosquitto(self, _user_input=None):
+                return await step_method()
+
+        _LOGGER.error("Unsupported MQTT topic format: %s", discovery_info.topic)
+        return self.async_abort(reason="unsupported_gateway")
+
+    async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
+        """Entry step to select the MQTT mode and branch to specific setup."""
         self.errors = {}
 
         if _user_input is not None:
             self.data.update(_user_input)
-            self.data[CONF_MODE] = MODE_MQTT
 
-            if not await mqtt.async_wait_for_mqtt_client(self.hass):
-                self.errors["base"] = "mqtt_component"
-                return await self.async_step_mosquitto()
+            if self.data[CONF_MODE] == MODE_MQTT_OPENTHERM:
+                return await self.async_step_mosquitto_opentherm()
 
-            return await self.async_step_sensors()
+            if self.data[CONF_MODE] == MODE_MQTT_EMS:
+                return await self.async_step_mosquitto_ems()
 
         return self.async_show_form(
             step_id="mosquitto",
             last_step=False,
             errors=self.errors,
             data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                vol.Required(CONF_MQTT_TOPIC, default=OPTIONS_DEFAULTS[CONF_MQTT_TOPIC]): str,
-                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
-                    selector.DeviceSelectorConfig(model="otgw-nodo")
+                vol.Required(CONF_MODE): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            selector.SelectOptionDict(value=MODE_MQTT_OPENTHERM, label="OpenTherm Gateway (For advanced boiler control)"),
+                            selector.SelectOptionDict(value=MODE_MQTT_EMS, label="EMS-ESP (For Bosch, Junkers, Buderus systems)"),
+                        ]
+                    )
                 ),
             }),
         )
 
-    async def async_step_serial(self, _user_input=None):
+    async def async_step_mosquitto_opentherm(self, _user_input: dict[str, Any] | None = None):
+        """Setup specific to OpenTherm Gateway."""
+        if _user_input is not None:
+            self.data.update(_user_input)
+
+            return await self.async_step_sensors()
+
+        return self._create_mqtt_form("mosquitto_opentherm", "OTGW", "otgw-XXXXXXXXXXXX")
+
+    async def async_step_mosquitto_ems(self, _user_input: dict[str, Any] | None = None):
+        """Setup specific to EMS-ESP."""
+        if _user_input is not None:
+            self.data.update(_user_input)
+            self.data[CONF_DEVICE] = "ems-esp"
+
+            return await self.async_step_sensors()
+
+        return self._create_mqtt_form("mosquitto_ems", "ems-esp")
+
+    async def async_step_esphome(self, _user_input: dict[str, Any] | None = None):
+        if _user_input is not None:
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = MODE_ESPHOME
+
+            return await self.async_step_sensors()
+
+        return self.async_show_form(
+            step_id="esphome",
+            last_step=False,
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+                vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE)): selector.DeviceSelector(
+                    selector.DeviceSelectorConfig(integration="esphome")
+                ),
+            }),
+        )
+
+    async def async_step_serial(self, _user_input: dict[str, Any] | None = None):
         self.errors = {}
 
         if _user_input is not None:
@@ -151,7 +202,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_switch(self, _user_input=None):
+    async def async_step_switch(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
             self.data[CONF_MODE] = MODE_SWITCH
@@ -165,7 +216,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_DEVICE): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN, INPUT_BOOLEAN_DOMAIN])
+                    selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN, VALVE_DOMAIN, INPUT_BOOLEAN_DOMAIN])
                 ),
                 vol.Required(CONF_MINIMUM_SETPOINT, default=50): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=10, max=100, step=1)
@@ -173,7 +224,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_simulator(self, _user_input=None):
+    async def async_step_simulator(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
             self.data[CONF_MODE] = MODE_SIMULATOR
@@ -200,14 +251,21 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_sensors(self, _user_input=None):
-        await self.async_set_unique_id(self.data[CONF_DEVICE], raise_on_progress=False)
-        self._abort_if_unique_id_configured()
+    async def async_step_reconfigure(self, _user_input: dict[str, Any] | None = None):
+        self.config_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        self.data = self.config_entry.data.copy()
+
+        return await self.async_step_sensors()
+
+    async def async_step_sensors(self, _user_input: dict[str, Any] | None = None):
+        if self.config_entry is None:
+            await self.async_set_unique_id(self.data[CONF_DEVICE], raise_on_progress=False)
+            self._abort_if_unique_id_configured()
 
         if _user_input is not None:
             self.data.update(_user_input)
 
-            if self.data[CONF_MODE] in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
+            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT_OPENTHERM, MODE_MQTT_EMS, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()
@@ -216,19 +274,19 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="sensors",
             data_schema=vol.Schema({
-                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID, default=self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         domain=SENSOR_DOMAIN,
                         device_class=[SensorDeviceClass.TEMPERATURE]
                     )
                 ),
-                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID, default=self.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         multiple=True,
                         domain=[SENSOR_DOMAIN, WEATHER_DOMAIN]
                     )
                 ),
-                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID): selector.EntitySelector(
+                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID, default=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID, UNDEFINED)): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         domain=SENSOR_DOMAIN,
                         device_class=[SensorDeviceClass.HUMIDITY]
@@ -237,7 +295,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }),
         )
 
-    async def async_step_heating_system(self, _user_input=None):
+    async def async_step_heating_system(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
 
@@ -247,7 +305,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="heating_system",
             data_schema=vol.Schema({
-                vol.Required(CONF_HEATING_SYSTEM, default=OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM]): selector.SelectSelector(
+                vol.Required(CONF_HEATING_SYSTEM, default=self.data.get(CONF_HEATING_SYSTEM, OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM])): selector.SelectSelector(
                     selector.SelectSelectorConfig(options=[
                         {"value": HEATING_SYSTEM_RADIATORS, "label": "Radiators"},
                         {"value": HEATING_SYSTEM_HEAT_PUMP, "label": "Heat Pump"},
@@ -257,7 +315,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             })
         )
 
-    async def async_step_areas(self, _user_input=None):
+    async def async_step_areas(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
 
@@ -271,14 +329,15 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         ))
 
         return self.async_show_form(
+            last_step=False,
             step_id="areas",
             data_schema=vol.Schema({
-                vol.Optional(CONF_MAIN_CLIMATES): climate_selector,
-                vol.Optional(CONF_SECONDARY_CLIMATES): climate_selector,
+                vol.Optional(CONF_MAIN_CLIMATES, default=self.data.get(CONF_MAIN_CLIMATES, [])): climate_selector,
+                vol.Optional(CONF_SECONDARY_CLIMATES, default=self.data.get(CONF_SECONDARY_CLIMATES, [])): climate_selector,
             })
         )
 
-    async def async_step_automatic_gains(self, _user_input=None):
+    async def async_step_automatic_gains(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             self.data.update(_user_input)
 
@@ -293,64 +352,81 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_AUTOMATIC_GAINS, default=True): bool})
         )
 
-    async def async_step_calibrate_system(self, _user_input=None):
+    async def async_step_calibrate_system(self, _user_input: dict[str, Any] | None = None):
         return self.async_show_menu(
             step_id="calibrate_system",
             menu_options=["calibrate", "overshoot_protection", "pid_controller"]
         )
 
-    async def async_step_calibrate(self, _user_input=None):
-        coordinator = await self.async_create_coordinator()
+    async def async_step_calibrate(self, _user_input: dict[str, Any] | None = None):
+        # Let's see if we have already been configured before
+        device_name = self.data[CONF_NAME]
+        entities = entity_registry.async_get(self.hass)
+        climate_id = entities.async_get_entity_id(CLIMATE_DOMAIN, DOMAIN, device_name.lower())
 
         async def start_calibration():
             try:
-                overshoot_protection = OvershootProtection(coordinator)
+                coordinator = await self.async_create_coordinator()
+                await coordinator.async_added_to_hass()
+
+                overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
                 self.overshoot_protection_value = await overshoot_protection.calculate()
+
+                await coordinator.async_will_remove_from_hass()
             except asyncio.TimeoutError:
-                _LOGGER.warning("Calibration time-out.")
-                return False
+                _LOGGER.warning("Timed out during overshoot protection calculation.")
             except asyncio.CancelledError:
-                _LOGGER.warning("Cancelled calibration.")
-                return False
-
-            self.hass.async_create_task(
-                self.hass.config_entries.flow.async_configure(flow_id=self.flow_id)
-            )
-
-            return True
+                _LOGGER.warning("Cancelled overshoot protection calculation.")
 
         if not self.calibration:
             self.calibration = self.hass.async_create_task(
                 start_calibration()
             )
 
+            # Make sure to turn off the existing climate if we found one
+            if climate_id is not None:
+                self.previous_hvac_mode = self.hass.states.get(climate_id).state
+                data = {ATTR_ENTITY_ID: climate_id, ATTR_HVAC_MODE: HVACMode.OFF}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+
+            # Make sure all climate valves are open
+            for entity_id in self.data.get(CONF_MAIN_CLIMATES, []) + self.data.get(CONF_SECONDARY_CLIMATES, []):
+                data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: HVACMode.HEAT}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+
             return self.async_show_progress(
                 step_id="calibrate",
+                progress_task=self.calibration,
                 progress_action="calibration",
             )
 
         if self.overshoot_protection_value is None:
             return self.async_abort(reason="unable_to_calibrate")
 
-        await self._enable_overshoot_protection(
+        self._enable_overshoot_protection(
             self.overshoot_protection_value
         )
 
         self.calibration = None
         self.overshoot_protection_value = None
 
+        # Make sure to restore the mode after we are done
+        if climate_id is not None:
+            data = {ATTR_ENTITY_ID: climate_id, ATTR_HVAC_MODE: self.previous_hvac_mode}
+            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+
         return self.async_show_progress_done(next_step_id="calibrated")
 
-    async def async_step_calibrated(self, _user_input=None):
+    async def async_step_calibrated(self, _user_input: dict[str, Any] | None = None):
         return self.async_show_menu(
             step_id="calibrated",
             description_placeholders=self.data,
             menu_options=["calibrate", "finish"],
         )
 
-    async def async_step_overshoot_protection(self, _user_input=None):
+    async def async_step_overshoot_protection(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
-            await self._enable_overshoot_protection(
+            self._enable_overshoot_protection(
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
 
@@ -359,13 +435,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="overshoot_protection",
             data_schema=vol.Schema({
-                vol.Required(CONF_MINIMUM_SETPOINT, default=OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=MINIMUM_SETPOINT, max=OVERSHOOT_PROTECTION_SETPOINT, step=1, unit_of_measurement="°C")
+                vol.Required(CONF_MINIMUM_SETPOINT, default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT])): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=MINIMUM_SETPOINT, max=MAXIMUM_SETPOINT, step=1, unit_of_measurement="°C")
                 ),
             })
         )
 
-    async def async_step_pid_controller(self, _user_input=None):
+    async def async_step_pid_controller(self, _user_input: dict[str, Any] | None = None):
         self.data[CONF_AUTOMATIC_GAINS] = False
 
         if _user_input is not None:
@@ -375,22 +451,50 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="pid_controller",
             data_schema=vol.Schema({
-                vol.Required(CONF_PROPORTIONAL, default=OPTIONS_DEFAULTS[CONF_PROPORTIONAL]): str,
-                vol.Required(CONF_INTEGRAL, default=OPTIONS_DEFAULTS[CONF_INTEGRAL]): str,
-                vol.Required(CONF_DERIVATIVE, default=OPTIONS_DEFAULTS[CONF_DERIVATIVE]): str
+                vol.Required(CONF_PROPORTIONAL, default=self.data.get(CONF_PROPORTIONAL, OPTIONS_DEFAULTS[CONF_PROPORTIONAL])): str,
+                vol.Required(CONF_INTEGRAL, default=self.data.get(CONF_INTEGRAL, OPTIONS_DEFAULTS[CONF_INTEGRAL])): str,
+                vol.Required(CONF_DERIVATIVE, default=self.data.get(CONF_DERIVATIVE, OPTIONS_DEFAULTS[CONF_DERIVATIVE])): str
             })
         )
 
-    async def async_step_finish(self, _user_input=None):
-        return self.async_create_entry(title=self.data[CONF_NAME], data=self.data)
+    async def async_step_finish(self, _user_input: dict[str, Any] | None = None):
+        if self.config_entry is not None:
+            return self.async_update_reload_and_abort(
+                data=self.data,
+                entry=self.config_entry,
+                title=self.data[CONF_NAME],
+                reason="reconfigure_successful",
+            )
+
+        return self.async_create_entry(
+            title=self.data[CONF_NAME],
+            data=self.data
+        )
 
     async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
-        # Resolve the coordinator by using the factory according to the mode
-        return await SatDataUpdateCoordinatorFactory().resolve(
+        """Resolve the coordinator by using the factory according to the mode"""
+        return SatDataUpdateCoordinatorFactory().resolve(
             hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
-    async def _enable_overshoot_protection(self, overshoot_protection_value: float):
+    def _create_mqtt_form(self, step_id: str, default_topic: str, default_device: str = None):
+        """Create a common MQTT configuration form."""
+        schema = {
+            vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+            vol.Required(CONF_MQTT_TOPIC, default=default_topic): str,
+        }
+
+        if default_device:
+            schema[vol.Required(CONF_DEVICE, default=default_device)] = str
+
+        return self.async_show_form(
+            step_id=step_id,
+            last_step=False,
+            data_schema=vol.Schema(schema),
+        )
+
+    def _enable_overshoot_protection(self, overshoot_protection_value: float):
+        """Store the value and enable overshoot protection."""
         self.data[CONF_OVERSHOOT_PROTECTION] = True
         self.data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
 
@@ -402,7 +506,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._config_entry = config_entry
         self._options = dict(config_entry.options)
 
-    async def async_step_init(self, _user_input=None):
+    async def async_step_init(self, _user_input: dict[str, Any] | None = None):
         menu_options = ["general", "presets", "system_configuration"]
 
         if self.show_advanced_options:
@@ -413,7 +517,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             menu_options=menu_options
         )
 
-    async def async_step_general(self, _user_input=None) -> FlowResult:
+    async def async_step_general(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -425,10 +529,26 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         schema[vol.Required(CONF_HEATING_CURVE_VERSION, default=str(options[CONF_HEATING_CURVE_VERSION]))] = selector.SelectSelector(
             selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
-                selector.SelectOptionDict(value="1", label="Classic Curve"),
-                selector.SelectOptionDict(value="2", label="Quantum Curve")
+                selector.SelectOptionDict(value="2", label="Quantum Curve"),
+                selector.SelectOptionDict(value="3", label="Precision Curve"),
             ])
         )
+
+        schema[vol.Required(CONF_PID_CONTROLLER_VERSION, default=str(options[CONF_PID_CONTROLLER_VERSION]))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                selector.SelectOptionDict(value="1", label="Classic Controller"),
+                selector.SelectOptionDict(value="2", label="Improved Controller"),
+                selector.SelectOptionDict(value="3", label="Adaptive Controller")
+            ])
+        )
+
+        if len(self._config_entry.data.get(CONF_SECONDARY_CLIMATES, [])) > 0:
+            schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value=HEATING_MODE_COMFORT, label="Comfort"),
+                    selector.SelectOptionDict(value=HEATING_MODE_ECO, label="Eco"),
+                ])
+            )
 
         schema[vol.Required(CONF_MAXIMUM_SETPOINT, default=maximum_setpoint)] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=10, max=100, step=1, unit_of_measurement="°C")
@@ -439,16 +559,22 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
         if options[CONF_AUTOMATIC_GAINS]:
-            schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=5, step=1)
-            )
-            schema[vol.Required(CONF_DERIVATIVE_TIME_WEIGHT, default=options[CONF_DERIVATIVE_TIME_WEIGHT])] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=6, step=1)
-            )
+            if int(options[CONF_PID_CONTROLLER_VERSION]) < 3:
+                schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=1, max=5, step=0.1)
+                )
+                schema[vol.Required(CONF_DERIVATIVE_TIME_WEIGHT, default=options[CONF_DERIVATIVE_TIME_WEIGHT])] = selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=1, max=6, step=0.1)
+                )
         else:
             schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
             schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
             schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
+
+        if options[CONF_DYNAMIC_MINIMUM_SETPOINT]:
+            schema[vol.Required(CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR, default=options[CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0.1, max=0.5, step=0.1)
+            )
 
         if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
             schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()
@@ -468,7 +594,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
-    async def async_step_presets(self, _user_input=None) -> FlowResult:
+    async def async_step_presets(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -491,26 +617,47 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_COMFORT_TEMPERATURE, default=options[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
+                vol.Required(CONF_SYNC_WITH_THERMOSTAT, default=options[CONF_SYNC_WITH_THERMOSTAT]): bool,
                 vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=options[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
             })
         )
 
-    async def async_step_system_configuration(self, _user_input=None) -> FlowResult:
+    async def async_step_system_configuration(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
         options = await self.get_options()
 
+        schema = {
+            vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
+            vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
+        }
+
+        if options.get(CONF_HEATING_SYSTEM) == HEATING_SYSTEM_HEAT_PUMP:
+            schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value="2", label="Normal (2x per hour)"),
+                    selector.SelectOptionDict(value="3", label="High (3x per hour)"),
+                ])
+            )
+
+        if options.get(CONF_HEATING_SYSTEM) == HEATING_SYSTEM_RADIATORS:
+            schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value="3", label="Normal (3x per hour)"),
+                    selector.SelectOptionDict(value="4", label="High (4x per hour)"),
+                ])
+            )
+
+        schema[vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE])] = selector.TimeSelector()
+        schema[vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME])] = selector.TimeSelector()
+
         return self.async_show_form(
             step_id="system_configuration",
-            data_schema=vol.Schema({
-                vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
-                vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE]): selector.TimeSelector(),
-                vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]): selector.TimeSelector(),
-            })
+            data_schema=vol.Schema(schema)
         )
 
-    async def async_step_advanced(self, _user_input=None) -> FlowResult:
+    async def async_step_advanced(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
 
@@ -519,10 +666,11 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         schema = {
             vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]): bool,
             vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]): bool,
-            vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool
+            vol.Required(CONF_ERROR_MONITORING, default=options[CONF_ERROR_MONITORING]): bool,
+            vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool,
         }
 
-        if options.get(CONF_MODE) in [MODE_MQTT, MODE_SERIAL, MODE_SIMULATOR]:
+        if self._config_entry.data.get(CONF_MODE) in [MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:
             schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
 
             schema[vol.Required(CONF_MINIMUM_CONSUMPTION, default=options[CONF_MINIMUM_CONSUMPTION])] = selector.NumberSelector(
@@ -552,7 +700,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema(schema)
         )
 
-    async def update_options(self, _user_input) -> FlowResult:
+    async def update_options(self, _user_input):
         self._options.update(_user_input)
         return self.async_create_entry(title=self._config_entry.data[CONF_NAME], data=self._options)
 

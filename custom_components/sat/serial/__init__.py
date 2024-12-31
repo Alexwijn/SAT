@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, Any, TYPE_CHECKING, Mapping
+from typing import Optional, Any, Mapping
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -11,9 +11,6 @@ from pyotgw.vars import *
 from serial import SerialException
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
-
-if TYPE_CHECKING:
-    from ..climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -40,6 +37,14 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         self._port = port
         self._api = OpenThermGateway()
         self._api.subscribe(async_coroutine)
+
+    @property
+    def device_id(self) -> str:
+        return self._port
+
+    @property
+    def device_type(self) -> str:
+        return "OpenThermGateway (via serial)"
 
     @property
     def device_active(self) -> bool:
@@ -87,6 +92,13 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().boiler_temperature
 
     @property
+    def return_temperature(self) -> float | None:
+        if (value := self.get(DATA_RETURN_WATER_TEMP)) is not None:
+            return float(value)
+
+        return super().return_temperature
+
+    @property
     def minimum_hot_water_setpoint(self) -> float:
         if (setpoint := self.get(DATA_SLAVE_DHW_MIN_SETP)) is not None:
             return float(setpoint)
@@ -129,6 +141,13 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().maximum_relative_modulation_value
 
     @property
+    def member_id(self) -> int | None:
+        if (value := self.get(DATA_SLAVE_MEMBERID)) is not None:
+            return int(value)
+
+        return None
+
+    @property
     def flame_active(self) -> bool:
         return bool(self.get(DATA_SLAVE_FLAME_ON))
 
@@ -148,7 +167,10 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
         return self
 
-    async def async_will_remove_from_hass(self, climate: SatClimate) -> None:
+    async def async_setup(self) -> None:
+        await self.async_connect()
+
+    async def async_will_remove_from_hass(self) -> None:
         self._api.unsubscribe(self.async_set_updated_data)
 
         await self._api.set_control_setpoint(0)

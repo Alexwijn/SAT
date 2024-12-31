@@ -17,6 +17,7 @@ from custom_components.sat.fake import SatFakeCoordinator
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
+                CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
                 CONF_MINIMUM_SETPOINT: 57,
                 CONF_MAXIMUM_SETPOINT: 75,
@@ -48,11 +49,11 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
     assert climate.setpoint == 57
-    assert climate.heating_curve.value == 32.6
+    assert climate.heating_curve.value == 32.2
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 36.24
-    assert climate.pwm.duty_cycle == (326, 573)
+    assert climate.pwm.last_duty_cycle_percentage == 23.83
+    assert climate.pwm.duty_cycle == (285, 914)
 
 
 @pytest.mark.parametrize(*[
@@ -60,6 +61,7 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
+                CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
                 CONF_MINIMUM_SETPOINT: 58,
                 CONF_MAXIMUM_SETPOINT: 75
@@ -90,13 +92,13 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_target_temperature(19.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    assert climate.setpoint == 58
-    assert climate.heating_curve.value == 30.1
-    assert climate.requested_setpoint == 30.6
+    assert climate.setpoint == 10
+    assert climate.heating_curve.value == 27.8
+    assert climate.requested_setpoint == 28.0
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 11.04
-    assert climate.pwm.duty_cycle == (180, 1450)
+    assert climate.pwm.last_duty_cycle_percentage == 2.6
+    assert climate.pwm.duty_cycle == (0, 2400)
 
 
 @pytest.mark.parametrize(*[
@@ -104,6 +106,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     [(
             [(TEMPLATE_DOMAIN, 1)],
             {
+                CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
                 CONF_MINIMUM_SETPOINT: 41,
                 CONF_MAXIMUM_SETPOINT: 75,
@@ -135,9 +138,9 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
     assert climate.setpoint == 41
-    assert climate.heating_curve.value == 32.1
-    assert climate.requested_setpoint == 37.4
+    assert climate.heating_curve.value == 32.5
+    assert climate.requested_setpoint == 34.6
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 73.91
-    assert climate.pwm.duty_cycle == (665, 234)
+    assert climate.pwm.last_duty_cycle_percentage == 53.62
+    assert climate.pwm.duty_cycle == (643, 556)

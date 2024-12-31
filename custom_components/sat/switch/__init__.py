@@ -17,13 +17,19 @@ DOMAIN_SERVICE = {
 
 
 class SatSwitchCoordinator(SatDataUpdateCoordinator):
-    """Class to manage the Switch."""
-
     def __init__(self, hass: HomeAssistant, entity_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
         super().__init__(hass, data, options)
 
         self._entity = entity_registry.async_get(hass).async_get(entity_id)
+
+    @property
+    def device_id(self) -> str:
+        return self._entity.name
+
+    @property
+    def device_type(self) -> str:
+        return "Switch"
 
     @property
     def setpoint(self) -> float:
@@ -39,6 +45,10 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
             return False
 
         return state.state == STATE_ON
+
+    @property
+    def member_id(self) -> int | None:
+        return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         if not self._simulation:
