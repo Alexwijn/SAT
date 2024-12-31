@@ -1,7 +1,6 @@
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-ADJUSTMENT_STEP = 0.5  # Renamed for clarity
 
 
 class SetpointAdjuster:
@@ -26,9 +25,9 @@ class SetpointAdjuster:
         previous_setpoint = self._current
 
         if self._current < target_setpoint:
-            self._current = min(self._current + ADJUSTMENT_STEP, target_setpoint)
+            self._current = min(self._current + 0.1, target_setpoint)
         elif self._current > target_setpoint:
-            self._current = max(self._current - ADJUSTMENT_STEP, target_setpoint)
+            self._current = max(self._current - 2.0, target_setpoint)
 
         _LOGGER.info(
             "Setpoint updated: %.1f°C -> %.1f°C (Target: %.1f°C)",
