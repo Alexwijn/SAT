@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import logging
+from time import monotonic
 
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.components.climate import HVACAction
@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .climate import SatClimate
 from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS
 from .entity import SatClimateEntity
+from .helpers import seconds_since
 from .serial import binary_sensor as serial_binary_sensor
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -57,17 +58,12 @@ class SatSynchroSensor:
             return False
 
         if self._last_mismatch is None:
-            self._last_mismatch = self._get_current_time()
+            self._last_mismatch = monotonic()
 
-        if self._get_current_time() - self._last_mismatch >= self._delay:
+        if seconds_since(self._last_mismatch) >= self._delay:
             return True
 
         return False
-
-    @staticmethod
-    def _get_current_time() -> float:
-        """Get the current time in seconds since epoch."""
-        return asyncio.get_event_loop().time()
 
 
 class SatControlSetpointSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):

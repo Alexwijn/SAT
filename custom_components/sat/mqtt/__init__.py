@@ -9,7 +9,7 @@ from homeassistant.helpers.storage import Store
 
 from ..const import CONF_MQTT_TOPIC
 from ..coordinator import SatDataUpdateCoordinator
-from ..util import snake_case
+from ..helpers import snake_case
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 

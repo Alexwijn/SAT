@@ -6,6 +6,7 @@ from typing import Optional
 from homeassistant.core import State
 
 from .const import *
+from .helpers import seconds_since
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,8 +83,7 @@ class PID:
         :param heating_curve_value: The current heating curve value.
         :param boiler_temperature: The current boiler temperature.
         """
-        current_time = monotonic()
-        time_elapsed = current_time - self._last_updated
+        time_elapsed = seconds_since(self._last_updated)
 
         if error == self._last_error:
             return
@@ -95,7 +95,7 @@ class PID:
         self.update_derivative(error)
         self.update_history_size()
 
-        self._last_updated = current_time
+        self._last_updated = monotonic()
         self._time_elapsed = time_elapsed
 
         self._last_error = error
@@ -142,22 +142,19 @@ class PID:
         if not force and monotonic() - self._last_interval_updated < self._integral_time_limit:
             return
 
-        current_time = monotonic()
-        time_elapsed = current_time - self._last_interval_updated
-
         # Check if the integral gain `ki` is set
         if self.ki is None:
             return
 
         # Update the integral value
-        self._integral += self.ki * error * time_elapsed
+        self._integral += self.ki * error * seconds_since(self._last_interval_updated)
 
         # Clamp the integral value within the limit
         self._integral = min(self._integral, float(+heating_curve_value))
         self._integral = max(self._integral, float(-heating_curve_value))
 
         # Record the time of the latest update
-        self._last_interval_updated = current_time
+        self._last_interval_updated = monotonic()
 
     def update_derivative(self, error: float, alpha1: float = 0.8, alpha2: float = 0.6):
         """

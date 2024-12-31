@@ -25,8 +25,8 @@ from voluptuous import UNDEFINED
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
+from .helpers import calculate_default_maximum_setpoint, snake_case
 from .overshoot_protection import OvershootProtection
-from .util import calculate_default_maximum_setpoint, snake_case
 
 DEFAULT_NAME = "Living Room"
 

@@ -1,43 +1,11 @@
-from re import sub
 from types import MappingProxyType
 from typing import Any
 
-from homeassistant.util import dt
-
 from .const import *
 from .heating_curve import HeatingCurve
+from .helpers import convert_time_str_to_seconds
 from .pid import PID
 from .pwm import PWM
-
-
-def convert_time_str_to_seconds(time_str: str) -> float:
-    """Convert a time string in the format 'HH:MM:SS' to seconds.
-
-    Args:
-        time_str: A string representing a time in the format 'HH:MM:SS'.
-
-    Returns:
-        float: The time in seconds.
-    """
-    date_time = dt.parse_time(time_str)
-    # Calculate the number of seconds by multiplying the hours, minutes and seconds
-    return (date_time.hour * 3600) + (date_time.minute * 60) + date_time.second
-
-
-def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: float):
-    """
-    Calculates the derivative per hour based on the temperature error and time taken."""
-    # Convert time taken from seconds to hours
-    time_taken_hours = time_taken_seconds / 3600
-    # Calculate the derivative per hour by dividing temperature error by time taken
-    return round(temperature_error / time_taken_hours, 2)
-
-
-def calculate_default_maximum_setpoint(heating_system: str) -> int:
-    if heating_system == HEATING_SYSTEM_UNDERFLOOR:
-        return 50
-
-    return 55
 
 
 def create_pid_controller(config_options) -> PID:
@@ -90,18 +58,3 @@ def create_pwm_controller(heating_curve: HeatingCurve, config_data: MappingProxy
 
     # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, max_cycle_time=max_cycle_time, automatic_duty_cycle=automatic_duty_cycle, max_cycles=max_duty_cycles, force=force)
-
-
-def snake_case(value: str) -> str:
-    return '_'.join(
-        sub('([A-Z][a-z]+)', r' \1',
-            sub('([A-Z]+)', r' \1',
-                value.replace('-', ' '))).split()).lower()
-
-
-def float_value(value) -> float | None:
-    """Helper method to convert a value to float, handling possible errors."""
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None

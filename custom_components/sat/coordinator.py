@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
+from time import monotonic
 from typing import TYPE_CHECKING, Mapping, Any, Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -12,8 +13,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .boiler import BoilerTemperatureTracker
 from .const import *
+from .helpers import calculate_default_maximum_setpoint, seconds_since
 from .manufacturer import ManufacturerFactory, Manufacturer
-from .util import calculate_default_maximum_setpoint
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -80,6 +81,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         self._data = data
         self._manufacturer = None
+        self._flame_on_since = None
         self._options = options or {}
         self._device_state = DeviceState.OFF
         self._simulation = bool(self._options.get(CONF_SIMULATION))
@@ -163,6 +165,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def flame_active(self) -> bool:
         return self.device_active
+
+    @property
+    def flame_on_since(self) -> datetime | None:
+        return self._flame_on_since
 
     @property
     def hot_water_active(self) -> bool:
@@ -308,7 +314,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
         """Control the heating loop for the device."""
-        current_time = datetime.now()
+        # Update Flame State
+        if not self.flame_active:
+            self._flame_on_since = None
+        elif self._flame_on_since is None:
+            self._flame_on_since = monotonic()
 
         # Handle the temperature tracker
         if self.device_status is not DeviceStatus.HOT_WATER:
@@ -320,13 +330,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Append current boiler temperature if valid
         if self.boiler_temperature is not None:
-            self.boiler_temperatures.append((current_time, self.boiler_temperature))
+            self.boiler_temperatures.append((monotonic(), self.boiler_temperature))
 
         # Remove old temperature records beyond the allowed age
         self.boiler_temperatures = [
             (timestamp, temp)
             for timestamp, temp in self.boiler_temperatures
-            if current_time - timestamp <= timedelta(seconds=MAX_BOILER_TEMPERATURE_AGE)
+            if seconds_since(timestamp) <= MAX_BOILER_TEMPERATURE_AGE
         ]
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
