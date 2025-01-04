@@ -25,6 +25,7 @@ from voluptuous import UNDEFINED
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
+from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .overshoot_protection import OvershootProtection
 from .util import calculate_default_maximum_setpoint, snake_case
 
@@ -147,7 +148,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        return self._create_mqtt_form("mosquitto_opentherm", "OTGW", "otgw-XXXXXXXXXXXX")
+        default_device = None
+        if not self.data.get(CONF_DEVICE):
+            default_device = "otgw-XXXXXXXXXXXX"
+
+        return self._create_mqtt_form("mosquitto_opentherm", "OTGW", default_device)
 
     async def async_step_mosquitto_ems(self, _user_input: dict[str, Any] | None = None):
         """Setup specific to EMS-ESP."""
@@ -157,7 +162,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        return self._create_mqtt_form("mosquitto_ems", "ems-esp")
+        default_device = None
+        if not self.data.get(CONF_DEVICE):
+            default_device = "ems-esp"
+
+        return self._create_mqtt_form("mosquitto_ems", default_device)
 
     async def async_step_esphome(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
@@ -344,7 +353,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not self.data[CONF_AUTOMATIC_GAINS]:
                 return await self.async_step_pid_controller()
 
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
             last_step=False,
@@ -367,7 +376,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         async def start_calibration():
             try:
                 coordinator = await self.async_create_coordinator()
-                await coordinator.async_added_to_hass()
+                await coordinator.async_setup()
 
                 overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
                 self.overshoot_protection_value = await overshoot_protection.calculate()
@@ -430,9 +439,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
 
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
+            last_step=False,
             step_id="overshoot_protection",
             data_schema=vol.Schema({
                 vol.Required(CONF_MINIMUM_SETPOINT, default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT])): selector.NumberSelector(
@@ -446,14 +456,43 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if _user_input is not None:
             self.data.update(_user_input)
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
+            last_step=False,
             step_id="pid_controller",
             data_schema=vol.Schema({
                 vol.Required(CONF_PROPORTIONAL, default=self.data.get(CONF_PROPORTIONAL, OPTIONS_DEFAULTS[CONF_PROPORTIONAL])): str,
                 vol.Required(CONF_INTEGRAL, default=self.data.get(CONF_INTEGRAL, OPTIONS_DEFAULTS[CONF_INTEGRAL])): str,
                 vol.Required(CONF_DERIVATIVE, default=self.data.get(CONF_DERIVATIVE, OPTIONS_DEFAULTS[CONF_DERIVATIVE])): str
+            })
+        )
+
+    async def async_step_manufacturer(self, _user_input: dict[str, Any] | None = None):
+        if _user_input is not None:
+            self.data.update(_user_input)
+            return await self.async_step_finish()
+
+        coordinator = await self.async_create_coordinator()
+        await coordinator.async_setup()
+
+        manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
+        default_manufacturer = manufacturers[0].name if len(manufacturers) > 0 else None
+
+        _LOGGER.debug(manufacturers)
+
+        options = []
+        for name, data in MANUFACTURERS.items():
+            manufacturer = ManufacturerFactory.resolve_by_name(name)
+            options.append({"value": name, "label": manufacturer.name})
+
+        return self.async_show_form(
+            last_step=True,
+            step_id="manufacturer",
+            data_schema=vol.Schema({
+                vol.Required(CONF_MANUFACTURER, default=default_manufacturer): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=options)
+                )
             })
         )
 
@@ -479,12 +518,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _create_mqtt_form(self, step_id: str, default_topic: str, default_device: str = None):
         """Create a common MQTT configuration form."""
-        schema = {
-            vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-            vol.Required(CONF_MQTT_TOPIC, default=default_topic): str,
-        }
+        schema = {vol.Required(CONF_NAME, default=DEFAULT_NAME): str}
 
         if default_device:
+            schema[vol.Required(CONF_MQTT_TOPIC, default=default_topic)] = str
             schema[vol.Required(CONF_DEVICE, default=default_device)] = str
 
         return self.async_show_form(
