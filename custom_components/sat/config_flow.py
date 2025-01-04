@@ -162,11 +162,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        default_device = None
+        default_topic = None
         if not self.data.get(CONF_DEVICE):
-            default_device = "ems-esp"
+            default_topic = "ems-esp"
 
-        return self._create_mqtt_form("mosquitto_ems", default_device)
+        return self._create_mqtt_form("mosquitto_ems", default_topic)
 
     async def async_step_esphome(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
