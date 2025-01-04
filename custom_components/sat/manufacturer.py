@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from typing import List, Union
+from typing import List, Optional
 
 MANUFACTURERS = {
     "Simulator": {"module": "simulator", "class": "Simulator", "id": -1},
@@ -27,7 +27,7 @@ class Manufacturer:
 
 class ManufacturerFactory:
     @staticmethod
-    def resolve_by_name(name: str) -> Union[Manufacturer, None]:
+    def resolve_by_name(name: str) -> Optional[Manufacturer]:
         """Resolve a Manufacturer instance by its name."""
         manufacturer = MANUFACTURERS.get(name)
         if not manufacturer:

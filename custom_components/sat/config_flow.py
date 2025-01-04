@@ -482,7 +482,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.debug(manufacturers)
 
         options = []
-        for name, data in MANUFACTURERS.items():
+        for name, _info in MANUFACTURERS.items():
             manufacturer = ManufacturerFactory.resolve_by_name(name)
             options.append({"value": name, "label": manufacturer.name})
 
