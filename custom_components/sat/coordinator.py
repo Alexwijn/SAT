@@ -77,7 +77,7 @@ class SatDataUpdateCoordinatorFactory:
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        self.boiler_temperatures = []
+        self._boiler_temperatures = []
 
         self._data = data
         self._manufacturer = None
@@ -123,7 +123,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self._boiler_temperature_tracker.active and self.flame_active and self.setpoint > self.boiler_temperature:
             return DeviceStatus.HEATING_UP
 
-        if not self._boiler_temperature_tracker.active and self.flame_active and seconds_since(self._flame_on_since) > 30:
+        if not self._boiler_temperature_tracker.active and self.flame_active and seconds_since(self._flame_on_since) > 6:
             if self.setpoint == self.boiler_temperature:
                 return DeviceStatus.OVERSHOOT_STABILIZED
 
@@ -187,18 +187,32 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
-    def filtered_boiler_temperature(self) -> float:
+    def boiler_temperature_filtered(self) -> float:
         # Not able to use if we do not have at least two values
-        if len(self.boiler_temperatures) < 2:
+        if len(self._boiler_temperatures) < 2:
             return self.boiler_temperature
 
         # Some noise filtering on the boiler temperature
         difference_boiler_temperature_sum = sum(
-            abs(j[1] - i[1]) for i, j in zip(self.boiler_temperatures, self.boiler_temperatures[1:])
+            abs(j[1] - i[1]) for i, j in zip(self._boiler_temperatures, self._boiler_temperatures[1:])
         )
 
         # Average it and return it
-        return round(difference_boiler_temperature_sum / (len(self.boiler_temperatures) - 1), 2)
+        return round(difference_boiler_temperature_sum / (len(self._boiler_temperatures) - 1), 2)
+
+    @property
+    def boiler_temperature_derivative(self) -> float:
+        if len(self._boiler_temperatures) < 1:
+            return 0.0
+
+        first_time, first_temperature = self._boiler_temperatures[0]
+        last_time, last_temperature = self._boiler_temperatures[-1]
+        time_delta = first_time - last_time
+
+        if time_delta <= 0:
+            return 0.0
+
+        return (first_temperature - last_temperature) / time_delta
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
@@ -325,17 +339,18 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             self._boiler_temperature_tracker.update(
                 setpoint=self.setpoint,
                 flame_active=self.flame_active,
-                boiler_temperature=self.boiler_temperature,
+                boiler_temperature=round(self.boiler_temperature, 0),
+                boiler_temperature_derivative=round(self.boiler_temperature_derivative, 0)
             )
 
         # Append current boiler temperature if valid
         if self.boiler_temperature is not None:
-            self.boiler_temperatures.append((monotonic(), self.boiler_temperature))
+            self._boiler_temperatures.append((monotonic(), self.boiler_temperature))
 
         # Remove old temperature records beyond the allowed age
-        self.boiler_temperatures = [
+        self._boiler_temperatures = [
             (timestamp, temp)
-            for timestamp, temp in self.boiler_temperatures
+            for timestamp, temp in self._boiler_temperatures
             if seconds_since(timestamp) <= MAX_BOILER_TEMPERATURE_AGE
         ]
 
