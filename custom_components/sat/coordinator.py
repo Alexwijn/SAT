@@ -337,8 +337,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         # Handle the temperature tracker
         if self.device_status is not DeviceStatus.HOT_WATER:
             self._boiler_temperature_tracker.update(
-                setpoint=self.setpoint,
                 flame_active=self.flame_active,
+                setpoint=round(self.setpoint, 0),
                 boiler_temperature=round(self.boiler_temperature, 0),
                 boiler_temperature_derivative=round(self.boiler_temperature_derivative, 0)
             )
