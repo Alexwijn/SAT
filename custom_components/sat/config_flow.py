@@ -468,10 +468,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         coordinator = await self.async_create_coordinator()
         await coordinator.async_setup()
 
-        manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
-        default_manufacturer = manufacturers[0].name if len(manufacturers) > 0 else None
-
-        _LOGGER.debug(manufacturers)
+        try:
+            manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
+            default_manufacturer = manufacturers[0].name if len(manufacturers) > 0 else None
+        finally:
+            await coordinator.async_will_remove_from_hass()
 
         options = []
         for name, _info in MANUFACTURERS.items():
