@@ -24,6 +24,7 @@ from custom_components.sat.fake import SatFakeCoordinator
             },
             {
                 CONF_HEATING_CURVE_COEFFICIENT: 1.8,
+                CONF_FORCE_PULSE_WIDTH_MODULATION: True,
             },
             {
                 TEMPLATE_DOMAIN: [
@@ -67,7 +68,8 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
                 CONF_MAXIMUM_SETPOINT: 75
             },
             {
-                CONF_HEATING_CURVE_COEFFICIENT: 1.3
+                CONF_HEATING_CURVE_COEFFICIENT: 1.3,
+                CONF_FORCE_PULSE_WIDTH_MODULATION: True,
             },
             {
                 TEMPLATE_DOMAIN: [
@@ -112,7 +114,8 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
                 CONF_MAXIMUM_SETPOINT: 75,
             },
             {
-                CONF_HEATING_CURVE_COEFFICIENT: 0.9
+                CONF_HEATING_CURVE_COEFFICIENT: 0.9,
+                CONF_FORCE_PULSE_WIDTH_MODULATION: True,
             },
             {
                 TEMPLATE_DOMAIN: [
@@ -137,7 +140,7 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_target_temperature(20.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    assert climate.setpoint == 41
+    assert climate.setpoint == 41.0
     assert climate.heating_curve.value == 32.5
     assert climate.requested_setpoint == 34.6
 

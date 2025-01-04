@@ -181,7 +181,6 @@
           "heating_curve_version": "Versão da Curva de Aquecimento",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Setpoint Máximo",
-          "minimum_setpoint_adjustment_factor": "Fator de Ajuste para Temperatura de Retorno",
           "pid_controller_version": "Versão do Controlador PID",
           "proportional": "Proporcional (kP)",
           "sync_with_thermostat": "Sincronizar setpoint com termóstato",
@@ -196,7 +195,6 @@
           "heating_curve_coefficient": "O coeficiente usado para ajustar a curva de aquecimento.",
           "integral": "O termo integral (kI) no controlador PID, responsável por reduzir o erro em regime permanente.",
           "maximum_setpoint": "A temperatura ótima para operação eficiente da caldeira.",
-          "minimum_setpoint_adjustment_factor": "Este fator ajusta o setpoint de aquecimento com base na temperatura de retorno da caldeira, afetando a resposta e eficiência do aquecimento. Um valor mais alto aumenta a sensibilidade às mudanças de temperatura, melhorando o controlo sobre o conforto e uso de energia. Faixa inicial recomendada é de 0.1 a 0.5. Ajuste para adequar ao seu sistema e preferências de conforto.",
           "proportional": "O termo proporcional (kP) no controlador PID, responsável pela resposta imediata a erros.",
           "sync_with_thermostat": "Sincronizar setpoint com termóstato para assegurar controlo de temperatura coordenado.",
           "window_sensors": "Sensores de Contato que ativam o sistema para reagir quando uma janela ou porta está aberta por um período de tempo."

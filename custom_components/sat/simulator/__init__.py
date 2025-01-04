@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
-from ..util import convert_time_str_to_seconds
+from ..helpers import convert_time_str_to_seconds
 
 if TYPE_CHECKING:
     from ..climate import SatClimate

@@ -181,7 +181,6 @@
           "heating_curve_version": "Verzia vykurovacej krivky",
           "integral": "Integračná (kI)",
           "maximum_setpoint": "Maximálna požadovaná hodnota",
-          "minimum_setpoint_adjustment_factor": "Faktor nastavenia pre teplotu spiatočky",
           "pid_controller_version": "Verzia PID regulátora",
           "proportional": "Proporcionálna (kP)",
           "sync_with_thermostat": "Synchronizujte požadovanú hodnotu s termostatom",
@@ -196,7 +195,6 @@
           "heating_curve_coefficient": "Koeficient použitý na úpravu vykurovacej krivky.",
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",
           "maximum_setpoint": "Optimálna teplota pre efektívnu prevádzku kotla.",
-          "minimum_setpoint_adjustment_factor": "Tento faktor upravuje žiadanú hodnotu vykurovania na základe teploty spiatočky kotla, čím ovplyvňuje odozvu a účinnosť vykurovania. Vyššia hodnota zvyšuje citlivosť na zmeny teploty, čím sa zlepšuje kontrola nad komfortom a spotrebou energie. Odporúčaný počiatočný rozsah je 0,1 až 0,5. Upravte ho tak, aby vyhovoval vášmu systému a preferenciám pohodlia.",
           "proportional": "Proporcionálny člen (kP) v PID regulátore, zodpovedný za okamžitú reakciu na chyby.",
           "sync_with_thermostat": "Synchronizujte požadovanú hodnotu s termostatom, aby ste zabezpečili koordinovanú reguláciu teploty.",
           "window_sensors": "Kontaktné senzory, ktoré spúšťajú reakciu systému, keď je okno alebo dvere otvorené po určitú dobu."

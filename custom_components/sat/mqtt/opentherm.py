@@ -4,7 +4,9 @@ import logging
 
 from . import SatMqttCoordinator
 from ..coordinator import DeviceState
+from ..manufacturers.ideal import Ideal
 from ..manufacturers.immergas import Immergas
+from ..manufacturers.intergas import Intergas
 
 STATE_ON = "ON"
 
@@ -147,6 +149,9 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await self._publish_command("PM=3")
         await self._publish_command("PM=48")
 
+        if isinstance(self.manufacturer, (Ideal, Intergas)):
+            await self._publish_command("MI=500")
+
     def get_tracked_entities(self) -> list[str]:
         return [
             DATA_SLAVE_MEMBERID,
@@ -168,6 +173,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f"CS={value}")
+        await self._publish_command(f"PM=25")
 
         await super().async_set_control_setpoint(value)
 
