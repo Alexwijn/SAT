@@ -542,6 +542,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._overshoot_protection:
             return False
 
+        if not self._dynamic_minimum_setpoint:
+            return self._coordinator.minimum_setpoint > self._calculated_setpoint
+
         return self._pulse_width_modulation_enabled
 
     @property
@@ -771,8 +774,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     outside_temperature=self.current_outside_temperature
                 )
 
-            self._areas.pids.update(self._coordinator.filtered_boiler_temperature)
-            self.pid.update(max_error, self.heating_curve.value, self._coordinator.filtered_boiler_temperature)
+            self._areas.pids.update(self._coordinator.boiler_temperature_filtered)
+            self.pid.update(max_error, self.heating_curve.value, self._coordinator.boiler_temperature_filtered)
         elif max_error != self.pid.last_error:
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
