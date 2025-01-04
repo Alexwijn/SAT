@@ -148,11 +148,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        default_device = None
-        if not self.data.get(CONF_DEVICE):
-            default_device = "otgw-XXXXXXXXXXXX"
-
-        return self._create_mqtt_form("mosquitto_opentherm", "OTGW", default_device)
+        return self._create_mqtt_form("mosquitto_opentherm", "OTGW", "otgw-XXXXXXXXXXXX")
 
     async def async_step_mosquitto_ems(self, _user_input: dict[str, Any] | None = None):
         """Setup specific to EMS-ESP."""
@@ -162,11 +158,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        default_topic = None
-        if not self.data.get(CONF_DEVICE):
-            default_topic = "ems-esp"
-
-        return self._create_mqtt_form("mosquitto_ems", default_topic)
+        return self._create_mqtt_form("mosquitto_ems", "ems-esp")
 
     async def async_step_esphome(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
@@ -516,12 +508,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
-    def _create_mqtt_form(self, step_id: str, default_topic: str, default_device: str = None):
+    def _create_mqtt_form(self, step_id: str, default_topic: str = None, default_device: str = None):
         """Create a common MQTT configuration form."""
         schema = {vol.Required(CONF_NAME, default=DEFAULT_NAME): str}
 
-        if default_device:
+        if default_topic and not self.data.get(CONF_MQTT_TOPIC):
             schema[vol.Required(CONF_MQTT_TOPIC, default=default_topic)] = str
+
+        if default_device and not self.data.get(CONF_DEVICE):
             schema[vol.Required(CONF_DEVICE, default=default_device)] = str
 
         return self.async_show_form(
