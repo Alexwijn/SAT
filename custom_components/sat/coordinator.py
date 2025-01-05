@@ -201,7 +201,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return round(difference_boiler_temperature_sum / (len(self._boiler_temperatures) - 1), 2)
 
     @property
-    def boiler_temperature_derivative(self) -> float:
+    def boiler_temperature_derivative(self) -> float | None:
         if len(self._boiler_temperatures) <= 1:
             return 0.0
 
@@ -210,7 +210,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         time_delta = last_time - first_time
 
         if time_delta <= 0:
-            return 0.0
+            return None
 
         return round((last_temperature - first_temperature) / time_delta, 2)
 
@@ -339,12 +339,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             self._flame_on_since = monotonic()
 
         # Handle the temperature tracker
-        if self.setpoint is not None and self.device_status is not DeviceStatus.HOT_WATER:
+        if self.setpoint is not None and self.boiler_temperature_derivative is not None and self.device_status is not DeviceStatus.HOT_WATER:
             self._boiler_temperature_tracker.update(
                 flame_active=self.flame_active,
                 setpoint=round(self.setpoint, 0),
                 boiler_temperature=round(self.boiler_temperature, 0),
-                boiler_temperature_derivative=round(self.boiler_temperature_derivative, 0)
+                boiler_temperature_derivative=self.boiler_temperature_derivative
             )
 
         # Append current boiler temperature if valid
