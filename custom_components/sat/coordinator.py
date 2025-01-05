@@ -353,8 +353,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Remove old temperature records beyond the allowed age
         self._boiler_temperatures = [
-            (timestamp, temp)
-            for timestamp, temp in self._boiler_temperatures
+            (timestamp, temperature)
+            for timestamp, temperature in self._boiler_temperatures
             if seconds_since(timestamp) <= MAX_BOILER_TEMPERATURE_AGE
         ]
 
