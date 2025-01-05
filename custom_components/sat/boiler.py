@@ -1,5 +1,7 @@
 import logging
 
+from .const import MINIMUM_SETPOINT
+
 _LOGGER = logging.getLogger(__name__)
 
 STABILIZATION_MARGIN = 5
@@ -51,18 +53,35 @@ class BoilerTemperatureTracker:
         """Initialize the BoilerTemperatureTracker."""
         self._active = False
         self._warming_up = False
+        self._adjusting_to_lower_setpoint = False
+
+        self._last_setpoint = None
         self._last_boiler_temperature = None
 
     def update(self, boiler_temperature: float, boiler_temperature_derivative: float, flame_active: bool, setpoint: float):
         """Update the tracker based on the current boiler temperature, flame status, and setpoint."""
+        if setpoint == MINIMUM_SETPOINT:
+            return
+
         if self._last_boiler_temperature is None:
             self._last_boiler_temperature = boiler_temperature
 
+        if self._last_setpoint is None:
+            self._last_setpoint = setpoint
+
+        # Detect if setpoint is decreasing
+        if setpoint < self._last_setpoint and not self._adjusting_to_lower_setpoint:
+            self._adjusting_to_lower_setpoint = True
+            _LOGGER.debug("Setpoint decreased. Entering stabilization mode.")
+
         if not flame_active:
             self._handle_flame_inactive()
+        elif self._adjusting_to_lower_setpoint:
+            self._handle_adjusting_to_lower_setpoint(boiler_temperature, boiler_temperature_derivative, setpoint)
         elif self._active:
             self._handle_tracking(boiler_temperature, boiler_temperature_derivative, setpoint)
 
+        self._last_setpoint = setpoint
         self._last_boiler_temperature = boiler_temperature
 
     def _handle_flame_inactive(self):
@@ -78,13 +97,27 @@ class BoilerTemperatureTracker:
     def _handle_tracking(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float):
         """Handle boiler temperature tracking logic."""
         if not self._warming_up and boiler_temperature_derivative == 0:
-            return self._stop_tracking("Temperature not changing.", boiler_temperature, setpoint)
+            return self._stop_warming_up("Temperature not changing.", boiler_temperature, setpoint)
 
         if setpoint <= boiler_temperature - EXCEED_SETPOINT_MARGIN:
             return self._stop_tracking("Exceeds setpoint significantly.", boiler_temperature, setpoint)
 
         if setpoint > boiler_temperature and setpoint - STABILIZATION_MARGIN < boiler_temperature < self._last_boiler_temperature:
-            return self._stop_warming_up("Stabilizing below setpoint.", boiler_temperature, setpoint)
+            return self._stop_tracking("Stabilizing below setpoint.", boiler_temperature, setpoint)
+
+    def _handle_adjusting_to_lower_setpoint(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float):
+        """Handle stabilization when adjusting to a lower setpoint."""
+        if boiler_temperature <= setpoint and boiler_temperature_derivative == 0:
+            return self._stop_adjusting_to_lower_setpoint("Setpoint stabilization complete.", boiler_temperature, setpoint)
+
+    def _stop_adjusting_to_lower_setpoint(self, reason: str, boiler_temperature: float, setpoint: float):
+        """Stop the adjustment to a lower setpoint and log the reason."""
+        self._adjusting_to_lower_setpoint = False
+
+        _LOGGER.debug(
+            f"Adjustment to lower setpoint stopped: {reason} "
+            f"(Setpoint: {setpoint}, Current: {boiler_temperature})."
+        )
 
     def _stop_warming_up(self, reason: str, boiler_temperature: float, setpoint: float):
         """Stop the warming-up phase and log the reason."""

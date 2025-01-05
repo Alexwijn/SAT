@@ -215,6 +215,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return (first_temperature - last_temperature) / time_delta
 
     @property
+    def boiler_temperature_tracking(self) -> bool:
+        return self._boiler_temperature_tracker.active
+
+    @property
     def minimum_hot_water_setpoint(self) -> float:
         return 30
 
