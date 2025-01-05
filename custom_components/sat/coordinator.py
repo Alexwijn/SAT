@@ -202,17 +202,17 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def boiler_temperature_derivative(self) -> float:
-        if len(self._boiler_temperatures) < 1:
+        if len(self._boiler_temperatures) <= 1:
             return 0.0
 
         first_time, first_temperature = self._boiler_temperatures[0]
         last_time, last_temperature = self._boiler_temperatures[-1]
-        time_delta = first_time - last_time
+        time_delta = last_time - first_time
 
-        if time_delta == 0:
+        if time_delta <= 0:
             return 0.0
 
-        return (first_temperature - last_temperature) / time_delta
+        return (last_temperature - first_temperature) / time_delta
 
     @property
     def boiler_temperature_tracking(self) -> bool:
