@@ -212,7 +212,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if time_delta <= 0:
             return 0.0
 
-        return (last_temperature - first_temperature) / time_delta
+        return round((last_temperature - first_temperature) / time_delta, 2)
 
     @property
     def boiler_temperature_tracking(self) -> bool:
