@@ -209,7 +209,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         last_time, last_temperature = self._boiler_temperatures[-1]
         time_delta = first_time - last_time
 
-        if time_delta <= 0:
+        if time_delta == 0:
             return 0.0
 
         return (first_temperature - last_temperature) / time_delta
