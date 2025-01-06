@@ -5,7 +5,7 @@ from .const import MINIMUM_SETPOINT
 _LOGGER = logging.getLogger(__name__)
 
 STABILIZATION_MARGIN = 5
-EXCEED_SETPOINT_MARGIN = 2
+EXCEED_SETPOINT_MARGIN = 0.1
 
 
 class BoilerState:
