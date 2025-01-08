@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from datetime import datetime
 from enum import Enum
 from time import monotonic
 from typing import TYPE_CHECKING, Mapping, Any, Optional
@@ -33,8 +32,9 @@ class DeviceStatus(str, Enum):
     HEATING_UP = "heating_up"
     AT_SETPOINT = "at_setpoint"
     COOLING_DOWN = "cooling_down"
+    PUMP_STARTING = "pump_starting"
+    WAITING_FOR_FLAME = "waiting for flame"
     OVERSHOOT_HANDLING = "overshoot_handling"
-    OVERSHOOT_STABILIZED = "overshoot_stabilized"
 
     UNKNOWN = "unknown"
     INITIALIZING = "initializing"
@@ -79,11 +79,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self._boiler_temperatures = []
 
+        self._flame_on_since = None
+        self._heater_on_since = None
+
         self._data = data
         self._manufacturer = None
-        self._flame_on_since = None
         self._options = options or {}
-        self._device_state = DeviceState.OFF
         self._simulation = bool(self._options.get(CONF_SIMULATION))
         self._boiler_temperature_tracker = BoilerTemperatureTracker()
         self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
@@ -101,11 +102,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         pass
 
     @property
-    def device_state(self):
-        """Return the current state of the device."""
-        return self._device_state
-
-    @property
     def device_status(self):
         """Return the current status of the device."""
         if self.boiler_temperature is None:
@@ -117,17 +113,29 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.setpoint is None or self.setpoint <= MINIMUM_SETPOINT:
             return DeviceStatus.COOLING_DOWN
 
-        if not self.flame_active and self.setpoint > self.boiler_temperature:
-            return DeviceStatus.PREHEATING
+        if self.device_active:
+            if (
+                    self.boiler_temperature_cold is not None
+                    and self.boiler_temperature_cold > self.boiler_temperature
+                    and self.boiler_temperature_derivative < 0
+            ):
+                return DeviceStatus.PUMP_STARTING
 
-        if self._boiler_temperature_tracker.active and self.flame_active and self.setpoint > self.boiler_temperature:
-            return DeviceStatus.HEATING_UP
+        if self.setpoint > self.boiler_temperature:
+            if not self.flame_active:
+                return DeviceStatus.WAITING_FOR_FLAME
 
-        if not self._boiler_temperature_tracker.active and self.flame_active and seconds_since(self._flame_on_since) > 6:
-            if self.setpoint == self.boiler_temperature:
-                return DeviceStatus.OVERSHOOT_STABILIZED
+            if self.flame_active:
+                if (
+                        seconds_since(self._flame_on_since) <= 6
+                        or (self.boiler_temperature_cold is not None and self.boiler_temperature_cold > self.boiler_temperature)
+                ):
+                    return DeviceStatus.PREHEATING
 
-            return DeviceStatus.OVERSHOOT_HANDLING
+                if self._boiler_temperature_tracker.active:
+                    return DeviceStatus.HEATING_UP
+
+                return DeviceStatus.OVERSHOOT_HANDLING
 
         if self.setpoint == self.boiler_temperature:
             return DeviceStatus.AT_SETPOINT
@@ -167,8 +175,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return self.device_active
 
     @property
-    def flame_on_since(self) -> datetime | None:
+    def flame_on_since(self) -> float | None:
         return self._flame_on_since
+
+    @property
+    def heater_on_since(self) -> float | None:
+        return self._heater_on_since
 
     @property
     def hot_water_active(self) -> bool:
@@ -203,16 +215,29 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def boiler_temperature_derivative(self) -> float | None:
         if len(self._boiler_temperatures) <= 1:
-            return 0.0
+            return None
 
-        first_time, first_temperature = self._boiler_temperatures[0]
+        first_time, first_temperature = self._boiler_temperatures[-2]
         last_time, last_temperature = self._boiler_temperatures[-1]
-        time_delta = last_time - first_time
 
-        if time_delta < 10:
+        time_delta = last_time - first_time
+        if time_delta <= 0:
             return None
 
         return round((last_temperature - first_temperature) / time_delta, 2)
+
+    @property
+    def boiler_temperature_cold(self) -> float | None:
+        for timestamp, temperature in reversed(self._boiler_temperatures):
+            if self._heater_on_since is not None and timestamp > self._heater_on_since:
+                continue
+
+            if self._flame_on_since is not None and timestamp > self._flame_on_since:
+                continue
+
+            return temperature
+
+        return None
 
     @property
     def boiler_temperature_tracking(self) -> bool:
@@ -347,9 +372,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 boiler_temperature_derivative=self.boiler_temperature_derivative
             )
 
-        # Append current boiler temperature if valid
+        # Append current boiler temperature if valid and unique
         if self.boiler_temperature is not None:
-            self._boiler_temperatures.append((monotonic(), self.boiler_temperature))
+            current_time = monotonic()
+            if not self._boiler_temperatures or self._boiler_temperatures[-1][0] != current_time:
+                self._boiler_temperatures.append((current_time, self.boiler_temperature))
 
         # Remove old temperature records beyond the allowed age
         self._boiler_temperatures = [
@@ -360,7 +387,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
-        self._device_state = state
+        self._heater_on_since = monotonic() if state == DeviceState.ON else None
         _LOGGER.info("Set central heater state %s", state)
 
     async def async_set_control_setpoint(self, value: float) -> None:

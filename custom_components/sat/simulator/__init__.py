@@ -18,10 +18,10 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         """Initialize."""
         super().__init__(hass, data, options)
 
-        self._started_on = None
         self._setpoint = MINIMUM_SETPOINT
         self._boiler_temperature = MINIMUM_SETPOINT
 
+        self._device_state = DeviceState.OFF
         self._heating = data.get(CONF_SIMULATED_HEATING)
         self._cooling = data.get(CONF_SIMULATED_COOLING)
         self._maximum_setpoint = data.get(CONF_MAXIMUM_SETPOINT)
@@ -72,7 +72,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        self._started_on = monotonic() if state == DeviceState.ON else None
+        self._device_state = state
 
         await super().async_set_heater_state(state)
 
@@ -116,7 +116,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
             return self.minimum_setpoint
 
         # State check
-        if not self._started_on or (monotonic() - self._started_on) < self._warming_up:
+        if not self._heater_on_since or (monotonic() - self._heater_on_since) < self._warming_up:
             return MINIMUM_SETPOINT
 
         return self.setpoint

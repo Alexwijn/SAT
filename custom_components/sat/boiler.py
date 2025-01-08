@@ -69,10 +69,8 @@ class BoilerTemperatureTracker:
         if self._last_setpoint is None:
             self._last_setpoint = setpoint
 
-        # Detect if setpoint is decreasing
         if setpoint < self._last_setpoint and not self._adjusting_to_lower_setpoint:
-            self._adjusting_to_lower_setpoint = True
-            _LOGGER.debug("Setpoint decreased. Entering stabilization mode.")
+           self._handle_setpoint_decrease()
 
         if not flame_active:
             self._handle_flame_inactive()
@@ -83,6 +81,16 @@ class BoilerTemperatureTracker:
 
         self._last_setpoint = setpoint
         self._last_boiler_temperature = boiler_temperature
+
+    def _handle_setpoint_decrease(self):
+        if self._adjusting_to_lower_setpoint:
+            return
+
+        self._active = True
+        self._warming_up = True
+        self._adjusting_to_lower_setpoint = True
+
+        _LOGGER.debug("Setpoint decreased. Entering stabilization mode.")
 
     def _handle_flame_inactive(self):
         """Handle the case where the flame is inactive."""

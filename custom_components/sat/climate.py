@@ -377,6 +377,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "collected_errors": self.pid.num_errors,
             "integral_enabled": self.pid.integral_enabled,
 
+            "boiler_temperature_cold": self._coordinator.boiler_temperature_cold,
             "boiler_temperature_tracking": self._coordinator.boiler_temperature_tracking,
             "boiler_temperature_derivative": self._coordinator.boiler_temperature_derivative,
 
@@ -811,7 +812,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if pwm_state == PWMState.ON:
                 if self._dynamic_minimum_setpoint:
-                    if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
+                    if self._coordinator.flame_active and self._coordinator.device_status != DeviceStatus.PUMP_STARTING:
                         self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
                     elif self._setpoint_adjuster.current is not None:
                         self._setpoint = self._setpoint_adjuster.current
@@ -866,6 +867,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # If the target temperature exists, store it in the _rooms dictionary with the climate entity as the key
             if target_temperature is not None:
                 self._rooms[entity_id] = float(target_temperature)
+
+    async def reset_control_state(self):
+        """Reset control state when major changes occur."""
+        self._setpoint_adjuster.reset()
+        self._pulse_width_modulation_enabled = False
 
     async def async_track_sensor_temperature(self, entity_id):
         """
@@ -990,11 +996,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the PID controller
         await self._async_control_pid(True)
 
-        # Reset the minimum setpoint
-        self._setpoint_adjuster.reset()
-
-        # Reset the pulse width modulation
-        self._pulse_width_modulation_enabled = False
+        # Reset the climate
+        await self.reset_control_state()
 
         # Collect which climates to control
         climates = self._main_climates[:]
@@ -1067,11 +1070,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the PID controller
         await self._async_control_pid(True)
 
-        # Reset the minimum setpoint
-        self._setpoint_adjuster.reset()
-
-        # Reset the pulse width modulation
-        self._pulse_width_modulation_enabled = False
+        # Reset the climate
+        await self.reset_control_state()
 
         # Write the state to Home Assistant
         self.async_write_ha_state()
