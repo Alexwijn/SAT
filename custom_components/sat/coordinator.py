@@ -363,6 +363,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         elif self._flame_on_since is None:
             self._flame_on_since = monotonic()
 
+        # Nothing further to do without the temperature
+        if self.boiler_temperature is None:
+            return
+
         # Handle the temperature tracker
         if self.setpoint is not None and self.boiler_temperature_derivative is not None and self.device_status is not DeviceStatus.HOT_WATER:
             self._boiler_temperature_tracker.update(
