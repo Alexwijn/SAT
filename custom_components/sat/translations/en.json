@@ -5,6 +5,7 @@
       "reconfigure_successful": "Gateway has been re-configured."
     },
     "error": {
+      "invalid_device": "This is an invalid device.",
       "connection": "Unable to connect to the gateway.",
       "mqtt_component": "The MQTT component is unavailable.",
       "unable_to_calibrate": "The calibration process has encountered an issue and could not be completed successfully. Please ensure that your heating system is functioning properly and that all required sensors are connected and working correctly.\n\nIf you continue to experience issues with calibration, consider contacting us for further assistance. We apologize for any inconvenience caused."

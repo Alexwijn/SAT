@@ -690,7 +690,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             try:
                 self._window_sensor_handle = asyncio.create_task(asyncio.sleep(self._window_minimum_open_time))
-                self._pre_activity_temperature = self.target_temperature
+                self._pre_activity_temperature = self.target_temperature or self.min_temp
 
                 await self._window_sensor_handle
                 await self.async_set_preset_mode(PRESET_ACTIVITY)
@@ -725,15 +725,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         max_error = self.max_error
 
         # Make sure we use the latest heating curve value
-        self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
-        self._areas.heating_curves.update(self.current_outside_temperature)
+        if self.target_temperature is not None:
+            self._areas.heating_curves.update(self.current_outside_temperature)
+            self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         # Update the PID controller with the maximum error
         if not reset:
             _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
 
             # Calculate an optimal heating curve when we are in the deadband
-            if -DEADBAND <= max_error <= DEADBAND:
+            if self.target_temperature is not None and -DEADBAND <= max_error <= DEADBAND:
                 self.heating_curve.autotune(
                     setpoint=self.requested_setpoint,
                     target_temperature=self.target_temperature,
@@ -752,8 +753,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 _LOGGER.info("Reached deadband, turning off warming up.")
                 self._warming_up_data = None
 
-            self._areas.pids.update(self._coordinator.filtered_boiler_temperature)
-            self.pid.update(max_error, self.heating_curve.value, self._coordinator.filtered_boiler_temperature)
+            # Update our PID controllers if we have valid values
+            if self._coordinator.filtered_boiler_temperature is not None:
+                self._areas.pids.update(self._coordinator.filtered_boiler_temperature)
+
+                if self.heating_curve.value is not None:
+                    self.pid.update(max_error, self.heating_curve.value, self._coordinator.filtered_boiler_temperature)
+
         elif max_error != self.pid.last_error:
             _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
 
@@ -969,6 +975,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Set the hvac mode for those climate devices
         for entity_id in climates:
+            state = self.hass.states.get(entity_id)
+            if state is None or hvac_mode not in state.attributes.get("hvac_modes"):
+                return
+
             data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
             await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 

@@ -140,7 +140,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
-    def filtered_boiler_temperature(self) -> float:
+    def filtered_boiler_temperature(self) -> float | None:
         # Not able to use if we do not have at least two values
         if len(self.boiler_temperatures) < 2:
             return self.boiler_temperature

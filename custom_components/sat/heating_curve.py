@@ -86,13 +86,13 @@ class HeatingCurve:
         return 20 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 27.2
 
     @property
-    def optimal_coefficient(self):
+    def optimal_coefficient(self) -> float | None:
         return self._optimal_coefficient
 
     @property
-    def coefficient_derivative(self):
+    def coefficient_derivative(self) -> float | None:
         return self._coefficient_derivative
 
     @property
-    def value(self):
+    def value(self) -> float | None:
         return self._last_heating_curve_value
