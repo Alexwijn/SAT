@@ -16,7 +16,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 STORAGE_VERSION = 1
 
 
-class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
+class SatMqttCoordinator(SatDataUpdateCoordinator, ABC):
     """Base class to manage fetching data using MQTT."""
 
     def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
