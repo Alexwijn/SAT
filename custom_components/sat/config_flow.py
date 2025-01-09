@@ -28,6 +28,7 @@ from .coordinator import SatDataUpdateCoordinator
 from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .overshoot_protection import OvershootProtection
 from .util import calculate_default_maximum_setpoint, snake_case
+from .validators import valid_serial_device
 
 DEFAULT_NAME = "Living Room"
 
@@ -113,9 +114,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
         """Entry step to select the MQTT mode and branch to specific setup."""
-        self.errors = {}
 
         if _user_input is not None:
+            self.errors = {}
             self.data.update(_user_input)
 
             if self.data[CONF_MODE] == MODE_MQTT_OPENTHERM:
@@ -179,18 +180,27 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_serial(self, _user_input: dict[str, Any] | None = None):
-        self.errors = {}
-
         if _user_input is not None:
+            self.errors = {}
             self.data.update(_user_input)
             self.data[CONF_MODE] = MODE_SERIAL
 
+            if not valid_serial_device(self.data[CONF_DEVICE]):
+                self.errors["base"] = "invalid_device"
+                return await self.async_step_serial()
+
             gateway = OpenThermGateway()
-            if not await gateway.connect(port=self.data[CONF_DEVICE], skip_init=True, timeout=5):
-                await gateway.disconnect()
+
+            try:
+                connected = await asyncio.wait_for(gateway.connection.connect(port=self.data[CONF_DEVICE]), timeout=5)
+            except asyncio.TimeoutError:
+                connected = False
+
+            if not connected:
                 self.errors["base"] = "connection"
                 return await self.async_step_serial()
 
+            await gateway.disconnect()
             return await self.async_step_sensors()
 
         return self.async_show_form(

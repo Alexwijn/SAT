@@ -161,7 +161,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
     async def async_connect(self) -> SatSerialCoordinator:
         try:
-            await self._api.connect(port=self._port, timeout=5)
+            await self._api.connect(port=int(self._port), timeout=5)
         except (asyncio.TimeoutError, ConnectionError, SerialException) as exception:
             raise ConfigEntryNotReady(f"Could not connect to gateway at {self._port}: {exception}") from exception
 
