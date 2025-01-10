@@ -943,7 +943,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_relative_modulation()
 
         # Control the integral (if exceeded the time limit)
-        self.pid.update_integral(self.max_error, self.heating_curve.value)
+        if self.heating_curve.value is not None:
+            self.pid.update_integral(self.max_error, self.heating_curve.value)
 
         # Control our areas
         await self._areas.async_control_heating_loops()
