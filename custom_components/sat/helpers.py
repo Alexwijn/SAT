@@ -7,17 +7,7 @@ from .const import HEATING_SYSTEM_UNDERFLOOR
 
 
 def seconds_since(start_time: float | None) -> float:
-    """
-    Calculate the elapsed time in seconds since a given start time using monotonic().
-    If start_time is None, return 0.
-
-    Args:
-        start_time (float or None): The reference start time, typically obtained from time.monotonic().
-                                    If None, elapsed time is considered 0.
-
-    Returns:
-        float: The elapsed time in seconds as a float. Returns 0 if start_time is None.
-    """
+    """Calculate the elapsed time in seconds since a given start time, returns zero if time is not valid."""
     if start_time is None:
         return 0.0
 
