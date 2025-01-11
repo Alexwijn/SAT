@@ -33,10 +33,16 @@ def convert_time_str_to_seconds(time_str: str) -> int:
 
     Returns:
         int: The time in seconds.
+
+    Raises:
+        ValueError: If the time string format is invalid.
     """
-    date_time = dt.parse_time(time_str)
-    # Calculate the number of seconds by multiplying the hours, minutes and seconds
-    return round((date_time.hour * 3600) + (date_time.minute * 60) + date_time.second, 0)
+    try:
+        date_time = dt.parse_time(time_str)
+        # Calculate the number of seconds
+        return round((date_time.hour * 3600) + (date_time.minute * 60) + date_time.second, 0)
+    except ValueError as e:
+        raise ValueError(f"Invalid time format. Expected 'HH:MM:SS', got '{time_str}'") from e
 
 
 def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: float):
