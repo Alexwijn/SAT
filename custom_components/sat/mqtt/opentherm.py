@@ -86,7 +86,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         return super().minimum_hot_water_setpoint
 
     @property
-    def maximum_hot_water_setpoint(self) -> float | None:
+    def maximum_hot_water_setpoint(self) -> float:
         if (setpoint := self.data.get(DATA_DHW_SETPOINT_MAXIMUM)) is not None:
             return float(setpoint)
 

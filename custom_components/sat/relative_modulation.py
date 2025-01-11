@@ -18,9 +18,9 @@ class RelativeModulationState(str, Enum):
 class RelativeModulation:
     def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize instance variables"""
-        self._coordinator = coordinator
-        self._heating_system = heating_system
-        self._pulse_width_modulation_enabled = None
+        self._heating_system: str = heating_system
+        self._pulse_width_modulation_enabled: bool = False
+        self._coordinator: SatDataUpdateCoordinator = coordinator
 
         _LOGGER.debug("Relative Modulation initialized for heating system: %s", heating_system)
 

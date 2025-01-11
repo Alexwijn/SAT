@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from time import monotonic
-from typing import TYPE_CHECKING, Mapping, Any
+from typing import Optional, TYPE_CHECKING, Mapping, Any
 
 from homeassistant.core import HomeAssistant
 
@@ -84,7 +84,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = value
         await super().async_set_control_max_setpoint(value)
 
-    async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time=None) -> None:
         # Calculate the difference, so we know when to slowdown
         difference = abs(self._boiler_temperature - self.target)
         self.logger.debug(f"Target: {self.target}, Current: {self._boiler_temperature}, Difference: {difference}")

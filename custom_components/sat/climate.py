@@ -5,6 +5,7 @@ import asyncio
 import logging
 from datetime import timedelta
 from time import monotonic, time
+from typing import Optional
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate import (
@@ -68,7 +69,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 
 
 class SatWarmingUp:
-    def __init__(self, error: float, boiler_temperature: float = None, started: int = None):
+    def __init__(self, error: float, boiler_temperature: Optional[float] = None, started: Optional[int] = None):
         self.error = error
         self.boiler_temperature = boiler_temperature
         self.started = started if started is not None else int(time())

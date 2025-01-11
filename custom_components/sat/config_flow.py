@@ -1,7 +1,7 @@
 """Adds config flow for SAT."""
 import asyncio
 import logging
-from typing import Any
+from typing import Optional, Any
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -25,8 +25,8 @@ from voluptuous import UNDEFINED
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
-from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .helpers import calculate_default_maximum_setpoint, snake_case
+from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .overshoot_protection import OvershootProtection
 from .validators import valid_serial_device
 
@@ -519,7 +519,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
-    def _create_mqtt_form(self, step_id: str, default_topic: str = None, default_device: str = None):
+    def _create_mqtt_form(self, step_id: str, default_topic: Optional[str] = None, default_device: Optional[str] = None):
         """Create a common MQTT configuration form."""
         schema = {vol.Required(CONF_NAME, default=DEFAULT_NAME): str}
 

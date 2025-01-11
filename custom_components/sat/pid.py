@@ -43,38 +43,38 @@ class PID:
         :param sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
         :param version: The version of math calculation for the controller.
         """
-        self._kp = kp
-        self._ki = ki
-        self._kd = kd
-        self._version = version
-        self._deadband = deadband
-        self._history_size = max_history
-        self._heating_system = heating_system
-        self._automatic_gains = automatic_gains
-        self._automatic_gains_value = automatic_gain_value
-        self._derivative_time_weight = derivative_time_weight
-        self._heating_curve_coefficient = heating_curve_coefficient
+        self._kp: float = kp
+        self._ki: float = ki
+        self._kd: float = kd
+        self._version: int = version
+        self._deadband: float = deadband
+        self._history_size: int = max_history
+        self._heating_system: str = heating_system
+        self._automatic_gains: bool = automatic_gains
+        self._automatic_gains_value: float = automatic_gain_value
+        self._derivative_time_weight: float = derivative_time_weight
+        self._heating_curve_coefficient: float = heating_curve_coefficient
 
-        self._last_interval_updated = monotonic()
-        self._sample_time_limit = max(sample_time_limit, 1)
-        self._integral_time_limit = max(integral_time_limit, 1)
+        self._last_interval_updated: float = monotonic()
+        self._sample_time_limit: float = max(sample_time_limit, 1)
+        self._integral_time_limit: float = max(integral_time_limit, 1)
         self.reset()
 
     def reset(self) -> None:
         """Reset the PID controller."""
-        self._last_error = 0.0
-        self._time_elapsed = 0
-        self._last_updated = monotonic()
-        self._last_heating_curve_value = 0
-        self._last_boiler_temperature = None
+        self._last_error: float = 0.0
+        self._time_elapsed: float = 0
+        self._last_updated: float = monotonic()
+        self._last_heating_curve_value: float = 0
+        self._last_boiler_temperature: float | None = None
 
         # Reset the integral and derivative
-        self._integral = 0.0
-        self._raw_derivative = 0.0
+        self._integral: float = 0.0
+        self._raw_derivative: float = 0.0
 
         # Reset all lists
-        self._times = deque(maxlen=self._history_size)
-        self._errors = deque(maxlen=self._history_size)
+        self._times: deque = deque(maxlen=self._history_size)
+        self._errors: deque = deque(maxlen=self._history_size)
 
     def update(self, error: float, heating_curve_value: float, boiler_temperature: float) -> None:
         """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.

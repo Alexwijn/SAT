@@ -12,6 +12,8 @@ from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN, SERVICE_TURN_ON, SERVICE_TURN_OFF
 from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers import device_registry, entity_registry
+from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
@@ -47,13 +49,13 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         super().__init__(hass, data, options)
 
-        self.data = {}
+        self.data: dict = {}
 
-        self._device = device_registry.async_get(hass).async_get(device_id)
-        self._mac_address = list(self._device.connections)[0][1]
+        self._device: DeviceEntry = device_registry.async_get(hass).async_get(device_id)
+        self._mac_address: str = list(self._device.connections)[0][1]
 
-        self._entity_registry = entity_registry.async_get(hass)
-        self._entities = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
+        self._entity_registry: EntityRegistry = entity_registry.async_get(hass)
+        self._entities: list[RegistryEntry] = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
 
     @property
     def device_id(self) -> str:
@@ -113,7 +115,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return super().minimum_hot_water_setpoint
 
     @property
-    def maximum_hot_water_setpoint(self) -> float | None:
+    def maximum_hot_water_setpoint(self) -> float:
         if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
             return float(setpoint)
 
