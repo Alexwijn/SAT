@@ -11,6 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PWMState(str, Enum):
+    """The current state of Pulse Width Modulation"""
     ON = "on"
     OFF = "off"
     IDLE = "idle"
@@ -21,25 +22,25 @@ class PWM:
 
     def __init__(self, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, max_cycles: int, force: bool = False):
         """Initialize the PWM control."""
-        self._alpha = 0.2
-        self._force = force
-        self._last_boiler_temperature = None
+        self._alpha: float = 0.2
+        self._force: bool = force
+        self._last_boiler_temperature: float | None = None
 
-        self._max_cycles = max_cycles
-        self._heating_curve = heating_curve
-        self._max_cycle_time = max_cycle_time
-        self._automatic_duty_cycle = automatic_duty_cycle
+        self._max_cycles: int = max_cycles
+        self._heating_curve: HeatingCurve = heating_curve
+        self._max_cycle_time: int = max_cycle_time
+        self._automatic_duty_cycle: bool = automatic_duty_cycle
 
         # Timing thresholds for duty cycle management
-        self._on_time_lower_threshold = 180
-        self._on_time_upper_threshold = 3600 / self._max_cycles
-        self._on_time_max_threshold = self._on_time_upper_threshold * 2
+        self._on_time_lower_threshold: float = 180
+        self._on_time_upper_threshold: float = 3600 / self._max_cycles
+        self._on_time_max_threshold: float = self._on_time_upper_threshold * 2
 
         # Duty cycle percentage thresholds
-        self._duty_cycle_lower_threshold = self._on_time_lower_threshold / self._on_time_upper_threshold
-        self._duty_cycle_upper_threshold = 1 - self._duty_cycle_lower_threshold
-        self._min_duty_cycle_percentage = self._duty_cycle_lower_threshold / 2
-        self._max_duty_cycle_percentage = 1 - self._min_duty_cycle_percentage
+        self._duty_cycle_lower_threshold: float = self._on_time_lower_threshold / self._on_time_upper_threshold
+        self._duty_cycle_upper_threshold: float = 1 - self._duty_cycle_lower_threshold
+        self._min_duty_cycle_percentage: float = self._duty_cycle_lower_threshold / 2
+        self._max_duty_cycle_percentage: float = 1 - self._min_duty_cycle_percentage
 
         _LOGGER.debug(
             "Initialized PWM control with duty cycle thresholds - Lower: %.2f%%, Upper: %.2f%%",
@@ -50,13 +51,13 @@ class PWM:
 
     def reset(self) -> None:
         """Reset the PWM control."""
-        self._cycles = 0
-        self._duty_cycle = None
-        self._state = PWMState.IDLE
-        self._last_update = monotonic()
+        self._cycles: int = 0
+        self._state: PWMState = PWMState.IDLE
+        self._last_update: float = monotonic()
+        self._duty_cycle: Tuple[int, int] | None = None
 
-        self._first_duty_cycle_start = None
-        self._last_duty_cycle_percentage = None
+        self._first_duty_cycle_start: float | None = None
+        self._last_duty_cycle_percentage: float | None = None
 
         _LOGGER.info("PWM control reset to initial state.")
 

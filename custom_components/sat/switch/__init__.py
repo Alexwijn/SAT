@@ -7,6 +7,7 @@ from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import SERVICE_TURN_ON, SERVICE_TURN_OFF, ATTR_ENTITY_ID, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
+from homeassistant.helpers.entity_registry import RegistryEntry
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 
@@ -21,7 +22,7 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         """Initialize."""
         super().__init__(hass, data, options)
 
-        self._entity = entity_registry.async_get(hass).async_get(entity_id)
+        self._entity: RegistryEntry = entity_registry.async_get(hass).async_get(entity_id)
 
     @property
     def device_id(self) -> str:

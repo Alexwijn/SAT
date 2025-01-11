@@ -5,7 +5,10 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
 
+from .heating_curve import HeatingCurve
 from .helpers import float_value
+from .pid import PID
+from .pwm import PWM
 from .util import (
     create_pwm_controller,
     create_pid_controller,
@@ -17,13 +20,13 @@ SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
 class Area:
     def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_id: str):
-        self._hass = None
-        self._entity_id = entity_id
+        self._entity_id: str = entity_id
+        self._hass: HomeAssistant | None = None
 
         # Create controllers with the given configuration options
-        self.pid = create_pid_controller(config_options)
-        self.heating_curve = create_heating_curve_controller(config_data, config_options)
-        self.pwm = create_pwm_controller(self.heating_curve, config_data, config_options)
+        self.pid: PID = create_pid_controller(config_options)
+        self.heating_curve: HeatingCurve = create_heating_curve_controller(config_data, config_options)
+        self.pwm: PWM = create_pwm_controller(self.heating_curve, config_data, config_options)
 
     @property
     def id(self) -> str:
@@ -75,18 +78,20 @@ class Area:
 
     async def async_control_heating_loop(self, _time=None) -> None:
         """Asynchronously control the heating loop."""
-        if (temperature_error := self.error) is not None:
-            # Control the integral (if exceeded the time limit)
-            self.pid.update_integral(temperature_error, self.heating_curve.value)
+        if self.error is None or self.heating_curve.value is None:
+            return
+
+        # Control the integral (if exceeded the time limit)
+        self.pid.update_integral(self.error, self.heating_curve.value)
 
 
 class Areas:
-    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_ids: list):
+    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_ids: list[str]):
         """Initialize Areas with multiple Area instances using shared config data and options."""
-        self._entity_ids = entity_ids
-        self._config_data = config_data
-        self._config_options = config_options
-        self._areas = [Area(config_data, config_options, entity_id) for entity_id in entity_ids]
+        self._entity_ids: list[str] = entity_ids
+        self._config_data: MappingProxyType[str, Any] = config_data
+        self._config_options: MappingProxyType[str, Any] = config_options
+        self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in entity_ids]
 
     @property
     def errors(self) -> List[float]:

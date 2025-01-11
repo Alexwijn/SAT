@@ -354,7 +354,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         pass
 
-    async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time=None) -> None:
         """Control the heating loop for the device."""
         # Update Flame State
         if not self.flame_active:

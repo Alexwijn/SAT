@@ -17,10 +17,10 @@ SLEEP_INTERVAL = 15  # Sleep interval in seconds
 class OvershootProtection:
     def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize OvershootProtection with a coordinator and heating system configuration."""
-        self._alpha = 0.5
-        self._coordinator = coordinator
-        self._stable_temperature = None
-        self._setpoint = OVERSHOOT_PROTECTION_SETPOINT.get(heating_system)
+        self._alpha: float = 0.5
+        self._stable_temperature: float | None = None
+        self._coordinator: SatDataUpdateCoordinator = coordinator
+        self._setpoint: int = OVERSHOOT_PROTECTION_SETPOINT.get(heating_system)
 
         if self._setpoint is None:
             raise ValueError(f"Invalid heating system: {heating_system}")

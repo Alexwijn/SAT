@@ -22,10 +22,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, ABC):
     def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         super().__init__(hass, data, options)
 
-        self.data = {}
-        self._device_id = device_id
-        self._topic = data.get(CONF_MQTT_TOPIC)
-        self._store = Store(hass, STORAGE_VERSION, snake_case(f"{self.__class__.__name__}_{device_id}"))
+        self.data: dict = {}
+        self._device_id: str = device_id
+        self._topic: str = data.get(CONF_MQTT_TOPIC)
+        self._store: Store = Store(hass, STORAGE_VERSION, snake_case(f"{self.__class__.__name__}_{device_id}"))
 
     @property
     def device_id(self) -> str:

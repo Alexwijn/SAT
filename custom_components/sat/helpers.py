@@ -24,7 +24,7 @@ def seconds_since(start_time: float | None) -> float:
     return monotonic() - start_time
 
 
-def convert_time_str_to_seconds(time_str: str) -> float:
+def convert_time_str_to_seconds(time_str: str) -> int:
     """
     Convert a time string in the format 'HH:MM:SS' to seconds.
 
@@ -32,11 +32,11 @@ def convert_time_str_to_seconds(time_str: str) -> float:
         time_str: A string representing a time in the format 'HH:MM:SS'.
 
     Returns:
-        float: The time in seconds.
+        int: The time in seconds.
     """
     date_time = dt.parse_time(time_str)
     # Calculate the number of seconds by multiplying the hours, minutes and seconds
-    return (date_time.hour * 3600) + (date_time.minute * 60) + date_time.second
+    return round((date_time.hour * 3600) + (date_time.minute * 60) + date_time.second, 0)
 
 
 def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: float):
