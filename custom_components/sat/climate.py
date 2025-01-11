@@ -587,10 +587,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
-        # Ignore any events if are (still) booting up
-        if self.hass.state is not CoreState.running:
-            return
-
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
@@ -628,7 +624,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_main_climate_changed(self, event: Event) -> None:
         """Handle changes to the main climate entity."""
-        # Ignore any events if are (still) booting up
         old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
         if new_state is None:
