@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from time import monotonic
 from typing import Optional, TYPE_CHECKING, Mapping, Any
 
@@ -84,7 +85,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = value
         await super().async_set_control_max_setpoint(value)
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time: Optional[datetime] = None) -> None:
         # Calculate the difference, so we know when to slowdown
         difference = abs(self._boiler_temperature - self.target)
         self.logger.debug(f"Target: {self.target}, Current: {self._boiler_temperature}, Difference: {difference}")

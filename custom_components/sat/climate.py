@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime
 from time import monotonic, time
 from typing import Optional
 
@@ -239,7 +239,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Let the coordinator know we are ready
         await self._coordinator.async_added_to_hass()
 
-    async def _register_event_listeners(self, _time=None):
+    async def _register_event_listeners(self, _time: Optional[datetime] = None):
         """Register event listeners."""
         self.async_on_remove(
             async_track_time_interval(
@@ -891,7 +891,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._sensors.append(entity_id)
 
-    async def async_control_heating_loop(self, _time=None) -> None:
+    async def async_control_heating_loop(self, _time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         # If the current, target or outside temperature is not available, do nothing
         if self.current_temperature is None or self.target_temperature is None or self.current_outside_temperature is None:
