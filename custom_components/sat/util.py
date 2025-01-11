@@ -49,7 +49,7 @@ def create_minimum_setpoint_controller(config_data, config_options) -> MinimumSe
 
 
 def create_heating_curve_controller(config_data, config_options) -> HeatingCurve:
-    """Create and return a PID controller instance with the given configuration options."""
+    """Create and return a Heating Curve controller instance with the given configuration options."""
     # Extract the configuration options
     heating_system = config_data.get(CONF_HEATING_SYSTEM)
     version = int(config_options.get(CONF_HEATING_CURVE_VERSION))

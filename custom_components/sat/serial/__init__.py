@@ -106,7 +106,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().minimum_hot_water_setpoint
 
     @property
-    def maximum_hot_water_setpoint(self) -> float | None:
+    def maximum_hot_water_setpoint(self) -> float:
         if (setpoint := self.get(DATA_SLAVE_DHW_MAX_SETP)) is not None:
             return float(setpoint)
 
