@@ -141,6 +141,12 @@
           "switch": "PID Thermostat (PWM On/Off mode)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "We have attempted to identify the most suitable manufacturer for your heating system based on your gateway type and device information. However, if this does not match your setup, you can select a different manufacturer from the list.",
+        "data": {
+          "manufacturer": "Manufacturer"
+        }
       }
     }
   },

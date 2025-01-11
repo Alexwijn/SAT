@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import *
-from .manufacturer import ManufacturerFactory, Manufacturer
+from .manufacturer import Manufacturer, ManufacturerFactory
 from .util import calculate_default_maximum_setpoint
 
 if TYPE_CHECKING:
@@ -68,14 +68,18 @@ class SatDataUpdateCoordinatorFactory:
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        self.boiler_temperatures = []
+        self._boiler_temperatures: list[tuple[datetime, float]] = []
 
-        self._data = data
-        self._manufacturer = None
-        self._options = options or {}
-        self._device_state = DeviceState.OFF
-        self._simulation = bool(self._options.get(CONF_SIMULATION))
-        self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
+        self._data: Mapping[str, Any] = data
+        self._options: Mapping[str, Any] = options or {}
+
+        self._manufacturer: Manufacturer | None = None
+        self._device_state: DeviceState = DeviceState.OFF
+        self._simulation: bool = bool(self._options.get(CONF_SIMULATION))
+        self._heating_system: str = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
+
+        if data.get(CONF_MANUFACTURER) is not None:
+            self._manufacturer = ManufacturerFactory.resolve_by_name(data.get(CONF_MANUFACTURER))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
@@ -96,12 +100,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def manufacturer(self) -> Manufacturer | None:
-        if self.member_id is None:
-            return None
-
-        if self._manufacturer is None:
-            self._manufacturer = ManufacturerFactory().resolve(self.member_id)
-
         return self._manufacturer
 
     @property
@@ -142,16 +140,16 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def filtered_boiler_temperature(self) -> float | None:
         # Not able to use if we do not have at least two values
-        if len(self.boiler_temperatures) < 2:
+        if len(self._boiler_temperatures) < 2:
             return self.boiler_temperature
 
         # Some noise filtering on the boiler temperature
         difference_boiler_temperature_sum = sum(
-            abs(j[1] - i[1]) for i, j in zip(self.boiler_temperatures, self.boiler_temperatures[1:])
+            abs(j[1] - i[1]) for i, j in zip(self._boiler_temperatures, self._boiler_temperatures[1:])
         )
 
         # Average it and return it
-        return round(difference_boiler_temperature_sum / (len(self.boiler_temperatures) - 1), 2)
+        return round(difference_boiler_temperature_sum / (len(self._boiler_temperatures) - 1), 2)
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
@@ -269,13 +267,18 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Control the heating loop for the device."""
         current_time = datetime.now()
 
+        # See if we can determine the manufacturer (deprecated)
+        if self._manufacturer is None and self.member_id is not None:
+            manufacturers = ManufacturerFactory.resolve_by_member_id(self.member_id)
+            self._manufacturer = manufacturers[0] if len(manufacturers) > 0 else None
+
         # Make sure we have valid value
         if self.boiler_temperature is not None:
-            self.boiler_temperatures.append((current_time, self.boiler_temperature))
+            self._boiler_temperatures.append((current_time, self.boiler_temperature))
 
         # Clear up any values that are older than the specified age
-        while self.boiler_temperatures and current_time - self.boiler_temperatures[0][0] > timedelta(seconds=MAX_BOILER_TEMPERATURE_AGE):
-            self.boiler_temperatures.pop()
+        while self._boiler_temperatures and current_time - self._boiler_temperatures[0][0] > timedelta(seconds=MAX_BOILER_TEMPERATURE_AGE):
+            self._boiler_temperatures.pop()
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
