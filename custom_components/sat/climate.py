@@ -555,7 +555,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return self._coordinator.minimum_setpoint > self._calculated_setpoint
 
         if self._minimum_setpoint_version == 1:
-            return self._minimum_setpoint.current() > self._calculated_setpoint
+            return self._minimum_setpoint.current > self._calculated_setpoint
 
         return self._pulse_width_modulation_enabled
 
@@ -569,8 +569,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def minimum_setpoint(self) -> float:
-        if self._dynamic_minimum_setpoint and self._setpoint_adjuster.current is not None:
-            return self._setpoint_adjuster.current
+        if self._dynamic_minimum_setpoint:
+            if self._minimum_setpoint_version == 1 and self._minimum_setpoint.current is not None:
+                return self._minimum_setpoint.current
+
+            if self._minimum_setpoint_version == 2 and self._setpoint_adjuster.current is not None:
+                return self._setpoint_adjuster.current
 
         return self._coordinator.minimum_setpoint
 
@@ -797,7 +801,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if pwm_state == PWMState.ON:
                 if self._dynamic_minimum_setpoint:
                     if self._minimum_setpoint_version == 1:
-                        self._setpoint = self._minimum_setpoint.current()
+                        self._setpoint = self._minimum_setpoint.current
 
                     if self._minimum_setpoint_version == 2:
                         if self._coordinator.flame_active and self._coordinator.device_status != DeviceStatus.PUMP_STARTING:
