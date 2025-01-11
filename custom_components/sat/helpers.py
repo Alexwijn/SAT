@@ -38,7 +38,9 @@ def convert_time_str_to_seconds(time_str: str) -> int:
         ValueError: If the time string format is invalid.
     """
     try:
+        # Parse the input into a valid date time object
         date_time = dt.parse_time(time_str)
+
         # Calculate the number of seconds
         return round((date_time.hour * 3600) + (date_time.minute * 60) + date_time.second, 0)
     except ValueError as e:
