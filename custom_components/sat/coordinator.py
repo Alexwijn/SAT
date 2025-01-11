@@ -77,7 +77,7 @@ class SatDataUpdateCoordinatorFactory:
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        self._boiler_temperatures: list[tuple[time, float]] = []
+        self._boiler_temperatures: list[tuple[float, float]] = []
         self._boiler_temperature_tracker = BoilerTemperatureTracker()
 
         self._flame_on_since = None
