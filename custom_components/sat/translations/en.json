@@ -182,6 +182,7 @@
           "heating_curve_version": "Heating Curve Version",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximum Setpoint",
+          "dynamic_minimum_setpoint_version": "Minimum Setpoint Controller Version",
           "pid_controller_version": "PID Controller Version",
           "proportional": "Proportional (kP)",
           "sync_with_thermostat": "Synchronize setpoint with thermostat",

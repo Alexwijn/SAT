@@ -4,6 +4,7 @@ from typing import Any
 from .const import *
 from .heating_curve import HeatingCurve
 from .helpers import convert_time_str_to_seconds
+from .minimum_setpoint import MinimumSetpoint
 from .pid import PID
 from .pwm import PWM
 
@@ -37,6 +38,16 @@ def create_pid_controller(config_options) -> PID:
     )
 
 
+def create_minimum_setpoint_controller(config_data, config_options) -> MinimumSetpoint:
+    """Create and return a Minimum Setpoint controller instance with the given configuration options."""
+    # Extract the configuration options
+    minimum_setpoint = config_data.get(CONF_MINIMUM_SETPOINT)
+    adjustment_factor = config_options.get(CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR)
+
+    # Return a new Minimum Setpoint controller instance with the given configuration options
+    return MinimumSetpoint(configured_minimum_setpoint=minimum_setpoint, adjustment_factor=adjustment_factor)
+
+
 def create_heating_curve_controller(config_data, config_options) -> HeatingCurve:
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
@@ -44,7 +55,7 @@ def create_heating_curve_controller(config_data, config_options) -> HeatingCurve
     version = int(config_options.get(CONF_HEATING_CURVE_VERSION))
     coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
 
-    # Return a new heating Curve controller instance with the given configuration options
+    # Return a new Heating Curve controller instance with the given configuration options
     return HeatingCurve(heating_system=heating_system, coefficient=coefficient, version=version)
 
 

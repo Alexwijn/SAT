@@ -551,6 +551,14 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             ])
         )
 
+        if options[CONF_DYNAMIC_MINIMUM_SETPOINT]:
+            schema[vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION, default=str(options[CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value="1", label="Return Temperature"),
+                    selector.SelectOptionDict(value="2", label="Boiler Temperature"),
+                ])
+            )
+
         if len(self._config_entry.data.get(CONF_SECONDARY_CLIMATES, [])) > 0:
             schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[

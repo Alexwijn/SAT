@@ -45,7 +45,7 @@ from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .setpoint_adjuster import SetpointAdjuster
 from .summer_simmer import SummerSimmer
-from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller
+from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_minimum_setpoint_controller
 
 ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
@@ -168,6 +168,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sync_climates_with_mode = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_MODE))
         self._sync_climates_with_preset = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
         self._maximum_relative_modulation = int(config_options.get(CONF_MAXIMUM_RELATIVE_MODULATION))
+        self._minimum_setpoint_version = bool(config_options.get(CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION))
         self._force_pulse_width_modulation = bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
@@ -186,6 +187,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Create Heating Curve controller with given configuration options
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
+
+        # Create the Minimum Setpoint controller
+        self._minimum_setpoint = create_minimum_setpoint_controller(config_entry.data, config_options)
 
         # Create PWM controller with given configuration options
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
@@ -206,9 +210,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
 
-        # Register event listeners
-        await self._register_event_listeners()
-
         # Restore previous state if available, or set default values
         await self._restore_previous_state_or_set_defaults()
 
@@ -218,8 +219,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         if self.hass.state is not CoreState.running:
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._register_event_listeners)
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.async_control_heating_loop)
         else:
+            await self._register_event_listeners()
             await self.async_control_heating_loop()
 
         # Register services
@@ -231,7 +234,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Let the coordinator know we are ready
         await self._coordinator.async_added_to_hass()
 
-    async def _register_event_listeners(self):
+    async def _register_event_listeners(self, _time=None):
         """Register event listeners."""
         self.async_on_remove(
             async_track_time_interval(
@@ -545,11 +548,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        if not self._overshoot_protection:
+        if not self._overshoot_protection or self._calculated_setpoint is None:
             return False
 
         if not self._dynamic_minimum_setpoint:
             return self._coordinator.minimum_setpoint > self._calculated_setpoint
+
+        if self._minimum_setpoint_version == 1:
+            return self._minimum_setpoint.current() > self._calculated_setpoint
 
         return self._pulse_width_modulation_enabled
 
@@ -598,10 +604,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_outside_entity_changed(self, event: Event) -> None:
         """Handle changes to the outside entity."""
-        # Ignore any events if are (still) booting up
-        if self.hass.state is not CoreState.running:
-            return
-
         if event.data.get("new_state") is None:
             return
 
@@ -613,10 +615,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_humidity_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
-        # Ignore any events if are (still) booting up
-        if self.hass.state is not CoreState.running:
-            return
-
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
@@ -631,9 +629,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def _async_main_climate_changed(self, event: Event) -> None:
         """Handle changes to the main climate entity."""
         # Ignore any events if are (still) booting up
-        if self.hass.state is not CoreState.running:
-            return
-
         old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
         if new_state is None:
@@ -648,10 +643,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         If the state, target temperature, or current temperature of the climate
         entity has changed, update the PID controller and heating control.
         """
-        # Ignore any events if are (still) booting up
-        if self.hass.state is not CoreState.running:
-            return
-
         # Get the new state of the climate entity
         new_state = event.data.get("new_state")
 
@@ -710,10 +701,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_window_sensor_changed(self, event: Event) -> None:
         """Handle changes to the contact sensor entity."""
-        # Ignore any events if are (still) booting up
-        if self.hass.state is not CoreState.running:
-            return
-
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
@@ -748,10 +735,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_pid(self, reset: bool = False) -> None:
         """Control the PID controller."""
-        # Ignore any events if are (still) booting up
-        if self.hass.state is not CoreState.running:
-            return
-
         # We can't continue if we don't have a valid outside temperature
         if self.current_outside_temperature is None:
             return
@@ -818,15 +801,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if pwm_state == PWMState.ON:
                 if self._dynamic_minimum_setpoint:
-                    if self._coordinator.flame_active and self._coordinator.device_status != DeviceStatus.PUMP_STARTING:
-                        self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
-                    elif self._setpoint_adjuster.current is not None:
-                        self._setpoint = self._setpoint_adjuster.current
-                    elif not self._coordinator.flame_active:
-                        self._setpoint = self._coordinator.boiler_temperature + 10
-                    elif self._setpoint is None:
-                        _LOGGER.debug("Setpoint not available.")
-                        return
+                    if self._minimum_setpoint_version == 1:
+                        self._setpoint = self._minimum_setpoint.current()
+
+                    if self._minimum_setpoint_version == 2:
+                        if self._coordinator.flame_active and self._coordinator.device_status != DeviceStatus.PUMP_STARTING:
+                            self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
+                        elif self._setpoint_adjuster.current is not None:
+                            self._setpoint = self._setpoint_adjuster.current
+                        elif not self._coordinator.flame_active:
+                            self._setpoint = self._coordinator.boiler_temperature + 10
+                        elif self._setpoint is None:
+                            _LOGGER.debug("Setpoint not available.")
+                            return
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 
@@ -948,6 +935,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Control our areas
         await self._areas.async_control_heating_loops()
+
+        # Control our dynamic minimum setpoint (version 1)
+        if not self._coordinator.hot_water_active and self._coordinator.flame_active:
+            # Calculate the base return temperature
+            if self._coordinator.device_status == DeviceStatus.HEATING_UP:
+                self._minimum_setpoint.warming_up(self._coordinator.return_temperature)
+
+            # Calculate the dynamic minimum setpoint
+            self._minimum_setpoint.calculate(self._coordinator.return_temperature)
 
         # If the setpoint is high or PWM is on, turn on the heater
         await self.async_set_heater_state(DeviceState.ON if self._setpoint > MINIMUM_SETPOINT else DeviceState.OFF)
