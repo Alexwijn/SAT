@@ -142,6 +142,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Add features based on compatibility
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
 
+        # Conditionally add TURN_ON if it exists
+        if hasattr(ClimateEntityFeature, 'TURN_ON'):
+            self._attr_supported_features |= ClimateEntityFeature.TURN_ON
+
         # Conditionally add TURN_OFF if it exists
         if hasattr(ClimateEntityFeature, 'TURN_OFF'):
             self._attr_supported_features |= ClimateEntityFeature.TURN_OFF

@@ -28,6 +28,7 @@ MAX_BOILER_TEMPERATURE_AGE = 60
 CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
+CONF_MANUFACTURER = "manufacturer"
 CONF_ERROR_MONITORING = "error_monitoring"
 CONF_CYCLES_PER_HOUR = "cycles_per_hour"
 CONF_SIMULATED_HEATING = "simulated_heating"

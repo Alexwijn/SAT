@@ -25,6 +25,7 @@ from voluptuous import UNDEFINED
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
+from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .helpers import calculate_default_maximum_setpoint, snake_case
 from .overshoot_protection import OvershootProtection
 from .validators import valid_serial_device
@@ -113,6 +114,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
         """Entry step to select the MQTT mode and branch to specific setup."""
+
         if _user_input is not None:
             self.errors = {}
             self.data.update(_user_input)
@@ -353,7 +355,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not self.data[CONF_AUTOMATIC_GAINS]:
                 return await self.async_step_pid_controller()
 
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
             last_step=False,
@@ -439,9 +441,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
 
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
+            last_step=False,
             step_id="overshoot_protection",
             data_schema=vol.Schema({
                 vol.Required(CONF_MINIMUM_SETPOINT, default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT])): selector.NumberSelector(
@@ -455,14 +458,44 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if _user_input is not None:
             self.data.update(_user_input)
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
+            last_step=False,
             step_id="pid_controller",
             data_schema=vol.Schema({
                 vol.Required(CONF_PROPORTIONAL, default=self.data.get(CONF_PROPORTIONAL, OPTIONS_DEFAULTS[CONF_PROPORTIONAL])): str,
                 vol.Required(CONF_INTEGRAL, default=self.data.get(CONF_INTEGRAL, OPTIONS_DEFAULTS[CONF_INTEGRAL])): str,
                 vol.Required(CONF_DERIVATIVE, default=self.data.get(CONF_DERIVATIVE, OPTIONS_DEFAULTS[CONF_DERIVATIVE])): str
+            })
+        )
+
+    async def async_step_manufacturer(self, _user_input: dict[str, Any] | None = None):
+        if _user_input is not None:
+            self.data.update(_user_input)
+            return await self.async_step_finish()
+
+        coordinator = await self.async_create_coordinator()
+        await coordinator.async_setup()
+
+        try:
+            manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
+            default_manufacturer = manufacturers[0].name if len(manufacturers) > 0 else None
+        finally:
+            await coordinator.async_will_remove_from_hass()
+
+        options = []
+        for name, _info in MANUFACTURERS.items():
+            manufacturer = ManufacturerFactory.resolve_by_name(name)
+            options.append({"value": name, "label": manufacturer.name})
+
+        return self.async_show_form(
+            last_step=True,
+            step_id="manufacturer",
+            data_schema=vol.Schema({
+                vol.Required(CONF_MANUFACTURER, default=default_manufacturer): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=options)
+                )
             })
         )
 
@@ -486,14 +519,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
-    def _create_mqtt_form(self, step_id: str, default_topic: str, default_device: str = None):
+    def _create_mqtt_form(self, step_id: str, default_topic: str = None, default_device: str = None):
         """Create a common MQTT configuration form."""
-        schema = {
-            vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-            vol.Required(CONF_MQTT_TOPIC, default=default_topic): str,
-        }
+        schema = {vol.Required(CONF_NAME, default=DEFAULT_NAME): str}
 
-        if default_device:
+        if default_topic and not self.data.get(CONF_MQTT_TOPIC):
+            schema[vol.Required(CONF_MQTT_TOPIC, default=default_topic)] = str
+
+        if default_device and not self.data.get(CONF_DEVICE):
             schema[vol.Required(CONF_DEVICE, default=default_device)] = str
 
         return self.async_show_form(

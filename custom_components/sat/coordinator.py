@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .boiler import BoilerTemperatureTracker
 from .const import *
 from .helpers import calculate_default_maximum_setpoint, seconds_since
-from .manufacturer import ManufacturerFactory, Manufacturer
+from .manufacturer import Manufacturer, ManufacturerFactory
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -77,17 +77,22 @@ class SatDataUpdateCoordinatorFactory:
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        self._boiler_temperatures = []
+        self._boiler_temperatures: list[tuple[time, float]] = []
+        self._boiler_temperature_tracker = BoilerTemperatureTracker()
 
         self._flame_on_since = None
         self._heater_on_since = None
 
-        self._data = data
-        self._manufacturer = None
-        self._options = options or {}
-        self._simulation = bool(self._options.get(CONF_SIMULATION))
-        self._boiler_temperature_tracker = BoilerTemperatureTracker()
-        self._heating_system = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
+        self._data: Mapping[str, Any] = data
+        self._options: Mapping[str, Any] = options or {}
+
+        self._manufacturer: Manufacturer | None = None
+        self._device_state: DeviceState = DeviceState.OFF
+        self._simulation: bool = bool(self._options.get(CONF_SIMULATION))
+        self._heating_system: str = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
+
+        if data.get(CONF_MANUFACTURER) is not None:
+            self._manufacturer = ManufacturerFactory.resolve_by_name(data.get(CONF_MANUFACTURER))
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
@@ -147,12 +152,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def manufacturer(self) -> Manufacturer | None:
-        if self.member_id is None:
-            return None
-
-        if self._manufacturer is None:
-            self._manufacturer = ManufacturerFactory().resolve(self.member_id)
-
         return self._manufacturer
 
     @property
@@ -362,6 +361,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             self._flame_on_since = None
         elif self._flame_on_since is None:
             self._flame_on_since = monotonic()
+
+        # See if we can determine the manufacturer (deprecated)
+        if self._manufacturer is None and self.member_id is not None:
+            manufacturers = ManufacturerFactory.resolve_by_member_id(self.member_id)
+            self._manufacturer = manufacturers[0] if len(manufacturers) > 0 else None
 
         # Nothing further to do without the temperature
         if self.boiler_temperature is None:
