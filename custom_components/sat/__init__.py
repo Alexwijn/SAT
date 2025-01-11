@@ -39,9 +39,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Create a new dictionary for this entry
     hass.data[DOMAIN][entry.entry_id] = {}
 
-    # Setup error monitoring (if enabled)
-    if entry.options.get(CONF_ERROR_MONITORING, OPTIONS_DEFAULTS[CONF_ERROR_MONITORING]):
-        await hass.async_add_executor_job(initialize_sentry, hass)
+    try:
+        # Setup error monitoring (if enabled)
+        if entry.options.get(CONF_ERROR_MONITORING, OPTIONS_DEFAULTS[CONF_ERROR_MONITORING]):
+            await hass.async_add_executor_job(initialize_sentry, hass)
+    except Exception as ex:
+        _LOGGER.error("Error during Sentry initialization: %s", str(ex))
 
     # Resolve the coordinator by using the factory according to the mode
     hass.data[DOMAIN][entry.entry_id][COORDINATOR] = SatDataUpdateCoordinatorFactory().resolve(
