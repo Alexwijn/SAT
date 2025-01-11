@@ -25,18 +25,7 @@ def seconds_since(start_time: float | None) -> float:
 
 
 def convert_time_str_to_seconds(time_str: str) -> int:
-    """
-    Convert a time string in the format 'HH:MM:SS' to seconds.
-
-    Args:
-        time_str: A string representing a time in the format 'HH:MM:SS'.
-
-    Returns:
-        int: The time in seconds.
-
-    Raises:
-        ValueError: If the time string format is invalid.
-    """
+    """Convert a time string in the format 'HH:MM:SS' to seconds."""
     try:
         # Parse the input into a valid date time object
         date_time = dt.parse_time(time_str)
@@ -61,6 +50,7 @@ def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: 
 
 
 def calculate_default_maximum_setpoint(heating_system: str) -> int:
+    """Determine the default maximum temperature for a given heating system."""
     if heating_system == HEATING_SYSTEM_UNDERFLOOR:
         return 50
 
@@ -68,6 +58,7 @@ def calculate_default_maximum_setpoint(heating_system: str) -> int:
 
 
 def snake_case(value: str) -> str:
+    """Transform a string from CamelCase or kebab-case to snake_case."""
     return '_'.join(
         sub('([A-Z][a-z]+)', r' \1',
             sub('([A-Z]+)', r' \1',
@@ -75,7 +66,7 @@ def snake_case(value: str) -> str:
 
 
 def float_value(value) -> float | None:
-    """Helper method to convert a value to float, handling possible errors."""
+    """Safely convert a value to a float, returning None if conversion fails."""
     try:
         return float(value)
     except (TypeError, ValueError):
