@@ -245,7 +245,7 @@ class PID:
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
 
-        if last_raw_derivative := state.attributes.get("raw_derivative"):
+        if last_raw_derivative := state.attributes.get("derivative_raw"):
             self._raw_derivative = last_raw_derivative
 
         if last_heating_curve := state.attributes.get("heating_curve"):
