@@ -64,8 +64,6 @@ CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
-CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
-CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
 CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
@@ -73,6 +71,10 @@ CONF_HEATING_CURVE_VERSION = "heating_curve_version"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
 CONF_PID_CONTROLLER_VERSION = "pid_controller_version"
+
+CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
+CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION = "dynamic_minimum_setpoint_version"
+CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
 CONF_MAXIMUM_CONSUMPTION = "maximum_consumption"
@@ -146,6 +148,7 @@ OPTIONS_DEFAULTS = {
     CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
 
     CONF_PID_CONTROLLER_VERSION: 3,
+    CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION: 1,
 }
 
 # Overshoot protection

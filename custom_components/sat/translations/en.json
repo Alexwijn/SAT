@@ -188,7 +188,7 @@
           "heating_curve_version": "Heating Curve Version",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximum Setpoint",
-          "minimum_setpoint_adjustment_factor": "Adjustment Factor for Return Temperature",
+          "dynamic_minimum_setpoint_version": "Minimum Setpoint Controller Version",
           "pid_controller_version": "PID Controller Version",
           "proportional": "Proportional (kP)",
           "sync_with_thermostat": "Synchronize setpoint with thermostat",
@@ -203,7 +203,6 @@
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
           "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
           "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
-          "minimum_setpoint_adjustment_factor": "This factor adjusts the heating setpoint based on the boiler's return temperature, affecting heating responsiveness and efficiency. A higher value increases sensitivity to temperature changes, enhancing control over comfort and energy use. Recommended starting range is 0.1 to 0.5. Adjust to suit your system and comfort preferences.",
           "proportional": "The proportional term (kP) in the PID controller, responsible for the immediate response to errors.",
           "sync_with_thermostat": "Synchronize setpoint with thermostat to ensure coordinated temperature control.",
           "window_sensors": "Contact Sensors that trigger the system to react when a window or door is open for a period of time."

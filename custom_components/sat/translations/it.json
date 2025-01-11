@@ -181,7 +181,6 @@
           "heating_curve_version": "Versione della Curva di Riscaldamento",
           "integral": "Integrale (kI)",
           "maximum_setpoint": "Setpoint Massimo",
-          "minimum_setpoint_adjustment_factor": "Fattore di regolazione del punto di impostazione minimo",
           "pid_controller_version": "Versione del controllore PID",
           "proportional": "Proporzionale (kP)",
           "sync_with_thermostat": "Sincronizza setpoint con termostato",
@@ -196,7 +195,6 @@
           "heating_curve_coefficient": "Il coefficiente utilizzato per regolare la curva di riscaldamento.",
           "integral": "Il termine integrale (kI) nel controllore PID, responsabile della riduzione dell'errore in stato stazionario.",
           "maximum_setpoint": "La temperatura ottimale per un funzionamento efficiente della caldaia.",
-          "minimum_setpoint_adjustment_factor": "Questo fattore regola il punto di impostazione del riscaldamento in base alla temperatura di ritorno della caldaia, influenzando la reattività e l'efficienza del riscaldamento. Un valore più alto aumenta la sensibilità ai cambiamenti di temperatura, migliorando il controllo del comfort e del consumo energetico. L'intervallo di partenza consigliato è da 0,1 a 0,5. Regolare per adattarsi al proprio sistema e alle preferenze di comfort.",
           "proportional": "Il termine proporzionale (kP) nel controllore PID, responsabile della risposta immediata agli errori.",
           "sync_with_thermostat": "Sincronizza il setpoint con il termostato per garantire un controllo coordinato della temperatura.",
           "window_sensors": "Sensori di Contatto che attivano il sistema quando una finestra o una porta è aperta per un periodo di tempo."

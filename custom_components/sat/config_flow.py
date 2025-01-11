@@ -26,8 +26,8 @@ from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .manufacturer import ManufacturerFactory, MANUFACTURERS
+from .helpers import calculate_default_maximum_setpoint, snake_case
 from .overshoot_protection import OvershootProtection
-from .util import calculate_default_maximum_setpoint, snake_case
 from .validators import valid_serial_device
 
 DEFAULT_NAME = "Living Room"
@@ -583,6 +583,14 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 selector.SelectOptionDict(value="3", label="Adaptive Controller")
             ])
         )
+
+        if options[CONF_DYNAMIC_MINIMUM_SETPOINT]:
+            schema[vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION, default=str(options[CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value="1", label="Return Temperature"),
+                    selector.SelectOptionDict(value="2", label="Boiler Temperature"),
+                ])
+            )
 
         if len(self._config_entry.data.get(CONF_SECONDARY_CLIMATES, [])) > 0:
             schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
