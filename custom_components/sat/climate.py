@@ -897,6 +897,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.current_temperature is None or self.target_temperature is None or self.current_outside_temperature is None:
             return
 
+        # No need to do anything if we are not on
         if self.hvac_mode != HVACMode.HEAT:
             return
 

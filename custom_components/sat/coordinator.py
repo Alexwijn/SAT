@@ -233,13 +233,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def boiler_temperature_cold(self) -> float | None:
         for timestamp, temperature in reversed(self._boiler_temperatures):
-            if self._device_on_since is not None and timestamp > self._device_on_since:
-                continue
+            if self._device_on_since is None or self._device_on_since > timestamp:
+                return temperature
 
-            if self._flame_on_since is not None and timestamp > self._flame_on_since:
-                continue
-
-            return temperature
+            if self._flame_on_since is None or self._flame_on_since > timestamp:
+                return temperature
 
         return None
 
