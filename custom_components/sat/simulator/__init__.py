@@ -117,7 +117,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
             return self.minimum_setpoint
 
         # State check
-        if not self._heater_on_since or (monotonic() - self._heater_on_since) < self._warming_up:
+        if not self._device_on_since or (monotonic() - self._device_on_since) < self._warming_up:
             return MINIMUM_SETPOINT
 
         return self.setpoint

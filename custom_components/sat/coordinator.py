@@ -83,7 +83,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._boiler_temperature_tracker = BoilerTemperatureTracker()
 
         self._flame_on_since = None
-        self._heater_on_since = None
+        self._device_on_since = None
 
         self._data: Mapping[str, Any] = data
         self._options: Mapping[str, Any] = options or {}
@@ -184,7 +184,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def heater_on_since(self) -> float | None:
-        return self._heater_on_since
+        return self._device_on_since
 
     @property
     def hot_water_active(self) -> bool:
@@ -233,7 +233,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def boiler_temperature_cold(self) -> float | None:
         for timestamp, temperature in reversed(self._boiler_temperatures):
-            if self._heater_on_since is not None and timestamp > self._heater_on_since:
+            if self._device_on_since is not None and timestamp > self._device_on_since:
                 continue
 
             if self._flame_on_since is not None and timestamp > self._flame_on_since:
@@ -367,6 +367,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         elif self._flame_on_since is None:
             self._flame_on_since = monotonic()
 
+        # Update Device State
+        if not self.device_active:
+            self._device_on_since = None
+        elif self._device_on_since is None:
+            self._device_on_since = monotonic()
+
         # See if we can determine the manufacturer (deprecated)
         if self._manufacturer is None and self.member_id is not None:
             manufacturers = ManufacturerFactory.resolve_by_member_id(self.member_id)
@@ -400,7 +406,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
-        self._heater_on_since = monotonic() if state == DeviceState.ON else None
         _LOGGER.info("Set central heater state %s", state)
 
     async def async_set_control_setpoint(self, value: float) -> None:
