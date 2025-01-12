@@ -27,15 +27,17 @@ class DeviceState(str, Enum):
 
 
 class DeviceStatus(str, Enum):
+    FLAME_OFF = "flame_off"
     HOT_WATER = "hot_water"
     PREHEATING = "preheating"
     HEATING_UP = "heating_up"
     AT_SETPOINT = "at_setpoint"
     COOLING_DOWN = "cooling_down"
     PUMP_STARTING = "pump_starting"
-    WAITING_FOR_FLAME = "waiting for flame"
+    WAITING_FOR_FLAME = "waiting_for_flame"
     OVERSHOOT_HANDLING = "overshoot_handling"
 
+    OFF = "off"
     UNKNOWN = "unknown"
     INITIALIZING = "initializing"
 
@@ -116,7 +118,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             return DeviceStatus.HOT_WATER
 
         if self.setpoint is None or self.setpoint <= MINIMUM_SETPOINT:
-            return DeviceStatus.COOLING_DOWN
+            return DeviceStatus.OFF
 
         if self.device_active:
             if (
@@ -146,7 +148,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             return DeviceStatus.AT_SETPOINT
 
         if self.setpoint < self.boiler_temperature:
-            return DeviceStatus.COOLING_DOWN
+            if self.flame_active:
+                return DeviceStatus.COOLING_DOWN
+
+            return DeviceStatus.FLAME_OFF
 
         return DeviceStatus.UNKNOWN
 
