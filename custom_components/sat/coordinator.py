@@ -145,6 +145,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.boiler_temperature > self.setpoint:
             if self.flame_active:
                 if self._boiler_temperature_tracker.active:
+                    if self.boiler_temperature - self.setpoint > 2:
+                        return DeviceStatus.HEATING_UP
+
                     return DeviceStatus.NEAR_SETPOINT
 
                 return DeviceStatus.OVERSHOOT_HANDLING
