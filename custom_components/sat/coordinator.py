@@ -143,7 +143,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
                 return DeviceStatus.OVERSHOOT_HANDLING
 
-        if self.setpoint == self.boiler_temperature:
+        if abs(self.setpoint - self.boiler_temperature) <= DEADBAND:
             return DeviceStatus.AT_SETPOINT
 
         if self.boiler_temperature > self.setpoint:
@@ -151,7 +151,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 if self._boiler_temperature_tracker or self._is_flame_recent_or_cold_temperature_is_higher():
                     return DeviceStatus.COOLING_DOWN
 
-                if self.boiler_temperature - 2 == self.setpoint:
+                if abs((self.boiler_temperature - 2) - self.setpoint) <= DEADBAND:
                     return DeviceStatus.OVERSHOOT_STABILIZED
 
                 return DeviceStatus.OVERSHOOT_HANDLING
