@@ -32,6 +32,7 @@ class DeviceStatus(str, Enum):
     HEATING_UP = "heating_up"
     AT_SETPOINT = "at_setpoint"
     COOLING_DOWN = "cooling_down"
+    NEAR_SETPOINT = "near_setpoint"
     PUMP_STARTING = "pump_starting"
     WAITING_FOR_FLAME = "waiting_for_flame"
     OVERSHOOT_HANDLING = "overshoot_handling"
@@ -144,7 +145,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.boiler_temperature > self.setpoint:
             if self.flame_active:
                 if self._boiler_temperature_tracker.active:
-                    return DeviceStatus.COOLING_DOWN
+                    if self.boiler_temperature - self.setpoint > 2:
+                        return DeviceStatus.COOLING_DOWN
+
+                    return DeviceStatus.NEAR_SETPOINT
 
                 return DeviceStatus.OVERSHOOT_HANDLING
 
