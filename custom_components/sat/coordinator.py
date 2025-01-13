@@ -79,6 +79,7 @@ class SatDataUpdateCoordinatorFactory:
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
+        self._boiler_temperature_cold: float | None = None
         self._boiler_temperatures: list[tuple[float, float]] = []
         self._boiler_temperature_tracker = BoilerTemperatureTracker()
 
@@ -232,14 +233,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def boiler_temperature_cold(self) -> float | None:
-        for timestamp, temperature in reversed(self._boiler_temperatures):
-            if self._device_on_since is None or self._device_on_since > timestamp:
-                return temperature
-
-            if self._flame_on_since is None or self._flame_on_since > timestamp:
-                return temperature
-
-        return None
+        return self._boiler_temperature_cold
 
     @property
     def boiler_temperature_tracking(self) -> bool:
@@ -401,6 +395,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             for timestamp, temperature in self._boiler_temperatures
             if seconds_since(timestamp) <= MAX_BOILER_TEMPERATURE_AGE
         ]
+
+        # Update the cold temperature of the boiler
+        for timestamp, temperature in reversed(self._boiler_temperatures):
+            if self._device_on_since is None or self._device_on_since > timestamp:
+                self._boiler_temperature_cold = temperature
+
+            if self._flame_on_since is None or self._flame_on_since > timestamp:
+                self._boiler_temperature_cold = temperature
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
