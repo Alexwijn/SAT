@@ -428,16 +428,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Control the setpoint temperature for the thermostat."""
         pass
 
-    def _is_flame_recent_or_cold_temperature_is_higher(self):
-        """Check if the flame is recent or the cold temperature is higher than the boiler temperature."""
-        if seconds_since(self._flame_on_since) <= 6:
-            return True
-
-        if self.boiler_temperature_cold is not None and self.boiler_temperature_cold > self.boiler_temperature:
-            return True
-
-        return False
-
     def _get_latest_boiler_cold_temperature(self) -> float | None:
         """Get the latest boiler cold temperature based on recent boiler temperatures."""
         for timestamp, temperature in reversed(self._boiler_temperatures):
