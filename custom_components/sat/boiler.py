@@ -70,7 +70,7 @@ class BoilerTemperatureTracker:
             self._last_setpoint = setpoint
 
         if setpoint < self._last_setpoint and not self._adjusting_to_lower_setpoint:
-           self._handle_setpoint_decrease()
+            self._handle_setpoint_decrease()
 
         if not flame_active:
             self._handle_flame_inactive()
@@ -106,9 +106,6 @@ class BoilerTemperatureTracker:
         """Handle boiler temperature tracking logic."""
         if not self._warming_up and boiler_temperature_derivative == 0:
             return self._stop_tracking("Temperature not changing.", boiler_temperature, setpoint)
-
-        if setpoint <= boiler_temperature - EXCEED_SETPOINT_MARGIN:
-            return self._stop_tracking("Exceeds setpoint significantly.", boiler_temperature, setpoint)
 
         if setpoint > boiler_temperature and setpoint - STABILIZATION_MARGIN < boiler_temperature < self._last_boiler_temperature:
             return self._stop_warming_up("Stabilizing below setpoint.", boiler_temperature, setpoint)
