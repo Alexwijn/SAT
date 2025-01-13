@@ -134,10 +134,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 return DeviceStatus.WAITING_FOR_FLAME
 
             if self.flame_active:
-                if (
-                        seconds_since(self._flame_on_since) <= 6
-                        or (self.boiler_temperature_cold is not None and self.boiler_temperature_cold > self.boiler_temperature)
-                ):
+                if self._is_flame_recent_or_cold_temperature_is_higher():
                     return DeviceStatus.PREHEATING
 
                 if self._boiler_temperature_tracker.active:
@@ -148,9 +145,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.setpoint == self.boiler_temperature:
             return DeviceStatus.AT_SETPOINT
 
-        if self.setpoint < self.boiler_temperature:
+        if self.boiler_temperature > self.setpoint:
             if self.flame_active:
-                return DeviceStatus.COOLING_DOWN
+                if self._is_flame_recent_or_cold_temperature_is_higher():
+                    return DeviceStatus.COOLING_DOWN
+
+                return DeviceStatus.OVERSHOOT_HANDLING
 
             return DeviceStatus.FLAME_OFF
 
@@ -431,6 +431,16 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         """Control the setpoint temperature for the thermostat."""
         pass
+
+    def _is_flame_recent_or_cold_temperature_is_higher(self):
+        """Check if the flame is recent or the cold temperature is higher than the boiler temperature."""
+        if seconds_since(self._flame_on_since) <= 6:
+            return True
+
+        if self.boiler_temperature_cold is not None and self.boiler_temperature_cold > self.boiler_temperature:
+            return True
+
+        return False
 
 
 class SatEntityCoordinator(DataUpdateCoordinator):

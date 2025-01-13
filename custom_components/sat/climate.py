@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from datetime import timedelta, datetime
 from time import monotonic, time
 from typing import Optional
@@ -914,14 +915,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Check for overshoot
         if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
             self._pulse_width_modulation_enabled = True
+            _LOGGER.info("Overshoot Handling detected, enabling Pulse Width Modulation.")
 
         # Check if we are above the overshoot temperature
         if (
                 self._setpoint_adjuster.current is not None and
                 self._coordinator.device_status == DeviceStatus.COOLING_DOWN and
-                self._calculated_setpoint > self._setpoint_adjuster.current + 2
+                math.floor(self._calculated_setpoint) > self._setpoint_adjuster.current + 2
         ):
             self._pulse_width_modulation_enabled = False
+            _LOGGER.info("Setpoint stabilization detected, disabling Pulse Width Modulation.")
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
