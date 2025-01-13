@@ -815,7 +815,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                         elif self._setpoint_adjuster.current is not None:
                             self._setpoint = self._setpoint_adjuster.current
                         elif not self._coordinator.flame_active:
-                            self._setpoint = self._coordinator.boiler_temperature + 10
+                            self._setpoint = self._setpoint_adjuster.force(self._coordinator.boiler_temperature + 10)
                         elif self._setpoint is None:
                             _LOGGER.debug("Setpoint not available.")
                             return

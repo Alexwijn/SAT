@@ -21,10 +21,16 @@ class SetpointAdjuster:
         """Reset the setpoint."""
         self._current = None
 
+    def force(self, target_setpoint: float) -> float:
+        """Force setpoint."""
+        self._current = target_setpoint
+
+        return self._current
+
     def adjust(self, target_setpoint: float) -> float:
         """Gradually adjust the current setpoint toward the target setpoint."""
         if self._current is None:
-            self._current = target_setpoint + INITIAL_OFFSET
+            self._current = target_setpoint
 
         previous_setpoint = self._current
 
