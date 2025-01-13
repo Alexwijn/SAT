@@ -401,12 +401,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         ]
 
         # Update the cold temperature of the boiler
-        for timestamp, temperature in reversed(self._boiler_temperatures):
-            if self._device_on_since is None or self._device_on_since > timestamp:
-                self._boiler_temperature_cold = temperature
-
-            if self._flame_on_since is None or self._flame_on_since > timestamp:
-                self._boiler_temperature_cold = temperature
+        if boiler_temperature_cold := self._get_latest_boiler_cold_temperature():
+            self._boiler_temperature_cold = boiler_temperature_cold
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
@@ -445,6 +441,17 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             return True
 
         return False
+
+    def _get_latest_boiler_cold_temperature(self) -> float | None:
+        """Get the latest boiler cold temperature based on recent boiler temperatures."""
+        for timestamp, temperature in reversed(self._boiler_temperatures):
+            if self._device_on_since is None or self._device_on_since > timestamp:
+                return temperature
+
+            if self._flame_on_since is None or self._flame_on_since > timestamp:
+                return temperature
+
+        return None
 
 
 class SatEntityCoordinator(DataUpdateCoordinator):
