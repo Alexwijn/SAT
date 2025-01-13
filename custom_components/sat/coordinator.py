@@ -27,18 +27,18 @@ class DeviceState(str, Enum):
 
 
 class DeviceStatus(str, Enum):
-    FLAME_OFF = "flame_off"
     HOT_WATER = "hot_water"
     PREHEATING = "preheating"
     HEATING_UP = "heating_up"
     AT_SETPOINT = "at_setpoint"
     COOLING_DOWN = "cooling_down"
+    NEAR_SETPOINT = "near_setpoint"
     PUMP_STARTING = "pump_starting"
     WAITING_FOR_FLAME = "waiting_for_flame"
     OVERSHOOT_HANDLING = "overshoot_handling"
     OVERSHOOT_STABILIZED = "overshoot_stabilized"
 
-    OFF = "off"
+    IDLE = "idle"
     UNKNOWN = "unknown"
     INITIALIZING = "initializing"
 
@@ -120,43 +120,36 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             return DeviceStatus.HOT_WATER
 
         if self.setpoint is None or self.setpoint <= MINIMUM_SETPOINT:
-            return DeviceStatus.OFF
+            return DeviceStatus.IDLE
 
         if self.device_active:
-            if (
-                    self.boiler_temperature_cold is not None
-                    and self.boiler_temperature_cold > self.boiler_temperature
-                    and self.boiler_temperature_derivative < 0
-            ):
-                return DeviceStatus.PUMP_STARTING
+            if self.boiler_temperature_cold is not None and self.boiler_temperature_cold > self.boiler_temperature:
+                if self.boiler_temperature_derivative < 0:
+                    return DeviceStatus.PUMP_STARTING
 
-        if self.setpoint > self.boiler_temperature:
-            if not self.flame_active:
-                return DeviceStatus.WAITING_FOR_FLAME
-
-            if self.flame_active:
-                if self._is_flame_recent_or_cold_temperature_is_higher():
+                if self._boiler_temperature_tracker.active and self.setpoint > self.boiler_temperature:
                     return DeviceStatus.PREHEATING
 
+        if self.setpoint > self.boiler_temperature:
+            if self.flame_active:
                 if self._boiler_temperature_tracker.active:
                     return DeviceStatus.HEATING_UP
 
                 return DeviceStatus.OVERSHOOT_HANDLING
+
+            return DeviceStatus.WAITING_FOR_FLAME
 
         if abs(self.setpoint - self.boiler_temperature) <= DEADBAND:
             return DeviceStatus.AT_SETPOINT
 
         if self.boiler_temperature > self.setpoint:
             if self.flame_active:
-                if self._boiler_temperature_tracker or self._is_flame_recent_or_cold_temperature_is_higher():
-                    return DeviceStatus.COOLING_DOWN
-
-                if abs((self.boiler_temperature - 2) - self.setpoint) <= DEADBAND:
-                    return DeviceStatus.OVERSHOOT_STABILIZED
+                if self._boiler_temperature_tracker:
+                    return DeviceStatus.NEAR_SETPOINT
 
                 return DeviceStatus.OVERSHOOT_HANDLING
 
-            return DeviceStatus.FLAME_OFF
+            return DeviceStatus.WAITING_FOR_FLAME
 
         return DeviceStatus.UNKNOWN
 
@@ -450,6 +443,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
             if self._flame_on_since is None or self._flame_on_since > timestamp:
                 return temperature
+
+        if self._boiler_temperature_cold is not None:
+            return min(self.boiler_temperature, self._boiler_temperature_cold)
 
         return None
 
