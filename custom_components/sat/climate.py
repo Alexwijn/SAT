@@ -919,9 +919,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Check if we are above the overshoot temperature
         if (
-                self._setpoint_adjuster.current is not None and
                 self._coordinator.device_status == DeviceStatus.COOLING_DOWN and
-                math.floor(self._calculated_setpoint) > self._setpoint_adjuster.current + 5
+                self._setpoint_adjuster.current is not None and math.floor(self._calculated_setpoint) > math.floor(self._setpoint_adjuster.current)
         ):
             self._pulse_width_modulation_enabled = False
             _LOGGER.info("Setpoint stabilization detected, disabling Pulse Width Modulation.")
