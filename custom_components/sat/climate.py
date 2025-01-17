@@ -156,6 +156,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
 
+        self.thermostat = config_entry.data.get(CONF_THERMOSTAT)
         self._climates = config_entry.data.get(CONF_SECONDARY_CLIMATES) or []
         self._main_climates = config_entry.data.get(CONF_MAIN_CLIMATES) or []
         self._window_sensors = config_entry.options.get(CONF_WINDOW_SENSORS) or []
@@ -263,6 +264,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self.hass, self.outside_sensor_entities, self._async_outside_entity_changed
             )
         )
+
+        if self.thermostat is not None:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, self.thermostat, self._async_thermostat_changed
+                )
+            )
 
         if self.humidity_sensor_entity_id is not None:
             self.async_on_remove(
@@ -594,6 +602,24 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Ensure setpoint is limited to our max
         return min(requested_setpoint, self._coordinator.maximum_setpoint)
+
+    async def _async_thermostat_changed(self, event: Event) -> None:
+        """Handle changes to the connected thermostat."""
+        old_state = event.data.get("old_state")
+        if old_state is None or old_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+
+        new_state = event.data.get("new_state")
+        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+
+        if (
+                old_state.state != new_state.state or
+                old_state.attributes.get("temperature") != new_state.attributes.get("temperature")
+        ):
+            _LOGGER.debug("Thermostat State Changed.")
+            await self.async_set_hvac_mode(new_state.state)
+            await self.async_set_target_temperature(new_state.attributes.get("temperature"))
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
