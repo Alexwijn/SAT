@@ -1,7 +1,7 @@
 from ..manufacturer import Manufacturer
 
 
-class Baxi(Manufacturer):
+class Radiant(Manufacturer):
     @property
     def name(self) -> str:
         return 'Radiant'
