@@ -157,9 +157,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
 
-        self._rooms = config_entry.data.get(CONF_ROOMS) or []
-        self._radiators = config_entry.data.get(CONF_RADIATORS) or []
-        self._window_sensors = config_entry.options.get(CONF_WINDOW_SENSORS) or []
+        self._radiators = list(config_entry.data.get(CONF_RADIATORS))
+        self._window_sensors = list(config_entry.options.get(CONF_WINDOW_SENSORS))
 
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
         self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
@@ -287,7 +286,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass, self._rooms, self._async_climate_changed
+                self.hass, self.areas.items(), self._async_climate_changed
             )
         )
 
@@ -302,8 +301,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 )
             )
 
-        for climate_id in self._rooms:
-            state = self.hass.states.get(climate_id)
+        for entity_id in self.areas.items():
+            state = self.hass.states.get(entity_id)
             if state is not None and (sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID)):
                 await self.async_track_sensor_temperature(sensor_temperature_id)
 
@@ -520,7 +519,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def valves_open(self) -> bool:
         """Determine if any of the controlled climates have open valves."""
         # Get the list of all controlled climates
-        climates = self._radiators + self._rooms
+        climates = self._radiators + self.areas.items()
 
         # If there are no thermostats, we can safely assume the valves are open
         if len(climates) == 0:
@@ -875,7 +874,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._rooms = {}
 
         # Iterate through each climate entity
-        for entity_id in self._rooms:
+        for entity_id in self.areas.items():
             state = self.hass.states.get(entity_id)
 
             # Skip any entities that are unavailable or have an unknown state
@@ -1043,7 +1042,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Collect which climates to control
         climates = self._radiators[:]
         if self._sync_climates_with_mode:
-            climates += self._rooms
+            climates += self.areas.items()
 
         if cascade:
             # Set the hvac mode for those climate devices
@@ -1084,7 +1083,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Set the temperature for each room, when enabled
             if self._sync_climates_with_preset:
-                for entity_id in self._rooms:
+                for entity_id in self.areas.items():
                     state = self.hass.states.get(entity_id)
                     if state is None or state.state == HVACMode.OFF:
                         continue

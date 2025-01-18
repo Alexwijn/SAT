@@ -89,7 +89,7 @@ class Area:
 class Areas:
     def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]):
         """Initialize Areas with multiple Area instances using shared config data and options."""
-        self._entity_ids: list[str] = config_data.get(CONF_ROOMS) or []
+        self._entity_ids: list[str] = list(config_data.get(CONF_ROOMS))
         self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in self._entity_ids]
 
     @property
@@ -106,6 +106,9 @@ class Areas:
     def pids(self):
         """Return an interface to reset PID controllers for all areas."""
         return Areas._PIDs(self._areas)
+
+    def items(self) -> list[str]:
+        return self._entity_ids
 
     async def async_added_to_hass(self, hass: HomeAssistant):
         for area in self._areas:
