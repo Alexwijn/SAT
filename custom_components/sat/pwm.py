@@ -3,6 +3,8 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
+from homeassistant.core import State
+
 from .boiler import BoilerState
 from .const import HEATER_STARTUP_TIMEFRAME
 from .heating_curve import HeatingCurve
@@ -51,6 +53,7 @@ class PWM:
 
     def reset(self) -> None:
         """Reset the PWM control."""
+        self._enabled = False
         self._cycles: int = 0
         self._state: PWMState = PWMState.IDLE
         self._last_update: float = monotonic()
@@ -60,6 +63,19 @@ class PWM:
         self._last_duty_cycle_percentage: float | None = None
 
         _LOGGER.info("PWM control reset to initial state.")
+
+    def restore(self, state: State) -> None:
+        """Restore the PWM controller from a saved state."""
+        if enabled := state.attributes.get("pulse_width_modulation_enabled"):
+            self._enabled = bool(enabled)
+
+    def enable(self) -> None:
+        """Enable the PWM control."""
+        self._enabled = True
+
+    def disable(self) -> None:
+        """Disable the PWM control."""
+        self._enabled = False
 
     async def update(self, requested_setpoint: float, boiler: BoilerState) -> None:
         """Update the PWM state based on the output of a PID controller."""
@@ -202,8 +218,11 @@ class PWM:
         return int(on_time), int(off_time)
 
     @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @property
     def state(self) -> PWMState:
-        """Current PWM state."""
         return self._state
 
     @property

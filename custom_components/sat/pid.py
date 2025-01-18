@@ -235,10 +235,7 @@ class PID:
         self._times = deque(self._times, maxlen=int(self._history_size))
 
     def restore(self, state: State) -> None:
-        """Restore the PID controller from a saved state.
-
-        state: The saved state of the PID controller to restore from.
-        """
+        """Restore the PID controller from a saved state."""
         if last_error := state.attributes.get("error"):
             self._last_error = last_error
 
