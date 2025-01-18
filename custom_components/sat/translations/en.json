@@ -5,6 +5,7 @@
       "reconfigure_successful": "Gateway has been re-configured."
     },
     "error": {
+      "invalid_device": "This is an invalid device.",
       "connection": "Unable to connect to the gateway.",
       "mqtt_component": "The MQTT component is unavailable.",
       "unable_to_calibrate": "The calibration process has encountered an issue and could not be completed successfully. Please ensure that your heating system is functioning properly and that all required sensors are connected and working correctly.\n\nIf you continue to experience issues with calibration, consider contacting us for further assistance. We apologize for any inconvenience caused."
@@ -15,10 +16,11 @@
     "step": {
       "areas": {
         "data": {
-          "main_climates": "Primary",
+          "thermostat": "Thermostat",
+          "main_climates": "Radiators",
           "secondary_climates": "Rooms"
         },
-        "description": "Settings related to climates, multi-room and temperature control. Primary climates are in the same room as the inside sensor and the rooms have their own target temperatures separate from the system.",
+        "description": "Settings related to thermostat, multi-room and temperature control. The radiators are in the same room as the inside sensor and the rooms have their own target temperatures separate from the system.",
         "title": "Areas"
       },
       "automatic_gains": {
@@ -140,6 +142,12 @@
           "switch": "PID Thermostat (PWM On/Off mode)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "We have attempted to identify the most suitable manufacturer for your heating system based on your gateway type and device information. However, if this does not match your setup, you can select a different manufacturer from the list.",
+        "data": {
+          "manufacturer": "Manufacturer"
+        }
       }
     }
   },
@@ -181,10 +189,9 @@
           "heating_curve_version": "Heating Curve Version",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximum Setpoint",
-          "minimum_setpoint_adjustment_factor": "Adjustment Factor for Return Temperature",
+          "dynamic_minimum_setpoint_version": "Minimum Setpoint Controller Version",
           "pid_controller_version": "PID Controller Version",
           "proportional": "Proportional (kP)",
-          "sync_with_thermostat": "Synchronize setpoint with thermostat",
           "window_sensors": "Contact Sensors",
           "heating_mode": "Heating Mode"
         },
@@ -196,9 +203,7 @@
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
           "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
           "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
-          "minimum_setpoint_adjustment_factor": "This factor adjusts the heating setpoint based on the boiler's return temperature, affecting heating responsiveness and efficiency. A higher value increases sensitivity to temperature changes, enhancing control over comfort and energy use. Recommended starting range is 0.1 to 0.5. Adjust to suit your system and comfort preferences.",
           "proportional": "The proportional term (kP) in the PID controller, responsible for the immediate response to errors.",
-          "sync_with_thermostat": "Synchronize setpoint with thermostat to ensure coordinated temperature control.",
           "window_sensors": "Contact Sensors that trigger the system to react when a window or door is open for a period of time."
         },
         "description": "General settings and configurations.",
@@ -219,7 +224,7 @@
           "comfort_temperature": "Comfort Temperature",
           "home_temperature": "Home Temperature",
           "sleep_temperature": "Sleep Temperature",
-          "sync_with_thermostat": "Synchronize with thermostat attached to the boiler",
+          "push_setpoint_to_thermostat": "Synchronize with thermostat attached to the boiler",
           "sync_climates_with_preset": "Synchronize climates with preset (sleep / away / activity)"
         },
         "description": "Predefined temperature settings for different scenarios or activities.",

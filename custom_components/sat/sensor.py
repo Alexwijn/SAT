@@ -42,6 +42,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         await simulator_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     _async_add_entities([
+        SatBoilerSensor(coordinator, _config_entry),
         SatManufacturerSensor(coordinator, _config_entry),
         SatErrorValueSensor(coordinator, _config_entry, climate),
         SatHeatingCurveSensor(coordinator, _config_entry, climate),
@@ -233,15 +234,34 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 class SatManufacturerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return f"Boiler Manufacturer"
+        return "Boiler Manufacturer"
 
     @property
     def native_value(self) -> str:
-        if not (manufacturer := self._coordinator.manufacturer):
-            return "Unknown"
+        return self._coordinator.manufacturer.name
 
-        return manufacturer.name
+    @property
+    def available(self) -> bool:
+        return self._coordinator.manufacturer is not None
 
     @property
     def unique_id(self) -> str:
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-manufacturer"
+
+
+class SatBoilerSensor(SatEntity, SensorEntity):
+    @property
+    def name(self) -> str:
+        return "Boiler Status"
+
+    @property
+    def native_value(self) -> str:
+        return self._coordinator.device_status
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.device_status is not None
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-status"

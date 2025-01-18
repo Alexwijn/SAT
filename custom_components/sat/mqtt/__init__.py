@@ -9,23 +9,23 @@ from homeassistant.helpers.storage import Store
 
 from ..const import CONF_MQTT_TOPIC
 from ..coordinator import SatDataUpdateCoordinator
-from ..util import snake_case
+from ..helpers import snake_case
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 
 
-class SatMqttCoordinator(ABC, SatDataUpdateCoordinator):
+class SatMqttCoordinator(SatDataUpdateCoordinator, ABC):
     """Base class to manage fetching data using MQTT."""
 
     def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         super().__init__(hass, data, options)
 
-        self.data = {}
-        self._device_id = device_id
-        self._topic = data.get(CONF_MQTT_TOPIC)
-        self._store = Store(hass, STORAGE_VERSION, snake_case(f"{self.__class__.__name__}_{device_id}"))
+        self.data: dict = {}
+        self._device_id: str = device_id
+        self._topic: str = data.get(CONF_MQTT_TOPIC)
+        self._store: Store = Store(hass, STORAGE_VERSION, snake_case(f"{self.__class__.__name__}_{device_id}"))
 
     @property
     def device_id(self) -> str:

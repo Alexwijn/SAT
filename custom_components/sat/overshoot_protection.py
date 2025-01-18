@@ -17,10 +17,10 @@ SLEEP_INTERVAL = 15  # Sleep interval in seconds
 class OvershootProtection:
     def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize OvershootProtection with a coordinator and heating system configuration."""
-        self._alpha = 0.5
-        self._coordinator = coordinator
-        self._stable_temperature = None
-        self._setpoint = OVERSHOOT_PROTECTION_SETPOINT.get(heating_system)
+        self._alpha: float = 0.5
+        self._stable_temperature: float | None = None
+        self._coordinator: SatDataUpdateCoordinator = coordinator
+        self._setpoint: int = min(OVERSHOOT_PROTECTION_SETPOINT.get(heating_system), coordinator.maximum_setpoint_value)
 
         if self._setpoint is None:
             raise ValueError(f"Invalid heating system: {heating_system}")
@@ -108,7 +108,7 @@ class OvershootProtection:
         await asyncio.sleep(SLEEP_INTERVAL)
         await self._coordinator.async_control_heating_loop()
 
-    async def _get_setpoint(self, is_ready) -> float:
+    async def _get_setpoint(self, is_ready: bool) -> float:
         """Get the setpoint for the heating cycle."""
         return self._setpoint if not is_ready or self._coordinator.relative_modulation_value > 0 else self._coordinator.boiler_temperature
 

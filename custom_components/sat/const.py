@@ -28,6 +28,8 @@ MAX_BOILER_TEMPERATURE_AGE = 60
 CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
+CONF_THERMOSTAT = "thermostat"
+CONF_MANUFACTURER = "manufacturer"
 CONF_ERROR_MONITORING = "error_monitoring"
 CONF_CYCLES_PER_HOUR = "cycles_per_hour"
 CONF_SIMULATED_HEATING = "simulated_heating"
@@ -40,7 +42,7 @@ CONF_SECONDARY_CLIMATES = "secondary_climates"
 CONF_MQTT_TOPIC = "mqtt_topic"
 CONF_MAIN_CLIMATES = "main_climates"
 CONF_WINDOW_SENSORS = "window_sensors"
-CONF_SYNC_WITH_THERMOSTAT = "sync_with_thermostat"
+CONF_PUSH_SETPOINT_TO_THERMOSTAT = "push_setpoint_to_thermostat"
 CONF_WINDOW_MINIMUM_OPEN_TIME = "window_minimum_open_time"
 CONF_THERMAL_COMFORT = "thermal_comfort"
 CONF_SIMULATION = "simulation"
@@ -63,8 +65,6 @@ CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
-CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
-CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
 CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
@@ -72,6 +72,10 @@ CONF_HEATING_CURVE_VERSION = "heating_curve_version"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
 CONF_PID_CONTROLLER_VERSION = "pid_controller_version"
+
+CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
+CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION = "dynamic_minimum_setpoint_version"
+CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
 CONF_MAXIMUM_CONSUMPTION = "maximum_consumption"
@@ -105,13 +109,14 @@ OPTIONS_DEFAULTS = {
     CONF_DYNAMIC_MINIMUM_SETPOINT: False,
     CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR: 0.2,
 
-    CONF_SECONDARY_CLIMATES: [],
     CONF_MAIN_CLIMATES: [],
+    CONF_SECONDARY_CLIMATES: [],
+
     CONF_SIMULATION: False,
     CONF_WINDOW_SENSORS: [],
     CONF_THERMAL_COMFORT: False,
     CONF_HUMIDITY_SENSOR_ENTITY_ID: None,
-    CONF_SYNC_WITH_THERMOSTAT: False,
+    CONF_PUSH_SETPOINT_TO_THERMOSTAT: False,
     CONF_SYNC_CLIMATES_WITH_MODE: True,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 
@@ -145,6 +150,7 @@ OPTIONS_DEFAULTS = {
     CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
 
     CONF_PID_CONTROLLER_VERSION: 3,
+    CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION: 1,
 }
 
 # Overshoot protection

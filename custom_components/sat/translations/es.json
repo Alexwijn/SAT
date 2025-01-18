@@ -181,10 +181,8 @@
           "heating_curve_version": "Versión de la Curva de Calefacción",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Punto de Ajuste Máximo",
-          "minimum_setpoint_adjustment_factor": "Factor de ajuste del punto de consigna mínimo",
           "pid_controller_version": "Versión del controlador PID",
           "proportional": "Proporcional (kP)",
-          "sync_with_thermostat": "Sincronizar punto de ajuste con el termostato",
           "window_sensors": "Sensores de Contacto",
           "heating_mode": "Modo de calefacción"
         },
@@ -196,9 +194,7 @@
           "heating_curve_coefficient": "El coeficiente utilizado para ajustar la curva de calefacción.",
           "integral": "El término integral (kI) en el controlador PID, responsable de reducir el error en estado estacionario.",
           "maximum_setpoint": "La temperatura óptima para una operación eficiente de la caldera.",
-          "minimum_setpoint_adjustment_factor": "Este factor ajusta el punto de ajuste del calefactor basado en la temperatura de retorno de la caldera, afectando la capacidad de respuesta y eficiencia del calefactor. Un valor más alto aumenta la sensibilidad a los cambios de temperatura, mejorando el control sobre el confort y el uso de energía. El rango inicial recomendado es de 0,1 a 0,5. Ajuste para adaptarse a su sistema y preferencias de confort.",
           "proportional": "El término proporcional (kP) en el controlador PID, responsable de la respuesta inmediata a errores.",
-          "sync_with_thermostat": "Sincronizar el punto de ajuste con el termostato para asegurar un control coordinado de la temperatura.",
           "window_sensors": "Sensores de Contacto que activan el sistema cuando una ventana o puerta está abierta durante un período."
         },
         "description": "Configuraciones y ajustes generales.",
@@ -219,6 +215,7 @@
           "comfort_temperature": "Temperatura de Confort",
           "home_temperature": "Temperatura de Casa",
           "sleep_temperature": "Temperatura de Sueño",
+          "push_setpoint_to_thermostat": "Sincronizar punto de ajuste con el termostato",
           "sync_climates_with_preset": "Sincronizar climas con preajuste (sueño / ausencia / actividad)"
         },
         "description": "Configuraciones de temperatura predefinidas para diferentes escenarios o actividades.",

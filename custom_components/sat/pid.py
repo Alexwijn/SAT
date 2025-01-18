@@ -6,6 +6,7 @@ from typing import Optional
 from homeassistant.core import State
 
 from .const import *
+from .helpers import seconds_since
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,38 +43,38 @@ class PID:
         :param sample_time_limit: The minimum time interval between updates to the PID controller, in seconds.
         :param version: The version of math calculation for the controller.
         """
-        self._kp = kp
-        self._ki = ki
-        self._kd = kd
-        self._version = version
-        self._deadband = deadband
-        self._history_size = max_history
-        self._heating_system = heating_system
-        self._automatic_gains = automatic_gains
-        self._automatic_gains_value = automatic_gain_value
-        self._derivative_time_weight = derivative_time_weight
-        self._heating_curve_coefficient = heating_curve_coefficient
+        self._kp: float = kp
+        self._ki: float = ki
+        self._kd: float = kd
+        self._version: int = version
+        self._deadband: float = deadband
+        self._history_size: int = max_history
+        self._heating_system: str = heating_system
+        self._automatic_gains: bool = automatic_gains
+        self._automatic_gains_value: float = automatic_gain_value
+        self._derivative_time_weight: float = derivative_time_weight
+        self._heating_curve_coefficient: float = heating_curve_coefficient
 
-        self._last_interval_updated = monotonic()
-        self._sample_time_limit = max(sample_time_limit, 1)
-        self._integral_time_limit = max(integral_time_limit, 1)
+        self._last_interval_updated: float = monotonic()
+        self._sample_time_limit: float = max(sample_time_limit, 1)
+        self._integral_time_limit: float = max(integral_time_limit, 1)
         self.reset()
 
     def reset(self) -> None:
         """Reset the PID controller."""
-        self._last_error = 0.0
-        self._time_elapsed = 0
-        self._last_updated = monotonic()
-        self._last_heating_curve_value = 0
-        self._last_boiler_temperature = None
+        self._last_error: float = 0.0
+        self._time_elapsed: float = 0
+        self._last_updated: float = monotonic()
+        self._last_heating_curve_value: float = 0
+        self._last_boiler_temperature: float | None = None
 
         # Reset the integral and derivative
-        self._integral = 0.0
-        self._raw_derivative = 0.0
+        self._integral: float = 0.0
+        self._raw_derivative: float = 0.0
 
         # Reset all lists
-        self._times = deque(maxlen=self._history_size)
-        self._errors = deque(maxlen=self._history_size)
+        self._times: deque = deque(maxlen=self._history_size)
+        self._errors: deque = deque(maxlen=self._history_size)
 
     def update(self, error: float, heating_curve_value: float, boiler_temperature: float) -> None:
         """Update the PID controller with the current error, inside temperature, outside temperature, and heating curve value.
@@ -82,8 +83,7 @@ class PID:
         :param heating_curve_value: The current heating curve value.
         :param boiler_temperature: The current boiler temperature.
         """
-        current_time = monotonic()
-        time_elapsed = current_time - self._last_updated
+        time_elapsed = seconds_since(self._last_updated)
 
         if error == self._last_error:
             return
@@ -95,7 +95,7 @@ class PID:
         self.update_derivative(error)
         self.update_history_size()
 
-        self._last_updated = current_time
+        self._last_updated = monotonic()
         self._time_elapsed = time_elapsed
 
         self._last_error = error
@@ -142,22 +142,19 @@ class PID:
         if not force and monotonic() - self._last_interval_updated < self._integral_time_limit:
             return
 
-        current_time = monotonic()
-        time_elapsed = current_time - self._last_interval_updated
-
         # Check if the integral gain `ki` is set
         if self.ki is None:
             return
 
         # Update the integral value
-        self._integral += self.ki * error * time_elapsed
+        self._integral += self.ki * error * seconds_since(self._last_interval_updated)
 
         # Clamp the integral value within the limit
         self._integral = min(self._integral, float(+heating_curve_value))
         self._integral = max(self._integral, float(-heating_curve_value))
 
         # Record the time of the latest update
-        self._last_interval_updated = current_time
+        self._last_interval_updated = monotonic()
 
     def update_derivative(self, error: float, alpha1: float = 0.8, alpha2: float = 0.6):
         """
@@ -238,17 +235,14 @@ class PID:
         self._times = deque(self._times, maxlen=int(self._history_size))
 
     def restore(self, state: State) -> None:
-        """Restore the PID controller from a saved state.
-
-        state: The saved state of the PID controller to restore from.
-        """
+        """Restore the PID controller from a saved state."""
         if last_error := state.attributes.get("error"):
             self._last_error = last_error
 
         if last_integral := state.attributes.get("integral"):
             self._integral = last_integral
 
-        if last_raw_derivative := state.attributes.get("raw_derivative"):
+        if last_raw_derivative := state.attributes.get("derivative_raw"):
             self._raw_derivative = last_raw_derivative
 
         if last_heating_curve := state.attributes.get("heating_curve"):

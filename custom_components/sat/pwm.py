@@ -3,7 +3,9 @@ from enum import Enum
 from time import monotonic
 from typing import Optional, Tuple
 
-from .boiler_state import BoilerState
+from homeassistant.core import State
+
+from .boiler import BoilerState
 from .const import HEATER_STARTUP_TIMEFRAME
 from .heating_curve import HeatingCurve
 
@@ -11,6 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PWMState(str, Enum):
+    """The current state of Pulse Width Modulation"""
     ON = "on"
     OFF = "off"
     IDLE = "idle"
@@ -21,25 +24,25 @@ class PWM:
 
     def __init__(self, heating_curve: HeatingCurve, max_cycle_time: int, automatic_duty_cycle: bool, max_cycles: int, force: bool = False):
         """Initialize the PWM control."""
-        self._alpha = 0.2
-        self._force = force
-        self._last_boiler_temperature = None
+        self._alpha: float = 0.2
+        self._force: bool = force
+        self._last_boiler_temperature: float | None = None
 
-        self._max_cycles = max_cycles
-        self._heating_curve = heating_curve
-        self._max_cycle_time = max_cycle_time
-        self._automatic_duty_cycle = automatic_duty_cycle
+        self._max_cycles: int = max_cycles
+        self._heating_curve: HeatingCurve = heating_curve
+        self._max_cycle_time: int = max_cycle_time
+        self._automatic_duty_cycle: bool = automatic_duty_cycle
 
         # Timing thresholds for duty cycle management
-        self._on_time_lower_threshold = 180
-        self._on_time_upper_threshold = 3600 / self._max_cycles
-        self._on_time_max_threshold = self._on_time_upper_threshold * 2
+        self._on_time_lower_threshold: float = 180
+        self._on_time_upper_threshold: float = 3600 / self._max_cycles
+        self._on_time_max_threshold: float = self._on_time_upper_threshold * 2
 
         # Duty cycle percentage thresholds
-        self._duty_cycle_lower_threshold = self._on_time_lower_threshold / self._on_time_upper_threshold
-        self._duty_cycle_upper_threshold = 1 - self._duty_cycle_lower_threshold
-        self._min_duty_cycle_percentage = self._duty_cycle_lower_threshold / 2
-        self._max_duty_cycle_percentage = 1 - self._min_duty_cycle_percentage
+        self._duty_cycle_lower_threshold: float = self._on_time_lower_threshold / self._on_time_upper_threshold
+        self._duty_cycle_upper_threshold: float = 1 - self._duty_cycle_lower_threshold
+        self._min_duty_cycle_percentage: float = self._duty_cycle_lower_threshold / 2
+        self._max_duty_cycle_percentage: float = 1 - self._min_duty_cycle_percentage
 
         _LOGGER.debug(
             "Initialized PWM control with duty cycle thresholds - Lower: %.2f%%, Upper: %.2f%%",
@@ -50,15 +53,29 @@ class PWM:
 
     def reset(self) -> None:
         """Reset the PWM control."""
-        self._cycles = 0
-        self._duty_cycle = None
-        self._state = PWMState.IDLE
-        self._last_update = monotonic()
+        self._enabled = False
+        self._cycles: int = 0
+        self._state: PWMState = PWMState.IDLE
+        self._last_update: float = monotonic()
+        self._duty_cycle: Tuple[int, int] | None = None
 
-        self._first_duty_cycle_start = None
-        self._last_duty_cycle_percentage = None
+        self._first_duty_cycle_start: float | None = None
+        self._last_duty_cycle_percentage: float | None = None
 
         _LOGGER.info("PWM control reset to initial state.")
+
+    def restore(self, state: State) -> None:
+        """Restore the PWM controller from a saved state."""
+        if enabled := state.attributes.get("pulse_width_modulation_enabled"):
+            self._enabled = bool(enabled)
+
+    def enable(self) -> None:
+        """Enable the PWM control."""
+        self._enabled = True
+
+    def disable(self) -> None:
+        """Disable the PWM control."""
+        self._enabled = False
 
     async def update(self, requested_setpoint: float, boiler: BoilerState) -> None:
         """Update the PWM state based on the output of a PID controller."""
@@ -86,9 +103,7 @@ class PWM:
         # Update boiler temperature if heater has just started up
         if self._state == PWMState.ON:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
-                self._last_boiler_temperature = (
-                        self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature
-                )
+                self._last_boiler_temperature = (self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature)
 
                 _LOGGER.debug("Updated last boiler temperature with weighted average during startup phase.")
             else:
@@ -96,8 +111,7 @@ class PWM:
                 _LOGGER.debug("Updated last boiler temperature to %.1f°C", boiler.temperature)
 
         # State transitions for PWM
-        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (
-                elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
             if self._cycles >= self._max_cycles:
                 _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
                 return
@@ -109,8 +123,7 @@ class PWM:
             _LOGGER.info("Starting new duty cycle (ON state). Current CYCLES count: %d", self._cycles)
             return
 
-        if self._state != PWMState.OFF and (
-                self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
+        if self._state != PWMState.OFF and (self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
             self._state = PWMState.OFF
             self._last_update = monotonic()
             _LOGGER.info("Duty cycle completed. Switching to OFF state.")
@@ -205,8 +218,11 @@ class PWM:
         return int(on_time), int(off_time)
 
     @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @property
     def state(self) -> PWMState:
-        """Current PWM state."""
         return self._state
 
     @property

@@ -5,7 +5,7 @@ import logging
 
 from . import SatMqttCoordinator
 from ..coordinator import DeviceState
-from ..util import float_value
+from ..helpers import float_value
 
 DATA_ON = "on"
 DATA_OFF = "off"
@@ -100,9 +100,9 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         # Not supported (yet)
         return None
 
-    async def boot(self) -> SatMqttCoordinator:
+    async def boot(self) -> None:
         # Nothing needs to be booted (yet)
-        return self
+        pass
 
     def get_tracked_entities(self) -> list[str]:
         return [DATA_BOILER_DATA]

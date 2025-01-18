@@ -181,10 +181,8 @@
           "heating_curve_version": "Version der Heizkurve",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximaler Sollwert",
-          "minimum_setpoint_adjustment_factor": "Anpassungsfaktor für die Rücklauftemperatur",
           "pid_controller_version": "PID-Reglerversion",
           "proportional": "Proportional (kP)",
-          "sync_with_thermostat": "Sollwert mit Thermostat synchronisieren",
           "window_sensors": "Kontaktsensoren",
           "heating_mode": "Heizbetrieb"
         },
@@ -196,9 +194,7 @@
           "heating_curve_coefficient": "Der Koeffizient, der zur Anpassung der Heizkurve verwendet wird.",
           "integral": "Der Integralterm (kI) im PID-Regler, verantwortlich für die Reduzierung des stationären Fehlers.",
           "maximum_setpoint": "Die optimale Temperatur für einen effizienten Kesselbetrieb.",
-          "minimum_setpoint_adjustment_factor": "Dieser Faktor passt den Heizungssollwert basierend auf der Rücklauftemperatur des Kessels an, was die Heizungsreaktivität und -effizienz beeinflusst. Ein höherer Wert erhöht die Sensibilität gegenüber Temperaturänderungen und verbessert die Kontrolle über Komfort und Energieverbrauch. Empfohlener Startbereich liegt zwischen 0,1 und 0,5. Anpassen, um Ihrem System und Ihren Komfortpräferenzen zu entsprechen.",
           "proportional": "Der proportionale Term (kP) im PID-Regler, verantwortlich für die sofortige Reaktion auf Fehler.",
-          "sync_with_thermostat": "Sollwert mit Thermostat synchronisieren, um eine koordinierte Temperaturregelung zu gewährleisten.",
           "window_sensors": "Kontaktsensoren, die das System auslösen, wenn ein Fenster oder eine Tür für eine bestimmte Zeit geöffnet ist."
         },
         "description": "Allgemeine Einstellungen und Konfigurationen.",
@@ -219,7 +215,7 @@
           "comfort_temperature": "Komforttemperatur",
           "home_temperature": "Heimtemperatur",
           "sleep_temperature": "Schlafzimmertemperatur",
-          "sync_climates_with_preset": "Klimazonen mit Voreinstellung synchronisieren (schlafen/abwesend/aktiv)"
+          "push_setpoint_to_thermostat": "Sollwert mit Thermostat synchronisieren"
         },
         "description": "Vordefinierte Temperatureinstellungen für verschiedene Szenarien oder Aktivitäten.",
         "title": "Voreinstellungen"

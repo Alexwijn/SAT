@@ -1,7 +1,7 @@
 """Adds config flow for SAT."""
 import asyncio
 import logging
-from typing import Any
+from typing import Optional, Any
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -25,8 +25,10 @@ from voluptuous import UNDEFINED
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
+from .helpers import calculate_default_maximum_setpoint, snake_case
+from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .overshoot_protection import OvershootProtection
-from .util import calculate_default_maximum_setpoint, snake_case
+from .validators import valid_serial_device
 
 DEFAULT_NAME = "Living Room"
 
@@ -112,9 +114,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
         """Entry step to select the MQTT mode and branch to specific setup."""
-        self.errors = {}
 
         if _user_input is not None:
+            self.errors = {}
             self.data.update(_user_input)
 
             if self.data[CONF_MODE] == MODE_MQTT_OPENTHERM:
@@ -178,18 +180,27 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_serial(self, _user_input: dict[str, Any] | None = None):
-        self.errors = {}
-
         if _user_input is not None:
+            self.errors = {}
             self.data.update(_user_input)
             self.data[CONF_MODE] = MODE_SERIAL
 
+            if not valid_serial_device(self.data[CONF_DEVICE]):
+                self.errors["base"] = "invalid_device"
+                return await self.async_step_serial()
+
             gateway = OpenThermGateway()
-            if not await gateway.connect(port=self.data[CONF_DEVICE], skip_init=True, timeout=5):
-                await gateway.disconnect()
+
+            try:
+                connected = await asyncio.wait_for(gateway.connection.connect(port=self.data[CONF_DEVICE]), timeout=5)
+            except asyncio.TimeoutError:
+                connected = False
+
+            if not connected:
                 self.errors["base"] = "connection"
                 return await self.async_step_serial()
 
+            await gateway.disconnect()
             return await self.async_step_sensors()
 
         return self.async_show_form(
@@ -324,16 +335,19 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_automatic_gains()
 
-        climate_selector = selector.EntitySelector(selector.EntitySelectorConfig(
-            domain=CLIMATE_DOMAIN, multiple=True
-        ))
-
         return self.async_show_form(
             last_step=False,
             step_id="areas",
             data_schema=vol.Schema({
-                vol.Optional(CONF_MAIN_CLIMATES, default=self.data.get(CONF_MAIN_CLIMATES, [])): climate_selector,
-                vol.Optional(CONF_SECONDARY_CLIMATES, default=self.data.get(CONF_SECONDARY_CLIMATES, [])): climate_selector,
+                vol.Optional(CONF_THERMOSTAT, default=self.data.get(CONF_THERMOSTAT)): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN)
+                ),
+                vol.Optional(CONF_MAIN_CLIMATES, default=self.data.get(CONF_MAIN_CLIMATES, [])): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
+                ),
+                vol.Optional(CONF_SECONDARY_CLIMATES, default=self.data.get(CONF_SECONDARY_CLIMATES, [])): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
+                ),
             })
         )
 
@@ -344,7 +358,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not self.data[CONF_AUTOMATIC_GAINS]:
                 return await self.async_step_pid_controller()
 
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
             last_step=False,
@@ -367,7 +381,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         async def start_calibration():
             try:
                 coordinator = await self.async_create_coordinator()
-                await coordinator.async_added_to_hass()
+                await coordinator.async_setup()
 
                 overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
                 self.overshoot_protection_value = await overshoot_protection.calculate()
@@ -430,9 +444,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
 
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
+            last_step=False,
             step_id="overshoot_protection",
             data_schema=vol.Schema({
                 vol.Required(CONF_MINIMUM_SETPOINT, default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT])): selector.NumberSelector(
@@ -446,14 +461,44 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if _user_input is not None:
             self.data.update(_user_input)
-            return await self.async_step_finish()
+            return await self.async_step_manufacturer()
 
         return self.async_show_form(
+            last_step=False,
             step_id="pid_controller",
             data_schema=vol.Schema({
                 vol.Required(CONF_PROPORTIONAL, default=self.data.get(CONF_PROPORTIONAL, OPTIONS_DEFAULTS[CONF_PROPORTIONAL])): str,
                 vol.Required(CONF_INTEGRAL, default=self.data.get(CONF_INTEGRAL, OPTIONS_DEFAULTS[CONF_INTEGRAL])): str,
                 vol.Required(CONF_DERIVATIVE, default=self.data.get(CONF_DERIVATIVE, OPTIONS_DEFAULTS[CONF_DERIVATIVE])): str
+            })
+        )
+
+    async def async_step_manufacturer(self, _user_input: dict[str, Any] | None = None):
+        if _user_input is not None:
+            self.data.update(_user_input)
+            return await self.async_step_finish()
+
+        coordinator = await self.async_create_coordinator()
+        await coordinator.async_setup()
+
+        try:
+            manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
+            default_manufacturer = manufacturers[0].name if len(manufacturers) > 0 else None
+        finally:
+            await coordinator.async_will_remove_from_hass()
+
+        options = []
+        for name, _info in MANUFACTURERS.items():
+            manufacturer = ManufacturerFactory.resolve_by_name(name)
+            options.append({"value": name, "label": manufacturer.name})
+
+        return self.async_show_form(
+            last_step=True,
+            step_id="manufacturer",
+            data_schema=vol.Schema({
+                vol.Required(CONF_MANUFACTURER, default=default_manufacturer): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=options)
+                )
             })
         )
 
@@ -477,14 +522,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
         )
 
-    def _create_mqtt_form(self, step_id: str, default_topic: str, default_device: str = None):
+    def _create_mqtt_form(self, step_id: str, default_topic: Optional[str] = None, default_device: Optional[str] = None):
         """Create a common MQTT configuration form."""
-        schema = {
-            vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-            vol.Required(CONF_MQTT_TOPIC, default=default_topic): str,
-        }
+        schema = {vol.Required(CONF_NAME, default=DEFAULT_NAME): str}
 
-        if default_device:
+        if default_topic and not self.data.get(CONF_MQTT_TOPIC):
+            schema[vol.Required(CONF_MQTT_TOPIC, default=default_topic)] = str
+
+        if default_device and not self.data.get(CONF_DEVICE):
             schema[vol.Required(CONF_DEVICE, default=default_device)] = str
 
         return self.async_show_form(
@@ -541,6 +586,14 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 selector.SelectOptionDict(value="3", label="Adaptive Controller")
             ])
         )
+
+        if options[CONF_DYNAMIC_MINIMUM_SETPOINT]:
+            schema[vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION, default=str(options[CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION]))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+                    selector.SelectOptionDict(value="1", label="Return Temperature"),
+                    selector.SelectOptionDict(value="2", label="Boiler Temperature"),
+                ])
+            )
 
         if len(self._config_entry.data.get(CONF_SECONDARY_CLIMATES, [])) > 0:
             schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
@@ -617,8 +670,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_COMFORT_TEMPERATURE, default=options[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
                 ),
-                vol.Required(CONF_SYNC_WITH_THERMOSTAT, default=options[CONF_SYNC_WITH_THERMOSTAT]): bool,
                 vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=options[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
+                vol.Required(CONF_PUSH_SETPOINT_TO_THERMOSTAT, default=options[CONF_PUSH_SETPOINT_TO_THERMOSTAT]): bool,
             })
         )
 

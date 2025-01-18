@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from time import monotonic
-from typing import TYPE_CHECKING, Mapping, Any
+from typing import Optional, TYPE_CHECKING, Mapping, Any
 
 from homeassistant.core import HomeAssistant
 
 from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
-from ..util import convert_time_str_to_seconds
+from ..helpers import convert_time_str_to_seconds
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
@@ -18,10 +19,10 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         """Initialize."""
         super().__init__(hass, data, options)
 
-        self._started_on = None
         self._setpoint = MINIMUM_SETPOINT
         self._boiler_temperature = MINIMUM_SETPOINT
 
+        self._device_state = DeviceState.OFF
         self._heating = data.get(CONF_SIMULATED_HEATING)
         self._cooling = data.get(CONF_SIMULATED_COOLING)
         self._maximum_setpoint = data.get(CONF_MAXIMUM_SETPOINT)
@@ -72,7 +73,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        self._started_on = monotonic() if state == DeviceState.ON else None
+        self._device_state = state
 
         await super().async_set_heater_state(state)
 
@@ -84,7 +85,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = value
         await super().async_set_control_max_setpoint(value)
 
-    async def async_control_heating_loop(self, climate: SatClimate = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time: Optional[datetime] = None) -> None:
         # Calculate the difference, so we know when to slowdown
         difference = abs(self._boiler_temperature - self.target)
         self.logger.debug(f"Target: {self.target}, Current: {self._boiler_temperature}, Difference: {difference}")
@@ -116,7 +117,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
             return self.minimum_setpoint
 
         # State check
-        if not self._started_on or (monotonic() - self._started_on) < self._warming_up:
+        if not self._device_on_since or (monotonic() - self._device_on_since) < self._warming_up:
             return MINIMUM_SETPOINT
 
         return self.setpoint
