@@ -616,8 +616,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 old_state.attributes.get("temperature") != new_state.attributes.get("temperature")
         ):
             _LOGGER.debug("Thermostat State Changed.")
-            await self.async_set_hvac_mode(new_state.state)
-            await self.async_set_target_temperature(new_state.attributes.get("temperature"))
+            await self.async_set_hvac_mode(new_state.state, cascade=False)
+            await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
     async def _async_inside_sensor_changed(self, event: Event) -> None:
         """Handle changes to the inside temperature sensor."""
@@ -1019,7 +1019,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_preset_mode = PRESET_NONE
         await self.async_set_target_temperature(temperature)
 
-    async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+    async def async_set_hvac_mode(self, hvac_mode: HVACMode, cascade: bool = True) -> None:
         """Set the heating/cooling mode for the devices and update the state."""
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
@@ -1043,14 +1043,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._sync_climates_with_mode:
             climates += self._climates
 
-        # Set the hvac mode for those climate devices
-        for entity_id in climates:
-            state = self.hass.states.get(entity_id)
-            if state is None or hvac_mode not in state.attributes.get("hvac_modes"):
-                return
+        if cascade:
+            # Set the hvac mode for those climate devices
+            for entity_id in climates:
+                state = self.hass.states.get(entity_id)
+                if state is None or hvac_mode not in state.attributes.get("hvac_modes"):
+                    return
 
-            data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
-            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+                data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
         # Update the state and control the heating
         self.async_write_ha_state()
@@ -1093,7 +1094,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: target_temperature}
                     await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
-    async def async_set_target_temperature(self, temperature: float) -> None:
+    async def async_set_target_temperature(self, temperature: float, cascade: bool = True) -> None:
         """Set the temperature setpoint for all main climates."""
         if self._target_temperature == temperature:
             return
@@ -1101,14 +1102,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Set the new target temperature
         self._target_temperature = temperature
 
-        # Set the target temperature for each main climate
-        for entity_id in self._main_climates:
-            data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
-            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+        if cascade:
+            # Set the target temperature for each main climate
+            for entity_id in self._main_climates:
+                data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
+                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
-        if self._push_setpoint_to_thermostat:
             # Set the target temperature for the connected boiler
-            await self._coordinator.async_set_control_thermostat_setpoint(temperature)
+            if self._push_setpoint_to_thermostat:
+                await self._coordinator.async_set_control_thermostat_setpoint(temperature)
 
         # Reset the PID controller
         await self._async_control_pid(True)
