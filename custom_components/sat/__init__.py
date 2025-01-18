@@ -190,6 +190,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 new_data["mode"] = "mqtt_opentherm"
                 new_data["device"] = list(device.identifiers)[0][1]
 
+        if entry.version < 11:
+            if entry.data.get("sync_with_thermostat") is not None:
+                new_data["push_setpoint_to_thermostat"] = entry.data.get("sync_with_thermostat")
+
         hass.config_entries.async_update_entry(entry, version=SatFlowHandler.VERSION, data=new_data, options=new_options)
 
     _LOGGER.info("Migration to version %s successful", entry.version)

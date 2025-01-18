@@ -183,7 +183,6 @@
           "maximum_setpoint": "Maximálna požadovaná hodnota",
           "pid_controller_version": "Verzia PID regulátora",
           "proportional": "Proporcionálna (kP)",
-          "sync_with_thermostat": "Synchronizujte požadovanú hodnotu s termostatom",
           "window_sensors": "Kontaktné senzory",
           "heating_mode": "Režim vykurovania"
         },
@@ -196,7 +195,6 @@
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",
           "maximum_setpoint": "Optimálna teplota pre efektívnu prevádzku kotla.",
           "proportional": "Proporcionálny člen (kP) v PID regulátore, zodpovedný za okamžitú reakciu na chyby.",
-          "sync_with_thermostat": "Synchronizujte požadovanú hodnotu s termostatom, aby ste zabezpečili koordinovanú reguláciu teploty.",
           "window_sensors": "Kontaktné senzory, ktoré spúšťajú reakciu systému, keď je okno alebo dvere otvorené po určitú dobu."
         },
         "description": "Všeobecné nastavenia a konfigurácie.",
@@ -217,7 +215,7 @@
           "comfort_temperature": "Komfortná teplota",
           "home_temperature": "Domáca teplota",
           "sleep_temperature": "Teplota spánku",
-          "sync_with_thermostat": "Synchronizujte s termostatom pripojeným ku kotlu",
+          "push_setpoint_to_thermostat": "Synchronizujte s termostatom pripojeným ku kotlu",
           "sync_climates_with_preset": "Synchronizujte klímu s predvoľbou (spánok / preč / aktivita)"
         },
         "description": "Preddefinované nastavenia teploty pre rôzne scenáre alebo činnosti.",

@@ -183,7 +183,6 @@
           "maximum_setpoint": "Setpoint Massimo",
           "pid_controller_version": "Versione del controllore PID",
           "proportional": "Proporzionale (kP)",
-          "sync_with_thermostat": "Sincronizza setpoint con termostato",
           "window_sensors": "Sensori Contatto",
           "heating_mode": "Modalità riscaldamento"
         },
@@ -196,7 +195,6 @@
           "integral": "Il termine integrale (kI) nel controllore PID, responsabile della riduzione dell'errore in stato stazionario.",
           "maximum_setpoint": "La temperatura ottimale per un funzionamento efficiente della caldaia.",
           "proportional": "Il termine proporzionale (kP) nel controllore PID, responsabile della risposta immediata agli errori.",
-          "sync_with_thermostat": "Sincronizza il setpoint con il termostato per garantire un controllo coordinato della temperatura.",
           "window_sensors": "Sensori di Contatto che attivano il sistema quando una finestra o una porta è aperta per un periodo di tempo."
         },
         "description": "Impostazioni e configurazioni generali.",
@@ -217,6 +215,7 @@
           "comfort_temperature": "Temperatura Comfort",
           "home_temperature": "Temperatura Casa",
           "sleep_temperature": "Temperatura Sonno",
+          "push_setpoint_to_thermostat": "Sincronizza setpoint con termostato",
           "sync_climates_with_preset": "Sincronizza climi con preimpostazione (sonno / assente / attività)"
         },
         "description": "Impostazioni di temperatura predefinite per diversi scenari o attività.",
