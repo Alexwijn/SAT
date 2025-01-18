@@ -518,9 +518,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def valves_open(self) -> bool:
-        """Determine if any of the controlled thermostats have open valves."""
-        # Get the list of all controlled thermostats
-        climates = self._rooms + self._radiators
+        """Determine if any of the controlled climates have open valves."""
+        # Get the list of all controlled climates
+        climates = self._radiators + self._rooms
 
         # If there are no thermostats, we can safely assume the valves are open
         if len(climates) == 0:
