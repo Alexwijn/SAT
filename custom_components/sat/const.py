@@ -42,7 +42,7 @@ CONF_SECONDARY_CLIMATES = "secondary_climates"
 CONF_MQTT_TOPIC = "mqtt_topic"
 CONF_MAIN_CLIMATES = "main_climates"
 CONF_WINDOW_SENSORS = "window_sensors"
-CONF_SYNC_WITH_THERMOSTAT = "sync_with_thermostat"
+CONF_PUSH_SETPOINT_TO_THERMOSTAT = "push_setpoint_to_thermostat"
 CONF_WINDOW_MINIMUM_OPEN_TIME = "window_minimum_open_time"
 CONF_THERMAL_COMFORT = "thermal_comfort"
 CONF_SIMULATION = "simulation"
@@ -116,7 +116,7 @@ OPTIONS_DEFAULTS = {
     CONF_WINDOW_SENSORS: [],
     CONF_THERMAL_COMFORT: False,
     CONF_HUMIDITY_SENSOR_ENTITY_ID: None,
-    CONF_SYNC_WITH_THERMOSTAT: False,
+    CONF_PUSH_SETPOINT_TO_THERMOSTAT: False,
     CONF_SYNC_CLIMATES_WITH_MODE: True,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 

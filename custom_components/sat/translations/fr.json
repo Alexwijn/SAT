@@ -183,7 +183,6 @@
           "maximum_setpoint": "Point de consigne maximal",
           "pid_controller_version": "Version du contrôleur PID",
           "proportional": "Proportionnel (kP)",
-          "sync_with_thermostat": "Synchroniser le point de consigne avec le thermostat",
           "window_sensors": "Capteurs de Contact",
           "heating_mode": "Mode chauffage"
         },
@@ -196,7 +195,6 @@
           "integral": "Le terme intégral (kI) dans le régulateur PID, responsable de la réduction de l'erreur en régime permanent.",
           "maximum_setpoint": "La température optimale pour un fonctionnement efficace de la chaudière.",
           "proportional": "Le terme proportionnel (kP) dans le régulateur PID, responsable de la réponse immédiate aux erreurs.",
-          "sync_with_thermostat": "Synchroniser le point de consigne avec le thermostat pour assurer une régulation coordonnée de la température.",
           "window_sensors": "Capteurs de Contact qui déclenchent le système lorsqu'une fenêtre ou une porte est ouverte pendant une période."
         },
         "description": "Paramètres et configurations généraux.",
@@ -217,6 +215,7 @@
           "comfort_temperature": "Température Confort",
           "home_temperature": "Température Maison",
           "sleep_temperature": "Température Sommeil",
+          "push_setpoint_to_thermostat": "Synchroniser le point de consigne avec le thermostat",
           "sync_climates_with_preset": "Synchroniser les climats avec le préréglage (sommeil / absence / activité)"
         },
         "description": "Paramètres de température prédéfinis pour différents scénarios ou activités.",

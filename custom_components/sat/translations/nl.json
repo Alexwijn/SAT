@@ -183,7 +183,6 @@
           "maximum_setpoint": "Maximaal Setpoint",
           "pid_controller_version": "Versie van de PID-regelaar",
           "proportional": "Proportioneel (kP)",
-          "sync_with_thermostat": "Synchroniseer setpoint met thermostaat",
           "window_sensors": "Contact Sensoren",
           "heating_mode": "Verwarmingsmodus"
         },
@@ -196,7 +195,6 @@
           "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
           "maximum_setpoint": "De optimale temperatuur voor efficiënte werking van de ketel.",
           "proportional": "De proportionele term (kP) in de PID-regelaar, verantwoordelijk voor de directe reactie op fouten.",
-          "sync_with_thermostat": "Synchroniseer het setpoint met de thermostaat om een gecoördineerde temperatuurregeling te waarborgen.",
           "window_sensors": "Contact Sensoren die het systeem activeren wanneer een raam of deur voor een periode geopend is."
         },
         "description": "Algemene instellingen en configuraties.",
@@ -217,6 +215,7 @@
           "comfort_temperature": "Comfort Temperatuur",
           "home_temperature": "Thuis Temperatuur",
           "sleep_temperature": "Slaap Temperatuur",
+          "push_setpoint_to_thermostat": "Synchroniseer setpoint met thermostaat",
           "sync_climates_with_preset": "Synchroniseer klimaten met voorinstelling (slaap / afwezig / activiteit)"
         },
         "description": "Vooraf gedefinieerde temperatuurinstellingen voor verschillende scenario's of activiteiten.",
