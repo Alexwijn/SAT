@@ -55,7 +55,6 @@ ATTR_OPTIMAL_COEFFICIENT = "optimal_coefficient"
 ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
-ATTR_PULSE_WIDTH_MODULATION_ENABLED = "pulse_width_modulation_enabled"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -127,7 +126,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._setpoint = None
         self._calculated_setpoint = None
         self._last_boiler_temperature = None
-        self._pulse_width_modulation_enabled = False
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -312,6 +310,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         old_state = await self.async_get_last_state()
 
         if old_state is not None:
+            self.pwm.restore(old_state)
             self.pid.restore(old_state)
 
             if self._target_temperature is None:
@@ -336,9 +335,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE):
                 self._pre_custom_temperature = old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE)
-
-            if old_state.attributes.get(ATTR_PULSE_WIDTH_MODULATION_ENABLED):
-                self._pulse_width_modulation_enabled = old_state.attributes.get(ATTR_PULSE_WIDTH_MODULATION_ENABLED)
 
             if old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT):
                 self.heating_curve.restore_autotune(
@@ -411,8 +407,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "rooms": self._rooms,
             "setpoint": self._setpoint,
             "current_humidity": self._current_humidity,
+
             "summer_simmer_index": SummerSimmer.index(self._current_temperature, self._current_humidity),
             "summer_simmer_perception": SummerSimmer.perception(self._current_temperature, self._current_humidity),
+
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
             "minimum_setpoint": self.minimum_setpoint,
@@ -425,8 +423,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "relative_modulation_state": self.relative_modulation_state,
             "relative_modulation_enabled": self._relative_modulation.enabled,
 
-            "pulse_width_modulation_enabled": self.pulse_width_modulation_enabled,
             "pulse_width_modulation_state": self.pwm.state,
+            "pulse_width_modulation_enabled": self.pwm.enabled,
             "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
         }
 
@@ -571,7 +569,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._minimum_setpoint_version == 1:
             return self._minimum_setpoint.current > self._calculated_setpoint
 
-        return self._pulse_width_modulation_enabled
+        return self.pwm.enabled
 
     @property
     def relative_modulation_value(self) -> int:
@@ -718,10 +716,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.async_control_heating_loop()
 
     async def _async_temperature_change(self, event: Event) -> None:
-        """Handle changes to the climate sensor entity.
-        If the current temperature of the sensor entity has changed,
-        update the PID controller and heating control.
-        """
+        """Handle changes to the climate sensor entity."""
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
@@ -894,8 +889,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def reset_control_state(self):
         """Reset control state when major changes occur."""
+        self.pwm.disable()
         self._setpoint_adjuster.reset()
-        self._pulse_width_modulation_enabled = False
 
     async def async_track_sensor_temperature(self, entity_id):
         """
@@ -940,16 +935,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Check for overshoot
         if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
-            self._pulse_width_modulation_enabled = True
             _LOGGER.info("Overshoot Handling detected, enabling Pulse Width Modulation.")
+            self.pwm.enable()
 
         # Check if we are above the overshoot temperature
         if (
                 self._coordinator.device_status == DeviceStatus.COOLING_DOWN and
                 self._setpoint_adjuster.current is not None and math.floor(self._calculated_setpoint) > math.floor(self._setpoint_adjuster.current)
         ):
-            self._pulse_width_modulation_enabled = False
             _LOGGER.info("Setpoint stabilization detected, disabling Pulse Width Modulation.")
+            self.pwm.disable()
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:

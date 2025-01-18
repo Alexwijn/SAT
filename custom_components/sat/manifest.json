@@ -25,5 +25,5 @@
     "pyotgw==2.2.2",
     "sentry-sdk==2.19.2"
   ],
-  "version": "4.0.0"
+  "version": "4.1.0"
 }
