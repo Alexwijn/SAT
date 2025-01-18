@@ -20,7 +20,6 @@ from homeassistant.helpers import selector, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
 from pyotgw import OpenThermGateway
-from voluptuous import UNDEFINED
 
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
@@ -276,6 +275,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
+            if _user_input.get(CONF_HUMIDITY_SENSOR_ENTITY_ID) is None:
+                self.data[CONF_HUMIDITY_SENSOR_ENTITY_ID] = None
+
             if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT_OPENTHERM, MODE_MQTT_EMS, MODE_SERIAL, MODE_SIMULATOR]:
                 return await self.async_step_heating_system()
 
@@ -284,26 +286,17 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             last_step=False,
             step_id="sensors",
-            data_schema=vol.Schema({
-                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID, default=self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        domain=SENSOR_DOMAIN,
-                        device_class=[SensorDeviceClass.TEMPERATURE]
-                    )
+            data_schema=self.add_suggested_values_to_schema(vol.Schema({
+                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=SENSOR_DOMAIN, device_class=[SensorDeviceClass.TEMPERATURE])
                 ),
-                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID, default=self.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        multiple=True,
-                        domain=[SENSOR_DOMAIN, WEATHER_DOMAIN]
-                    )
+                vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=[SENSOR_DOMAIN, WEATHER_DOMAIN], multiple=True)
                 ),
-                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID, default=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID, UNDEFINED)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        domain=SENSOR_DOMAIN,
-                        device_class=[SensorDeviceClass.HUMIDITY]
-                    )
+                vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=SENSOR_DOMAIN, device_class=[SensorDeviceClass.HUMIDITY])
                 )
-            }),
+            }), self.data),
         )
 
     async def async_step_heating_system(self, _user_input: dict[str, Any] | None = None):
@@ -330,6 +323,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
+            if _user_input.get(CONF_THERMOSTAT) is None:
+                self.data[CONF_THERMOSTAT] = None
+
             if (await self.async_create_coordinator()).supports_setpoint_management:
                 return await self.async_step_calibrate_system()
 
@@ -338,17 +334,17 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             last_step=False,
             step_id="areas",
-            data_schema=vol.Schema({
-                vol.Optional(CONF_THERMOSTAT, default=self.data.get(CONF_THERMOSTAT)): selector.EntitySelector(
+            data_schema=self.add_suggested_values_to_schema(vol.Schema({
+                vol.Optional(CONF_THERMOSTAT): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN)
                 ),
-                vol.Optional(CONF_MAIN_CLIMATES, default=self.data.get(CONF_MAIN_CLIMATES, [])): selector.EntitySelector(
+                vol.Optional(CONF_MAIN_CLIMATES): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
                 ),
-                vol.Optional(CONF_SECONDARY_CLIMATES, default=self.data.get(CONF_SECONDARY_CLIMATES, [])): selector.EntitySelector(
+                vol.Optional(CONF_SECONDARY_CLIMATES): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
                 ),
-            })
+            }), self.data)
         )
 
     async def async_step_automatic_gains(self, _user_input: dict[str, Any] | None = None):
