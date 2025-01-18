@@ -228,7 +228,7 @@ class PID:
         history_size = min(history_size, 100)
 
         # Calculate an average weighted rate of updates and the previous history size
-        self._history_size = alpha * history_size + (1 - alpha) * self._history_size
+        self._history_size = max(alpha * history_size + (1 - alpha) * self._history_size, 1)
 
         # Update our lists with the new size
         self._errors = deque(self._errors, maxlen=int(self._history_size))
