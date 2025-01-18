@@ -38,9 +38,9 @@ CONF_SIMULATED_WARMING_UP = "simulated_warming_up"
 CONF_MINIMUM_SETPOINT = "minimum_setpoint"
 CONF_MAXIMUM_SETPOINT = "maximum_setpoint"
 CONF_MAXIMUM_RELATIVE_MODULATION = "maximum_relative_modulation"
-CONF_SECONDARY_CLIMATES = "secondary_climates"
+CONF_ROOMS = "secondary_climates"
 CONF_MQTT_TOPIC = "mqtt_topic"
-CONF_MAIN_CLIMATES = "main_climates"
+CONF_RADIATORS = "main_climates"
 CONF_WINDOW_SENSORS = "window_sensors"
 CONF_PUSH_SETPOINT_TO_THERMOSTAT = "push_setpoint_to_thermostat"
 CONF_WINDOW_MINIMUM_OPEN_TIME = "window_minimum_open_time"
@@ -109,8 +109,8 @@ OPTIONS_DEFAULTS = {
     CONF_DYNAMIC_MINIMUM_SETPOINT: False,
     CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR: 0.2,
 
-    CONF_MAIN_CLIMATES: [],
-    CONF_SECONDARY_CLIMATES: [],
+    CONF_RADIATORS: [],
+    CONF_ROOMS: [],
 
     CONF_SIMULATION: False,
     CONF_WINDOW_SENSORS: [],

@@ -5,6 +5,7 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
 
+from .const import CONF_ROOMS
 from .heating_curve import HeatingCurve
 from .helpers import float_value
 from .pid import PID
@@ -86,12 +87,10 @@ class Area:
 
 
 class Areas:
-    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_ids: list[str]):
+    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]):
         """Initialize Areas with multiple Area instances using shared config data and options."""
-        self._entity_ids: list[str] = entity_ids
-        self._config_data: MappingProxyType[str, Any] = config_data
-        self._config_options: MappingProxyType[str, Any] = config_options
-        self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in entity_ids]
+        self._entity_ids: list[str] = config_data.get(CONF_ROOMS) or []
+        self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in self._entity_ids]
 
     @property
     def errors(self) -> List[float]:
