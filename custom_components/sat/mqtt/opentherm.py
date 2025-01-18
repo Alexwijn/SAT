@@ -13,6 +13,7 @@ STATE_ON = "ON"
 DATA_FLAME_ACTIVE = "flame"
 DATA_DHW_SETPOINT = "TdhwSet"
 DATA_CONTROL_SETPOINT = "TSet"
+DATA_MAXIMUM_CONTROL_SETPOINT = "MaxTSet"
 DATA_REL_MOD_LEVEL = "RelModLevel"
 DATA_BOILER_TEMPERATURE = "Tboiler"
 DATA_RETURN_TEMPERATURE = "Tret"
@@ -70,6 +71,13 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
             return float(setpoint)
 
         return None
+
+    @property
+    def maximum_setpoint_value(self) -> float | None:
+        if (setpoint := self.data.get(DATA_MAXIMUM_CONTROL_SETPOINT)) is not None:
+            return float(setpoint)
+
+        return super().maximum_setpoint_value
 
     @property
     def hot_water_setpoint(self) -> float | None:

@@ -101,6 +101,13 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return None
 
     @property
+    def maximum_setpoint_value(self) -> float | None:
+        if (setpoint := self.get(NUMBER_DOMAIN, DATA_MAX_CH_SETPOINT)) is not None:
+            return float(setpoint)
+
+        return super().maximum_setpoint_value
+
+    @property
     def hot_water_setpoint(self) -> float | None:
         if (setpoint := self.get(NUMBER_DOMAIN, DATA_DHW_SETPOINT)) is not None:
             return float(setpoint)

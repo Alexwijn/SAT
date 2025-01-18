@@ -252,6 +252,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
+    def maximum_setpoint_value(self) -> float | None:
+        return self.maximum_setpoint
+
+    @property
     def boiler_capacity(self) -> float | None:
         return None
 

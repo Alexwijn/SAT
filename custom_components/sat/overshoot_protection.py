@@ -20,7 +20,7 @@ class OvershootProtection:
         self._alpha: float = 0.5
         self._stable_temperature: float | None = None
         self._coordinator: SatDataUpdateCoordinator = coordinator
-        self._setpoint: int = OVERSHOOT_PROTECTION_SETPOINT.get(heating_system)
+        self._setpoint: int = min(OVERSHOOT_PROTECTION_SETPOINT.get(heating_system), coordinator.maximum_setpoint_value)
 
         if self._setpoint is None:
             raise ValueError(f"Invalid heating system: {heating_system}")
@@ -108,7 +108,7 @@ class OvershootProtection:
         await asyncio.sleep(SLEEP_INTERVAL)
         await self._coordinator.async_control_heating_loop()
 
-    async def _get_setpoint(self, is_ready) -> float:
+    async def _get_setpoint(self, is_ready: bool) -> float:
         """Get the setpoint for the heating cycle."""
         return self._setpoint if not is_ready or self._coordinator.relative_modulation_value > 0 else self._coordinator.boiler_temperature
 
