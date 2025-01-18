@@ -162,7 +162,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
         self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
         self._overshoot_protection = bool(config_entry.data.get(CONF_OVERSHOOT_PROTECTION))
-        self._push_setpoint_to_coordinator = bool(config_entry.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT))
+        self._push_setpoint_to_thermostat = bool(config_entry.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT))
 
         # User Configuration
         self._heating_mode = str(config_entry.options.get(CONF_HEATING_MODE))
@@ -1106,7 +1106,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
             await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
-        if self._push_setpoint_to_coordinator:
+        if self._push_setpoint_to_thermostat:
             # Set the target temperature for the connected boiler
             await self._coordinator.async_set_control_thermostat_setpoint(temperature)
 
