@@ -338,10 +338,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_THERMOSTAT): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN)
                 ),
-                vol.Optional(CONF_MAIN_CLIMATES): selector.EntitySelector(
+                vol.Optional(CONF_RADIATORS): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
                 ),
-                vol.Optional(CONF_SECONDARY_CLIMATES): selector.EntitySelector(
+                vol.Optional(CONF_ROOMS): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
                 ),
             }), self.data)
@@ -400,7 +400,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
             # Make sure all climate valves are open
-            for entity_id in self.data.get(CONF_MAIN_CLIMATES, []) + self.data.get(CONF_SECONDARY_CLIMATES, []):
+            for entity_id in self.data.get(CONF_RADIATORS, []) + self.data.get(CONF_ROOMS, []):
                 data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: HVACMode.HEAT}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
 
@@ -591,7 +591,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 ])
             )
 
-        if len(self._config_entry.data.get(CONF_SECONDARY_CLIMATES, [])) > 0:
+        if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0:
             schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                     selector.SelectOptionDict(value=HEATING_MODE_COMFORT, label="Comfort"),

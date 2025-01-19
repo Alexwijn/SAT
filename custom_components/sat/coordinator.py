@@ -124,7 +124,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         if self.device_active:
             if self.boiler_temperature_cold is not None and self.boiler_temperature_cold > self.boiler_temperature:
-                if self.boiler_temperature_derivative < 0:
+                if self.boiler_temperature_derivative is not None and self.boiler_temperature_derivative < 0:
                     return DeviceStatus.PUMP_STARTING
 
                 if self._boiler_temperature_tracker.active and self.setpoint > self.boiler_temperature:

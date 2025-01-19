@@ -85,6 +85,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
+        # Setup some public variables
+        self.thermostat = config_entry.data.get(CONF_THERMOSTAT)
+
         # Get some sensor entity IDs
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
         self.humidity_sensor_entity_id = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
@@ -154,9 +157,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_name = str(config_entry.data.get(CONF_NAME))
         self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
 
-        self.thermostat = config_entry.data.get(CONF_THERMOSTAT)
-        self._climates = config_entry.data.get(CONF_SECONDARY_CLIMATES) or []
-        self._main_climates = config_entry.data.get(CONF_MAIN_CLIMATES) or []
+        self._radiators = config_entry.data.get(CONF_RADIATORS) or []
         self._window_sensors = config_entry.options.get(CONF_WINDOW_SENSORS) or []
 
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
@@ -185,7 +186,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pid = create_pid_controller(config_options)
 
         # Create Area controllers
-        self._areas = Areas(config_entry.data, config_options, self._climates)
+        self.areas = Areas(config_entry.data, config_options)
 
         # Create Relative Modulation controller
         self._relative_modulation = RelativeModulation(coordinator, self._heating_system)
@@ -220,7 +221,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update a heating curve if outside temperature is available
         if self.current_outside_temperature is not None:
-            self._areas.heating_curves.update(self.current_outside_temperature)
+            self.areas.heating_curves.update(self.current_outside_temperature)
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         if self.hass.state is not CoreState.running:
@@ -234,7 +235,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._register_services()
 
         # Initialize the area system
-        await self._areas.async_added_to_hass(self.hass)
+        await self.areas.async_added_to_hass(self.hass)
 
         # Let the coordinator know we are ready
         await self._coordinator.async_added_to_hass()
@@ -279,13 +280,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass, self._main_climates, self._async_main_climate_changed
+                self.hass, self._radiators, self._async_main_climate_changed
             )
         )
 
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass, self._climates, self._async_climate_changed
+                self.hass, self.areas.items(), self._async_climate_changed
             )
         )
 
@@ -300,8 +301,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 )
             )
 
-        for climate_id in self._climates:
-            state = self.hass.states.get(climate_id)
+        for entity_id in self.areas.items():
+            state = self.hass.states.get(entity_id)
             if state is not None and (sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID)):
                 await self.async_track_sensor_temperature(sensor_temperature_id)
 
@@ -364,7 +365,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         async def reset_integral(_call: ServiceCall):
             """Service to reset the integral part of the PID controller."""
             self.pid.reset()
-            self._areas.pids.reset()
+            self.areas.pids.reset()
 
         self.hass.services.async_register(DOMAIN, SERVICE_RESET_INTEGRAL, reset_integral)
 
@@ -500,7 +501,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._heating_mode == HEATING_MODE_ECO:
             return self.error
 
-        return max([self.error] + self._areas.errors)
+        return max([self.error] + self.areas.errors)
 
     @property
     def setpoint(self) -> float | None:
@@ -516,9 +517,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def valves_open(self) -> bool:
-        """Determine if any of the controlled thermostats have open valves."""
-        # Get the list of all controlled thermostats
-        climates = self._climates + self._main_climates
+        """Determine if any of the controlled climates have open valves."""
+        # Get the list of all controlled climates
+        climates = self._radiators + self.areas.items()
 
         # If there are no thermostats, we can safely assume the valves are open
         if len(climates) == 0:
@@ -768,14 +769,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Reset the PID controller if the sensor data is too old
         if self._sensor_max_value_age != 0 and monotonic() - self.pid.last_updated > self._sensor_max_value_age:
             self.pid.reset()
-            self._areas.pids.reset()
+            self.areas.pids.reset()
 
         # Calculate the maximum error between the current temperature and the target temperature of all climates
         max_error = self.max_error
 
         # Make sure we use the latest heating curve value
         if self.target_temperature is not None:
-            self._areas.heating_curves.update(self.current_outside_temperature)
+            self.areas.heating_curves.update(self.current_outside_temperature)
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         # Update the PID controller with the maximum error
@@ -792,7 +793,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Update our PID controllers if we have valid values
             if self._coordinator.boiler_temperature_filtered is not None:
-                self._areas.pids.update(self._coordinator.boiler_temperature_filtered)
+                self.areas.pids.update(self._coordinator.boiler_temperature_filtered)
 
                 if self.heating_curve.value is not None:
                     self.pid.update(max_error, self.heating_curve.value, self._coordinator.boiler_temperature_filtered)
@@ -873,7 +874,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._rooms = {}
 
         # Iterate through each climate entity
-        for entity_id in self._climates:
+        for entity_id in self.areas.items():
             state = self.hass.states.get(entity_id)
 
             # Skip any entities that are unavailable or have an unknown state
@@ -970,7 +971,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pid.update_integral(self.max_error, self.heating_curve.value)
 
         # Control our areas
-        await self._areas.async_control_heating_loops()
+        await self.areas.async_control_heating_loops()
 
         # Control our dynamic minimum setpoint (version 1)
         if not self._coordinator.hot_water_active and self._coordinator.flame_active:
@@ -1039,9 +1040,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.reset_control_state()
 
         # Collect which climates to control
-        climates = self._main_climates[:]
+        climates = self._radiators[:]
         if self._sync_climates_with_mode:
-            climates += self._climates
+            climates += self.areas.items()
 
         if cascade:
             # Set the hvac mode for those climate devices
@@ -1082,7 +1083,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Set the temperature for each room, when enabled
             if self._sync_climates_with_preset:
-                for entity_id in self._climates:
+                for entity_id in self.areas.items():
                     state = self.hass.states.get(entity_id)
                     if state is None or state.state == HVACMode.OFF:
                         continue
@@ -1104,7 +1105,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if cascade:
             # Set the target temperature for each main climate
-            for entity_id in self._main_climates:
+            for entity_id in self._radiators:
                 data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 

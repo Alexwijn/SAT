@@ -29,13 +29,13 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         """Initialize."""
         super().__init__(hass, data, options)
 
-        self.data = DEFAULT_STATUS
+        self.data: dict = DEFAULT_STATUS
 
         async def async_coroutine(event):
             self.async_set_updated_data(event)
 
-        self._port = port
-        self._api = OpenThermGateway()
+        self._port: str = port
+        self._api: OpenThermGateway = OpenThermGateway()
         self._api.subscribe(async_coroutine)
 
     @property
@@ -161,7 +161,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
     async def async_connect(self) -> SatSerialCoordinator:
         try:
-            await self._api.connect(port=int(self._port), timeout=5)
+            await self._api.connect(port=self._port, timeout=5)
         except (asyncio.TimeoutError, ConnectionError, SerialException) as exception:
             raise ConfigEntryNotReady(f"Could not connect to gateway at {self._port}: {exception}") from exception
 

@@ -11,8 +11,11 @@ MANUFACTURERS = {
     "Ideal": {"module": "ideal", "class": "Ideal", "id": 6},
     "Ferroli": {"module": "ferroli", "class": "Ferroli", "id": 9},
     "DeDietrich": {"module": "dedietrich", "class": "DeDietrich", "id": 11},
+    "Vaillant": {"module": "vaillant", "class": "Vaillant", "id": 24},
     "Immergas": {"module": "immergas", "class": "Immergas", "id": 27},
     "Sime": {"module": "sime", "class": "Sime", "id": 27},
+    "Viessmann": {"module": "viessmann", "class": "Viessmann", "id": 33},
+    "Radiant": {"module": "radiant", "class": "Radiant", "id": 41},
     "Nefit": {"module": "nefit", "class": "Nefit", "id": 131},
     "Intergas": {"module": "intergas", "class": "Intergas", "id": 173},
 }
