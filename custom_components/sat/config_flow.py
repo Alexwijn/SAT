@@ -677,8 +677,13 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
     async def async_step_areas(self, _user_input: dict[str, Any] | None = None):
-        room_weights = self._options.get(CONF_ROOM_WEIGHTS, {})
-        room_labels = {entity_id: f"{self.hass.states.get(entity_id).name} ({entity_id})" for entity_id in self._config_entry.data.get(CONF_ROOMS)}
+        room_weights: dict[str, float] = self._options.get(CONF_ROOM_WEIGHTS, {})
+        room_labels: dict[str, str] = {}
+        
+        for entity_id in self._config_entry.data.get(CONF_ROOMS, []):
+            state = self.hass.states.get(entity_id)
+            name = state.name if state else entity_id
+            room_labels[entity_id] = f"{name} ({entity_id})"
 
         if _user_input is not None:
             return await self.update_options({
@@ -696,7 +701,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 ) for entity_id, friendly_name in room_labels.items()
             })
         )
-
     async def async_step_system_configuration(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)
