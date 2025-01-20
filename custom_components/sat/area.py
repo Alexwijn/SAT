@@ -99,7 +99,8 @@ class Areas:
 
     @property
     def focus(self) -> Optional[Area]:
-        return max(self._areas, key=lambda area: area.error, default=None)
+        valid_areas = [area for area in self._areas if area.error is not None]
+        return max(valid_areas, key=lambda area: area.error, default=None) if valid_areas else None
 
     @property
     def errors(self) -> List[float]:
