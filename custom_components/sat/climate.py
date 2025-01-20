@@ -497,23 +497,35 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return HVACAction.HEATING
 
     @property
-    def max_error(self) -> float:
-        if self._heating_mode == HEATING_MODE_ECO:
-            return self.error
-
-        return max([self.error] + self.areas.errors)
-
-    @property
     def setpoint(self) -> float | None:
         return self._setpoint
 
     @property
     def requested_setpoint(self) -> float:
-        """Get the requested setpoint based on the heating curve and PID output."""
-        if self.heating_curve.value is None:
+        """
+        Calculate the requested setpoint based on the heating curve and PID output.
+
+        The setpoint is determined primarily by the global heating curve and PID output.
+        If the system is in 'comfort mode' and a focus area is defined with higher priority (based on its error),
+        the setpoint will be overridden by the focus area's heating curve and PID output.
+
+        The setpoint is always constrained to be above the minimum allowable setpoint.
+        """
+        # Default to global heating curve and PID output
+        pid_output = self.pid.output
+        heating_curve = self.heating_curve.value
+
+        # Override with focus area values in comfort mode
+        if self._heating_mode == HEATING_MODE_COMFORT and self.areas.focus is not None and self.areas.focus.error > self.error:
+            pid_output = self.areas.focus.pid.output
+            heating_curve = self.areas.focus.heating_curve.value
+
+        # Fallback to minimum setpoint if no heating curve value is available
+        if heating_curve is None:
             return MINIMUM_SETPOINT
 
-        return round(max(self.heating_curve.value + self.pid.output, MINIMUM_SETPOINT), 1)
+        # Calculate and constrain the setpoint to be no less than the minimum allowed value
+        return round(max(heating_curve + pid_output, MINIMUM_SETPOINT), 1)
 
     @property
     def valves_open(self) -> bool:
@@ -771,9 +783,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pid.reset()
             self.areas.pids.reset()
 
-        # Calculate the maximum error between the current temperature and the target temperature of all climates
-        max_error = self.max_error
-
         # Make sure we use the latest heating curve value
         if self.target_temperature is not None:
             self.areas.heating_curves.update(self.current_outside_temperature)
@@ -781,10 +790,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update the PID controller with the maximum error
         if not reset:
-            _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
+            _LOGGER.info(f"Updating error value to {self.error} (Reset: False)")
 
             # Calculate an optimal heating curve when we are in the deadband
-            if self.target_temperature is not None and -DEADBAND <= max_error <= DEADBAND:
+            if self.target_temperature is not None and -DEADBAND <= self.error <= DEADBAND:
                 self.heating_curve.autotune(
                     setpoint=self.requested_setpoint,
                     target_temperature=self.target_temperature,
@@ -796,14 +805,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self.areas.pids.update(self._coordinator.boiler_temperature_filtered)
 
                 if self.heating_curve.value is not None:
-                    self.pid.update(max_error, self.heating_curve.value, self._coordinator.boiler_temperature_filtered)
+                    self.pid.update(self.error, self.heating_curve.value, self._coordinator.boiler_temperature_filtered)
 
-        elif max_error != self.pid.last_error:
-            _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
+        else:
+            _LOGGER.info(f"Updating error value to {self.error} (Reset: True)")
 
-            self.pid.update_reset(error=max_error, heating_curve_value=self.heating_curve.value)
-            self._calculated_setpoint = None
             self.pwm.reset()
+            self.areas.pids.update_reset()
+            self.pid.update_reset(error=self.error, heating_curve_value=self.heating_curve.value)
+
+            self._calculated_setpoint = None
 
         self.async_write_ha_state()
 
@@ -968,7 +979,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Control the integral (if exceeded the time limit)
         if self.heating_curve.value is not None:
-            self.pid.update_integral(self.max_error, self.heating_curve.value)
+            self.pid.update_integral(self.error, self.heating_curve.value)
 
         # Control our areas
         await self.areas.async_control_heating_loops()
