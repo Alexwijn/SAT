@@ -548,7 +548,12 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._options = dict(config_entry.options)
 
     async def async_step_init(self, _user_input: dict[str, Any] | None = None):
-        menu_options = ["general", "presets", "system_configuration"]
+        menu_options = ["general", "presets"]
+
+        if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0:
+            menu_options.append("areas")
+
+        menu_options.append("system_configuration")
 
         if self.show_advanced_options:
             menu_options.append("advanced")
@@ -668,6 +673,27 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=options[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
                 vol.Required(CONF_PUSH_SETPOINT_TO_THERMOSTAT, default=options[CONF_PUSH_SETPOINT_TO_THERMOSTAT]): bool,
+            })
+        )
+
+    async def async_step_areas(self, _user_input: dict[str, Any] | None = None):
+        room_weights = self._options.get(CONF_ROOM_WEIGHTS, {})
+        room_labels = {entity_id: f"{self.hass.states.get(entity_id).name} ({entity_id})" for entity_id in self._config_entry.data.get(CONF_ROOMS)}
+
+        if _user_input is not None:
+            return await self.update_options({
+                CONF_ROOM_WEIGHTS: {
+                    entity_id: float(_user_input[friendly_name])
+                    for entity_id, friendly_name in room_labels.items()
+                }
+            })
+
+        return self.async_show_form(
+            step_id="areas",
+            data_schema=vol.Schema({
+                vol.Required(friendly_name, default=room_weights.get(entity_id, 1.0)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0.1, max=3.0, step=0.1)
+                ) for entity_id, friendly_name in room_labels.items()
             })
         )
 

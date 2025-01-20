@@ -23,7 +23,7 @@ class Area:
     def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_id: str):
         self._entity_id: str = entity_id
         self._hass: HomeAssistant | None = None
-        self._weight = config_data[CONF_ROOM_WEIGHTS][entity_id] or 1
+        self._weight: float = config_options.get(CONF_ROOM_WEIGHTS).get(entity_id, 1.0)
 
         # Create controllers with the given configuration options
         self.pid: PID = create_pid_controller(config_options)
