@@ -1,7 +1,7 @@
 from ..manufacturer import Manufacturer
 
 
-class Simulator(Manufacturer):
+class Other(Manufacturer):
     @property
     def name(self) -> str:
-        return 'Simulator'
+        return 'Other'

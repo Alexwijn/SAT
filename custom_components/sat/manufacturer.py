@@ -3,7 +3,6 @@ from abc import abstractmethod
 from typing import List, Optional
 
 MANUFACTURERS = {
-    "Simulator": {"module": "simulator", "class": "Simulator", "id": -1},
     "ATAG": {"module": "atag", "class": "ATAG", "id": 4},
     "Baxi": {"module": "baxi", "class": "Baxi", "id": 4},
     "Brotge": {"module": "brotge", "class": "Brotge", "id": 4},
@@ -18,6 +17,7 @@ MANUFACTURERS = {
     "Radiant": {"module": "radiant", "class": "Radiant", "id": 41},
     "Nefit": {"module": "nefit", "class": "Nefit", "id": 131},
     "Intergas": {"module": "intergas", "class": "Intergas", "id": 173},
+    "Other": {"module": "other", "class": "Other", "id": -1},
 }
 
 
