@@ -43,6 +43,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
 from .entity import SatEntity
 from .helpers import convert_time_str_to_seconds, seconds_since
+from .manufacturers.geminox import Geminox
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .setpoint_adjuster import SetpointAdjuster
@@ -862,12 +863,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Update relative modulation state
         await self._relative_modulation.update(self.pulse_width_modulation_enabled)
 
+        # Retrieve the relative modulation
+        relative_modulation_value = self.relative_modulation_value
+
+        # Apply some filters based on the manufacturer
+        if isinstance(self._coordinator.manufacturer, Geminox):
+            relative_modulation_value = max(10, relative_modulation_value)
+
         # Determine if the value needs to be updated
-        if self._coordinator.maximum_relative_modulation_value == self.relative_modulation_value:
-            _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", self.relative_modulation_value)
+        if self._coordinator.maximum_relative_modulation_value == relative_modulation_value:
+            _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", relative_modulation_value)
             return
 
-        await self._coordinator.async_set_control_max_relative_modulation(self.relative_modulation_value)
+        await self._coordinator.async_set_control_max_relative_modulation(relative_modulation_value)
 
     async def _async_update_rooms_from_climates(self) -> None:
         """Update the temperature setpoint for each room based on their associated climate entity."""
