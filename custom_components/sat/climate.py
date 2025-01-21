@@ -507,16 +507,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         The setpoint is determined primarily by the global heating curve and PID output.
         If the system is in 'comfort mode' and a focus area is defined with higher priority (based on its error),
-        the setpoint will be overridden by the focus area's heating curve and PID output.
+        the setpoint will be overridden by the focus area's heating curve and PID output multiplied by its weight.
 
         The setpoint is always constrained to be above the minimum allowable setpoint.
         """
         # Default to global heating curve and PID output
+        weight = 1.0
         pid_output = self.pid.output
         heating_curve = self.heating_curve.value
 
         # Override with focus area values in comfort mode
         if self._heating_mode == HEATING_MODE_COMFORT and self.areas.focus is not None and self.areas.focus.error > self.error:
+            weight = self.areas.focus.weight
             pid_output = self.areas.focus.pid.output
             heating_curve = self.areas.focus.heating_curve.value
 
@@ -525,7 +527,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return MINIMUM_SETPOINT
 
         # Calculate and constrain the setpoint to be no less than the minimum allowed value
-        return round(max(heating_curve + pid_output, MINIMUM_SETPOINT), 1)
+        return round(max((heating_curve + pid_output) * weight, MINIMUM_SETPOINT), 1)
 
     @property
     def valves_open(self) -> bool:

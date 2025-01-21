@@ -139,7 +139,7 @@ class Areas:
                 if area.target_temperature is None:
                     continue
 
-                area.heating_curve.update(area.target_temperature * area.weight, current_outside_temperature)
+                area.heating_curve.update(area.target_temperature, current_outside_temperature)
 
     class _PIDs:
         def __init__(self, areas: list[Area]):
@@ -148,12 +148,12 @@ class Areas:
         def update(self, boiler_temperature: float) -> None:
             for area in self.areas:
                 if area.error is not None:
-                    area.pid.update(area.error * area.weight, area.heating_curve.value, boiler_temperature)
+                    area.pid.update(area.error, area.heating_curve.value, boiler_temperature)
 
         def update_reset(self) -> None:
             for area in self.areas:
                 if area.error is not None:
-                    area.pid.update_reset(area.error * area.weight, area.heating_curve.value)
+                    area.pid.update_reset(area.error, area.heating_curve.value)
 
         def reset(self) -> None:
             """Reset PID controllers for all areas."""
