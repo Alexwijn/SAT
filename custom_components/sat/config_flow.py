@@ -494,7 +494,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             await coordinator.async_will_remove_from_hass()
 
         options = []
-        for name, _member_id in MANUFACTURERS.items():
+        for name in MANUFACTURERS:
             manufacturer = ManufacturerFactory.resolve_by_name(name)
             options.append({"value": name, "label": manufacturer.friendly_name})
 
