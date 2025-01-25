@@ -3,11 +3,10 @@ from custom_components.sat.manufacturer import MANUFACTURERS, ManufacturerFactor
 
 def test_resolve_by_name():
     """Test resolving manufacturers by name."""
-    for name, data in MANUFACTURERS.items():
-        # Test valid name
+    for name, module in MANUFACTURERS.items():
         manufacturer = ManufacturerFactory.resolve_by_name(name)
         assert manufacturer is not None, f"Manufacturer '{name}' should not be None"
-        assert manufacturer.__class__.__name__ == data["class"]
+        assert manufacturer.__class__.__name__ == name
 
     # Test invalid name
     manufacturer = ManufacturerFactory.resolve_by_name("InvalidName")
@@ -16,9 +15,11 @@ def test_resolve_by_name():
 
 def test_resolve_by_member_id():
     """Test resolving manufacturers by member ID."""
-    member_id_to_names = {data["id"]: [] for data in MANUFACTURERS.values()}
-    for name, data in MANUFACTURERS.items():
-        member_id_to_names[data["id"]].append(name)
+    manufacturers = ManufacturerFactory.all()
+    member_id_to_names = {manufacturer.identifier: [] for manufacturer in manufacturers}
+
+    for manufacturer in manufacturers:
+        member_id_to_names[manufacturer.identifier].append(type(manufacturer).__name__)
 
     for member_id, names in member_id_to_names.items():
         manufacturers = ManufacturerFactory.resolve_by_member_id(member_id)

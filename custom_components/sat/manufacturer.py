@@ -38,6 +38,14 @@ class Manufacturer:
 
 class ManufacturerFactory:
     @staticmethod
+    def all() -> List[Manufacturer]:
+        """Resolve a list of all Manufacturer instances."""
+        return [
+            ManufacturerFactory._import_class(module, name)()
+            for name, module in MANUFACTURERS.items()
+        ]
+
+    @staticmethod
     def resolve_by_name(name: str) -> Optional[Manufacturer]:
         """Resolve a Manufacturer instance by its name."""
         if not (module := MANUFACTURERS.get(name)):
@@ -50,8 +58,8 @@ class ManufacturerFactory:
         """Resolve a list of Manufacturer instances by member ID."""
         return [
             manufacturer
-            for name, module in MANUFACTURERS.items()
-            if (manufacturer := ManufacturerFactory._import_class(module, name)()).identifier == member_id
+            for manufacturer in ManufacturerFactory.all()
+            if manufacturer.identifier == member_id
         ]
 
     @staticmethod
