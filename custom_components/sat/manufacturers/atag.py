@@ -1,11 +1,7 @@
 from ..manufacturer import Manufacturer
 
 
-class ATAG(Manufacturer):
+class Atag(Manufacturer):
     @property
-    def identifier(self) -> int:
-        return 4
-
-    @property
-    def name(self) -> str:
+    def friendly_name(self) -> str:
         return 'ATAG'

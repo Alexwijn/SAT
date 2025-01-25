@@ -3,9 +3,5 @@ from ..manufacturer import Manufacturer
 
 class Ideal(Manufacturer):
     @property
-    def identifier(self) -> int:
-        return 6
-
-    @property
-    def name(self) -> str:
+    def friendly_name(self) -> str:
         return 'Ideal'
