@@ -1,11 +1,11 @@
 from ..manufacturer import Manufacturer
 
 
-class ATAG(Manufacturer):
+class Remeha(Manufacturer):
     @property
     def identifier(self) -> int:
-        return 4
+        return 11
 
     @property
     def name(self) -> str:
-        return 'ATAG'
+        return 'Remeha'
