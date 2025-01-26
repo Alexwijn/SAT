@@ -26,8 +26,8 @@ MANUFACTURERS = {
 
 
 class Manufacturer(ABC):
-    def __init__(self, member_id: int):
-        self._member_id = member_id
+    def __init__(self):
+        self._member_id = MANUFACTURERS.get(type(self).__name__)
 
     @property
     def member_id(self) -> int:
@@ -46,15 +46,15 @@ class ManufacturerFactory:
         if not (member_id := MANUFACTURERS.get(name)):
             return None
 
-        return ManufacturerFactory._import_class(snake_case(name), name)(member_id)
+        return ManufacturerFactory._import_class(snake_case(name), name)()
 
     @staticmethod
     def resolve_by_member_id(member_id: int) -> List[Manufacturer]:
         """Resolve a list of Manufacturer instances by member ID."""
         return [
-            ManufacturerFactory._import_class(snake_case(name), name)(identifier)
-            for name, identifier in MANUFACTURERS.items()
-            if member_id == identifier
+            ManufacturerFactory._import_class(snake_case(name), name)()
+            for name, value in MANUFACTURERS.items()
+            if member_id == value
         ]
 
     @staticmethod

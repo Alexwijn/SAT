@@ -25,7 +25,8 @@ def test_resolve_by_member_id():
         assert len(manufacturers) == len(names), f"Expected {len(names)} manufacturers for member ID {member_id}"
 
         for manufacturer in manufacturers:
-            assert manufacturer.__class__.__name__ in names, f"Manufacturer name '{manufacturer.name}' not expected for member ID {member_id}"
+            assert manufacturer.member_id == member_id, f"Expected {manufacturer.member_id} for member ID {member_id}"
+            assert manufacturer.__class__.__name__ in names, f"Manufacturer name '{manufacturer.friendly_name}' not expected for member ID {member_id}"
 
     # Test invalid member ID
     manufacturers = ManufacturerFactory.resolve_by_member_id(999)
