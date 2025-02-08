@@ -3,5 +3,5 @@ from ..manufacturer import Manufacturer
 
 class Radiant(Manufacturer):
     @property
-    def name(self) -> str:
+    def friendly_name(self) -> str:
         return 'Radiant'

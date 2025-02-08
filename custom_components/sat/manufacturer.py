@@ -1,30 +1,41 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from typing import Optional, List, Type
 
-from typing import List, Optional
+from custom_components.sat.helpers import snake_case
 
 MANUFACTURERS = {
-    "ATAG": {"module": "atag", "class": "ATAG", "id": 4},
-    "Baxi": {"module": "baxi", "class": "Baxi", "id": 4},
-    "Brotge": {"module": "brotge", "class": "Brotge", "id": 4},
-    "Geminox": {"module": "geminox", "class": "Geminox", "id": 4},
-    "Ideal": {"module": "ideal", "class": "Ideal", "id": 6},
-    "Ferroli": {"module": "ferroli", "class": "Ferroli", "id": 9},
-    "DeDietrich": {"module": "dedietrich", "class": "DeDietrich", "id": 11},
-    "Vaillant": {"module": "vaillant", "class": "Vaillant", "id": 24},
-    "Immergas": {"module": "immergas", "class": "Immergas", "id": 27},
-    "Sime": {"module": "sime", "class": "Sime", "id": 27},
-    "Viessmann": {"module": "viessmann", "class": "Viessmann", "id": 33},
-    "Radiant": {"module": "radiant", "class": "Radiant", "id": 41},
-    "Nefit": {"module": "nefit", "class": "Nefit", "id": 131},
-    "Intergas": {"module": "intergas", "class": "Intergas", "id": 173},
-    "Other": {"module": "other", "class": "Other", "id": -1},
+    "Atag": 4,
+    "Baxi": 4,
+    "Brotge": 4,
+    "DeDietrich": 4,
+    "Ferroli": 9,
+    "Geminox": 4,
+    "Ideal": 6,
+    "Immergas": 27,
+    "Intergas": 173,
+    "Itho": 29,
+    "Nefit": 131,
+    "Radiant": 41,
+    "Remeha": 11,
+    "Sime": 27,
+    "Vaillant": 24,
+    "Viessmann": 33,
+    "Worcester": 95,
+    "Other": -1,
 }
 
 
-class Manufacturer:
+class Manufacturer(ABC):
+    def __init__(self):
+        self._member_id = MANUFACTURERS.get(type(self).__name__)
+
+    @property
+    def member_id(self) -> int:
+        return self._member_id
+
     @property
     @abstractmethod
-    def name(self) -> str:
+    def friendly_name(self) -> str:
         pass
 
 
@@ -32,23 +43,21 @@ class ManufacturerFactory:
     @staticmethod
     def resolve_by_name(name: str) -> Optional[Manufacturer]:
         """Resolve a Manufacturer instance by its name."""
-        manufacturer = MANUFACTURERS.get(name)
-        if not manufacturer:
+        if not (member_id := MANUFACTURERS.get(name)):
             return None
 
-        return ManufacturerFactory._import_class(manufacturer["module"], manufacturer["class"])()
+        return ManufacturerFactory._import_class(snake_case(name), name)()
 
     @staticmethod
     def resolve_by_member_id(member_id: int) -> List[Manufacturer]:
         """Resolve a list of Manufacturer instances by member ID."""
         return [
-            ManufacturerFactory._import_class(info["module"], info["class"])()
-            for name, info in MANUFACTURERS.items()
-            if info["id"] == member_id
+            ManufacturerFactory._import_class(snake_case(name), name)()
+            for name, value in MANUFACTURERS.items()
+            if member_id == value
         ]
 
     @staticmethod
-    def _import_class(module_name: str, class_name: str):
+    def _import_class(module_name: str, class_name: str) -> Type[Manufacturer]:
         """Dynamically import and return a Manufacturer class."""
-        module = __import__(f"custom_components.sat.manufacturers.{module_name}", fromlist=[class_name])
-        return getattr(module, class_name)
+        return getattr(__import__(f"custom_components.sat.manufacturers.{module_name}", fromlist=[class_name]), class_name)
