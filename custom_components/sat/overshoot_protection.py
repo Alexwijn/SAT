@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 
-from .const import OVERSHOOT_PROTECTION_SETPOINT, MINIMUM_SETPOINT, DEADBAND, MAXIMUM_RELATIVE_MOD
+from .const import OVERSHOOT_PROTECTION_SETPOINT, MINIMUM_SETPOINT, DEADBAND, MAXIMUM_RELATIVE_MODULATION
 from .coordinator import DeviceState, SatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ class OvershootProtection:
         """Trigger a heating cycle with the coordinator."""
         await self._coordinator.async_set_heater_state(DeviceState.ON)
         await self._coordinator.async_set_control_setpoint(await self._get_setpoint(is_ready))
-        await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MOD)
+        await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MODULATION)
 
         await asyncio.sleep(SLEEP_INTERVAL)
         await self._coordinator.async_control_heating_loop()

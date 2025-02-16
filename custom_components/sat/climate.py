@@ -31,22 +31,21 @@ from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState
+from homeassistant.core import HomeAssistant, Event, CoreState
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .area import Areas, SENSOR_TEMPERATURE_ID
-from .boiler import BoilerState
+from .boiler import BoilerStatus
 from .const import *
-from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
+from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
-from .helpers import convert_time_str_to_seconds, seconds_since
+from .helpers import convert_time_str_to_seconds
 from .manufacturers.geminox import Geminox
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
-from .setpoint_adjuster import SetpointAdjuster
 from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_minimum_setpoint_controller
 
@@ -180,9 +179,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
 
-        # Create the Setpoint Adjuster controller
-        self._setpoint_adjuster = SetpointAdjuster()
-
         # Create PID controller with given configuration options
         self.pid = create_pid_controller(config_options)
 
@@ -199,7 +195,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._minimum_setpoint = create_minimum_setpoint_controller(config_entry.data, config_options)
 
         # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
+        self.pwm = create_pwm_controller(self.heating_curve, coordinator.supports_relative_modulation_management, config_entry.data, config_options)
 
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
@@ -231,9 +227,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             await self._register_event_listeners()
             await self.async_control_heating_loop()
-
-        # Register services
-        await self._register_services()
 
         # Initialize the area system
         await self.areas.async_added_to_hass(self.hass)
@@ -361,14 +354,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._hvac_mode = HVACMode.OFF
 
         self.async_write_ha_state()
-
-    async def _register_services(self):
-        async def reset_integral(_call: ServiceCall):
-            """Service to reset the integral part of the PID controller."""
-            self.pid.reset()
-            self.areas.pids.reset()
-
-        self.hass.services.async_register(DOMAIN, SERVICE_RESET_INTEGRAL, reset_integral)
 
     @property
     def name(self):
@@ -575,7 +560,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def relative_modulation_value(self) -> int:
-        return self._maximum_relative_modulation if self._relative_modulation.enabled else MINIMUM_RELATIVE_MOD
+        if not self._relative_modulation.enabled and self._coordinator.supports_relative_modulation_management:
+            return MINIMUM_RELATIVE_MODULATION
+
+        return self._maximum_relative_modulation
 
     @property
     def relative_modulation_state(self) -> RelativeModulationState:
@@ -587,8 +575,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if self._minimum_setpoint_version == 1 and self._minimum_setpoint.current is not None:
                 return self._minimum_setpoint.current
 
-            if self._minimum_setpoint_version == 2 and self._setpoint_adjuster.current is not None:
-                return self._setpoint_adjuster.current
+            if self._minimum_setpoint_version == 2:
+                return self.pwm.setpoint
 
         return self._coordinator.minimum_setpoint
 
@@ -698,12 +686,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # If the state has changed or the old state is not available, update the PID controller
         if not old_state or new_state.state != old_state.state:
-            self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
 
         # If the target temperature has changed, update the PID controller
         elif new_attrs.get("temperature") != old_attrs.get("temperature"):
-            self._setpoint_adjuster.reset()
             await self._async_control_pid(True)
 
         # If the current temperature has changed, update the PID controller
@@ -833,15 +819,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                         self._setpoint = self._minimum_setpoint.current
 
                     if self._minimum_setpoint_version == 2:
-                        if self._coordinator.flame_active and seconds_since(self._coordinator.flame_on_since) > 6 and self._coordinator.device_status != DeviceStatus.PUMP_STARTING:
-                            self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
-                        elif self._setpoint_adjuster.current is not None:
-                            self._setpoint = self._setpoint_adjuster.current
-                        elif not self._coordinator.flame_active:
-                            self._setpoint = self._setpoint_adjuster.force(self._coordinator.boiler_temperature + 10)
-                        elif self._setpoint is None:
-                            _LOGGER.debug("Setpoint not available.")
-                            return
+                        self._setpoint = self.pwm.setpoint
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 
@@ -856,7 +834,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_relative_modulation(self) -> None:
         """Control the relative modulation value based on the conditions."""
-        if not self._coordinator.supports_relative_modulation_management:
+        if not self._coordinator.supports_relative_modulation:
             _LOGGER.debug("Relative modulation management is not supported. Skipping control.")
             return
 
@@ -899,7 +877,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def reset_control_state(self):
         """Reset control state when major changes occur."""
         self.pwm.disable()
-        self._setpoint_adjuster.reset()
 
     async def async_track_sensor_temperature(self, entity_id):
         """
@@ -943,30 +920,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
         # Check for overshoot
-        if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
+        if self._coordinator.device_status == BoilerStatus.OVERSHOOT_HANDLING:
             _LOGGER.info("Overshoot Handling detected, enabling Pulse Width Modulation.")
             self.pwm.enable()
 
         # Check if we are above the overshoot temperature
-        if (
-                self._coordinator.device_status == DeviceStatus.COOLING_DOWN and
-                self._setpoint_adjuster.current is not None and math.floor(self._calculated_setpoint) > math.floor(self._setpoint_adjuster.current)
-        ):
+        if self._coordinator.device_status == BoilerStatus.COOLING_DOWN and math.floor(self._calculated_setpoint) > math.floor(self.pwm.setpoint):
             _LOGGER.info("Setpoint stabilization detected, disabling Pulse Width Modulation.")
             self.pwm.disable()
 
-        # Pulse Width Modulation
+        # Update Pulse Width Modulation when enabled
         if self.pulse_width_modulation_enabled:
-            boiler_state = BoilerState(
-                flame_active=self._coordinator.flame_active,
-                device_active=self._coordinator.device_active,
-                hot_water_active=self._coordinator.hot_water_active,
-                temperature=self._coordinator.boiler_temperature
-            )
-
-            await self.pwm.update(self._calculated_setpoint, boiler_state)
-        else:
-            self.pwm.reset()
+            await self.pwm.update(self._coordinator.state, self._calculated_setpoint)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint(self.pwm.state)
@@ -982,9 +947,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.areas.async_control_heating_loops()
 
         # Control our dynamic minimum setpoint (version 1)
-        if not self._coordinator.hot_water_active and self._coordinator.flame_active:
+        if self._minimum_setpoint_version == 1 and not self._coordinator.hot_water_active and self._coordinator.flame_active:
             # Calculate the base return temperature
-            if self._coordinator.device_status == DeviceStatus.HEATING_UP:
+            if self._coordinator.device_status == BoilerStatus.HEATING_UP:
                 self._minimum_setpoint.warming_up(self._coordinator.return_temperature)
 
             # Calculate the dynamic minimum setpoint
