@@ -250,5 +250,15 @@
         "title": "System Configuration"
       }
     }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Reset Integral",
+      "description": "This service reset the integrating part of the PID controller for the specified climate entity. This may be useful if the integral value has become too large or if the PID controller's performance has degraded."
+    },
+    "pulse_width_modulation": {
+      "name": "Pulse Width Modulation",
+      "description": "Force enable or disable the Pulse Width Modulation, do note that it may be turned on or off automatically right after again."
+    }
   }
 }
