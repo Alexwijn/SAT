@@ -67,7 +67,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return True
 
     @property
-    def supports_relative_modulation_management(self) -> bool:
+    def supports_relative_modulation(self) -> bool:
         return True
 
     @property

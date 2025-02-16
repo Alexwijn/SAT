@@ -45,7 +45,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return True
 
     @property
-    def supports_relative_modulation_management(self) -> float | None:
+    def supports_relative_modulation(self) -> float | None:
         return True
 
     @property
