@@ -258,7 +258,13 @@
     },
     "pulse_width_modulation": {
       "name": "Pulse Width Modulation",
-      "description": "Force enable or disable the Pulse Width Modulation, do note that it may be turned on or off automatically right after again."
+      "description": "Force enable or disable the Pulse Width Modulation, do note that it may be turned on or off automatically right after again.",
+      "fields": {
+        "enabled": {
+          "name": "Enabled",
+          "description": "The state you want to force."
+        }
+      }
     }
   }
 }
