@@ -834,6 +834,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_control_relative_modulation(self) -> None:
         """Control the relative modulation value based on the conditions."""
+        if not self._coordinator.supports_relative_modulation:
+            _LOGGER.debug("Relative modulation management is not supported. Skipping control.")
+            return
 
         # Update relative modulation state
         await self._relative_modulation.update(self.pulse_width_modulation_enabled)
