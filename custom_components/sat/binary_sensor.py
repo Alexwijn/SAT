@@ -34,7 +34,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     if coordinator.supports_setpoint_management:
         _async_add_entities([SatControlSetpointSynchroSensor(coordinator, _config_entry, climate)])
 
-    if coordinator.supports_relative_modulation_management:
+    if coordinator.supports_relative_modulation:
         _async_add_entities([SatRelativeModulationSynchroSensor(coordinator, _config_entry, climate)])
 
     if len(_config_entry.options.get(CONF_WINDOW_SENSORS, [])) > 0:

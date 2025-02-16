@@ -9,9 +9,7 @@ from .const import CONF_ROOMS
 from .heating_curve import HeatingCurve
 from .helpers import float_value
 from .pid import PID
-from .pwm import PWM
 from .util import (
-    create_pwm_controller,
     create_pid_controller,
     create_heating_curve_controller,
 )
@@ -27,7 +25,6 @@ class Area:
         # Create controllers with the given configuration options
         self.pid: PID = create_pid_controller(config_options)
         self.heating_curve: HeatingCurve = create_heating_curve_controller(config_data, config_options)
-        self.pwm: PWM = create_pwm_controller(self.heating_curve, config_data, config_options)
 
     @property
     def id(self) -> str:

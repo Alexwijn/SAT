@@ -1,11 +1,30 @@
 import logging
+from enum import Enum
+from typing import Optional
 
 from .const import MINIMUM_SETPOINT
 
 _LOGGER = logging.getLogger(__name__)
 
 STABILIZATION_MARGIN = 5
-EXCEED_SETPOINT_MARGIN = 0.1
+EXCEED_SETPOINT_MARGIN = 1.0
+
+
+class BoilerStatus(str, Enum):
+    HOT_WATER = "hot_water"
+    PREHEATING = "preheating"
+    HEATING_UP = "heating_up"
+    AT_SETPOINT = "at_setpoint"
+    COOLING_DOWN = "cooling_down"
+    NEAR_SETPOINT = "near_setpoint"
+    PUMP_STARTING = "pump_starting"
+    WAITING_FOR_FLAME = "waiting_for_flame"
+    OVERSHOOT_HANDLING = "overshoot_handling"
+    OVERSHOOT_STABILIZED = "overshoot_stabilized"
+
+    IDLE = "idle"
+    UNKNOWN = "unknown"
+    INITIALIZING = "initializing"
 
 
 class BoilerState:
@@ -13,19 +32,15 @@ class BoilerState:
     Represents the operational state of a boiler, including activity, flame status, hot water usage, and current temperature.
     """
 
-    def __init__(self, device_active: bool, flame_active: bool, hot_water_active: bool, temperature: float):
-        """
-        Initialize with the boiler's state parameters.
+    def __init__(self, device_active: bool, device_status: BoilerStatus, flame_active: bool, flame_on_since: Optional[int], hot_water_active: bool, temperature: float):
+        """Initialize with the boiler's state parameters."""
+        self._flame_active: bool = flame_active
+        self._hot_water_active: bool = hot_water_active
 
-        :param device_active: Whether the boiler is currently operational.
-        :param flame_active: Whether the boiler's flame is ignited.
-        :param hot_water_active: Whether the boiler is heating water.
-        :param temperature: The current boiler temperature in Celsius.
-        """
-        self._temperature = temperature
-        self._flame_active = flame_active
-        self._device_active = device_active
-        self._hot_water_active = hot_water_active
+        self._temperature: float = temperature
+        self._device_active: bool = device_active
+        self._device_status: BoilerStatus = device_status
+        self._flame_on_since: Optional[int] = flame_on_since
 
     @property
     def device_active(self) -> bool:
@@ -33,9 +48,19 @@ class BoilerState:
         return self._device_active
 
     @property
+    def device_status(self) -> BoilerStatus:
+        """Indicates the boiler status."""
+        return self._device_status
+
+    @property
     def flame_active(self) -> bool:
         """Indicates whether the flame is ignited."""
         return self._flame_active
+
+    @property
+    def flame_on_since(self) -> Optional[int]:
+        """Indicates when the flame has been ignited."""
+        return self._flame_on_since
 
     @property
     def hot_water_active(self) -> bool:
@@ -70,7 +95,7 @@ class BoilerTemperatureTracker:
             self._last_setpoint = setpoint
 
         if setpoint < self._last_setpoint and not self._adjusting_to_lower_setpoint:
-           self._handle_setpoint_decrease()
+            self._handle_setpoint_decrease()
 
         if not flame_active:
             self._handle_flame_inactive()
@@ -107,10 +132,10 @@ class BoilerTemperatureTracker:
         if not self._warming_up and boiler_temperature_derivative == 0:
             return self._stop_tracking("Temperature not changing.", boiler_temperature, setpoint)
 
-        if setpoint <= boiler_temperature - EXCEED_SETPOINT_MARGIN:
-            return self._stop_tracking("Exceeds setpoint significantly.", boiler_temperature, setpoint)
+        if boiler_temperature - EXCEED_SETPOINT_MARGIN > setpoint:
+            return self._stop_tracking("Exceeds setpoint.", boiler_temperature, setpoint)
 
-        if setpoint > boiler_temperature and setpoint - STABILIZATION_MARGIN < boiler_temperature < self._last_boiler_temperature:
+        if setpoint > boiler_temperature and setpoint - STABILIZATION_MARGIN < boiler_temperature + 1 < self._last_boiler_temperature:
             return self._stop_warming_up("Stabilizing below setpoint.", boiler_temperature, setpoint)
 
     def _handle_adjusting_to_lower_setpoint(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float):

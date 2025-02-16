@@ -78,7 +78,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return True
 
     @property
-    def supports_relative_modulation_management(self):
+    def supports_relative_modulation(self):
         return True
 
     @property

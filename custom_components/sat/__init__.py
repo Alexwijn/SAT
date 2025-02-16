@@ -17,11 +17,16 @@ from .const import (
     CLIMATE,
     SENTRY,
     COORDINATOR,
+    OPTIONS_DEFAULTS,
     CONF_MODE,
     CONF_DEVICE,
-    CONF_ERROR_MONITORING, OPTIONS_DEFAULTS,
+    CONF_ERROR_MONITORING,
+    SERVICE_RESET_INTEGRAL,
+    SERVICE_PULSE_WIDTH_MODULATION,
 )
 from .coordinator import SatDataUpdateCoordinatorFactory
+from .services import async_register_services
+from .util import get_climate_entities
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 PLATFORMS = [CLIMATE_DOMAIN, SENSOR_DOMAIN, NUMBER_DOMAIN, BINARY_SENSOR_DOMAIN]
@@ -56,6 +61,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Forward entry setup for used platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Register the services
+    await async_register_services(hass)
 
     # Add an update listener for this entry
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))

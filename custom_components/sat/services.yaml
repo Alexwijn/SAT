@@ -1,3 +1,15 @@
-clear_integral:
-  name: Clear Integral
-  description: "This service clears the integrating part of the PID controller for the specified climate entity. This may be useful if the integral value has become too large or if the PID controller's performance has degraded."
+reset_integral:
+  target:
+    entity:
+      domain: climate
+      integration: "sat"
+
+pulse_width_modulation:
+  target:
+    entity:
+      domain: climate
+      integration: "sat"
+  fields:
+    enabled:
+      required: true
+      example: true

@@ -354,6 +354,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not self.data[CONF_AUTOMATIC_GAINS]:
                 return await self.async_step_pid_controller()
 
+            if self.data[CONF_MODE] == MODE_SIMULATOR:
+                return await self.async_step_finish()
+
             return await self.async_step_manufacturer()
 
         return self.async_show_form(
@@ -440,6 +443,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
 
+            if self.data[CONF_MODE] == MODE_SIMULATOR:
+                return await self.async_step_finish()
+
             return await self.async_step_manufacturer()
 
         return self.async_show_form(
@@ -457,6 +463,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if _user_input is not None:
             self.data.update(_user_input)
+
+            if self.data[CONF_MODE] == MODE_SIMULATOR:
+                return await self.async_step_finish()
+
             return await self.async_step_manufacturer()
 
         return self.async_show_form(
@@ -479,14 +489,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
-            default_manufacturer = manufacturers[0].name if len(manufacturers) > 0 else None
+            default_manufacturer = manufacturers[0].friendly_name if len(manufacturers) > 0 else -1
         finally:
             await coordinator.async_will_remove_from_hass()
 
         options = []
-        for name, _info in MANUFACTURERS.items():
+        for name in MANUFACTURERS:
             manufacturer = ManufacturerFactory.resolve_by_name(name)
-            options.append({"value": name, "label": manufacturer.name})
+            options.append({"value": name, "label": manufacturer.friendly_name})
 
         return self.async_show_form(
             last_step=True,

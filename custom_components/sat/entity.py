@@ -27,7 +27,7 @@ class SatEntity(CoordinatorEntity):
     def device_info(self):
         manufacturer = "Unknown"
         if self._coordinator.manufacturer is not None:
-            manufacturer = self._coordinator.manufacturer.name
+            manufacturer = self._coordinator.manufacturer.friendly_name
 
         return DeviceInfo(
             name=NAME,

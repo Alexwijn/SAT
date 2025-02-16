@@ -1,7 +1,7 @@
 from ..manufacturer import Manufacturer
 
 
-class Brotge(Manufacturer):
+class Worcester(Manufacturer):
     @property
     def friendly_name(self) -> str:
-        return 'BRÖTGE'
+        return 'Worcester Bosch'
