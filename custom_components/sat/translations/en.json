@@ -214,8 +214,13 @@
           "advanced": "Advanced Options",
           "general": "General",
           "presets": "Presets",
+          "areas": "Areas",
           "system_configuration": "System Configuration"
         }
+      },
+      "areas": {
+        "description": "Adjust the heating weights for each room to control how much heat is allocated when the room has the highest error. Higher weights will increase the heat sent to the room relative to others.",
+        "title": "Areas"
       },
       "presets": {
         "data": {

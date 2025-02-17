@@ -558,7 +558,12 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._options = dict(config_entry.options)
 
     async def async_step_init(self, _user_input: dict[str, Any] | None = None):
-        menu_options = ["general", "presets", "system_configuration"]
+        menu_options = ["general", "presets"]
+
+        if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0:
+            menu_options.append("areas")
+
+        menu_options.append("system_configuration")
 
         if self.show_advanced_options:
             menu_options.append("advanced")
@@ -681,6 +686,31 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             })
         )
 
+    async def async_step_areas(self, _user_input: dict[str, Any] | None = None):
+        room_labels: dict[str, str] = {}
+        room_weights: dict[str, float] = self._options.get(CONF_ROOM_WEIGHTS, {})
+
+        for entity_id in self._config_entry.data.get(CONF_ROOMS, []):
+            state = self.hass.states.get(entity_id)
+            name = state.name if state else entity_id
+            room_labels[entity_id] = f"{name} ({entity_id})"
+
+        if _user_input is not None:
+            return await self.update_options({
+                CONF_ROOM_WEIGHTS: {
+                    entity_id: float(_user_input[friendly_name])
+                    for entity_id, friendly_name in room_labels.items()
+                }
+            })
+
+        return self.async_show_form(
+            step_id="areas",
+            data_schema=vol.Schema({
+                vol.Required(friendly_name, default=room_weights.get(entity_id, 1.0)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0.1, max=3.0, step=0.1)
+                ) for entity_id, friendly_name in room_labels.items()
+            })
+        )
     async def async_step_system_configuration(self, _user_input: dict[str, Any] | None = None):
         if _user_input is not None:
             return await self.update_options(_user_input)

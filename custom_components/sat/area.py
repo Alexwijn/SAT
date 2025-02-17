@@ -1,11 +1,11 @@
 from types import MappingProxyType
-from typing import Any, List
+from typing import Any, List, Optional
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
 
-from .const import CONF_ROOMS
+from .const import CONF_ROOMS, CONF_ROOM_WEIGHTS
 from .heating_curve import HeatingCurve
 from .helpers import float_value
 from .pid import PID
@@ -21,6 +21,7 @@ class Area:
     def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_id: str):
         self._entity_id: str = entity_id
         self._hass: HomeAssistant | None = None
+        self._weight: float = config_options.get(CONF_ROOM_WEIGHTS).get(entity_id, 1.0)
 
         # Create controllers with the given configuration options
         self.pid: PID = create_pid_controller(config_options)
@@ -29,6 +30,10 @@ class Area:
     @property
     def id(self) -> str:
         return self._entity_id
+
+    @property
+    def weight(self) -> float:
+        return self._weight
 
     @property
     def state(self) -> State | None:
@@ -90,6 +95,11 @@ class Areas:
         self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in self._entity_ids]
 
     @property
+    def focus(self) -> Optional[Area]:
+        valid_areas = [area for area in self._areas if area.error is not None]
+        return max(valid_areas, key=lambda area: area.error, default=None) if valid_areas else None
+
+    @property
     def errors(self) -> List[float]:
         """Return a list of all the error values for all areas."""
         return [area.error for area in self._areas if area.error is not None]
@@ -136,6 +146,11 @@ class Areas:
             for area in self.areas:
                 if area.error is not None:
                     area.pid.update(area.error, area.heating_curve.value, boiler_temperature)
+
+        def update_reset(self) -> None:
+            for area in self.areas:
+                if area.error is not None:
+                    area.pid.update_reset(area.error, area.heating_curve.value)
 
         def reset(self) -> None:
             """Reset PID controllers for all areas."""
