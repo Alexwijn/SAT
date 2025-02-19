@@ -43,7 +43,7 @@ class ManufacturerFactory:
     @staticmethod
     def resolve_by_name(name: str) -> Optional[Manufacturer]:
         """Resolve a Manufacturer instance by its name."""
-        if not (member_id := MANUFACTURERS.get(name)):
+        if name not in MANUFACTURERS:
             return None
 
         return ManufacturerFactory._import_class(snake_case(name), name)()
