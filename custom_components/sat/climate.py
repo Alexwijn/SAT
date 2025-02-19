@@ -900,6 +900,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Reset control state when major changes occur."""
         self.pwm.disable()
         self._setpoint_adjuster.reset()
+        self._calculated_setpoint = None
 
     async def async_track_sensor_temperature(self, entity_id):
         """
@@ -947,8 +948,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info("Overshoot Handling detected, enabling Pulse Width Modulation.")
             self.pwm.enable()
 
-        # Check if we are above the overshoot temperature
         if (
+                # Check if we are above the overshoot temperature
                 self._coordinator.device_status == DeviceStatus.COOLING_DOWN and
                 self._setpoint_adjuster.current is not None and math.floor(self._calculated_setpoint) > math.floor(self._setpoint_adjuster.current)
         ):
