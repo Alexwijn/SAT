@@ -710,7 +710,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif SENSOR_TEMPERATURE_ID not in new_state.attributes and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid()
 
-        if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode in [PRESET_HOME, PRESET_COMFORT]:
+        if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode == PRESET_HOME:
             if target_temperature := new_state.attributes.get("temperature"):
                 self._rooms[new_state.entity_id] = float(target_temperature)
 
@@ -1098,7 +1098,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                         continue
 
                     target_temperature = self._presets[preset_mode]
-                    if preset_mode == PRESET_HOME or preset_mode == PRESET_COMFORT:
+                    if preset_mode == PRESET_HOME:
                         target_temperature = self._rooms[entity_id]
 
                     data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: target_temperature}
