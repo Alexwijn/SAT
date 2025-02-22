@@ -155,6 +155,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
 
     async def boot(self) -> None:
         await self._publish_command("PM=3")
+        await self._publish_command("PM=15")
         await self._publish_command("PM=48")
 
         if isinstance(self.manufacturer, (Ideal, Intergas)):
