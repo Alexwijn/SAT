@@ -823,6 +823,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._setpoint = self._calculated_setpoint
             _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
             _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
+
+            # Some final checks to see even it's even warm
+            if self._setpoint < COLD_SETPOINT:
+                self._setpoint = MINIMUM_SETPOINT
+                _LOGGER.debug("Calculated setpoint is too cold. Setting setpoint to minimum: %.1f°C", MINIMUM_SETPOINT)
         else:
             # PWM is enabled and actively controlling the cycle
             _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
@@ -992,7 +997,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._minimum_setpoint.calculate(self._coordinator.return_temperature)
 
         # If the setpoint is high, turn on the heater
-        await self.async_set_heater_state(DeviceState.ON if self._setpoint > MINIMUM_SETPOINT else DeviceState.OFF)
+        await self.async_set_heater_state(DeviceState.ON if self._setpoint > COLD_SETPOINT else DeviceState.OFF)
 
         self.async_write_ha_state()
 
