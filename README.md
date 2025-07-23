@@ -186,6 +186,9 @@ For more information about which other entities are available for OpenTherm plea
 
 5. Calibrate System: Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.
 
+> [!NOTE]
+> If system calibration fails or you prefer to manually find the Overshoot Protection Value, please look at this [discussion](https://github.com/Alexwijn/SAT/discussions/36).
+
 If you already know this value, then use the "Manually enter the overshoot protection value" option and fill the value.
 
 Automatic Gains are recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.
