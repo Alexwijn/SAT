@@ -241,6 +241,10 @@ Underfloor:
 *PID Controller Version*: 
 - Classic Controller
 - Improved Controller
+- Adaptive Controller
+
+> [!NOTE]
+> When the Adaptive controller is active, SAT automatically tunes the gains. No need for tweaking.
 
 *Heating Mode*: 
 
@@ -261,7 +265,7 @@ For underfloor installations, the recommended max water setpoint is 50 °C.
 *Heating Curve Coefficient*:
 The heating curve coefficient is a configurable parameter in SAT that allows you to adjust the relationship between the outdoor temperature and the heating system output. This is useful for optimizing the heating system's performance in different weather conditions, as it allows you to adjust how much heat the system delivers as the outdoor temperature changes. By tweaking this parameter, you can achieve a more efficient and comfortable heating system.
 
-*Automatic Gains Value*: Automatically tweaking the aggressiveness of the Kp, Ki and Kd gains. 
+*Automatic Gains Value*: Automatically tweaking the aggressiveness of the Kp, Ki and Kd gains when Classic or Improved Controller is in use.
 
 > [!TIP]
 > Best results when the user uses the same value as the Heating Curve Coefficient value.
