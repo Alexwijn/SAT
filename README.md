@@ -26,6 +26,8 @@ The Smart Autotune Thermostat, or SAT for short, is a custom component for Home 
 
 It can also function as a PID ON/OFF thermostat, providing advanced temperature control based on Outside Temperature compensation and the Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficients. This capability allows it to determine the optimal setpoint for your boiler without any manual intervention.
 
+---
+
 ## Features
 OpenTherm ( MQTT / Serial / ESPHome ):
 - Multi-room temperature control with support for temperature synchronization for main climates
@@ -53,6 +55,8 @@ PID ON/OFF thermostat:
 - Sample time for PID control to fine-tune your system's response time
 - Open Window detection
 
+---
+
 ## Installation
 ### HACS
 
@@ -74,6 +78,8 @@ _or_
 2. Copy the sat directory to the custom_components directory in your Home Assistant configuration directory. If the custom_components directory doesn't exist, create it.
 3. Restart Home Assistant to load the SAT custom component.
 4. After installing the SAT custom component, you can configure it via the Home Assistant Config Flow interface.
+
+---
 
 # Configuration
 SAT is configured using a config flow. After installation, go to the Integrations page in Home Assistant, click on the Add Integration button, and search for SAT if the autodiscovery feature fails.
@@ -199,6 +205,8 @@ Please note that choosing to skip Automatic Gains requires a good understanding 
 
 To be completed
 
+---
+
 # Configure
 
 ## General tab:
@@ -286,6 +294,8 @@ Predefined temperature settings for different scenarios or activities.
 *Target Temperature Step*: SAT climate entity room setpoint step.
 
 *Maximum Relative Modulation*: The user is able to control the maximum relative modulation that the boiler will operate.
+
+---
 
 # Terminology
 *Heating Curve Coefficient*: By adjusting the heating curve coefficient, you can balance the heating loss of your home with the energy generated from your boiler at a given setpoint based on the outside temperature. When this value is properly tuned, the room temperature should hover around the setpoint.
