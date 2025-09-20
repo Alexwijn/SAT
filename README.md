@@ -26,6 +26,8 @@ The Smart Autotune Thermostat, or SAT for short, is a custom component for Home 
 
 It can also function as a PID ON/OFF thermostat, providing advanced temperature control based on Outside Temperature compensation and the Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficients. This capability allows it to determine the optimal setpoint for your boiler without any manual intervention.
 
+---
+
 ## Features
 OpenTherm ( MQTT / Serial / ESPHome ):
 - Multi-room temperature control with support for temperature synchronization for main climates
@@ -53,6 +55,8 @@ PID ON/OFF thermostat:
 - Sample time for PID control to fine-tune your system's response time
 - Open Window detection
 
+---
+
 ## Installation
 ### HACS
 
@@ -74,6 +78,8 @@ _or_
 2. Copy the sat directory to the custom_components directory in your Home Assistant configuration directory. If the custom_components directory doesn't exist, create it.
 3. Restart Home Assistant to load the SAT custom component.
 4. After installing the SAT custom component, you can configure it via the Home Assistant Config Flow interface.
+
+---
 
 # Configuration
 SAT is configured using a config flow. After installation, go to the Integrations page in Home Assistant, click on the Add Integration button, and search for SAT if the autodiscovery feature fails.
@@ -186,6 +192,9 @@ For more information about which other entities are available for OpenTherm plea
 
 5. Calibrate System: Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.
 
+> [!NOTE]
+> If system calibration fails or you prefer to manually find the Overshoot Protection Value, please look at this [discussion](https://github.com/Alexwijn/SAT/discussions/36).
+
 If you already know this value, then use the "Manually enter the overshoot protection value" option and fill the value.
 
 Automatic Gains are recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.
@@ -195,6 +204,8 @@ Please note that choosing to skip Automatic Gains requires a good understanding 
 ## PID ON/OFF
 
 To be completed
+
+---
 
 # Configure
 
@@ -230,6 +241,10 @@ Underfloor:
 *PID Controller Version*: 
 - Classic Controller
 - Improved Controller
+- Adaptive Controller
+
+> [!NOTE]
+> When the Adaptive controller is active, SAT automatically tunes the gains. No need for tweaking.
 
 *Heating Mode*: 
 
@@ -250,7 +265,7 @@ For underfloor installations, the recommended max water setpoint is 50 °C.
 *Heating Curve Coefficient*:
 The heating curve coefficient is a configurable parameter in SAT that allows you to adjust the relationship between the outdoor temperature and the heating system output. This is useful for optimizing the heating system's performance in different weather conditions, as it allows you to adjust how much heat the system delivers as the outdoor temperature changes. By tweaking this parameter, you can achieve a more efficient and comfortable heating system.
 
-*Automatic Gains Value*: Automatically tweaking the aggressiveness of the Kp, Ki and Kd gains. 
+*Automatic Gains Value*: Automatically tweaking the aggressiveness of the Kp, Ki and Kd gains when Classic or Improved Controller is in use.
 
 > [!TIP]
 > Best results when the user uses the same value as the Heating Curve Coefficient value.
@@ -283,6 +298,8 @@ Predefined temperature settings for different scenarios or activities.
 *Target Temperature Step*: SAT climate entity room setpoint step.
 
 *Maximum Relative Modulation*: The user is able to control the maximum relative modulation that the boiler will operate.
+
+---
 
 # Terminology
 *Heating Curve Coefficient*: By adjusting the heating curve coefficient, you can balance the heating loss of your home with the energy generated from your boiler at a given setpoint based on the outside temperature. When this value is properly tuned, the room temperature should hover around the setpoint.
