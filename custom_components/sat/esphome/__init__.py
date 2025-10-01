@@ -173,7 +173,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     @property
     def member_id(self) -> int | None:
         if (value := self.get(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
-            return int(value)
+            return int(float(value))
 
         return None
 
