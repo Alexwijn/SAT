@@ -5,6 +5,7 @@
       "reconfigure_successful": "Gateway bol prekonfigurovaný."
     },
     "error": {
+      "invalid_device": "Toto je neplatné zariadenie.",
       "connection": "Nedá sa pripojiť k gateway.",
       "mqtt_component": "MQTT komponent je nedostupný.",
       "unable_to_calibrate": "V procese kalibrácie sa vyskytol problém a nebolo možné ho úspešne dokončiť. Uistite sa, že váš vykurovací systém funguje správne a že všetky požadované senzory sú pripojené a fungujú správne.\n\nAk budete mať aj naďalej problémy s kalibráciou, zvážte kontaktovanie nás so žiadosťou o ďalšiu pomoc. Ospravedlňujeme sa za spôsobené nepríjemnosti."
@@ -15,6 +16,7 @@
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Termostat",
           "main_climates": "Primárne",
           "secondary_climates": "Izby"
         },
@@ -140,6 +142,12 @@
           "switch": "PID Termostat (PWM režim Zap/Vyp)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "Na základe typu brány a informácií o zariadení sme sa pokúsili identifikovať najvhodnejšieho výrobcu pre váš vykurovací systém. Ak však tento nezodpovedá vášmu nastaveniu, môžete si zo zoznamu vybrať iného výrobcu.",
+        "data": {
+          "manufacturer": "Výrobca"
+        }
       }
     }
   },
@@ -181,6 +189,7 @@
           "heating_curve_version": "Verzia vykurovacej krivky",
           "integral": "Integračná (kI)",
           "maximum_setpoint": "Maximálna požadovaná hodnota",
+          "dynamic_minimum_setpoint_version": "Verzia regulátora minimálnej požadovanej hodnoty",
           "pid_controller_version": "Verzia PID regulátora",
           "proportional": "Proporcionálna (kP)",
           "window_sensors": "Kontaktné senzory",
@@ -239,6 +248,22 @@
         },
         "description": "Na jemné doladenie a prispôsobenie.",
         "title": "Konfigurácia systému"
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Reset Integral",
+      "description": "Táto služba resetuje integračnú časť PID regulátora pre zadanú entitu klimatizácie. Toto môže byť užitočné, ak sa integračná hodnota stala príliš veľkou alebo ak sa znížil výkon PID regulátora."
+    },
+    "pulse_width_modulation": {
+      "name": "Pulzne šírková modulácia",
+      "description": "Vynútené povolenie alebo zakázanie modulácie šírky impulzu. Upozorňujeme, že sa môže hneď potom automaticky zapnúť alebo vypnúť.",
+      "fields": {
+        "enabled": {
+          "name": "Povolené",
+          "description": "Stav, ktorý chcete vynútiť."
+        }
       }
     }
   }
