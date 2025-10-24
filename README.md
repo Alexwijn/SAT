@@ -7,8 +7,6 @@
 
 **Please :star: this repo if you find it useful.**
 
-**Your support for the countless hours we've dedicated to this development is greatly appreciated, though not required**
-
 ![opentherm-mqtt.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/opentherm-mqtt.png)
 ![overshoot_protection.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/overshoot_protection.png)
 
