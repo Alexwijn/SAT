@@ -9,10 +9,6 @@
 
 **Your support for the countless hours we've dedicated to this development is greatly appreciated, though not required**
 
-<a href="https://www.buymeacoffee.com/alexwijn" target="_blank">
-   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;" >
-</a>
-
 ![opentherm-mqtt.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/opentherm-mqtt.png)
 ![overshoot_protection.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/overshoot_protection.png)
 
