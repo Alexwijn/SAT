@@ -90,6 +90,10 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
 
         return self.config.supports_relative_modulation_management
 
+    @property
+    def supports_relative_modulation(self):
+        return self.supports_relative_modulation_management
+
     async def async_set_boiler_temperature(self, value: float) -> None:
         self._boiler_temperature = value
 

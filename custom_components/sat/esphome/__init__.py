@@ -78,7 +78,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return True
 
     @property
-    def supports_relative_modulation_management(self):
+    def supports_relative_modulation(self):
         return True
 
     @property
@@ -173,7 +173,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     @property
     def member_id(self) -> int | None:
         if (value := self.get(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
-            return int(value)
+            return int(float(value))
 
         return None
 
