@@ -38,9 +38,9 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .area import Areas, SENSOR_TEMPERATURE_ID
-from .boiler import BoilerState
+from .boiler import BoilerStatus
 from .const import *
-from .coordinator import SatDataUpdateCoordinator, DeviceState, BoilerStatus
+from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .helpers import convert_time_str_to_seconds, seconds_since
 from .manufacturers.geminox import Geminox
@@ -199,7 +199,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._minimum_setpoint = create_minimum_setpoint_controller(config_entry.data, config_options)
 
         # Create PWM controller with given configuration options
-        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
+        self.pwm = create_pwm_controller(self.heating_curve, coordinator.supports_relative_modulation_management, config_entry.data, config_options)
 
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
@@ -575,7 +575,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def relative_modulation_value(self) -> int:
-        return self._maximum_relative_modulation if self._relative_modulation.enabled else MINIMUM_RELATIVE_MOD
+        if not self._relative_modulation.enabled and self._coordinator.supports_relative_modulation_management:
+            return MINIMUM_RELATIVE_MODULATION
+
+        return self._maximum_relative_modulation
 
     @property
     def relative_modulation_state(self) -> RelativeModulationState:
@@ -963,14 +966,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            boiler_state = BoilerState(
-                flame_active=self._coordinator.flame_active,
-                device_active=self._coordinator.device_active,
-                hot_water_active=self._coordinator.hot_water_active,
-                temperature=self._coordinator.boiler_temperature
-            )
-
-            await self.pwm.update(self._calculated_setpoint, boiler_state)
+            await self.pwm.update(self._coordinator.state, self._calculated_setpoint)
         else:
             self.pwm.reset()
 
@@ -1024,7 +1020,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def async_set_temperature(self, **kwargs) -> None:
         """Set the target temperature."""
         if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:
-            return
+            return None
 
         # Automatically select the preset
         for preset in self._presets:
@@ -1032,7 +1028,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 return await self.async_set_preset_mode(preset)
 
         self._attr_preset_mode = PRESET_NONE
-        await self.async_set_target_temperature(temperature)
+        return await self.async_set_target_temperature(temperature)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode, cascade: bool = True) -> None:
         """Set the heating/cooling mode for the devices and update the state."""
