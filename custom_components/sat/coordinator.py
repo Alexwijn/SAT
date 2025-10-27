@@ -282,7 +282,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if (relative_modulation_value := self.relative_modulation_value) is None:
             return None
 
-        if self.flame_active is False:
+        if not self.flame_active:
             return 0
 
         return minimum_boiler_capacity + ((boiler_capacity - minimum_boiler_capacity) * (relative_modulation_value / 100))

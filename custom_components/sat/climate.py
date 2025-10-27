@@ -40,7 +40,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .area import Areas, SENSOR_TEMPERATURE_ID
 from .boiler import BoilerState
 from .const import *
-from .coordinator import SatDataUpdateCoordinator, DeviceState, DeviceStatus
+from .coordinator import SatDataUpdateCoordinator, DeviceState, BoilerStatus
 from .entity import SatEntity
 from .helpers import convert_time_str_to_seconds, seconds_since
 from .manufacturers.geminox import Geminox
@@ -838,7 +838,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                         self._setpoint = self._minimum_setpoint.current
 
                     if self._minimum_setpoint_version == 2:
-                        if self._coordinator.flame_active and seconds_since(self._coordinator.flame_on_since) > 6 and self._coordinator.device_status != DeviceStatus.PUMP_STARTING:
+                        if self._coordinator.flame_active and seconds_since(self._coordinator.flame_on_since) > 6 and self._coordinator.device_status != BoilerStatus.PUMP_STARTING:
                             self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
                         elif self._setpoint_adjuster.current is not None:
                             self._setpoint = self._setpoint_adjuster.current
@@ -949,13 +949,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._calculated_setpoint = round(self._alpha * self._calculate_control_setpoint() + (1 - self._alpha) * self._calculated_setpoint, 1)
 
         # Check for overshoot
-        if self._coordinator.device_status == DeviceStatus.OVERSHOOT_HANDLING:
+        if self._coordinator.device_status == BoilerStatus.OVERSHOOT_HANDLING:
             _LOGGER.info("Overshoot Handling detected, enabling Pulse Width Modulation.")
             self.pwm.enable()
 
         if (
                 # Check if we are above the overshoot temperature
-                self._coordinator.device_status == DeviceStatus.COOLING_DOWN and
+                self._coordinator.device_status == BoilerStatus.COOLING_DOWN and
                 self._setpoint_adjuster.current is not None and math.floor(self._calculated_setpoint) > math.floor(self._setpoint_adjuster.current)
         ):
             _LOGGER.info("Setpoint stabilization detected, disabling Pulse Width Modulation.")
@@ -990,7 +990,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control our dynamic minimum setpoint (version 1)
         if not self._coordinator.hot_water_active and self._coordinator.flame_active:
             # Calculate the base return temperature
-            if self._coordinator.device_status == DeviceStatus.HEATING_UP:
+            if self._coordinator.device_status == BoilerStatus.HEATING_UP:
                 self._minimum_setpoint.warming_up(self._coordinator.return_temperature)
 
             # Calculate the dynamic minimum setpoint
