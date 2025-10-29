@@ -108,9 +108,9 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         return [DATA_BOILER_DATA]
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        # Minimum valid setting for Bosch/Junkers boiler seems to be 12°. Might be different
-        # for other boilers, do we need a configuration setting for this?
-        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {max(value, 12)}}}')
+        # Minimum valid setting for Bosch/Junkers boiler seems to be 12°. 
+        # Lower values set the boiler to 12° except 0° which sets the boiler to 5°.
+        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value < 12 else value}}}')
 
         await super().async_set_control_setpoint(value)
 
