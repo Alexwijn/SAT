@@ -23,7 +23,7 @@ DATA_CENTRAL_HEATING = "heatingactive"
 DATA_BOILER_CAPACITY = "nompower"
 
 DATA_REL_MIN_MOD_LEVEL = "burnminpower"
-DATA_MAX_REL_MOD_LEVEL_SETTING = "burnmaxpower"
+DATA_MAX_REL_MOD_LEVEL_SETTING = "selburnpow"
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -108,7 +108,9 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         return [DATA_BOILER_DATA]
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value == 10 else value}}}')
+        # Minimum valid setting for Bosch/Junkers boiler seems to be 12°. Might be different
+        # for other boilers, do we need a configuration setting for this?
+        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {max(value, 12)}}}')
 
         await super().async_set_control_setpoint(value)
 
@@ -122,12 +124,18 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        await self._publish_command(f'{{"cmd": "heatingoff", "value": "{DATA_OFF if state == DeviceState.ON else DATA_ON}"}}')
+        # Do not send 'heatingoff' command, as this leads to EMS toggling the boiler between
+        # pre-set heating and selected flow temperature. Instead, control on/off solely by setting
+        # a low flow temperature (SAT already does this).
+        # (see https://github.com/emsesp/EMS-ESP32/discussions/2641#discussioncomment-14611481)
 
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
-        await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {max(value, 20)}}}')
+        # Do not set 'burnmaxpower' as this is an EEPROM-stored value and will wear out the EEPROM.
+        # Use 'selburnpow' instead.  
+        # (see https://github.com/emsesp/EMS-ESP32/discussions/2641#discussioncomment-14611481)
+        await self._publish_command(f'{{"cmd": "selburnpow", "value": {max(value, 20)}}}')
 
         await super().async_set_control_max_relative_modulation(value)
 
