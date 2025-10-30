@@ -43,7 +43,11 @@ class MinimumSetpoint:
             self._store.async_delay_save(self._data_to_save)
 
     def calculate(self, boiler_state: BoilerState, pwm_state: PWMState) -> None:
-        self._relative_modulation_level = update_state(previous=self._relative_modulation_level, new_value=boiler_state.relative_modulation_level)
+        self._relative_modulation_level = update_state(
+            tolerance=0.1,
+            previous=self._relative_modulation_level,
+            new_value=boiler_state.relative_modulation_level,
+        )
 
         if self._base_return_temperature is None:
             _LOGGER.debug("Skip calculation: base return temperature is not set.")

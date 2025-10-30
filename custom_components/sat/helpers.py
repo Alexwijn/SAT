@@ -9,8 +9,6 @@ from homeassistant.util import dt
 
 from .const import HEATING_SYSTEM_UNDERFLOOR
 
-EPSILON = 1e-3
-
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -22,12 +20,12 @@ class State:
     last_changed: datetime = field(default_factory=utcnow)
 
 
-def update_state(previous: State, new_value: float) -> State:
+def update_state(previous: State, new_value: float, tolerance=1e-3) -> State:
     """
     Return a new State if the value changed beyond tolerance; otherwise return the existing one.
     Always timezone-aware and safe for float comparisons.
     """
-    if previous.value is not None and math.isclose(previous.value, new_value, abs_tol=EPSILON):
+    if previous.value is not None and math.isclose(previous.value, new_value, abs_tol=tolerance):
         # No significant change → preserve timestamp
         return previous
 
