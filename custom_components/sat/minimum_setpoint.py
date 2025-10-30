@@ -1,12 +1,11 @@
 import logging
 import math
-from datetime import datetime
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from custom_components.sat.boiler import BoilerState
-from custom_components.sat.helpers import clamp, State, update_state
+from custom_components.sat.helpers import clamp, State, update_state, utcnow
 from custom_components.sat.pwm import PWMState
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,6 +72,6 @@ class MinimumSetpoint:
         return (
                 pwm_state is not PWMState.IDLE
                 and self._relative_modulation_level.value > 0
+                and (utcnow() - self._relative_modulation_level.last_changed).total_seconds() > 180
                 and math.isclose(boiler_state.flow_temperature, boiler_state.setpoint, abs_tol=1.0)
-                and (datetime.now() - self._relative_modulation_level.last_changed).total_seconds() > 180
         )
