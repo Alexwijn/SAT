@@ -61,11 +61,10 @@ def create_heating_curve_controller(config_data, config_options) -> HeatingCurve
     """Create and return a Heating Curve controller instance with the given configuration options."""
     # Extract the configuration options
     heating_system = config_data.get(CONF_HEATING_SYSTEM)
-    version = int(config_options.get(CONF_HEATING_CURVE_VERSION))
     coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
 
     # Return a new Heating Curve controller instance with the given configuration options
-    return HeatingCurve(heating_system=heating_system, coefficient=coefficient, version=version)
+    return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
 
 
 def create_pwm_controller(heating_curve: HeatingCurve, supports_relative_modulation_management: bool, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> PWM | None:

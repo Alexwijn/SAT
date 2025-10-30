@@ -7,6 +7,7 @@ from ..coordinator import DeviceState
 from ..manufacturers.ideal import Ideal
 from ..manufacturers.immergas import Immergas
 from ..manufacturers.intergas import Intergas
+from ..manufacturers.nefit import Nefit
 
 STATE_ON = "ON"
 
@@ -158,7 +159,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await self._publish_command("PM=15")
         await self._publish_command("PM=48")
 
-        if isinstance(self.manufacturer, (Ideal, Intergas)):
+        if isinstance(self.manufacturer, (Ideal, Intergas, Nefit)):
             await self._publish_command("MI=500")
 
     def get_tracked_entities(self) -> list[str]:

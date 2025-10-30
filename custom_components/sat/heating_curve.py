@@ -8,13 +8,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class HeatingCurve:
-    def __init__(self, heating_system: str, coefficient: float, version: int = 3):
+    def __init__(self, heating_system: str, coefficient: float):
         """
         :param heating_system: The type of heating system, either "underfloor" or "radiator"
         :param coefficient: The coefficient used to adjust the heating curve
-        :param version: The version of math calculation for the heating curve
         """
-        self._version = version
         self._coefficient = coefficient
         self._heating_system = heating_system
         self.reset()
@@ -27,12 +25,12 @@ class HeatingCurve:
 
     def update(self, target_temperature: float, outside_temperature: float) -> None:
         """Calculate the heating curve based on the outside temperature."""
-        heating_curve_value = self._get_heating_curve_value(target_temperature, outside_temperature)
+        heating_curve_value = self.calculate(target_temperature, outside_temperature)
         self._last_heating_curve_value = round(self.base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
 
     def calculate_coefficient(self, setpoint: float, target_temperature: float, outside_temperature: float) -> float:
         """Convert a setpoint to a coefficient value"""
-        heating_curve_value = self._get_heating_curve_value(target_temperature, outside_temperature)
+        heating_curve_value = self.calculate(target_temperature, outside_temperature)
         return round(4 * (setpoint - self.base_offset) / heating_curve_value, 1)
 
     def autotune(self, setpoint: float, target_temperature: float, outside_temperature: float):
@@ -70,15 +68,10 @@ class HeatingCurve:
 
         self._optimal_coefficients = deque([coefficient] * 5, maxlen=5)
 
-    def _get_heating_curve_value(self, target_temperature: float, outside_temperature: float) -> float:
+    @staticmethod
+    def calculate(target_temperature: float, outside_temperature: float) -> float:
         """Calculate the heating curve value based on the current outside temperature"""
-        if self._version == 2:
-            return 2.72 * (target_temperature - 20) + 0.03 * (outside_temperature - 20) ** 2 - 1.2 * (outside_temperature - 20)
-
-        if self._version == 3:
-            return 4 * (target_temperature - 20) + 0.03 * (outside_temperature - 20) ** 2 - 0.4 * (outside_temperature - 20)
-
-        raise Exception("Invalid version")
+        return 4 * (target_temperature - 20) + 0.03 * (outside_temperature - 20) ** 2 - 0.4 * (outside_temperature - 20)
 
     @property
     def base_offset(self) -> float:

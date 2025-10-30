@@ -127,7 +127,7 @@ class BoilerTemperatureTracker:
 
         _LOGGER.debug("Flame inactive: Starting to track boiler temperature.")
 
-    def _handle_tracking(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float):
+    def _handle_tracking(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float) -> None:
         """Handle boiler temperature tracking logic."""
         if not self._warming_up and boiler_temperature_derivative == 0:
             return self._stop_tracking("Temperature not changing.", boiler_temperature, setpoint)
@@ -138,10 +138,14 @@ class BoilerTemperatureTracker:
         if setpoint > boiler_temperature and setpoint - STABILIZATION_MARGIN < boiler_temperature + 1 < self._last_boiler_temperature:
             return self._stop_warming_up("Stabilizing below setpoint.", boiler_temperature, setpoint)
 
-    def _handle_adjusting_to_lower_setpoint(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float):
+        return None
+
+    def _handle_adjusting_to_lower_setpoint(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float) -> None:
         """Handle stabilization when adjusting to a lower setpoint."""
         if boiler_temperature <= setpoint and boiler_temperature_derivative == 0:
             return self._stop_adjusting_to_lower_setpoint("Setpoint stabilization complete.", boiler_temperature, setpoint)
+
+        return None
 
     def _stop_adjusting_to_lower_setpoint(self, reason: str, boiler_temperature: float, setpoint: float):
         """Stop the adjustment to a lower setpoint and log the reason."""

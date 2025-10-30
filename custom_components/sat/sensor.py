@@ -6,7 +6,7 @@ import typing
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume
-from homeassistant.core import HomeAssistant, Event
+from homeassistant.core import HomeAssistant, Event, EventStateChangedData
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
@@ -124,10 +124,10 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
         In this case, the state represents the current consumption of the boiler in m³/h.
         """
 
-        if self._coordinator.device_active is False:
+        if not self._coordinator.device_active:
             return 0
 
-        if self._coordinator.flame_active is False:
+        if not self._coordinator.flame_active:
             return 0
 
         differential_gas_consumption = self._maximum_consumption - self._minimum_consumption
@@ -144,7 +144,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
-        async def on_state_change(_event: Event):
+        async def on_state_change(_event: Event[EventStateChangedData]):
             self.async_write_ha_state()
 
         self.async_on_remove(
@@ -189,7 +189,7 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
-        async def on_state_change(_event: Event):
+        async def on_state_change(_event: Event[EventStateChangedData]):
             self.async_write_ha_state()
 
         self.async_on_remove(

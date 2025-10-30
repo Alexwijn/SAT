@@ -3,14 +3,8 @@ from __future__ import annotations, annotations
 import logging
 from typing import Mapping, Any
 
-from homeassistant.components import mqtt
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.esphome import DOMAIN as ESPHOME_DOMAIN
-from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
-from homeassistant.components.number.const import SERVICE_SET_VALUE
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN, SERVICE_TURN_ON, SERVICE_TURN_OFF
-from homeassistant.core import HomeAssistant, Event
+from homeassistant.components import mqtt, binary_sensor, esphome, number, sensor, switch
+from homeassistant.core import HomeAssistant, Event, EventStateChangedData
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
@@ -83,96 +77,96 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def device_active(self) -> bool:
-        return self.get(SWITCH_DOMAIN, DATA_CENTRAL_HEATING) == DeviceState.ON
+        return self.get(switch.DOMAIN, DATA_CENTRAL_HEATING) == DeviceState.ON
 
     @property
     def flame_active(self) -> bool:
-        return self.get(BINARY_SENSOR_DOMAIN, DATA_FLAME_ACTIVE) == DeviceState.ON
+        return self.get(binary_sensor.DOMAIN, DATA_FLAME_ACTIVE) == DeviceState.ON
 
     @property
     def hot_water_active(self) -> bool:
-        return self.get(BINARY_SENSOR_DOMAIN, DATA_DHW_ENABLE) == DeviceState.ON
+        return self.get(binary_sensor.DOMAIN, DATA_DHW_ENABLE) == DeviceState.ON
 
     @property
     def setpoint(self) -> float | None:
-        if (setpoint := self.get(NUMBER_DOMAIN, DATA_CONTROL_SETPOINT)) is not None:
+        if (setpoint := self.get(number.DOMAIN, DATA_CONTROL_SETPOINT)) is not None:
             return float(setpoint)
 
         return None
 
     @property
     def maximum_setpoint_value(self) -> float | None:
-        if (setpoint := self.get(NUMBER_DOMAIN, DATA_MAX_CH_SETPOINT)) is not None:
+        if (setpoint := self.get(number.DOMAIN, DATA_MAX_CH_SETPOINT)) is not None:
             return float(setpoint)
 
         return super().maximum_setpoint_value
 
     @property
     def hot_water_setpoint(self) -> float | None:
-        if (setpoint := self.get(NUMBER_DOMAIN, DATA_DHW_SETPOINT)) is not None:
+        if (setpoint := self.get(number.DOMAIN, DATA_DHW_SETPOINT)) is not None:
             return float(setpoint)
 
         return super().hot_water_setpoint
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
-        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
+        if (setpoint := self.get(sensor.DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
             return float(setpoint)
 
         return super().minimum_hot_water_setpoint
 
     @property
     def maximum_hot_water_setpoint(self) -> float:
-        if (setpoint := self.get(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
+        if (setpoint := self.get(sensor.DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
             return float(setpoint)
 
         return super().maximum_hot_water_setpoint
 
     @property
     def boiler_temperature(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE)) is not None:
+        if (value := self.get(sensor.DOMAIN, DATA_BOILER_TEMPERATURE)) is not None:
             return float(value)
 
         return super().boiler_temperature
 
     @property
     def return_temperature(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_RETURN_TEMPERATURE)) is not None:
+        if (value := self.get(sensor.DOMAIN, DATA_RETURN_TEMPERATURE)) is not None:
             return float(value)
 
         return super().return_temperature
 
     @property
     def relative_modulation_value(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
+        if (value := self.get(sensor.DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
             return float(value)
 
         return super().relative_modulation_value
 
     @property
     def boiler_capacity(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_BOILER_CAPACITY)) is not None:
+        if (value := self.get(sensor.DOMAIN, DATA_BOILER_CAPACITY)) is not None:
             return float(value)
 
         return super().boiler_capacity
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
+        if (value := self.get(sensor.DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
             return float(value)
 
         return super().minimum_relative_modulation_value
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        if (value := self.get(NUMBER_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
+        if (value := self.get(number.DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
             return float(value)
 
         return super().maximum_relative_modulation_value
 
     @property
     def member_id(self) -> int | None:
-        if (value := self.get(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
+        if (value := self.get(sensor.DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
             return int(float(value))
 
         return None
@@ -182,21 +176,21 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         # Create a list of entities that we track
         entities = list(filter(lambda entity: entity is not None, [
-            self._get_entity_id(SENSOR_DOMAIN, DATA_FLAME_ACTIVE),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_REL_MOD_LEVEL),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_SLAVE_MEMBERID),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_BOILER_TEMPERATURE),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_RETURN_TEMPERATURE),
+            self._get_entity_id(sensor.DOMAIN, DATA_FLAME_ACTIVE),
+            self._get_entity_id(sensor.DOMAIN, DATA_REL_MOD_LEVEL),
+            self._get_entity_id(sensor.DOMAIN, DATA_SLAVE_MEMBERID),
+            self._get_entity_id(sensor.DOMAIN, DATA_BOILER_TEMPERATURE),
+            self._get_entity_id(sensor.DOMAIN, DATA_RETURN_TEMPERATURE),
 
-            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
-            self._get_entity_id(SENSOR_DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
+            self._get_entity_id(sensor.DOMAIN, DATA_DHW_SETPOINT_MINIMUM),
+            self._get_entity_id(sensor.DOMAIN, DATA_DHW_SETPOINT_MAXIMUM),
 
-            self._get_entity_id(SWITCH_DOMAIN, DATA_DHW_ENABLE),
-            self._get_entity_id(SWITCH_DOMAIN, DATA_CENTRAL_HEATING),
+            self._get_entity_id(switch.DOMAIN, DATA_DHW_ENABLE),
+            self._get_entity_id(switch.DOMAIN, DATA_CENTRAL_HEATING),
 
-            self._get_entity_id(NUMBER_DOMAIN, DATA_DHW_SETPOINT),
-            self._get_entity_id(NUMBER_DOMAIN, DATA_CONTROL_SETPOINT),
-            self._get_entity_id(NUMBER_DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING),
+            self._get_entity_id(number.DOMAIN, DATA_DHW_SETPOINT),
+            self._get_entity_id(number.DOMAIN, DATA_CONTROL_SETPOINT),
+            self._get_entity_id(number.DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING),
         ]))
 
         # Track those entities so the coordinator can be updated when something changes
@@ -204,7 +198,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         await super().async_added_to_hass()
 
-    async def async_state_change_event(self, _event: Event):
+    async def async_state_change_event(self, _event: Event[EventStateChangedData]):
         if self._listeners:
             self._schedule_refresh()
 
@@ -238,7 +232,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     def _get_entity_id(self, domain: str, key: str):
         unique_id = f"{self._mac_address.upper()}-{domain}-{key}"
         _LOGGER.debug(f"Attempting to find the unique_id of {unique_id}")
-        return self._entity_registry.async_get_entity_id(domain, ESPHOME_DOMAIN, unique_id)
+        return self._entity_registry.async_get_entity_id(domain, esphome.DOMAIN, unique_id)
 
     async def _send_command(self, domain: str, service: str, _key: str, payload: dict):
         """Helper method to send a command to a specified domain and service."""
@@ -249,11 +243,11 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     async def _send_command_state(self, key: str, value: bool):
         """Send a command to turn a switch on or off."""
-        service = SERVICE_TURN_ON if value else SERVICE_TURN_OFF
-        payload = {"entity_id": self._get_entity_id(SWITCH_DOMAIN, key)}
-        await self._send_command(SWITCH_DOMAIN, service, key, payload)
+        service = switch.SERVICE_TURN_ON if value else switch.SERVICE_TURN_OFF
+        payload = {"entity_id": self._get_entity_id(switch.DOMAIN, key)}
+        await self._send_command(switch.DOMAIN, service, key, payload)
 
     async def _send_command_value(self, key: str, value: float):
         """Send a command to set a numerical value."""
-        payload = {"entity_id": self._get_entity_id(NUMBER_DOMAIN, key), "value": value}
-        await self._send_command(NUMBER_DOMAIN, SERVICE_SET_VALUE, key, payload)
+        payload = {"entity_id": self._get_entity_id(number.DOMAIN, key), "value": value}
+        await self._send_command(number.DOMAIN, number.SERVICE_SET_VALUE, key, payload)

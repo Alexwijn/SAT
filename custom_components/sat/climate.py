@@ -26,12 +26,10 @@ from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
     DOMAIN as CLIMATE_DOMAIN,
 )
-from homeassistant.components.notify import DOMAIN as NOTIFY_DOMAIN, SERVICE_PERSISTENT_NOTIFICATION
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
+from homeassistant.components import notify,sensor,weather
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState
+from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -465,10 +463,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
                 continue
 
-            if SENSOR_DOMAIN in entity_id:
+            if sensor.DOMAIN in entity_id:
                 return float(state.state)
 
-            if WEATHER_DOMAIN in entity_id:
+            if weather.DOMAIN in entity_id:
                 return float(state.attributes.get("temperature"))
 
         return None
@@ -600,13 +598,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.heating_curve.value is None:
             return MINIMUM_SETPOINT
 
-        # Combine the heating curve value and the calculated output from the pid controller
-        requested_setpoint = self.requested_setpoint
-
         # Ensure setpoint is limited to our max
-        return min(requested_setpoint, self._coordinator.maximum_setpoint)
+        return min(self.requested_setpoint, self._coordinator.maximum_setpoint)
 
-    async def _async_thermostat_changed(self, event: Event) -> None:
+    async def _async_thermostat_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the connected thermostat."""
         old_state = event.data.get("old_state")
         if old_state is None or old_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -621,10 +616,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 old_state.attributes.get("temperature") != new_state.attributes.get("temperature")
         ):
             _LOGGER.debug("Thermostat State Changed.")
-            await self.async_set_hvac_mode(new_state.state, cascade=False)
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
-    async def _async_inside_sensor_changed(self, event: Event) -> None:
+    async def _async_inside_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the inside temperature sensor."""
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -637,7 +631,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_pid()
         await self.async_control_heating_loop()
 
-    async def _async_outside_entity_changed(self, event: Event) -> None:
+    async def _async_outside_entity_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the outside entity."""
         if event.data.get("new_state") is None:
             return
@@ -648,7 +642,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_pid()
         await self.async_control_heating_loop()
 
-    async def _async_humidity_sensor_changed(self, event: Event) -> None:
+    async def _async_humidity_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the inside temperature sensor."""
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -661,7 +655,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_pid()
         await self.async_control_heating_loop()
 
-    async def _async_main_climate_changed(self, event: Event) -> None:
+    async def _async_main_climate_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the main climate entity."""
         old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
@@ -672,7 +666,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug(f"Main Climate State Changed ({new_state.entity_id}).")
             await self.async_control_heating_loop()
 
-    async def _async_climate_changed(self, event: Event) -> None:
+    async def _async_climate_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the climate entity.
         If the state, target temperature, or current temperature of the climate
         entity has changed, update the PID controller and heating control.
@@ -720,7 +714,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Update the heating control
         await self.async_control_heating_loop()
 
-    async def _async_temperature_change(self, event: Event) -> None:
+    async def _async_temperature_change(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the climate sensor entity."""
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -730,7 +724,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._async_control_pid()
         await self.async_control_heating_loop()
 
-    async def _async_window_sensor_changed(self, event: Event) -> None:
+    async def _async_window_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the contact sensor entity."""
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -842,7 +836,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
                     if self._minimum_setpoint_version == 2:
                         if self._coordinator.flame_active and seconds_since(self._coordinator.flame_on_since) > 6 and self._coordinator.device_status != BoilerStatus.PUMP_STARTING:
-                            self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 2)
+                            self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 3)
                         elif self._setpoint_adjuster.current is not None:
                             self._setpoint = self._setpoint_adjuster.current
                         elif not self._coordinator.flame_active:
@@ -1135,7 +1129,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control the heating based on the new temperature setpoint
         await self.async_control_heating_loop()
 
-    async def async_send_notification(self, title: str, message: str, service: str = SERVICE_PERSISTENT_NOTIFICATION):
+    async def async_send_notification(self, title: str, message: str, service: str = notify.SERVICE_PERSISTENT_NOTIFICATION):
         """Send a notification to the user."""
         data = {"title": title, "message": message}
-        await self.hass.services.async_call(NOTIFY_DOMAIN, service, data)
+        await self.hass.services.async_call(notify.DOMAIN, service, data)

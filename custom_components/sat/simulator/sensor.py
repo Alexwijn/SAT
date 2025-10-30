@@ -1,4 +1,4 @@
-from homeassistant.components.sensor import SensorEntity, DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
+from homeassistant.components import sensor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
@@ -19,13 +19,13 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     ])
 
 
-class SatSetpointSensor(SatEntity, SensorEntity):
+class SatSetpointSensor(SatEntity, sensor.SensorEntity):
     def __init__(self, coordinator: SatSimulatorCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._config_entry = config_entry
         self.entity_id = async_generate_entity_id(
-            SENSOR_DOMAIN + ".{}", f"{config_entry.data.get(CONF_NAME).lower()}_setpoint", hass=coordinator.hass
+            sensor.DOMAIN + ".{}", f"{config_entry.data.get(CONF_NAME).lower()}_setpoint", hass=coordinator.hass
         )
 
     @property
@@ -36,7 +36,7 @@ class SatSetpointSensor(SatEntity, SensorEntity):
     @property
     def device_class(self):
         """Return the device class."""
-        return SensorDeviceClass.TEMPERATURE
+        return sensor.SensorDeviceClass.TEMPERATURE
 
     @property
     def native_unit_of_measurement(self):
@@ -59,13 +59,13 @@ class SatSetpointSensor(SatEntity, SensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-setpoint"
 
 
-class SatBoilerTemperatureSensor(SatEntity, SensorEntity):
+class SatBoilerTemperatureSensor(SatEntity, sensor.SensorEntity):
     def __init__(self, coordinator: SatSimulatorCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator, config_entry)
 
         self._config_entry = config_entry
         self.entity_id = async_generate_entity_id(
-            SENSOR_DOMAIN + ".{}", f"{config_entry.data.get(CONF_NAME).lower()}_boiler_temperature", hass=coordinator.hass
+            sensor.DOMAIN + ".{}", f"{config_entry.data.get(CONF_NAME).lower()}_boiler_temperature", hass=coordinator.hass
         )
 
     @property
@@ -76,7 +76,7 @@ class SatBoilerTemperatureSensor(SatEntity, SensorEntity):
     @property
     def device_class(self):
         """Return the device class."""
-        return SensorDeviceClass.TEMPERATURE
+        return sensor.SensorDeviceClass.TEMPERATURE
 
     @property
     def native_unit_of_measurement(self):
