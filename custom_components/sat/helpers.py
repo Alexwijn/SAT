@@ -1,9 +1,38 @@
+import math
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from re import sub
 from time import monotonic
+from typing import Optional
 
 from homeassistant.util import dt
 
 from .const import HEATING_SYSTEM_UNDERFLOOR
+
+EPSILON = 1e-3
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+@dataclass(frozen=True, slots=True)
+class State:
+    value: Optional[float] = None
+    last_changed: datetime = field(default_factory=utcnow)
+
+
+def update_state(previous: State, new_value: float) -> State:
+    """
+    Return a new State if the value changed beyond tolerance; otherwise return the existing one.
+    Always timezone-aware and safe for float comparisons.
+    """
+    if previous.value is not None and math.isclose(previous.value, new_value, abs_tol=EPSILON):
+        # No significant change → preserve timestamp
+        return previous
+
+    # Changed or first assignment → create new State
+    return State(value=new_value, last_changed=utcnow())
 
 
 def seconds_since(start_time: float | None) -> float:
@@ -61,3 +90,13 @@ def float_value(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def clamp(value: float, low: float, high: Optional[float] = None) -> float:
+    """Clamp to [low, high] if high is given, else to [low, +inf).
+    :rtype: float
+    """
+    if high is None:
+        return max(low, value)
+
+    return max(low, min(value, high))

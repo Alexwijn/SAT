@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
@@ -26,51 +27,22 @@ class BoilerStatus(str, Enum):
     UNKNOWN = "unknown"
     INITIALIZING = "initializing"
 
-
+@dataclass(frozen=True, slots=True, kw_only=True)
 class BoilerState:
     """
     Represents the operational state of a boiler, including activity, flame status, hot water usage, and current temperature.
     """
+    flame_active: bool
+    hot_water_active: bool
 
-    def __init__(self, device_active: bool, device_status: BoilerStatus, flame_active: bool, flame_on_since: Optional[int], hot_water_active: bool, temperature: float):
-        """Initialize with the boiler's state parameters."""
-        self._flame_active: bool = flame_active
-        self._hot_water_active: bool = hot_water_active
+    setpoint: float
+    flow_temperature: float
+    return_temperature: float
+    relative_modulation_level: float
 
-        self._temperature: float = temperature
-        self._device_active: bool = device_active
-        self._device_status: BoilerStatus = device_status
-        self._flame_on_since: Optional[int] = flame_on_since
-
-    @property
-    def device_active(self) -> bool:
-        """Indicates whether the boiler is running."""
-        return self._device_active
-
-    @property
-    def device_status(self) -> BoilerStatus:
-        """Indicates the boiler status."""
-        return self._device_status
-
-    @property
-    def flame_active(self) -> bool:
-        """Indicates whether the flame is ignited."""
-        return self._flame_active
-
-    @property
-    def flame_on_since(self) -> Optional[int]:
-        """Indicates when the flame has been ignited."""
-        return self._flame_on_since
-
-    @property
-    def hot_water_active(self) -> bool:
-        """Indicates whether the boiler is heating water."""
-        return self._hot_water_active
-
-    @property
-    def temperature(self) -> float:
-        """The boiler's current temperature."""
-        return self._temperature
+    device_active: bool
+    device_status: BoilerStatus
+    flame_on_since: Optional[int]
 
 
 class BoilerTemperatureTracker:

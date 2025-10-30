@@ -102,18 +102,18 @@ class PWM:
 
     async def update(self, boiler: BoilerState, requested_setpoint: float) -> None:
         """Update the PWM state based on the output of a PID controller."""
-        if not self._heating_curve.value or requested_setpoint is None or boiler.temperature is None:
+        if not self._heating_curve.value or requested_setpoint is None or boiler.flow_temperature is None:
             self._state = PWMState.IDLE
             self._last_update = monotonic()
-            self._last_boiler_temperature = boiler.temperature
+            self._last_boiler_temperature = boiler.flow_temperature
 
             _LOGGER.warning("PWM turned off due missing values.")
 
             return
 
         if self._last_boiler_temperature is None:
-            self._last_boiler_temperature = boiler.temperature
-            _LOGGER.debug("Initialized last boiler temperature to %.1f°C", boiler.temperature)
+            self._last_boiler_temperature = boiler.flow_temperature
+            _LOGGER.debug("Initialized last boiler temperature to %.1f°C", boiler.flow_temperature)
 
         if self._first_duty_cycle_start is None or (monotonic() - self._first_duty_cycle_start) > 3600:
             self._current_cycle = 0
@@ -126,20 +126,20 @@ class PWM:
         # Update boiler temperature if heater has just started up
         if self._state == PWMState.ON:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
-                self._last_boiler_temperature = (self._alpha * boiler.temperature + (1 - self._alpha) * self._last_boiler_temperature)
+                self._last_boiler_temperature = (self._alpha * boiler.flow_temperature + (1 - self._alpha) * self._last_boiler_temperature)
 
                 _LOGGER.debug("Updated last boiler temperature with weighted average during startup phase.")
             else:
-                self._last_boiler_temperature = boiler.temperature
-                _LOGGER.debug("Updated last boiler temperature to %.1f°C", boiler.temperature)
+                self._last_boiler_temperature = boiler.flow_temperature
+                _LOGGER.debug("Updated last boiler temperature to %.1f°C", boiler.flow_temperature)
 
         # Control the adjusted setpoint
-        if boiler.flame_active and boiler.temperature >= self._last_boiler_temperature and boiler.device_status != BoilerStatus.PUMP_STARTING:
-            self._setpoint = self._setpoint_adjuster.adjust(boiler.temperature - self._setpoint_offset)
+        if boiler.flame_active and boiler.flow_temperature >= self._last_boiler_temperature and boiler.device_status != BoilerStatus.PUMP_STARTING:
+            self._setpoint = self._setpoint_adjuster.adjust(boiler.flow_temperature - self._setpoint_offset)
         elif self._setpoint_adjuster.current is not None:
             self._setpoint = self._setpoint_adjuster.current
         elif not boiler.flame_active:
-            self._setpoint = self._setpoint_adjuster.force(boiler.temperature + 10)
+            self._setpoint = self._setpoint_adjuster.force(boiler.flow_temperature + 10)
 
         # State transitions for PWM
         if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
@@ -150,7 +150,7 @@ class PWM:
             self._current_cycle += 1
             self._state = PWMState.ON
             self._last_update = monotonic()
-            self._last_boiler_temperature = boiler.temperature
+            self._last_boiler_temperature = boiler.flow_temperature
             _LOGGER.info("Starting new duty cycle (ON state). Current CYCLES count: %d", self._current_cycle)
             return
 

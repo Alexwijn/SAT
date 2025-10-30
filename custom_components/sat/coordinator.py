@@ -151,8 +151,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             device_active=self.device_active,
             device_status=self.device_status,
 
-            temperature=self.boiler_temperature,
+            setpoint=self.setpoint,
+            flow_temperature=self.boiler_temperature,
+            return_temperature=self.return_temperature,
+
             hot_water_active=self.hot_water_active,
+            relative_modulation_level=self.relative_modulation_value,
         )
 
     @property
