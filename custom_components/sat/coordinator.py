@@ -347,9 +347,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         This property is used to determine whether the coordinator can send a relative modulation value to the device.
         If a device doesn't support relative modulation management, the coordinator won't be able to control the value.
         """
-        if isinstance(self.manufacturer, (Ideal, Intergas, Geminox, Nefit)):
-            return False
-
         return True
 
     @property
