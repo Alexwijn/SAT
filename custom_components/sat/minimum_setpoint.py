@@ -70,7 +70,7 @@ class MinimumSetpoint:
 
     def _is_running_normal_mode(self, boiler_state: BoilerState, pwm_state: PWMState) -> bool:
         return (
-                pwm_state is not PWMState.IDLE
+                pwm_state is PWMState.IDLE
                 and self._relative_modulation_level.value > 0
                 and (utcnow() - self._relative_modulation_level.last_changed).total_seconds() > 180
                 and math.isclose(boiler_state.flow_temperature, boiler_state.setpoint, abs_tol=1.0)
