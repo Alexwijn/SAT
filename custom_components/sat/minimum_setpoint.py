@@ -1,9 +1,9 @@
 import logging
+import math
 from datetime import datetime
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
-from pygments.lexers import math
 
 from custom_components.sat.boiler import BoilerState
 from custom_components.sat.helpers import clamp, State, update_state
