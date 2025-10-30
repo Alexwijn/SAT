@@ -44,7 +44,7 @@ class MinimumSetpoint:
 
     def calculate(self, boiler_state: BoilerState, pwm_state: PWMState) -> None:
         self._relative_modulation_level = update_state(
-            tolerance=0.1,
+            tolerance=0.01,
             previous=self._relative_modulation_level,
             new_value=boiler_state.relative_modulation_level,
         )
