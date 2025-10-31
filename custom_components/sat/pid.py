@@ -118,8 +118,8 @@ class PID:
         self._last_interval_updated: float = monotonic()
         self._last_heating_curve_value: float = heating_curve_value
 
-        self._errors = deque([error], maxlen=int(self._history_size))
         self._times = deque([monotonic()], maxlen=int(self._history_size))
+        self._errors = deque([error.value], maxlen=int(self._history_size))
 
     def update_integral(self, error: Error, heating_curve_value: float, force: bool = False):
         """

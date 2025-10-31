@@ -30,7 +30,7 @@ class MinimumSetpoint:
 
         data = await self._store.async_load()
         if data and "base_return_temperature" in data:
-            self._base_return_temperature = data["base_return_temperature"]
+            self._base_return_temperature = State(data["base_return_temperature"])
             _LOGGER.debug("Loaded base return temperature from storage.")
 
     def warming_up(self, boiler_state: BoilerState) -> None:
@@ -50,12 +50,12 @@ class MinimumSetpoint:
             new_value=boiler_state.relative_modulation_level,
         )
 
-        if self._base_return_temperature is None:
+        if self._base_return_temperature.value is None:
             _LOGGER.debug("Skip calculation: base return temperature is not set.")
             return
 
         if boiler_state.return_temperature is None:
-            _LOGGER.debug("Skip calculation: return temperature is not available.")
+            _LOGGER.debug("Skip calculation: boiler return temperature is not available.")
             return
 
         if self._is_running_normal_mode(boiler_state, pwm_state):
@@ -72,7 +72,7 @@ class MinimumSetpoint:
 
     @property
     def current(self) -> float:
-        return self._current_minimum_setpoint if self._current_minimum_setpoint.value is not None else self._configured_minimum_setpoint
+        return self._current_minimum_setpoint.value if self._current_minimum_setpoint.value is not None else self._configured_minimum_setpoint
 
     def _data_to_save(self) -> dict:
         return {"base_return_temperature": self._base_return_temperature.value}
