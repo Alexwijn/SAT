@@ -27,6 +27,7 @@ class BoilerStatus(str, Enum):
     UNKNOWN = "unknown"
     INITIALIZING = "initializing"
 
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BoilerState:
     """
@@ -35,10 +36,10 @@ class BoilerState:
     flame_active: bool
     hot_water_active: bool
 
-    setpoint: float
-    flow_temperature: float
-    return_temperature: float
-    relative_modulation_level: float
+    setpoint: Optional[float]
+    flow_temperature: Optional[float]
+    return_temperature: Optional[float]
+    relative_modulation_level: Optional[float]
 
     device_active: bool
     device_status: BoilerStatus

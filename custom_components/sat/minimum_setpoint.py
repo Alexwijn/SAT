@@ -5,8 +5,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from custom_components.sat.boiler import BoilerState
-from custom_components.sat.helpers import clamp, State, update_state, utcnow
+from custom_components.sat.helpers import clamp, utcnow, to_int
 from custom_components.sat.pwm import PWMState
+from custom_components.sat.state import State, update_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +54,10 @@ class MinimumSetpoint:
             _LOGGER.debug("Skip calculation: base return temperature is not set.")
             return
 
+        if boiler_state.return_temperature is None:
+            _LOGGER.debug("Skip calculation: return temperature is not available.")
+            return
+
         if self._is_running_normal_mode(boiler_state, pwm_state):
             proportion = 1.0 - (boiler_state.relative_modulation_level / 100.0)
             proportional_candidate = (proportion * boiler_state.flow_temperature) - 3.0
@@ -75,7 +80,7 @@ class MinimumSetpoint:
     def _is_running_normal_mode(self, boiler_state: BoilerState, pwm_state: PWMState) -> bool:
         return (
                 pwm_state is PWMState.IDLE
-                and self._relative_modulation_level.value > 0
+                and to_int(self._relative_modulation_level.value, 0) > 0
                 and (utcnow() - self._relative_modulation_level.last_changed).total_seconds() > 180
                 and math.isclose(boiler_state.flow_temperature, boiler_state.setpoint, abs_tol=1.0)
         )

@@ -97,7 +97,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         pass
 
     @property
-    def device_status(self):
+    def device_status(self) -> BoilerStatus:
         """Return the current status of the device."""
         if self.boiler_temperature is None:
             return BoilerStatus.INITIALIZING

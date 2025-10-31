@@ -1,9 +1,8 @@
 import math
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from re import sub
 from time import monotonic
-from typing import Optional
+from typing import Optional, Union
 
 from homeassistant.util import dt
 
@@ -12,25 +11,6 @@ from .const import HEATING_SYSTEM_UNDERFLOOR
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
-
-
-@dataclass(frozen=True, slots=True)
-class State:
-    value: Optional[float] = None
-    last_changed: datetime = field(default_factory=utcnow)
-
-
-def update_state(previous: State, new_value: float, tolerance=1e-3) -> State:
-    """
-    Return a new State if the value changed beyond tolerance; otherwise return the existing one.
-    Always timezone-aware and safe for float comparisons.
-    """
-    if previous.value is not None and math.isclose(previous.value, new_value, abs_tol=tolerance):
-        # No significant change → preserve timestamp
-        return previous
-
-    # Changed or first assignment → create new State
-    return State(value=new_value, last_changed=utcnow())
 
 
 def seconds_since(start_time: float | None) -> float:
@@ -82,12 +62,34 @@ def snake_case(value: str) -> str:
                 value.replace('-', ' '))).split()).lower()
 
 
-def float_value(value) -> float | None:
-    """Safely convert a value to a float, returning None if conversion fails."""
+def float_value(value: Union[int, float, str, None]) -> Optional[float]:
+    """Safely convert a value to a finite float, returning None if conversion fails."""
+    if value is None:
+        return None
+
     try:
-        return float(value)
+        result = float(value)
+        return result if math.isfinite(result) else None
     except (TypeError, ValueError):
         return None
+
+
+def to_float(value: Union[int, float, str, None], default: float = 0.0) -> float:
+    """Convert to float, returning default if conversion fails or result is None."""
+    result = float_value(value)
+    return float(result) if result is not None else float(default)
+
+
+def int_value(value: Union[int, float, str, None]) -> Optional[int]:
+    """Safely convert a value to an int, returning None if conversion fails."""
+    result = float_value(value)
+    return int(result) if result is not None else None
+
+
+def to_int(value: Union[int, float, str, None], default: int = 0) -> int:
+    """Convert to int, returning default if conversion fails or result is None."""
+    result = int_value(value)
+    return int(result) if result is not None else int(default)
 
 
 def clamp(value: float, low: float, high: Optional[float] = None) -> float:

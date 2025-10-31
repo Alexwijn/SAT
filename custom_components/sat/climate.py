@@ -8,6 +8,7 @@ from datetime import timedelta, datetime
 from time import monotonic, time
 from typing import Optional
 
+from homeassistant.components import notify, sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -26,7 +27,6 @@ from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
     DOMAIN as CLIMATE_DOMAIN,
 )
-from homeassistant.components import notify,sensor,weather
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData
@@ -40,6 +40,7 @@ from .boiler import BoilerStatus
 from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
+from .errors import Errors, Error
 from .helpers import convert_time_str_to_seconds, seconds_since
 from .manufacturers.geminox import Geminox
 from .pwm import PWMState
@@ -496,11 +497,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return HVACAction.HEATING
 
     @property
-    def max_error(self) -> float:
+    def errors(self) -> Errors:
+        errors = Errors([Error(self.entity_id, self.error)])
         if self._heating_mode == HEATING_MODE_ECO:
-            return self.error
+            return errors
 
-        return max([self.error] + self.areas.errors)
+        return errors + self.areas.errors
+
+    @property
+    def max_error(self) -> Error:
+        return max(self.errors, key=lambda error: error.value)
 
     @property
     def setpoint(self) -> float | None:
@@ -779,10 +785,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update the PID controller with the maximum error
         if not reset:
-            _LOGGER.info(f"Updating error value to {max_error} (Reset: False)")
+            _LOGGER.info(f"Updating error to {max_error} (Reset: False)")
 
             # Calculate an optimal heating curve when we are in the deadband
-            if self.target_temperature is not None and -DEADBAND <= max_error <= DEADBAND:
+            if self.target_temperature is not None and -DEADBAND <= max_error.value <= DEADBAND:
                 self.heating_curve.autotune(
                     setpoint=self.requested_setpoint,
                     target_temperature=self.target_temperature,
@@ -797,7 +803,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     self.pid.update(max_error, self.heating_curve.value, self._coordinator.boiler_temperature_filtered)
 
         elif max_error != self.pid.last_error:
-            _LOGGER.info(f"Updating error value to {max_error} (Reset: True)")
+            _LOGGER.info(f"Updating error to {max_error} (Reset: True)")
 
             self.pid.update_reset(error=max_error, heating_curve_value=self.heating_curve.value)
             self._calculated_setpoint = None

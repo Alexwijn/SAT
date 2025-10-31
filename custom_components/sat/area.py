@@ -1,11 +1,12 @@
 from types import MappingProxyType
-from typing import Any, List
+from typing import Any
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
 
 from .const import CONF_ROOMS
+from .errors import Errors, Error
 from .heating_curve import HeatingCurve
 from .helpers import float_value
 from .pid import PID
@@ -61,7 +62,7 @@ class Area:
         return float_value(state.attributes.get("current_temperature") or self.target_temperature)
 
     @property
-    def error(self) -> float | None:
+    def error(self) -> Error | None:
         """Calculate the temperature error."""
         target_temperature = self.target_temperature
         current_temperature = self.current_temperature
@@ -69,7 +70,7 @@ class Area:
         if target_temperature is None or current_temperature is None:
             return None
 
-        return round(target_temperature - current_temperature, 2)
+        return Error(self._entity_id, round(target_temperature - current_temperature, 2))
 
     async def async_added_to_hass(self, hass: HomeAssistant):
         self._hass = hass
@@ -90,9 +91,9 @@ class Areas:
         self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in self._entity_ids]
 
     @property
-    def errors(self) -> List[float]:
+    def errors(self) -> Errors:
         """Return a list of all the error values for all areas."""
-        return [area.error for area in self._areas if area.error is not None]
+        return Errors([area.error for area in self._areas if area.error is not None])
 
     @property
     def heating_curves(self):

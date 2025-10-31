@@ -11,6 +11,7 @@ from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
+from ..helpers import float_value, int_value
 
 # Sensors
 DATA_FLAME_ACTIVE = "flame_on"
@@ -89,87 +90,51 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def setpoint(self) -> float | None:
-        if (setpoint := self.get(number.DOMAIN, DATA_CONTROL_SETPOINT)) is not None:
-            return float(setpoint)
-
-        return None
+        return float_value(self.get(number.DOMAIN, DATA_CONTROL_SETPOINT))
 
     @property
     def maximum_setpoint_value(self) -> float | None:
-        if (setpoint := self.get(number.DOMAIN, DATA_MAX_CH_SETPOINT)) is not None:
-            return float(setpoint)
-
-        return super().maximum_setpoint_value
+        return float_value(self.get(number.DOMAIN, DATA_MAX_CH_SETPOINT))
 
     @property
     def hot_water_setpoint(self) -> float | None:
-        if (setpoint := self.get(number.DOMAIN, DATA_DHW_SETPOINT)) is not None:
-            return float(setpoint)
-
-        return super().hot_water_setpoint
+        return float_value(self.get(number.DOMAIN, DATA_DHW_SETPOINT))
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
-        if (setpoint := self.get(sensor.DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) is not None:
-            return float(setpoint)
-
-        return super().minimum_hot_water_setpoint
+        return float_value(self.get(sensor.DOMAIN, DATA_DHW_SETPOINT_MINIMUM)) or super().minimum_hot_water_setpoint
 
     @property
     def maximum_hot_water_setpoint(self) -> float:
-        if (setpoint := self.get(sensor.DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) is not None:
-            return float(setpoint)
-
-        return super().maximum_hot_water_setpoint
+        return float_value(self.get(sensor.DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) or super().maximum_hot_water_setpoint
 
     @property
     def boiler_temperature(self) -> float | None:
-        if (value := self.get(sensor.DOMAIN, DATA_BOILER_TEMPERATURE)) is not None:
-            return float(value)
-
-        return super().boiler_temperature
+        return float_value(self.get(sensor.DOMAIN, DATA_BOILER_TEMPERATURE))
 
     @property
     def return_temperature(self) -> float | None:
-        if (value := self.get(sensor.DOMAIN, DATA_RETURN_TEMPERATURE)) is not None:
-            return float(value)
-
-        return super().return_temperature
+        return float_value(self.get(sensor.DOMAIN, DATA_RETURN_TEMPERATURE))
 
     @property
     def relative_modulation_value(self) -> float | None:
-        if (value := self.get(sensor.DOMAIN, DATA_REL_MOD_LEVEL)) is not None:
-            return float(value)
-
-        return super().relative_modulation_value
+        return float_value(self.get(sensor.DOMAIN, DATA_REL_MOD_LEVEL))
 
     @property
     def boiler_capacity(self) -> float | None:
-        if (value := self.get(sensor.DOMAIN, DATA_BOILER_CAPACITY)) is not None:
-            return float(value)
-
-        return super().boiler_capacity
+        return float_value(self.get(sensor.DOMAIN, DATA_BOILER_CAPACITY))
 
     @property
     def minimum_relative_modulation_value(self) -> float | None:
-        if (value := self.get(sensor.DOMAIN, DATA_REL_MIN_MOD_LEVEL)) is not None:
-            return float(value)
-
-        return super().minimum_relative_modulation_value
+        return float_value(self.get(sensor.DOMAIN, DATA_REL_MIN_MOD_LEVEL))
 
     @property
     def maximum_relative_modulation_value(self) -> float | None:
-        if (value := self.get(number.DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
-            return float(value)
-
-        return super().maximum_relative_modulation_value
+        return float_value(self.get(number.DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING))
 
     @property
     def member_id(self) -> int | None:
-        if (value := self.get(sensor.DOMAIN, DATA_SLAVE_MEMBERID)) is not None:
-            return int(float(value))
-
-        return None
+        return int_value(self.get(sensor.DOMAIN, DATA_SLAVE_MEMBERID))
 
     async def async_added_to_hass(self) -> None:
         await mqtt.async_wait_for_mqtt_client(self.hass)
