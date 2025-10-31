@@ -27,6 +27,9 @@ class Errors:
         return Errors(self._errors + other._errors)
 
     def max(self) -> Optional["Error"]:
+        if not self._errors:
+            return None
+
         return max(self._errors, key=lambda e: e.value)
 
 

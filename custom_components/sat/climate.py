@@ -713,7 +713,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         elif SENSOR_TEMPERATURE_ID not in new_attrs and new_attrs.get("current_temperature") != old_attrs.get("current_temperature"):
             await self._async_control_pid()
 
-        if (self._rooms is not None and new_state.entity_id not in self._rooms) or self.preset_mode == PRESET_HOME:
+        if self._rooms is not None and (new_state.entity_id not in self._rooms or self.preset_mode == PRESET_HOME):
             if target_temperature := new_attrs.get("temperature"):
                 self._rooms[new_state.entity_id] = float(target_temperature)
 
@@ -827,7 +827,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
             _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._calculated_setpoint)
 
-            # Some final checks to see even it's even warm
+            # Some final checks to see if it's even warm
             if self._setpoint < COLD_SETPOINT:
                 self._setpoint = MINIMUM_SETPOINT
                 _LOGGER.debug("Calculated setpoint is too cold. Setting setpoint to minimum: %.1f°C", MINIMUM_SETPOINT)
