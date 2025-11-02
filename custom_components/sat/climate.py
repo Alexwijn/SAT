@@ -383,7 +383,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def extra_state_attributes(self):
         """Return device state attributes."""
         return {
-            "error": self.pid.last_error,
+            "error": self.max_error.value,
+            "error_pid": self.pid.last_error,
+            "error_source": self.max_error.entity_id,
+
             "integral": self.pid.integral,
             "derivative": self.pid.derivative,
             "proportional": self.pid.proportional,
@@ -476,6 +479,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def target_temperature_step(self):
         """Return the target temperature step to control the thermostat"""
         return self._target_temperature_step
+
+    @property
+    def precision(self) -> float:
+        """Return the precision of the system."""
+        return 0.01
 
     @property
     def hvac_mode(self):
@@ -845,7 +853,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                             self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 3)
                         elif self._setpoint_adjuster.current is not None:
                             self._setpoint = self._setpoint_adjuster.current
-                        elif not self._coordinator.flame_active:
+                        elif not self._coordinator.flame_active or (self._coordinator.flame_timing is not None and seconds_since(self._coordinator.flame_timing) < 30):
                             self._setpoint = self._setpoint_adjuster.force(self._coordinator.boiler_temperature + 10)
                         elif self._setpoint is None:
                             _LOGGER.debug("Setpoint not available.")
