@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ class SetpointAdjuster:
         self._current = None
 
     @property
-    def current(self) -> float:
+    def current(self) -> Optional[float]:
         """Return the current setpoint."""
         return self._current
 

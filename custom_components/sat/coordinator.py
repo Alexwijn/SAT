@@ -10,7 +10,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .boiler import BoilerTemperatureTracker, BoilerState, BoilerStatus
+from .boiler import BoilerTemperatureTracker, BoilerState, BoilerStatus, BoilerFlame
 from .const import *
 from .helpers import calculate_default_maximum_setpoint, seconds_since
 from .manufacturer import Manufacturer, ManufacturerFactory
@@ -71,7 +71,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._boiler_temperatures: list[tuple[float, float]] = []
         self._boiler_temperature_tracker = BoilerTemperatureTracker()
 
-        self._flame_on_since = None
+        self._flame = BoilerFlame()
         self._device_on_since = None
 
         self._data: Mapping[str, Any] = data
@@ -147,6 +147,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return BoilerState(
             flame_active=self.flame_active,
             flame_on_since=self.flame_on_since,
+            flame_timing=self._flame.timing,
 
             device_active=self.device_active,
             device_status=self.device_status,
@@ -184,7 +185,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def flame_on_since(self) -> float | None:
-        return self._flame_on_since
+        return self._flame.on_since
+
+    @property
+    def flame_timing(self) -> float | None:
+        return self._flame.timing
 
     @property
     def heater_on_since(self) -> float | None:
@@ -373,10 +378,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time=None) -> None:
         """Control the heating loop for the device."""
         # Update Flame State
-        if not self.flame_active:
-            self._flame_on_since = None
-        elif self._flame_on_since is None:
-            self._flame_on_since = monotonic()
+        self._flame.update(flame_active=self.flame_active)
 
         # Update Device State
         if not self.device_active:
@@ -455,7 +457,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         for timestamp, temperature in self._boiler_temperatures:
             is_before_device_on = self._device_on_since is None or timestamp < self._device_on_since
-            is_before_flame_on = self._flame_on_since is None or timestamp < self._flame_on_since
+            is_before_flame_on = self._flame.on_since is None or timestamp < self._flame.on_since
 
             if is_before_device_on and is_before_flame_on:
                 max_temperature = max(max_temperature, temperature) if max_temperature is not None else temperature

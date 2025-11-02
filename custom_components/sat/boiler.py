@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from enum import Enum
+from time import monotonic
 from typing import Optional
 
 from .const import MINIMUM_SETPOINT
@@ -33,7 +36,6 @@ class BoilerState:
     """
     Represents the operational state of a boiler, including activity, flame status, hot water usage, and current temperature.
     """
-    flame_active: bool
     hot_water_active: bool
 
     setpoint: Optional[float]
@@ -43,7 +45,94 @@ class BoilerState:
 
     device_active: bool
     device_status: BoilerStatus
+
+    flame_active: bool
+    flame_timing: Optional[int]
     flame_on_since: Optional[int]
+
+
+class BoilerFlame:
+    """
+    Tracks a flame's on/off state with timing, transition detection,
+    and a low-pass (EMA) filtered estimate of the ON duration.
+    """
+
+    def __init__(self, smoothing_alpha: float = 0.2) -> None:
+        if not (0.0 <= smoothing_alpha <= 1.0):
+            raise ValueError("smoothing_alpha must be within [0.0, 1.0].")
+
+        self._smoothing_alpha: float = smoothing_alpha
+
+        self._timing_raw: float = 0.0
+        self._timing_smoothed: Optional[float] = None
+
+        self._flame_is_active: bool = False
+        self._flame_on_since: Optional[float] = None
+
+        self._has_completed_first_cycle: bool = False
+        self._last_cycle_duration_seconds: Optional[float] = None
+
+    def update(self, flame_active: bool) -> None:
+        """Update internal state and compute timing if applicable."""
+        now = monotonic()
+        previously_active = self._flame_is_active
+        self._flame_is_active = bool(flame_active)
+
+        # Transition: OFF -> ON
+        if self._flame_is_active and not previously_active:
+            self._flame_on_since = now
+            self._timing_raw = 0.0
+            return
+
+        # Continuous ON
+        if self._flame_is_active and self._flame_on_since is not None:
+            self._timing_raw = now - self._flame_on_since
+
+            # Only update smoothing if we've already had at least one full cycle
+            if not self._has_completed_first_cycle:
+                return
+
+            alpha = self._smoothing_alpha
+            if self._timing_smoothed is None:
+                self._timing_smoothed = self._timing_raw
+            else:
+                self._timing_smoothed = ((1.0 - alpha) * self._timing_smoothed + alpha * self._timing_raw)
+
+            return
+
+        # Transition: ON -> OFF
+        if not self._flame_is_active and previously_active:
+            duration = 0.0
+            if self._flame_on_since is not None:
+                duration = now - self._flame_on_since
+
+            self._last_cycle_duration_seconds = duration
+            self._flame_on_since = None
+            self._timing_raw = 0.0
+
+            # First full cycle completed — smoothing becomes active thereafter
+            self._has_completed_first_cycle = True
+
+    def reset(self) -> None:
+        self._flame_on_since = None
+        self._flame_is_active = False
+        self._has_completed_first_cycle = False
+
+        self._timing_raw = 0.0
+        self._timing_smoothed = None
+        self._last_cycle_duration_seconds = None
+
+    @property
+    def is_active(self) -> bool:
+        return self._flame_is_active
+
+    @property
+    def on_since(self) -> Optional[float]:
+        return self._flame_on_since
+
+    @property
+    def timing(self) -> Optional[float]:
+        return self._timing_smoothed if self._has_completed_first_cycle else None
 
 
 class BoilerTemperatureTracker:
