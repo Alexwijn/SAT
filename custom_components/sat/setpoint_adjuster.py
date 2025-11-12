@@ -23,7 +23,7 @@ class SetpointAdjuster:
 
     def force(self, target_setpoint: float) -> float:
         """Force setpoint."""
-        if target_setpoint > self._current:
+        if self._current is None or target_setpoint > self._current:
             self._current = target_setpoint
 
         return self._current
