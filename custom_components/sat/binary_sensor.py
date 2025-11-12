@@ -13,7 +13,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .climate import SatClimate
 from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS
-from .entity import SatClimateEntity
+from .entity import SatClimateEntity, SatEntity
+from .flame import FlameStatus
 from .helpers import seconds_since
 from .serial import binary_sensor as serial_binary_sensor
 
@@ -40,7 +41,10 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     if len(_config_entry.options.get(CONF_WINDOW_SENSORS, [])) > 0:
         _async_add_entities([SatWindowSensor(coordinator, _config_entry, climate)])
 
-    _async_add_entities([SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)])
+    _async_add_entities([
+        SatFlameHealthSensor(coordinator, _config_entry),
+        SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)
+    ])
 
 
 class SatSynchroSensor:
@@ -164,6 +168,34 @@ class SatCentralHeatingSynchroSensor(SatSynchroSensor, SatClimateEntity, BinaryS
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-central-heating-synchro"
+
+
+class SatFlameHealthSensor(SatEntity, BinarySensorEntity):
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Flame Health"
+
+    @property
+    def device_class(self) -> str:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def available(self) -> bool:
+        """Return availability of the sensor."""
+        return self._coordinator.flame_status != FlameStatus.INSUFFICIENT_DATA
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        return self._coordinator.flame_status != FlameStatus.HEALTHY and self._coordinator.flame_status != FlameStatus.IDLE_OK
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-flame-health"
 
 
 class SatWindowSensor(SatClimateEntity, BinarySensorGroup):

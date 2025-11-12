@@ -42,6 +42,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         await simulator_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     _async_add_entities([
+        SatFlameSensor(coordinator, _config_entry),
         SatBoilerSensor(coordinator, _config_entry),
         SatManufacturerSensor(coordinator, _config_entry),
         SatErrorValueSensor(coordinator, _config_entry, climate),
@@ -247,6 +248,23 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-manufacturer"
+
+class SatFlameSensor(SatEntity, SensorEntity):
+    @property
+    def name(self) -> str:
+        return "Flame Status"
+
+    @property
+    def native_value(self) -> str:
+        return self._coordinator.flame_status
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.flame_status is not None
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-flame-status"
 
 
 class SatBoilerSensor(SatEntity, SensorEntity):

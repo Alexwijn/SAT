@@ -5,7 +5,6 @@ _LOGGER = logging.getLogger(__name__)
 
 DECREASE_STEP = 1.0
 INCREASE_STEP = 0.5
-INITIAL_OFFSET = 10
 
 
 class SetpointAdjuster:
@@ -24,7 +23,8 @@ class SetpointAdjuster:
 
     def force(self, target_setpoint: float) -> float:
         """Force setpoint."""
-        self._current = target_setpoint
+        if target_setpoint > self._current:
+            self._current = target_setpoint
 
         return self._current
 

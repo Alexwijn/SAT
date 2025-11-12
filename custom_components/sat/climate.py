@@ -394,6 +394,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "collected_errors": self.pid.num_errors,
             "integral_enabled": self.pid.integral_enabled,
 
+            "boiler_flame_timing": self._coordinator.flame_timing,
             "boiler_temperature_cold": self._coordinator.boiler_temperature_cold,
             "boiler_temperature_tracking": self._coordinator.boiler_temperature_tracking,
             "boiler_temperature_derivative": self._coordinator.boiler_temperature_derivative,
@@ -479,11 +480,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def target_temperature_step(self):
         """Return the target temperature step to control the thermostat"""
         return self._target_temperature_step
-
-    @property
-    def precision(self) -> float:
-        """Return the precision of the system."""
-        return 0.01
 
     @property
     def hvac_mode(self):
@@ -850,11 +846,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
                     if self._minimum_setpoint_version == 2:
                         if self._coordinator.flame_active and seconds_since(self._coordinator.flame_on_since) > 6 and self._coordinator.device_status != BoilerStatus.PUMP_STARTING:
-                            self._setpoint = self._setpoint_adjuster.adjust(self._coordinator.boiler_temperature - 3)
+                            self._setpoint = self._setpoint_adjuster.adjust(target_setpoint=self._coordinator.boiler_temperature - 3)
+                        elif self._coordinator.flame_timing is not None and not self._coordinator.flame_active and seconds_since(self._coordinator.flame_timing) < 60:
+                            self._setpoint = self._setpoint_adjuster.force(target_setpoint=self._coordinator.boiler_temperature + 10)
                         elif self._setpoint_adjuster.current is not None:
                             self._setpoint = self._setpoint_adjuster.current
-                        elif not self._coordinator.flame_active or (self._coordinator.flame_timing is not None and seconds_since(self._coordinator.flame_timing) < 30):
-                            self._setpoint = self._setpoint_adjuster.force(self._coordinator.boiler_temperature + 10)
                         elif self._setpoint is None:
                             _LOGGER.debug("Setpoint not available.")
                             return
@@ -950,7 +946,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Control the heating through the coordinator
-        await self._coordinator.async_control_heating_loop(self)
+        await self._coordinator.async_control_heating_loop(climate=self, pwm_state=self.pwm.state)
 
         if self._calculated_setpoint is None:
             # Default to the calculated setpoint

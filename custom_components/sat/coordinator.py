@@ -10,14 +10,16 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .boiler import BoilerTemperatureTracker, BoilerState, BoilerStatus, BoilerFlame
+from .boiler import BoilerTemperatureTracker, BoilerState, BoilerStatus
 from .const import *
+from .flame import Flame
 from .helpers import calculate_default_maximum_setpoint, seconds_since
 from .manufacturer import Manufacturer, ManufacturerFactory
 from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
+from .pwm import PWMState
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -71,7 +73,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._boiler_temperatures: list[tuple[float, float]] = []
         self._boiler_temperature_tracker = BoilerTemperatureTracker()
 
-        self._flame = BoilerFlame()
+        self._flame = Flame()
         self._device_on_since = None
 
         self._data: Mapping[str, Any] = data
@@ -147,7 +149,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return BoilerState(
             flame_active=self.flame_active,
             flame_on_since=self.flame_on_since,
-            flame_timing=self._flame.timing,
+            flame_timing=self._flame.average_on_time_seconds,
 
             device_active=self.device_active,
             device_status=self.device_status,
@@ -185,11 +187,15 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def flame_on_since(self) -> float | None:
-        return self._flame.on_since
+        return self._flame.latest_on_time_seconds
 
     @property
     def flame_timing(self) -> float | None:
-        return self._flame.timing
+        return self._flame.average_on_time_seconds
+
+    @property
+    def flame_status(self) -> str:
+        return self._flame.status
 
     @property
     def heater_on_since(self) -> float | None:
@@ -375,10 +381,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         pass
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, _time=None) -> None:
         """Control the heating loop for the device."""
         # Update Flame State
-        self._flame.update(flame_active=self.flame_active)
+        self._flame.update(boiler_state=self.state, pwm_state=pwm_state)
 
         # Update Device State
         if not self.device_active:
