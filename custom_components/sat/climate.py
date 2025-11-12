@@ -997,7 +997,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._minimum_setpoint.calculate(self._coordinator.state, self.pwm.state)
 
         # If the setpoint is high, turn on the heater
-        await self.async_set_heater_state(DeviceState.ON if self._setpoint > COLD_SETPOINT else DeviceState.OFF)
+        await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)
 
         self.async_write_ha_state()
 
