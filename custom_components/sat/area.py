@@ -72,6 +72,24 @@ class Area:
 
         return Error(self._entity_id, round(target_temperature - current_temperature, 2))
 
+    @property
+    def weight(self) -> float | None:
+        """
+        Room heating demand weight (0–2 range).
+        Based on the difference between target and current temperature.
+        """
+        target_temperature = self.target_temperature
+        current_temperature = self.current_temperature
+
+        if target_temperature is None or current_temperature is None:
+            return None
+
+        delta = target_temperature - current_temperature
+        effective_delta = max(delta - 0.2, 0.0)
+        raw_weight = effective_delta * 1.0
+
+        return round(max(0.0, min(raw_weight, 2.0)), 3)
+
     async def async_added_to_hass(self, hass: HomeAssistant):
         self._hass = hass
 

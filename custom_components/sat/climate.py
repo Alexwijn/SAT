@@ -41,7 +41,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .errors import Errors, Error
-from .helpers import convert_time_str_to_seconds, seconds_since
+from .helpers import convert_time_str_to_seconds
 from .manufacturers.geminox import Geminox
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
@@ -845,9 +845,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                         self._setpoint = self._minimum_setpoint.current
 
                     if self._minimum_setpoint_version == 2:
-                        if self._coordinator.flame_active and seconds_since(self._coordinator.flame_on_since) > 6 and self._coordinator.device_status != BoilerStatus.PUMP_STARTING:
+                        if self._coordinator.flame_active and self._coordinator.flame_on_since > 6 and self._coordinator.device_status != BoilerStatus.PUMP_STARTING:
                             self._setpoint = self._setpoint_adjuster.adjust(target_setpoint=self._coordinator.boiler_temperature - 3)
-                        elif self._coordinator.flame_timing is not None and not self._coordinator.flame_active and seconds_since(self._coordinator.flame_timing) < 60:
+                        elif self._coordinator.flame_timing is not None and self._coordinator.flame_timing < 60 and not self._coordinator.flame_active:
                             self._setpoint = self._setpoint_adjuster.force(target_setpoint=self._coordinator.boiler_temperature + 10)
                         elif self._setpoint_adjuster.current is not None:
                             self._setpoint = self._setpoint_adjuster.current
