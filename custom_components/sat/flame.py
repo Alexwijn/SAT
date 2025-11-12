@@ -150,7 +150,7 @@ class Flame:
         # ON -> ON
         if currently_active and self._flame_on_monotonic is not None:
             self._latest_on_time_seconds = (
-                float(boiler_state.flame_timing) if boiler_state.flame_timing is not None else (now - self._flame_on_monotonic)
+                float(boiler_state.flame_average_on_time_seconds) if boiler_state.flame_average_on_time_seconds is not None else (now - self._flame_on_monotonic)
             )
 
             if self._has_completed_first_cycle:
@@ -167,8 +167,8 @@ class Flame:
         # ON -> OFF
         if not currently_active and previously_active:
             duration = (
-                float(boiler_state.flame_timing)
-                if boiler_state.flame_timing is not None
+                float(boiler_state.flame_average_on_time_seconds)
+                if boiler_state.flame_average_on_time_seconds is not None
                 else ((now - self._flame_on_monotonic) if self._flame_on_monotonic is not None else 0.0)
             )
 

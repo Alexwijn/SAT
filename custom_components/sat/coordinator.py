@@ -148,8 +148,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def state(self) -> BoilerState:
         return BoilerState(
             flame_active=self.flame_active,
-            flame_on_since=self.flame_on_since,
-            flame_timing=self._flame.average_on_time_seconds,
+            flame_average_on_time_seconds=self._flame.average_on_time_seconds,
+            flame_flame_latest_on_time_seconds=self.flame_latest_on_time_seconds,
 
             device_active=self.device_active,
             device_status=self.device_status,
@@ -186,11 +186,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return self.device_active
 
     @property
-    def flame_on_since(self) -> float | None:
+    def flame_latest_on_time_seconds(self) -> float | None:
         return self._flame.latest_on_time_seconds
 
     @property
-    def flame_timing(self) -> float | None:
+    def flame_average_on_time_seconds(self) -> float | None:
         return self._flame.average_on_time_seconds
 
     @property

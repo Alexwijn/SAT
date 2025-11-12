@@ -46,8 +46,8 @@ class BoilerState:
     device_status: BoilerStatus
 
     flame_active: bool
-    flame_timing: Optional[int]
-    flame_on_since: Optional[int]
+    flame_average_on_time_seconds: Optional[int]
+    flame_flame_latest_on_time_seconds: Optional[int]
 
 
 class BoilerTemperatureTracker:
