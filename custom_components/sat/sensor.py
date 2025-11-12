@@ -239,7 +239,8 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.manufacturer.friendly_name
+        manufacturer = self._coordinator.manufacturer
+        return manufacturer.friendly_name if manufacturer is not None else None
 
     @property
     def available(self) -> bool:
