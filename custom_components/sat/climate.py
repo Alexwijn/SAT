@@ -845,15 +845,28 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                         self._setpoint = self._minimum_setpoint.current
 
                     if self._minimum_setpoint_version == 2:
-                        if self._coordinator.flame_active and self._coordinator.flame_latest_on_time_seconds > 6 and self._coordinator.device_status != BoilerStatus.PUMP_STARTING:
+                        if (
+                                self._coordinator.flame_active
+                                and self._coordinator.flame_latest_on_time_seconds is not None
+                                and self._coordinator.flame_latest_on_time_seconds > 6
+                                and self._coordinator.device_status != BoilerStatus.PUMP_STARTING
+                        ):
                             self._setpoint = self._setpoint_adjuster.adjust(target_setpoint=self._coordinator.boiler_temperature - 3)
-                        elif self._coordinator.flame_average_on_time_seconds is not None and self._coordinator.flame_average_on_time_seconds < 60 and not self._coordinator.flame_active:
+
+                        elif (
+                                self._coordinator.flame_inactive
+                                and self._coordinator.flame_average_on_time_seconds is not None
+                                and self._coordinator.flame_average_on_time_seconds < 60
+                        ):
                             self._setpoint = self._setpoint_adjuster.force(target_setpoint=self._coordinator.boiler_temperature + 10)
+
                         elif self._setpoint_adjuster.current is not None:
                             self._setpoint = self._setpoint_adjuster.current
+
                         elif self._setpoint is None:
                             _LOGGER.debug("Setpoint not available.")
                             return
+
                 else:
                     self._setpoint = self._coordinator.minimum_setpoint
 

@@ -186,6 +186,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return self.device_active
 
     @property
+    def flame_inactive(self) -> bool:
+        return not self.device_active
+
+    @property
     def flame_latest_on_time_seconds(self) -> float | None:
         return self._flame.latest_on_time_seconds
 
