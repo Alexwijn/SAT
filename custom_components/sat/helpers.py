@@ -9,6 +9,7 @@ from homeassistant.util import dt
 from .const import HEATING_SYSTEM_UNDERFLOOR
 
 
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 

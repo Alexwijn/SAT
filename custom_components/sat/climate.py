@@ -394,7 +394,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "collected_errors": self.pid.num_errors,
             "integral_enabled": self.pid.integral_enabled,
 
-            "boiler_flame_timing": self._coordinator.flame_average_on_time_seconds,
+            "boiler_flame_timing": self._coordinator.flame.average_on_time_seconds,
             "boiler_temperature_cold": self._coordinator.boiler_temperature_cold,
             "boiler_temperature_tracking": self._coordinator.boiler_temperature_tracking,
             "boiler_temperature_derivative": self._coordinator.boiler_temperature_derivative,
@@ -846,17 +846,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
                     if self._minimum_setpoint_version == 2:
                         if (
-                                self._coordinator.flame_active
+                                self._coordinator.flame.is_active
                                 and self._coordinator.device_status != BoilerStatus.PUMP_STARTING
-                                and self._coordinator.flame_latest_on_time_seconds is not None
-                                and self._coordinator.flame_latest_on_time_seconds > 6
+                                and self._coordinator.flame.latest_on_time_seconds is not None
+                                and self._coordinator.flame.latest_on_time_seconds > 6
                         ):
                             self._setpoint = self._setpoint_adjuster.adjust(target_setpoint=self._coordinator.boiler_temperature - 3)
 
                         elif (
-                                self._coordinator.flame_inactive
-                                and self._coordinator.flame_average_on_time_seconds is not None
-                                and self._coordinator.flame_average_on_time_seconds < 60
+                                self._coordinator.flame.is_inactive
+                                and self._coordinator.flame.average_on_time_seconds is not None
+                                and self._coordinator.flame.average_on_time_seconds < 60
                         ):
                             self._setpoint = self._setpoint_adjuster.force(target_setpoint=self._coordinator.boiler_temperature + 10)
 
@@ -983,7 +983,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            await self.pwm.update(self._coordinator.state, self._calculated_setpoint)
+            await self.pwm.update(self._coordinator.boiler, self._calculated_setpoint)
         else:
             self.pwm.reset()
 
@@ -1004,10 +1004,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._coordinator.hot_water_active and self._coordinator.flame_active:
             # Calculate the base return temperature
             if self._coordinator.device_status == BoilerStatus.HEATING_UP:
-                self._minimum_setpoint.warming_up(self._coordinator.state)
+                self._minimum_setpoint.warming_up(self._coordinator.boiler)
 
             # Calculate the dynamic minimum setpoint
-            self._minimum_setpoint.calculate(self._coordinator.state, self.pwm.state)
+            self._minimum_setpoint.calculate(self._coordinator.boiler, self.pwm.state)
 
         # If the setpoint is high, turn on the heater
         await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from time import monotonic
 from typing import Optional, TYPE_CHECKING, Mapping, Any
 

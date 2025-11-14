@@ -12,7 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .boiler import BoilerTemperatureTracker, BoilerState, BoilerStatus
 from .const import *
-from .flame import Flame
+from .flame import Flame, FlameState
 from .helpers import calculate_default_maximum_setpoint, seconds_since
 from .manufacturer import Manufacturer, ManufacturerFactory
 from .manufacturers.geminox import Geminox
@@ -145,11 +145,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return BoilerStatus.UNKNOWN
 
     @property
-    def state(self) -> BoilerState:
+    def boiler(self) -> BoilerState:
         return BoilerState(
             flame_active=self.flame_active,
-            flame_average_on_time_seconds=self._flame.average_on_time_seconds,
-            flame_flame_latest_on_time_seconds=self.flame_latest_on_time_seconds,
+            hot_water_active=self.hot_water_active,
 
             device_active=self.device_active,
             device_status=self.device_status,
@@ -157,9 +156,24 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             setpoint=self.setpoint,
             flow_temperature=self.boiler_temperature,
             return_temperature=self.return_temperature,
-
-            hot_water_active=self.hot_water_active,
             relative_modulation_level=self.relative_modulation_value,
+        )
+
+    @property
+    def flame(self) -> FlameState:
+        return FlameState(
+            is_active=self._flame.is_active,
+            is_inactive=self._flame.is_inactive,
+            health_status=self._flame.health_status,
+
+            latest_on_time_seconds=self._flame.latest_on_time_seconds,
+            average_on_time_seconds=self._flame.average_on_time_seconds,
+            last_cycle_duration_seconds=self._flame.last_cycle_duration_seconds,
+
+            sample_count_4h=self._flame.sample_count_4h,
+            cycles_last_hour=self._flame.cycles_last_hour,
+            duty_ratio_last_15m=self._flame.duty_ratio_last_15m,
+            median_on_duration_seconds_4h=self._flame.median_on_duration_seconds_4h,
         )
 
     @property
@@ -184,22 +198,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def flame_active(self) -> bool:
         return self.device_active
-
-    @property
-    def flame_inactive(self) -> bool:
-        return not self.device_active
-
-    @property
-    def flame_latest_on_time_seconds(self) -> float | None:
-        return self._flame.latest_on_time_seconds
-
-    @property
-    def flame_average_on_time_seconds(self) -> float | None:
-        return self._flame.average_on_time_seconds
-
-    @property
-    def flame_status(self) -> str:
-        return self._flame.status
 
     @property
     def heater_on_since(self) -> float | None:
@@ -388,7 +386,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, _time=None) -> None:
         """Control the heating loop for the device."""
         # Update Flame State
-        self._flame.update(boiler_state=self.state, pwm_state=pwm_state)
+        self._flame.update(boiler_state=self.boiler, pwm_state=pwm_state)
 
         # Update Device State
         if not self.device_active:

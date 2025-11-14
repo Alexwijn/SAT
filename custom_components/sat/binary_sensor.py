@@ -185,12 +185,12 @@ class SatFlameHealthSensor(SatEntity, BinarySensorEntity):
     @property
     def available(self) -> bool:
         """Return availability of the sensor."""
-        return self._coordinator.flame_status != FlameStatus.INSUFFICIENT_DATA
+        return self._coordinator.flame.health_status != FlameStatus.INSUFFICIENT_DATA
 
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        return self._coordinator.flame_status != FlameStatus.HEALTHY and self._coordinator.flame_status != FlameStatus.IDLE_OK
+        return self._coordinator.flame.health_status != FlameStatus.HEALTHY and self._coordinator.flame.health_status != FlameStatus.IDLE_OK
 
     @property
     def unique_id(self) -> str:

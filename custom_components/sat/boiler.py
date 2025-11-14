@@ -35,6 +35,7 @@ class BoilerState:
     """
     Represents the operational state of a boiler, including activity, flame status, hot water usage, and current temperature.
     """
+    flame_active: bool
     hot_water_active: bool
 
     setpoint: Optional[float]
@@ -44,10 +45,6 @@ class BoilerState:
 
     device_active: bool
     device_status: BoilerStatus
-
-    flame_active: bool
-    flame_average_on_time_seconds: Optional[int]
-    flame_flame_latest_on_time_seconds: Optional[int]
 
 
 class BoilerTemperatureTracker:

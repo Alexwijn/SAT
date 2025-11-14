@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import dataclass
 from enum import Enum
 from statistics import median
 from time import monotonic
@@ -15,20 +16,38 @@ class FlameStatus(str, Enum):
     IDLE_OK = "idle_ok"
     STUCK_ON = "stuck_on"
     STUCK_OFF = "stuck_off"
-    SHORT_CYCLING = "short_cycling"
     PWM_SHORT = "pwm_short"
+    SHORT_CYCLING = "short_cycling"
     INSUFFICIENT_DATA = "insufficient_data"
+
+
+@dataclass(frozen=True, slots=True)
+class FlameState:
+    is_active: bool
+    is_inactive: bool
+    health_status: str
+
+    latest_on_time_seconds: Optional[float]
+    average_on_time_seconds: Optional[float]
+    last_cycle_duration_seconds: Optional[float]
+
+    sample_count_4h: int
+    cycles_last_hour: float
+    duty_ratio_last_15m: float
+    median_on_duration_seconds_4h: Optional[float]
 
 
 class Flame:
     """Tracks boiler flame on/off, maintains rolling statistics, and classifies health."""
 
     # Thresholds
-    STUCK_OFF_SECONDS: float = 300.0
     MIN_ON_PWM_SECONDS: float = 180.0
     MIN_ON_NON_PWM_SECONDS: float = 300.0
+
     MAX_CYCLES_PER_HOUR_PWM: float = 8.0
     MAX_CYCLES_PER_HOUR_NON_PWM: float = 3.0
+
+    STUCK_OFF_SECONDS: float = 300.0
     STUCK_ON_WITHOUT_DEMAND_SECONDS: float = 120.0
     EXPECTED_MODULATING_DUTY_RATIO_WHEN_HEATING: float = 0.60
 
@@ -64,16 +83,16 @@ class Flame:
         if not (0.0 <= smoothing_alpha <= 1.0):
             raise ValueError("smoothing_alpha must be within [0.0, 1.0].")
 
-        # Smoothing and timing
-        self._latest_on_time_seconds: float = 0.0
         self._smoothing_alpha: float = smoothing_alpha
-        self._average_on_time_seconds: Optional[float] = None
 
-        # Flame timing anchors
+        # Timing internals
+        self._latest_on_time_seconds: float = 0.0
+        self._average_on_time_seconds: Optional[float] = None
+        self._last_cycle_duration_seconds: Optional[float] = None
+
         self._has_completed_first_cycle: bool = False
         self._flame_on_monotonic: Optional[float] = None
         self._flame_off_monotonic: Optional[float] = None
-        self._last_cycle_duration_seconds: Optional[float] = None
 
         # Stored states
         self._last_boiler_state: Optional[BoilerState] = None
@@ -89,50 +108,78 @@ class Flame:
         self._health_status: str = FlameStatus.INSUFFICIENT_DATA
 
     @property
-    def status(self) -> str:
+    def health_status(self) -> str:
         return self._health_status
 
     @property
-    def pulse_width_modulation_state(self) -> PWMState:
-        return self._pulse_width_modulation_state
+    def is_active(self) -> bool:
+        return self._is_flame_active_internal()
+
+    @property
+    def is_inactive(self) -> bool:
+        return not self._is_flame_active_internal()
+
+    @property
+    def on_since(self) -> Optional[float]:
+        if self._is_flame_active_internal() and self._flame_on_monotonic is not None:
+            return self._flame_on_monotonic
+
+        return None
+
+    @property
+    def off_since(self) -> Optional[float]:
+        if not self._is_flame_active_internal() and self._flame_off_monotonic is not None:
+            return self._flame_off_monotonic
+
+        return None
+
+    @property
+    def latest_on_time_seconds(self) -> Optional[float]:
+        if self._is_flame_active_internal() and self._flame_on_monotonic is not None:
+            return self._latest_on_time_seconds
+
+        return None
+
+    @property
+    def average_on_time_seconds(self) -> Optional[float]:
+        return self._average_on_time_seconds if self._has_completed_first_cycle else None
 
     @property
     def last_cycle_duration_seconds(self) -> Optional[float]:
         return self._last_cycle_duration_seconds
 
     @property
-    def on_since(self) -> Optional[float]:
-        return self._flame_on_monotonic
+    def cycles_last_hour(self) -> float:
+        return self._cycles_per_hour(monotonic())
 
     @property
-    def off_since(self) -> Optional[float]:
-        return self._flame_off_monotonic
+    def duty_ratio_last_15m(self) -> float:
+        return self._duty_ratio_last_window(monotonic())
 
     @property
-    def latest_on_time_seconds(self) -> Optional[float]:
-        return self._latest_on_time_seconds if self._is_flame_active_internal() and self._flame_on_monotonic else None
+    def median_on_duration_seconds_4h(self) -> Optional[float]:
+        median_value, _ = self._median_on_duration(monotonic())
+        return median_value
 
     @property
-    def average_on_time_seconds(self) -> Optional[float]:
-        return self._average_on_time_seconds if self._has_completed_first_cycle else None
+    def sample_count_4h(self) -> int:
+        _, count = self._median_on_duration(monotonic())
+        return count
 
     def update(self, boiler_state: BoilerState, pwm_state: Optional[PWMState] = None) -> None:
 
         now = monotonic()
-
         if self._last_update_monotonic is None:
             self._last_update_monotonic = now
 
+        self._last_boiler_state = boiler_state
         if pwm_state is not None:
             self._pulse_width_modulation_state = pwm_state
 
-        self._last_boiler_state = boiler_state
-
-        # Accumulate duty window with elapsed time since last tick
-        elapsed = max(0.0, now - self._last_update_monotonic)
-
-        previously_active = self._is_flame_active_internal()
+        # Accumulate duty time since last tick when the previous flame state was ON
         currently_active = bool(boiler_state.flame_active)
+        previously_active = self._is_flame_active_internal()
+        elapsed = max(0.0, now - self._last_update_monotonic)
 
         if previously_active and elapsed > 0.0:
             self._on_deltas_window.append((now, elapsed))
@@ -149,15 +196,14 @@ class Flame:
 
         # ON -> ON
         if currently_active and self._flame_on_monotonic is not None:
-            self._latest_on_time_seconds = (
-                float(boiler_state.flame_average_on_time_seconds) if boiler_state.flame_average_on_time_seconds is not None else (now - self._flame_on_monotonic)
-            )
+            self._latest_on_time_seconds = now - self._flame_on_monotonic
 
             if self._has_completed_first_cycle:
+                alpha = self._smoothing_alpha
                 self._average_on_time_seconds = (
                     self._latest_on_time_seconds
                     if self._average_on_time_seconds is None
-                    else (1.0 - self._smoothing_alpha) * self._average_on_time_seconds + self._smoothing_alpha * self._latest_on_time_seconds
+                    else (1.0 - alpha) * self._average_on_time_seconds + alpha * self._latest_on_time_seconds
                 )
 
             self._last_update_monotonic = now
@@ -166,11 +212,7 @@ class Flame:
 
         # ON -> OFF
         if not currently_active and previously_active:
-            duration = (
-                float(boiler_state.flame_average_on_time_seconds)
-                if boiler_state.flame_average_on_time_seconds is not None
-                else ((now - self._flame_on_monotonic) if self._flame_on_monotonic is not None else 0.0)
-            )
+            duration = (now - self._flame_on_monotonic) if self._flame_on_monotonic is not None else 0.0
 
             self._last_cycle_duration_seconds = duration
             self._flame_on_monotonic = None
@@ -196,7 +238,6 @@ class Flame:
             return
 
     def _recompute_health(self, now: float) -> None:
-
         state = self._last_boiler_state
         if state is None:
             self._health_status = FlameStatus.INSUFFICIENT_DATA
@@ -210,17 +251,17 @@ class Flame:
         median_on_seconds, sample_count = self._median_on_duration(now)
 
         domestic_hot_water_active = bool(state.hot_water_active)
-
-        # Heating demand is derived from device_active or heating-related statuses
         heating_demand = bool(state.device_active) or (state.device_status in self._HEATING_STATUSES)
-
-        # Modulation capability inferred from the presence of a numeric relative_modulation_level
         modulating_boiler = (state.relative_modulation_level is not None and isinstance(state.relative_modulation_level, (int, float)))
 
         # Thin history: still allow stuck checks, avoid cycling judgments
         if sample_count < self.MIN_ON_SAMPLES_FOR_HEALTH:
             if not heating_demand and not domestic_hot_water_active:
-                self._health_status = (FlameStatus.STUCK_ON if (state.flame_active and last_on_seconds > self.STUCK_ON_WITHOUT_DEMAND_SECONDS) else FlameStatus.IDLE_OK)
+                if state.flame_active and last_on_seconds > self.STUCK_ON_WITHOUT_DEMAND_SECONDS:
+                    self._health_status = FlameStatus.STUCK_ON
+                else:
+                    self._health_status = FlameStatus.IDLE_OK
+
                 return
 
             timeout = self.MAX_DOMESTIC_HOT_WATER_IDLE_OFF_SECONDS if domestic_hot_water_active else self.STUCK_OFF_SECONDS
@@ -254,11 +295,11 @@ class Flame:
             self._health_status = FlameStatus.STUCK_OFF
             return
 
+        # PWM-driven demand
         if self._pulse_width_modulation_state == PWMState.ON:
             if cycles_per_hour > self.MAX_CYCLES_PER_HOUR_PWM:
                 self._health_status = FlameStatus.SHORT_CYCLING
                 return
-
             if median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_PWM_SECONDS:
                 self._health_status = FlameStatus.PWM_SHORT
                 return
@@ -272,15 +313,23 @@ class Flame:
                 self._health_status = FlameStatus.HEALTHY
                 return
 
-            if cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM and median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_NON_PWM_SECONDS:
+            if (
+                    median_on_seconds is not None
+                    and cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM
+                    and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_NON_PWM_SECONDS
+            ):
                 self._health_status = FlameStatus.SHORT_CYCLING
                 return
 
             self._health_status = FlameStatus.HEALTHY
             return
 
-        # Non-modulating
-        if cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM and median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_NON_PWM_SECONDS:
+        # Non-modulating boiler
+        if (
+                median_on_seconds is not None
+                and cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM
+                and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_NON_PWM_SECONDS
+        ):
             self._health_status = FlameStatus.SHORT_CYCLING
             return
 

@@ -250,6 +250,7 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
     def unique_id(self) -> str:
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-manufacturer"
 
+
 class SatFlameSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
@@ -257,11 +258,11 @@ class SatFlameSensor(SatEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.flame_status
+        return self._coordinator.flame.health_status
 
     @property
     def available(self) -> bool:
-        return self._coordinator.flame_status is not None
+        return self._coordinator.flame.health_status is not None
 
     @property
     def unique_id(self) -> str:
