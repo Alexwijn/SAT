@@ -854,9 +854,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                             self._setpoint = self._setpoint_adjuster.adjust(target_setpoint=self._coordinator.boiler_temperature - 3)
 
                         elif (
-                                self._coordinator.flame.is_inactive
-                                and self._coordinator.flame.average_on_time_seconds is not None
-                                and self._coordinator.flame.average_on_time_seconds < 60
+                                self._coordinator.flame.is_inactive and
+                                (self._coordinator.flame.average_on_time_seconds is None or self._coordinator.flame.average_on_time_seconds < 60)
                         ):
                             self._setpoint = self._setpoint_adjuster.force(target_setpoint=self._coordinator.boiler_temperature + 10)
 
