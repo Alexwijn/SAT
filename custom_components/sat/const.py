@@ -204,8 +204,7 @@ class BoilerStatus(str, Enum):
     OVERSHOOT_STABILIZED = "overshoot_stabilized"
 
     IDLE = "idle"
-    UNKNOWN = "unknown"
-    INITIALIZING = "initializing"
+    INSUFFICIENT_DATA = "insufficient_data"
 
 
 class PWMStatus(str, Enum):

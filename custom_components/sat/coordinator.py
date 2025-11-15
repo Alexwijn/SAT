@@ -133,7 +133,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def device_status(self) -> BoilerStatus:
         """Return the current status of the device."""
         if self.boiler_temperature is None:
-            return BoilerStatus.INITIALIZING
+            return BoilerStatus.INSUFFICIENT_DATA
 
         if self.hot_water_active:
             return BoilerStatus.HOT_WATER
@@ -183,7 +183,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             # Most modern boilers are in anti-cycling here.
             return BoilerStatus.ANTI_CYCLING
 
-        return BoilerStatus.UNKNOWN
+        return BoilerStatus.INSUFFICIENT_DATA
 
     @property
     def boiler(self) -> BoilerState:
@@ -191,8 +191,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             flame_active=self.flame_active,
             hot_water_active=self.hot_water_active,
 
-            device_active=self.device_active,
-            device_status=self.device_status,
+            status=self.device_status,
+            is_active=self.device_active,
+            is_inactive=not self.device_active,
 
             setpoint=self.setpoint,
             flow_temperature=self.boiler_temperature,

@@ -56,7 +56,6 @@ class Flame:
     # Status buckets
     _TRANSIENT_STATUSES: Iterable[BoilerStatus] = (
         BoilerStatus.PREHEATING,
-        BoilerStatus.INITIALIZING,
         BoilerStatus.PUMP_STARTING,
     )
 
@@ -278,7 +277,7 @@ class Flame:
         median_on_seconds, sample_count = self._median_on_duration(now)
 
         domestic_hot_water_active = bool(state.hot_water_active)
-        heating_demand = bool(state.device_active) or (state.device_status in self._HEATING_STATUSES)
+        heating_demand = bool(state.is_active) or (state.status in self._HEATING_STATUSES)
         modulating_boiler = (state.relative_modulation_level is not None and isinstance(state.relative_modulation_level, (int, float)))
 
         # Thin history: still allow stuck checks, avoid cycling judgments
@@ -292,7 +291,7 @@ class Flame:
                 return
 
             timeout = self.MAX_DOMESTIC_HOT_WATER_IDLE_OFF_SECONDS if domestic_hot_water_active else self.STUCK_OFF_SECONDS
-            if (not state.flame_active) and last_off_seconds > timeout and state.device_status not in self._TRANSIENT_STATUSES:
+            if (not state.flame_active) and last_off_seconds > timeout and state.status not in self._TRANSIENT_STATUSES:
                 self._health_status = FlameStatus.STUCK_OFF
             else:
                 self._health_status = FlameStatus.INSUFFICIENT_DATA
@@ -310,7 +309,7 @@ class Flame:
 
         # Domestic hot water: allow continuous flame; only stuck-off if off too long (and not transient)
         if domestic_hot_water_active:
-            if (not state.flame_active) and last_off_seconds > self.MAX_DOMESTIC_HOT_WATER_IDLE_OFF_SECONDS and state.device_status not in self._TRANSIENT_STATUSES:
+            if (not state.flame_active) and last_off_seconds > self.MAX_DOMESTIC_HOT_WATER_IDLE_OFF_SECONDS and state.status not in self._TRANSIENT_STATUSES:
                 self._health_status = FlameStatus.STUCK_OFF
             else:
                 self._health_status = FlameStatus.HEALTHY
@@ -318,7 +317,7 @@ class Flame:
             return
 
         # Space heating demand
-        if (not state.flame_active) and last_off_seconds > self.STUCK_OFF_SECONDS and state.device_status not in self._TRANSIENT_STATUSES:
+        if (not state.flame_active) and last_off_seconds > self.STUCK_OFF_SECONDS and state.status not in self._TRANSIENT_STATUSES:
             self._health_status = FlameStatus.STUCK_OFF
             return
 
