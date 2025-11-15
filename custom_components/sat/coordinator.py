@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from enum import Enum
 from time import monotonic
 from typing import TYPE_CHECKING, Mapping, Any, Optional
 
@@ -10,7 +9,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .boiler import BoilerTemperatureTracker, BoilerState, BoilerStatus
+from .boiler import BoilerTemperatureTracker, BoilerState
 from .const import *
 from .flame import Flame, FlameState
 from .helpers import calculate_default_maximum_setpoint, seconds_since
@@ -19,7 +18,7 @@ from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
-from .pwm import PWMState
+from .const import PWMStatus
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -383,7 +382,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         pass
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMStatus] = None, _time=None) -> None:
         """Control the heating loop for the device."""
         # Update Flame State
         self._flame.update(boiler_state=self.boiler, pwm_state=pwm_state)

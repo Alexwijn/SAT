@@ -1,23 +1,18 @@
 import logging
-from enum import Enum
 from time import monotonic
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from homeassistant.core import State
 
-from .boiler import BoilerState, BoilerStatus
-from .const import HEATER_STARTUP_TIMEFRAME, MINIMUM_SETPOINT
+from .const import HEATER_STARTUP_TIMEFRAME, MINIMUM_SETPOINT, BoilerStatus, PWMStatus
 from .heating_curve import HeatingCurve
 from .setpoint_adjuster import SetpointAdjuster
 
+if TYPE_CHECKING:
+    from .flame import FlameState
+    from .boiler import BoilerState
+
 _LOGGER = logging.getLogger(__name__)
-
-
-class PWMState(str, Enum):
-    """The current state of Pulse Width Modulation"""
-    ON = "on"
-    OFF = "off"
-    IDLE = "idle"
 
 
 class Cycles:
@@ -76,7 +71,7 @@ class PWM:
         """Reset the PWM control."""
         self._enabled = False
         self._current_cycle: int = 0
-        self._state: PWMState = PWMState.IDLE
+        self._state: PWMStatus = PWMStatus.IDLE
         self._last_update: float = monotonic()
         self._duty_cycle: Tuple[int, int] | None = None
 
@@ -100,10 +95,10 @@ class PWM:
         self._enabled = False
         self._setpoint_adjuster.reset()
 
-    async def update(self, boiler: BoilerState, requested_setpoint: float) -> None:
+    async def update(self, boiler: "BoilerState", flame: "FlameState", requested_setpoint: float) -> None:
         """Update the PWM state based on the output of a PID controller."""
         if not self._heating_curve.value or requested_setpoint is None or boiler.flow_temperature is None:
-            self._state = PWMState.IDLE
+            self._state = PWMStatus.IDLE
             self._last_update = monotonic()
             self._last_boiler_temperature = boiler.flow_temperature
 
@@ -124,7 +119,7 @@ class PWM:
         self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler)
 
         # Update boiler temperature if heater has just started up
-        if self._state == PWMState.ON:
+        if self._state == PWMStatus.ON:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
                 self._last_boiler_temperature = (self._alpha * boiler.flow_temperature + (1 - self._alpha) * self._last_boiler_temperature)
 
@@ -134,35 +129,35 @@ class PWM:
                 _LOGGER.debug("Updated last boiler temperature to %.1f°C", boiler.flow_temperature)
 
         # Control the adjusted setpoint
-        if boiler.flame_active and boiler.flow_temperature >= self._last_boiler_temperature and boiler.device_status != BoilerStatus.PUMP_STARTING:
-            self._setpoint = self._setpoint_adjuster.adjust(boiler.flow_temperature - self._setpoint_offset)
+        if flame.is_active and boiler.device_status != BoilerStatus.PUMP_STARTING and flame.latest_on_time_seconds is not None and flame.latest_on_time_seconds > 6:
+            self._setpoint = self._setpoint_adjuster.adjust(target_setpoint=boiler.flow_temperature - 3)
+        elif flame.is_inactive and (flame.average_on_time_seconds is None or flame.average_on_time_seconds < 60):
+            self._setpoint = self._setpoint_adjuster.force(target_setpoint=boiler.flow_temperature + 10)
         elif self._setpoint_adjuster.current is not None:
             self._setpoint = self._setpoint_adjuster.current
-        elif not boiler.flame_active:
-            self._setpoint = self._setpoint_adjuster.force(boiler.flow_temperature + 10)
 
         # State transitions for PWM
-        if self._state != PWMState.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMState.IDLE):
+        if self._state != PWMStatus.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMStatus.IDLE):
             if self._current_cycle >= self._cycles.maximum:
                 _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
                 return
 
             self._current_cycle += 1
-            self._state = PWMState.ON
+            self._state = PWMStatus.ON
             self._last_update = monotonic()
             self._last_boiler_temperature = boiler.flow_temperature
             _LOGGER.info("Starting new duty cycle (ON state). Current CYCLES count: %d", self._current_cycle)
             return
 
-        if self._state != PWMState.OFF and (self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMState.IDLE):
-            self._state = PWMState.OFF
+        if self._state != PWMStatus.OFF and (self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._state == PWMStatus.IDLE):
+            self._state = PWMStatus.OFF
             self._last_update = monotonic()
             _LOGGER.info("Duty cycle completed. Switching to OFF state.")
             return
 
         _LOGGER.debug("Cycle time elapsed: %.0f seconds in state: %s", elapsed, self._state)
 
-    def _calculate_duty_cycle(self, requested_setpoint: float, boiler: BoilerState) -> Tuple[int, int]:
+    def _calculate_duty_cycle(self, requested_setpoint: float, boiler: "BoilerState") -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         boiler_temperature = self._last_boiler_temperature
         base_offset = self._heating_curve.base_offset
@@ -253,7 +248,7 @@ class PWM:
         return self._enabled
 
     @property
-    def state(self) -> PWMState:
+    def state(self) -> PWMStatus:
         return self._state
 
     @property

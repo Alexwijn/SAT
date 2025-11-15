@@ -1,24 +1,18 @@
 from __future__ import annotations
 
+import logging
 from collections import deque
 from dataclasses import dataclass
-from enum import Enum
 from statistics import median
 from time import monotonic
-from typing import Deque, Optional, Tuple, Iterable
+from typing import Deque, Optional, Tuple, Iterable, TYPE_CHECKING
 
-from custom_components.sat.boiler import BoilerStatus, BoilerState
-from custom_components.sat.pwm import PWMState
+from .const import FlameStatus, BoilerStatus, PWMStatus
 
+if TYPE_CHECKING:
+    from .boiler import BoilerState
 
-class FlameStatus(str, Enum):
-    HEALTHY = "healthy"
-    IDLE_OK = "idle_ok"
-    STUCK_ON = "stuck_on"
-    STUCK_OFF = "stuck_off"
-    PWM_SHORT = "pwm_short"
-    SHORT_CYCLING = "short_cycling"
-    INSUFFICIENT_DATA = "insufficient_data"
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +90,7 @@ class Flame:
 
         # Stored states
         self._last_boiler_state: Optional[BoilerState] = None
-        self._pulse_width_modulation_state: PWMState = PWMState.IDLE
+        self._pulse_width_modulation_state: PWMStatus = PWMStatus.IDLE
 
         # Rolling windows
         self._last_update_monotonic: Optional[float] = None
@@ -166,20 +160,24 @@ class Flame:
         _, count = self._median_on_duration(monotonic())
         return count
 
-    def update(self, boiler_state: BoilerState, pwm_state: Optional[PWMState] = None) -> None:
+    def update(self, boiler_state: BoilerState, pwm_state: Optional[PWMStatus] = None) -> None:
 
         now = monotonic()
+
+        # Initialize the last update time if this is the first update
         if self._last_update_monotonic is None:
             self._last_update_monotonic = now
 
-        self._last_boiler_state = boiler_state
-        if pwm_state is not None:
-            self._pulse_width_modulation_state = pwm_state
-
-        # Accumulate duty time since last tick when the previous flame state was ON
+        # Accumulate duty time since the last tick when the previous flame state was ON
         currently_active = bool(boiler_state.flame_active)
         previously_active = self._is_flame_active_internal()
         elapsed = max(0.0, now - self._last_update_monotonic)
+
+        # Update internal state tracking
+        self._last_boiler_state = boiler_state
+        self._pulse_width_modulation_state = pwm_state or self._pulse_width_modulation_state
+
+        _LOGGER.debug("Flame active=%s->%s, elapsed=%.3fs", previously_active, currently_active, elapsed)
 
         if previously_active and elapsed > 0.0:
             self._on_deltas_window.append((now, elapsed))
@@ -192,6 +190,9 @@ class Flame:
             self._flame_off_monotonic = None
             self._last_update_monotonic = now
             self._recompute_health(now)
+
+            _LOGGER.debug("Flame transition OFF->ON")
+
             return
 
         # ON -> ON
@@ -200,13 +201,27 @@ class Flame:
 
             if self._has_completed_first_cycle:
                 alpha = self._smoothing_alpha
+                previous_average = self._average_on_time_seconds
+
                 self._average_on_time_seconds = (
                     self._latest_on_time_seconds
                     if self._average_on_time_seconds is None
                     else (1.0 - alpha) * self._average_on_time_seconds + alpha * self._latest_on_time_seconds
                 )
+            else:
+                previous_average = self._average_on_time_seconds
 
             self._last_update_monotonic = now
+
+            _LOGGER.debug(
+                "Flame transition ON->ON: latest_on=%.1fs, average_on=%s->%s, cycles_last_hour=%.1f, duty_ratio_15m=%.2f",
+                self._latest_on_time_seconds,
+                previous_average,
+                self._average_on_time_seconds,
+                self._cycles_per_hour(now),
+                self._duty_ratio_last_window(now),
+            )
+
             self._recompute_health(now)
             return
 
@@ -214,17 +229,25 @@ class Flame:
         if not currently_active and previously_active:
             duration = (now - self._flame_on_monotonic) if self._flame_on_monotonic is not None else 0.0
 
-            self._last_cycle_duration_seconds = duration
             self._flame_on_monotonic = None
             self._flame_off_monotonic = now
+            self._last_cycle_duration_seconds = duration
 
-            self._cycle_end_times_window.append(now)
-            self._on_durations_window.append((now, duration))
             self._prune_cycles_window(now)
             self._prune_median_window(now)
+            self._cycle_end_times_window.append(now)
+            self._on_durations_window.append((now, duration))
 
             self._has_completed_first_cycle = True
             self._last_update_monotonic = now
+
+            _LOGGER.debug(
+                "Flame transition ON->OFF: duration=%.1fs, cycles_last_hour=%.1f, samples_4h=%d",
+                duration,
+                self._cycles_per_hour(now),
+                self.sample_count_4h,
+            )
+
             self._recompute_health(now)
             return
 
@@ -234,6 +257,14 @@ class Flame:
                 self._flame_off_monotonic = now
 
             self._last_update_monotonic = now
+
+            _LOGGER.debug(
+                "Flame transition OFF->OFF: off_since=%s, cycles_last_hour=%.1f, duty_ratio_15m=%.2f",
+                None if self._flame_off_monotonic is None else now - self._flame_off_monotonic,
+                self._cycles_per_hour(now),
+                self._duty_ratio_last_window(now),
+            )
+
             self._recompute_health(now)
             return
 
@@ -296,7 +327,7 @@ class Flame:
             return
 
         # PWM-driven demand
-        if self._pulse_width_modulation_state == PWMState.ON:
+        if self._pulse_width_modulation_state == PWMStatus.ON:
             if cycles_per_hour > self.MAX_CYCLES_PER_HOUR_PWM:
                 self._health_status = FlameStatus.SHORT_CYCLING
                 return

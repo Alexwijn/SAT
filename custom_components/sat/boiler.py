@@ -2,32 +2,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional
 
-from .const import MINIMUM_SETPOINT
+from .const import MINIMUM_SETPOINT, BoilerStatus
 
 _LOGGER = logging.getLogger(__name__)
 
 STABILIZATION_MARGIN = 5
 EXCEED_SETPOINT_MARGIN = 1.0
-
-
-class BoilerStatus(str, Enum):
-    HOT_WATER = "hot_water"
-    PREHEATING = "preheating"
-    HEATING_UP = "heating_up"
-    AT_SETPOINT = "at_setpoint"
-    COOLING_DOWN = "cooling_down"
-    NEAR_SETPOINT = "near_setpoint"
-    PUMP_STARTING = "pump_starting"
-    WAITING_FOR_FLAME = "waiting_for_flame"
-    OVERSHOOT_HANDLING = "overshoot_handling"
-    OVERSHOOT_STABILIZED = "overshoot_stabilized"
-
-    IDLE = "idle"
-    UNKNOWN = "unknown"
-    INITIALIZING = "initializing"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

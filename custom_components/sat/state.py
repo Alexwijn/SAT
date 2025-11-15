@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from custom_components.sat.helpers import utcnow
+from .helpers import utcnow
 
 
 @dataclass(frozen=True, slots=True)

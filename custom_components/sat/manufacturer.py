@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List, Type
 
-from custom_components.sat.helpers import snake_case
+from .helpers import snake_case
 
 MANUFACTURERS = {
     "Atag": 4,

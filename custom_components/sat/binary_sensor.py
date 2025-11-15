@@ -12,9 +12,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .climate import SatClimate
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS, FlameStatus
 from .entity import SatClimateEntity, SatEntity
-from .flame import FlameStatus
 from .helpers import seconds_since
 from .serial import binary_sensor as serial_binary_sensor
 
@@ -50,7 +49,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 class SatSynchroSensor:
     """Mixin to add delayed state change for binary sensors."""
 
-    def __init__(self, delay: int = 30):
+    def __init__(self, delay: int = 60):
         """Initialize the mixin with a delay."""
         self._delay = delay
         self._last_mismatch = None

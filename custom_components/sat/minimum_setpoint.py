@@ -4,10 +4,10 @@ import math
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from custom_components.sat.boiler import BoilerState
-from custom_components.sat.helpers import clamp, utcnow, to_int
-from custom_components.sat.pwm import PWMState
-from custom_components.sat.state import State, update_state
+from .boiler import BoilerState
+from .helpers import clamp, utcnow, to_int
+from .const import PWMStatus
+from .state import State, update_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class MinimumSetpoint:
         if self._store:
             self._store.async_delay_save(self._data_to_save)
 
-    def calculate(self, boiler_state: BoilerState, pwm_state: PWMState) -> None:
+    def calculate(self, boiler_state: BoilerState, pwm_state: PWMStatus) -> None:
         self._relative_modulation_level = update_state(
             tolerance=0.01,
             previous=self._relative_modulation_level,
@@ -77,9 +77,9 @@ class MinimumSetpoint:
     def _data_to_save(self) -> dict:
         return {"base_return_temperature": self._base_return_temperature.value}
 
-    def _is_running_normal_mode(self, boiler_state: BoilerState, pwm_state: PWMState) -> bool:
+    def _is_running_normal_mode(self, boiler_state: BoilerState, pwm_state: PWMStatus) -> bool:
         return (
-                pwm_state is PWMState.IDLE
+                pwm_state is PWMStatus.IDLE
                 and to_int(self._relative_modulation_level.value, 0) > 0
                 and (utcnow() - self._relative_modulation_level.last_changed).total_seconds() > 180
                 and math.isclose(boiler_state.flow_temperature, boiler_state.setpoint, abs_tol=1.0)

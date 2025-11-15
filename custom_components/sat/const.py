@@ -1,4 +1,8 @@
 # Base component constants
+from __future__ import annotations
+
+from enum import Enum
+
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 CLIMATE = "climate"
@@ -172,3 +176,38 @@ SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION = "start_overshoot_protection_cal
 # Config steps
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"
+
+
+# Enumerations
+class FlameStatus(str, Enum):
+    HEALTHY = "healthy"
+    IDLE_OK = "idle_ok"
+    STUCK_ON = "stuck_on"
+    STUCK_OFF = "stuck_off"
+    PWM_SHORT = "pwm_short"
+    SHORT_CYCLING = "short_cycling"
+    INSUFFICIENT_DATA = "insufficient_data"
+
+
+class BoilerStatus(str, Enum):
+    HOT_WATER = "hot_water"
+    PREHEATING = "preheating"
+    HEATING_UP = "heating_up"
+    AT_SETPOINT = "at_setpoint"
+    COOLING_DOWN = "cooling_down"
+    NEAR_SETPOINT = "near_setpoint"
+    PUMP_STARTING = "pump_starting"
+    WAITING_FOR_FLAME = "waiting_for_flame"
+    OVERSHOOT_HANDLING = "overshoot_handling"
+    OVERSHOOT_STABILIZED = "overshoot_stabilized"
+
+    IDLE = "idle"
+    UNKNOWN = "unknown"
+    INITIALIZING = "initializing"
+
+
+class PWMStatus(str, Enum):
+    """The current state of Pulse Width Modulation"""
+    ON = "on"
+    OFF = "off"
+    IDLE = "idle"
