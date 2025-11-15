@@ -258,7 +258,7 @@ class SatFlameSensor(SatEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.flame.health_status
+        return self._coordinator.flame.health_status.name
 
     @property
     def available(self) -> bool:
@@ -276,7 +276,7 @@ class SatBoilerSensor(SatEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.device_status
+        return self._coordinator.device_status.name
 
     @property
     def available(self) -> bool:
