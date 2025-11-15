@@ -18,12 +18,12 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Cycles:
+class CycleConfig:
     """
     Encapsulates settings related to cycle time and maximum cycles.
     """
-    maximum: int
     maximum_time: int
+    maximum_count: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -39,19 +39,19 @@ class PWMState:
 class PWM:
     """Implements Pulse Width Modulation (PWM) control for managing boiler operations."""
 
-    def __init__(self, cycles: Cycles, heating_curve: HeatingCurve, supports_relative_modulation_management: bool, automatic_duty_cycle: bool, force: bool = False):
+    def __init__(self, cycles: CycleConfig, heating_curve: HeatingCurve, supports_relative_modulation_management: bool, automatic_duty_cycle: bool, force: bool = False):
         """Initialize the PWM control."""
         self._alpha: float = 0.2
         self._force: bool = force
         self._last_boiler_temperature: float | None = None
 
-        self._cycles: Cycles = cycles
+        self._cycles: CycleConfig = cycles
         self._heating_curve: HeatingCurve = heating_curve
         self._automatic_duty_cycle: bool = automatic_duty_cycle
 
         # Timing thresholds for duty cycle management
         self._on_time_lower_threshold: float = 180
-        self._on_time_upper_threshold: float = 3600 / max(1, self._cycles.maximum)
+        self._on_time_upper_threshold: float = 3600 / max(1, self._cycles.maximum_count)
         self._on_time_max_threshold: float = self._on_time_upper_threshold * 2
 
         # Duty cycle percentage thresholds
@@ -82,8 +82,6 @@ class PWM:
 
         self._first_duty_cycle_start: float | None = None
         self._last_duty_cycle_percentage: float | None = None
-
-        _LOGGER.info("PWM control reset to initial state.")
 
     def restore(self, state: State) -> None:
         """Restore the PWM controller from a saved state."""
@@ -157,7 +155,7 @@ class PWM:
 
         # State transitions for PWM
         if self._status != PWMStatus.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._status == PWMStatus.IDLE):
-            if self._current_cycle >= self._cycles.maximum:
+            if self._current_cycle >= self._cycles.maximum_count:
                 _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
                 return
 

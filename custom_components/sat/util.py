@@ -12,7 +12,7 @@ from .heating_curve import HeatingCurve
 from .helpers import convert_time_str_to_seconds
 from .minimum_setpoint import MinimumSetpoint
 from .pid import PID
-from .pwm import PWM, Cycles
+from .pwm import PWM, CycleConfig
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -76,7 +76,7 @@ def create_pwm_controller(heating_curve: HeatingCurve, supports_relative_modulat
     force = bool(config_data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
     # Extra settings
-    cycles = Cycles(maximum=max_duty_cycles, maximum_time=max_cycle_time)
+    cycles = CycleConfig(maximum_count=max_duty_cycles, maximum_time=max_cycle_time)
 
     # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, cycles=cycles, automatic_duty_cycle=automatic_duty_cycle, supports_relative_modulation_management=supports_relative_modulation_management, force=force)

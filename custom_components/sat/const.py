@@ -19,6 +19,7 @@ MODE_ESPHOME = "esphome"
 MODE_SIMULATOR = "simulator"
 
 DEADBAND = 0.1
+BOILER_DEADBAND = 2
 HEATER_STARTUP_TIMEFRAME = 180
 
 COLD_SETPOINT = 28.2
@@ -195,6 +196,7 @@ class BoilerStatus(str, Enum):
     HEATING_UP = "heating_up"
     AT_SETPOINT = "at_setpoint"
     COOLING_DOWN = "cooling_down"
+    ANTI_CYCLING = "anti_cycling"
     NEAR_SETPOINT = "near_setpoint"
     PUMP_STARTING = "pump_starting"
     WAITING_FOR_FLAME = "waiting_for_flame"

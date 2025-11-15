@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, callback, HassJob
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .boiler import BoilerTemperatureTracker, BoilerState
+from .boiler import BoilerTemperatureTracker, BoilerState, STABILIZATION_MARGIN
 from .const import *
 from .flame import Flame, FlameState
 from .helpers import calculate_default_maximum_setpoint, seconds_since
@@ -149,29 +149,39 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 if self._boiler_temperature_tracker.active and self.setpoint > self.boiler_temperature:
                     return BoilerStatus.PREHEATING
 
-        if self.setpoint > self.boiler_temperature:
+        # We assume space-heating mode with a valid setpoint.
+        delta = self.boiler_temperature - self.setpoint
+
+        # Below the setpoint
+        if delta < -BOILER_DEADBAND:
             if self.flame_active:
                 if self._boiler_temperature_tracker.active:
                     return BoilerStatus.HEATING_UP
 
                 return BoilerStatus.OVERSHOOT_HANDLING
+            else:
+                return BoilerStatus.WAITING_FOR_FLAME
 
-            return BoilerStatus.WAITING_FOR_FLAME
-
-        if abs(self.setpoint - self.boiler_temperature) <= DEADBAND:
+        # Near/at the setpoint
+        if abs(delta) <= BOILER_DEADBAND:
             return BoilerStatus.AT_SETPOINT
 
-        if self.boiler_temperature > self.setpoint:
+        # Above the setpoint
+        if delta > BOILER_DEADBAND:
             if self.flame_active:
                 if self._boiler_temperature_tracker.active:
-                    if self.boiler_temperature - self.setpoint > 3:
+                    # Way above setpoint -> cooling down.
+                    if delta > STABILIZATION_MARGIN:
                         return BoilerStatus.COOLING_DOWN
 
+                    # Slightly above the setpoint while still burning -> near setpoint / stabilizing.
                     return BoilerStatus.NEAR_SETPOINT
 
+                # Flame still on, but tracker inactive. We are over setpoint -> overshoot handling.
                 return BoilerStatus.OVERSHOOT_HANDLING
 
-            return BoilerStatus.WAITING_FOR_FLAME
+            # Most modern boilers are in anti-cycling here.
+            return BoilerStatus.ANTI_CYCLING
 
         return BoilerStatus.UNKNOWN
 
