@@ -331,6 +331,7 @@ class Flame:
             if cycles_per_hour > self.MAX_CYCLES_PER_HOUR_PWM:
                 self._health_status = FlameStatus.SHORT_CYCLING
                 return
+
             if median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_PWM_SECONDS:
                 self._health_status = FlameStatus.PWM_SHORT
                 return

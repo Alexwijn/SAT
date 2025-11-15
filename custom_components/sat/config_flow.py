@@ -107,7 +107,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_abort(reason="unsupported_gateway")
 
     async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
-        """Entry step to select the MQTT mode and branch to specific setup."""
+        """Entry step to select the MQTT mode and branch to a specific setup."""
 
         if _user_input is not None:
             self.errors = {}

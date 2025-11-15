@@ -140,7 +140,7 @@ class Areas:
             self.areas = areas
 
         def update(self, current_outside_temperature: float) -> None:
-            """Update the heating curve for all areas based on current outside temperature."""
+            """Update the heating curve for all areas based on the current outside temperature."""
             for area in self.areas:
                 if area.target_temperature is None:
                     continue

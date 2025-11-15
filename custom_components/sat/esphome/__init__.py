@@ -41,10 +41,8 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using esphome."""
 
-    def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
-        super().__init__(hass, data, options)
-
-        self.data: dict = {}
+    def __init__(self, hass: HomeAssistant, device_id: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+        super().__init__(hass, config_data, options)
 
         self._device: DeviceEntry = device_registry.async_get(hass).async_get(device_id)
         self._mac_address: str = list(self._device.connections)[0][1]
@@ -164,10 +162,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         await super().async_added_to_hass()
 
     async def async_state_change_event(self, _event: Event[EventStateChangedData]):
-        if self._listeners:
-            self._schedule_refresh()
-
-        self.async_update_listeners()
+        await self.async_notify_listeners()
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._send_command_value(DATA_CONTROL_SETPOINT, value)

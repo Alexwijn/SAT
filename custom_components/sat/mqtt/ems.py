@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Optional
 
 from . import SatMqttCoordinator
 from ..coordinator import DeviceState
@@ -29,7 +30,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class SatEmsMqttCoordinator(SatMqttCoordinator):
-    """Class to manage fetching data from the OTGW Gateway using MQTT."""
+    """Class to manage to fetch data from the OTGW Gateway using MQTT."""
 
     @property
     def device_type(self) -> str:
@@ -64,39 +65,39 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         return self.data.get(DATA_DHW_ENABLE) == DATA_ON
 
     @property
-    def setpoint(self) -> float | None:
+    def setpoint(self) -> Optional[float]:
         return float_value(self.data.get(DATA_CONTROL_SETPOINT))
 
     @property
-    def hot_water_setpoint(self) -> float | None:
+    def hot_water_setpoint(self) -> Optional[float]:
         return float_value(self.data.get(DATA_DHW_SETPOINT))
 
     @property
-    def boiler_temperature(self) -> float | None:
+    def boiler_temperature(self) -> Optional[float]:
         return float_value(self.data.get(DATA_BOILER_TEMPERATURE))
 
     @property
-    def return_temperature(self) -> float | None:
+    def return_temperature(self) -> Optional[float]:
         return float_value(self.data.get(DATA_RETURN_TEMPERATURE))
 
     @property
-    def relative_modulation_value(self) -> float | None:
+    def relative_modulation_value(self) -> Optional[float]:
         return float_value(self.data.get(DATA_REL_MOD_LEVEL))
 
     @property
-    def boiler_capacity(self) -> float | None:
+    def boiler_capacity(self) -> Optional[float]:
         return float_value(self.data.get(DATA_BOILER_CAPACITY))
 
     @property
-    def minimum_relative_modulation_value(self) -> float | None:
+    def minimum_relative_modulation_value(self) -> Optional[float]:
         return float_value(self.data.get(DATA_REL_MIN_MOD_LEVEL))
 
     @property
-    def maximum_relative_modulation_value(self) -> float | None:
+    def maximum_relative_modulation_value(self) -> Optional[float]:
         return float_value(self.data.get(DATA_MAX_REL_MOD_LEVEL_SETTING))
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         # Not supported (yet)
         return None
 
@@ -142,8 +143,8 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
     def _get_topic_for_publishing(self) -> str:
         return f"{self._topic}/boiler"
 
-    def _process_message_payload(self, key: str, payload):
+    def _process_message_payload(self, key: str, value: str):
         try:
-            self.data = json.loads(payload)
+            self.async_set_updated_data(json.loads(value))
         except json.JSONDecodeError as error:
-            _LOGGER.error("Failed to decode JSON payload: %s. Error: %s", payload, error)
+            _LOGGER.error("Failed to decode JSON payload: %s. Error: %s", value, error)

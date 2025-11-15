@@ -18,9 +18,9 @@ DOMAIN_SERVICE = {
 
 
 class SatSwitchCoordinator(SatDataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, entity_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, entity_id: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        super().__init__(hass, data, options)
+        super().__init__(hass, config_data, options)
 
         self._entity: RegistryEntry = entity_registry.async_get(hass).async_get(entity_id)
 

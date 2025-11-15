@@ -591,11 +591,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._dynamic_minimum_setpoint:
             # Version 1: Use MinimumSetpoint controller
             if self._minimum_setpoint_version == 1:
-                return min(self.minimum_setpoint.current, self._coordinator.minimum_setpoint)
+                return max(self.minimum_setpoint.current, self._coordinator.minimum_setpoint)
 
             # Version 2: Use Pulse Width Modulation controller
             if self._minimum_setpoint_version == 2:
-                return min(self.pwm.setpoint, self._coordinator.minimum_setpoint)
+                return max(self.pwm.setpoint, self._coordinator.minimum_setpoint)
 
         # Default to coordinator's minimum setpoint
         return self._coordinator.minimum_setpoint

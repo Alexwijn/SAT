@@ -14,18 +14,18 @@ if TYPE_CHECKING:
 
 
 class SatSimulatorCoordinator(SatDataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        super().__init__(hass, data, options)
+        super().__init__(hass, config_data, options)
 
         self._setpoint = MINIMUM_SETPOINT
         self._boiler_temperature = MINIMUM_SETPOINT
 
         self._device_state = DeviceState.OFF
-        self._heating = data.get(CONF_SIMULATED_HEATING)
-        self._cooling = data.get(CONF_SIMULATED_COOLING)
-        self._maximum_setpoint = data.get(CONF_MAXIMUM_SETPOINT)
-        self._warming_up = convert_time_str_to_seconds(data.get(CONF_SIMULATED_WARMING_UP))
+        self._heating = config_data.get(CONF_SIMULATED_HEATING)
+        self._cooling = config_data.get(CONF_SIMULATED_COOLING)
+        self._maximum_setpoint = config_data.get(CONF_MAXIMUM_SETPOINT)
+        self._warming_up = convert_time_str_to_seconds(config_data.get(CONF_SIMULATED_WARMING_UP))
 
     @property
     def device_id(self) -> str:
@@ -107,7 +107,8 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
                 self._boiler_temperature -= self._cooling
                 self.logger.debug(f"Decreasing boiler temperature with {self._cooling}")
 
-        self.async_set_updated_data({})
+        # Notify listeners to ensure the entities are updated
+        self.hass.async_create_task(self.async_notify_listeners())
 
     @property
     def target(self):

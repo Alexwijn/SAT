@@ -58,7 +58,7 @@ def snake_case(value: str) -> str:
 
 
 def float_value(value: Union[int, float, str, None]) -> Optional[float]:
-    """Safely convert a value to a finite float, returning None if conversion fails."""
+    """Safely convert a value to a finite float, returning None if the conversion fails."""
     if value is None:
         return None
 
@@ -70,27 +70,25 @@ def float_value(value: Union[int, float, str, None]) -> Optional[float]:
 
 
 def to_float(value: Union[int, float, str, None], default: float = 0.0) -> float:
-    """Convert to float, returning default if conversion fails or result is None."""
+    """Convert to float, returning default if the conversion fails or the result is None."""
     result = float_value(value)
     return float(result) if result is not None else float(default)
 
 
 def int_value(value: Union[int, float, str, None]) -> Optional[int]:
-    """Safely convert a value to an int, returning None if conversion fails."""
+    """Safely convert a value to an int, returning None if the conversion fails."""
     result = float_value(value)
     return int(result) if result is not None else None
 
 
 def to_int(value: Union[int, float, str, None], default: int = 0) -> int:
-    """Convert to int, returning default if conversion fails or result is None."""
+    """Convert to int, returning default if the conversion fails or the result is None."""
     result = int_value(value)
     return int(result) if result is not None else int(default)
 
 
 def clamp(value: float, low: float, high: Optional[float] = None) -> float:
-    """Clamp to [low, high] if high is given, else to [low, +inf).
-    :rtype: float
-    """
+    """Clamp to [low, high] if high is given, else to [low, +inf]."""
     if high is None:
         return max(low, value)
 

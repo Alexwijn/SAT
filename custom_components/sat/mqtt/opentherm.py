@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 from . import SatMqttCoordinator
 from ..coordinator import DeviceState
@@ -67,21 +68,21 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         return self.data.get(DATA_DHW_ENABLE) == STATE_ON
 
     @property
-    def setpoint(self) -> float | None:
+    def setpoint(self) -> Optional[float]:
         if (setpoint := self.data.get(DATA_CONTROL_SETPOINT)) is not None:
             return float(setpoint)
 
         return None
 
     @property
-    def maximum_setpoint_value(self) -> float | None:
+    def maximum_setpoint_value(self) -> Optional[float]:
         if (setpoint := self.data.get(DATA_MAXIMUM_CONTROL_SETPOINT)) is not None:
             return float(setpoint)
 
         return super().maximum_setpoint_value
 
     @property
-    def hot_water_setpoint(self) -> float | None:
+    def hot_water_setpoint(self) -> Optional[float]:
         if (setpoint := self.data.get(DATA_DHW_SETPOINT)) is not None:
             return float(setpoint)
 
@@ -102,35 +103,35 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         return super().maximum_hot_water_setpoint
 
     @property
-    def boiler_temperature(self) -> float | None:
+    def boiler_temperature(self) -> Optional[float]:
         if (value := self.data.get(DATA_BOILER_TEMPERATURE)) is not None:
             return float(value)
 
         return super().boiler_temperature
 
     @property
-    def return_temperature(self) -> float | None:
+    def return_temperature(self) -> Optional[float]:
         if (value := self.data.get(DATA_RETURN_TEMPERATURE)) is not None:
             return float(value)
 
         return super().return_temperature
 
     @property
-    def relative_modulation_value(self) -> float | None:
+    def relative_modulation_value(self) -> Optional[float]:
         if (value := self.data.get(DATA_REL_MOD_LEVEL)) is not None:
             return float(value)
 
         return super().relative_modulation_value
 
     @property
-    def boiler_capacity(self) -> float | None:
+    def boiler_capacity(self) -> Optional[float]:
         if (value := self.data.get(DATA_BOILER_CAPACITY)) is not None:
             return float(value)
 
         return super().boiler_capacity
 
     @property
-    def minimum_relative_modulation_value(self) -> float | None:
+    def minimum_relative_modulation_value(self) -> Optional[float]:
         if (value := self.data.get(DATA_REL_MIN_MOD_LEVEL)) is not None:
             return float(value)
 
@@ -141,14 +142,14 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         return super().minimum_relative_modulation_value
 
     @property
-    def maximum_relative_modulation_value(self) -> float | None:
+    def maximum_relative_modulation_value(self) -> Optional[float]:
         if (value := self.data.get(DATA_MAX_REL_MOD_LEVEL_SETTING)) is not None:
             return float(value)
 
         return super().maximum_relative_modulation_value
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         if (value := self.data.get(DATA_SLAVE_MEMBERID)) is not None:
             return int(value)
 

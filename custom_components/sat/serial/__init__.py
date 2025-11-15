@@ -25,18 +25,14 @@ TRANSLATE_SOURCE = {
 class SatSerialCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using pyotgw."""
 
-    def __init__(self, hass: HomeAssistant, port: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, port: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        super().__init__(hass, data, options)
-
-        self.data: dict = DEFAULT_STATUS
-
-        async def async_coroutine(event):
-            self.async_set_updated_data(event)
+        super().__init__(hass, config_data, options)
+        self.async_set_updated_data(DEFAULT_STATUS)
 
         self._port: str = port
         self._api: OpenThermGateway = OpenThermGateway()
-        self._api.subscribe(async_coroutine)
+        self._api.subscribe(lambda data: self.async_set_updated_data(data))
 
     @property
     def device_id(self) -> str:
@@ -71,28 +67,28 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return True
 
     @property
-    def setpoint(self) -> float | None:
+    def setpoint(self) -> Optional[float]:
         if (setpoint := self.get(DATA_CONTROL_SETPOINT)) is not None:
             return float(setpoint)
 
         return None
 
     @property
-    def hot_water_setpoint(self) -> float | None:
+    def hot_water_setpoint(self) -> Optional[float]:
         if (setpoint := self.get(DATA_DHW_SETPOINT)) is not None:
             return float(setpoint)
 
         return super().hot_water_setpoint
 
     @property
-    def boiler_temperature(self) -> float | None:
+    def boiler_temperature(self) -> Optional[float]:
         if (value := self.get(DATA_CH_WATER_TEMP)) is not None:
             return float(value)
 
         return super().boiler_temperature
 
     @property
-    def return_temperature(self) -> float | None:
+    def return_temperature(self) -> Optional[float]:
         if (value := self.get(DATA_RETURN_WATER_TEMP)) is not None:
             return float(value)
 
@@ -113,28 +109,28 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().maximum_hot_water_setpoint
 
     @property
-    def relative_modulation_value(self) -> float | None:
+    def relative_modulation_value(self) -> Optional[float]:
         if (value := self.get(DATA_REL_MOD_LEVEL)) is not None:
             return float(value)
 
         return super().relative_modulation_value
 
     @property
-    def boiler_capacity(self) -> float | None:
+    def boiler_capacity(self) -> Optional[float]:
         if (value := self.get(DATA_SLAVE_MAX_CAPACITY)) is not None:
             return float(value)
 
         return super().boiler_capacity
 
     @property
-    def minimum_relative_modulation_value(self) -> float | None:
+    def minimum_relative_modulation_value(self) -> Optional[float]:
         if (value := self.get(DATA_SLAVE_MIN_MOD_LEVEL)) is not None:
             return float(value)
 
         return super().minimum_relative_modulation_value
 
     @property
-    def maximum_relative_modulation_value(self) -> float | None:
+    def maximum_relative_modulation_value(self) -> Optional[float]:
         if (value := self.get(DATA_SLAVE_MAX_RELATIVE_MOD)) is not None:
             return float(value)
 

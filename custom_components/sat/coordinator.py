@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 from abc import abstractmethod
 from time import monotonic
-from typing import TYPE_CHECKING, Mapping, Any, Optional
+from typing import TYPE_CHECKING, Mapping, Any, Optional, Callable
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback, HassJob
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .boiler import BoilerTemperatureTracker, BoilerState
@@ -18,7 +19,6 @@ from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
-from .const import PWMStatus
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -31,61 +31,92 @@ class DeviceState(str, Enum):
     OFF = "off"
 
 
+class SatData(dict):
+    _is_dirty: bool = False
+
+    def __setitem__(self, key, value):
+        if self.get(key) != value:
+            self._is_dirty = True
+
+        super().__setitem__(key, value)
+
+    def update(self, other: dict, **kwargs):
+        for key, value in other.items():
+            if self.get(key) != value:
+                self._is_dirty = True
+
+            super().__setitem__(key, value)
+
+    def __delitem__(self, key):
+        self._is_dirty = True
+        super().__delitem__(key)
+
+    def reset_dirty(self):
+        self._is_dirty = False
+
+    def is_dirty(self) -> bool:
+        return self._is_dirty
+
+
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
     def resolve(hass: HomeAssistant, mode: str, device: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> SatDataUpdateCoordinator:
         if mode == MODE_FAKE:
             from .fake import SatFakeCoordinator
-            return SatFakeCoordinator(hass=hass, data=data, options=options)
+            return SatFakeCoordinator(hass=hass, config_data=data, options=options)
 
         if mode == MODE_SIMULATOR:
             from .simulator import SatSimulatorCoordinator
-            return SatSimulatorCoordinator(hass=hass, data=data, options=options)
+            return SatSimulatorCoordinator(hass=hass, config_data=data, options=options)
 
         if mode == MODE_SWITCH:
             from .switch import SatSwitchCoordinator
-            return SatSwitchCoordinator(hass=hass, entity_id=device, data=data, options=options)
+            return SatSwitchCoordinator(hass=hass, entity_id=device, config_data=data, options=options)
 
         if mode == MODE_ESPHOME:
             from .esphome import SatEspHomeCoordinator
-            return SatEspHomeCoordinator(hass=hass, device_id=device, data=data, options=options)
+            return SatEspHomeCoordinator(hass=hass, device_id=device, config_data=data, options=options)
 
         if mode == MODE_MQTT_EMS:
             from .mqtt.ems import SatEmsMqttCoordinator
-            return SatEmsMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
+            return SatEmsMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
 
         if mode == MODE_MQTT_OPENTHERM:
             from .mqtt.opentherm import SatOpenThermMqttCoordinator
-            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, data=data, options=options)
+            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
 
         if mode == MODE_SERIAL:
             from .serial import SatSerialCoordinator
-            return SatSerialCoordinator(hass=hass, port=device, data=data, options=options)
+            return SatSerialCoordinator(hass=hass, port=device, config_data=data, options=options)
 
         raise Exception(f'Invalid mode[{mode}]')
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        self._boiler_temperature_cold: float | None = None
-        self._boiler_temperatures: list[tuple[float, float]] = []
-        self._boiler_temperature_tracker = BoilerTemperatureTracker()
-
-        self._flame = Flame()
-        self._device_on_since = None
-
-        self._data: Mapping[str, Any] = data
-        self._options: Mapping[str, Any] = options or {}
-
-        self._manufacturer: Manufacturer | None = None
-        self._simulation: bool = bool(self._options.get(CONF_SIMULATION))
-        self._heating_system: str = str(data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
-
-        if data.get(CONF_MANUFACTURER) is not None:
-            self._manufacturer = ManufacturerFactory.resolve_by_name(data.get(CONF_MANUFACTURER))
-
         super().__init__(hass, _LOGGER, name=DOMAIN)
+        self.data: SatData = SatData()
+
+        self._boiler_temperature_cold: Optional[float] = None
+        self._boiler_temperatures: list[tuple[float, float]] = []
+        self._boiler_temperature_tracker: BoilerTemperatureTracker = BoilerTemperatureTracker()
+
+        self._flame: Flame = Flame()
+        self._device_on_since: Optional[float] = None
+        self._listeners_unsub: Optional[Callable[[], None]] = None
+
+        self._options: Mapping[str, Any] = options or {}
+        self._config_data: Mapping[str, Any] = config_data
+
+        self._manufacturer: Optional[Manufacturer] = None
+        self._simulation: bool = bool(self._options.get(CONF_SIMULATION))
+        self._heating_system: str = str(config_data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
+
+        if config_data.get(CONF_MANUFACTURER) is not None:
+            self._manufacturer = ManufacturerFactory.resolve_by_name(config_data.get(CONF_MANUFACTURER))
+
+        self.async_add_listener(lambda: self._flame.update(boiler_state=self.boiler))
 
     @property
     @abstractmethod
@@ -176,12 +207,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     @property
-    def manufacturer(self) -> Manufacturer | None:
+    def manufacturer(self) -> Optional[Manufacturer]:
         return self._manufacturer
 
     @property
     @abstractmethod
-    def setpoint(self) -> float | None:
+    def setpoint(self) -> Optional[float]:
         pass
 
     @property
@@ -191,7 +222,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     @abstractmethod
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         pass
 
     @property
@@ -199,7 +230,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return self.device_active
 
     @property
-    def heater_on_since(self) -> float | None:
+    def heater_on_since(self) -> Optional[float]:
         return self._device_on_since
 
     @property
@@ -207,19 +238,19 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return False
 
     @property
-    def hot_water_setpoint(self) -> float | None:
+    def hot_water_setpoint(self) -> Optional[float]:
         return None
 
     @property
-    def boiler_temperature(self) -> float | None:
+    def boiler_temperature(self) -> Optional[float]:
         return None
 
     @property
-    def return_temperature(self) -> float | None:
+    def return_temperature(self) -> Optional[float]:
         return None
 
     @property
-    def boiler_temperature_filtered(self) -> float | None:
+    def boiler_temperature_filtered(self) -> Optional[float]:
         # Not able to use if we do not have at least two values
         if len(self._boiler_temperatures) < 2:
             return self.boiler_temperature
@@ -233,7 +264,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return round(difference_boiler_temperature_sum / (len(self._boiler_temperatures) - 1), 2)
 
     @property
-    def boiler_temperature_derivative(self) -> float | None:
+    def boiler_temperature_derivative(self) -> Optional[float]:
         if len(self._boiler_temperatures) <= 1:
             return None
 
@@ -247,7 +278,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return round((last_temperature - first_temperature) / time_delta, 2)
 
     @property
-    def boiler_temperature_cold(self) -> float | None:
+    def boiler_temperature_cold(self) -> Optional[float]:
         return self._boiler_temperature_cold
 
     @property
@@ -263,19 +294,19 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return 60
 
     @property
-    def relative_modulation_value(self) -> float | None:
+    def relative_modulation_value(self) -> Optional[float]:
         return None
 
     @property
-    def maximum_setpoint_value(self) -> float | None:
+    def maximum_setpoint_value(self) -> Optional[float]:
         return self.maximum_setpoint
 
     @property
-    def boiler_capacity(self) -> float | None:
+    def boiler_capacity(self) -> Optional[float]:
         return None
 
     @property
-    def minimum_boiler_capacity(self) -> float | None:
+    def minimum_boiler_capacity(self) -> Optional[float]:
         if (minimum_relative_modulation_value := self.minimum_relative_modulation_value) is None:
             return None
 
@@ -288,7 +319,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return boiler_capacity * (minimum_relative_modulation_value / 100)
 
     @property
-    def boiler_power(self) -> float | None:
+    def boiler_power(self) -> Optional[float]:
         if (boiler_capacity := self.boiler_capacity) is None:
             return None
 
@@ -304,17 +335,17 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return minimum_boiler_capacity + ((boiler_capacity - minimum_boiler_capacity) * (relative_modulation_value / 100))
 
     @property
-    def minimum_relative_modulation_value(self) -> float | None:
+    def minimum_relative_modulation_value(self) -> Optional[float]:
         return None
 
     @property
-    def maximum_relative_modulation_value(self) -> float | None:
+    def maximum_relative_modulation_value(self) -> Optional[float]:
         return None
 
     @property
     def minimum_setpoint(self) -> float:
         """Return the minimum setpoint temperature before the device starts to overshoot."""
-        return float(self._data.get(CONF_MINIMUM_SETPOINT))
+        return float(self._config_data.get(CONF_MINIMUM_SETPOINT))
 
     @property
     def maximum_setpoint(self) -> float:
@@ -458,7 +489,34 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Control the setpoint temperature for the thermostat."""
         pass
 
-    def _get_latest_boiler_cold_temperature(self) -> float | None:
+    async def async_notify_listeners(self, _time=None) -> None:
+        """Notify listeners of an update asynchronously."""
+        # Make sure we do not spam
+        self._async_unsub_refresh()
+        self._debounced_refresh.async_cancel()
+
+        # Inform the listeners that we are updated
+        self.async_update_listeners()
+
+    @callback
+    def async_set_updated_data(self, data: dict) -> None:
+        """Update the stored data and notify listeners if changes are detected."""
+        # Update the internal data store with new values
+        self.data.update(data)
+
+        if self.data.is_dirty():
+            # Cancel previous scheduled run, if any
+            if self._listeners_unsub is not None:
+                self._listeners_unsub()
+                self._listeners_unsub = None
+
+            # Confirm that we've taken care of the changes
+            self.data.reset_dirty()
+
+            # Notify listeners to ensure the entities are updated
+            self._listeners_unsub = async_call_later(self.hass, 5, HassJob(self.async_notify_listeners))
+
+    def _get_latest_boiler_cold_temperature(self) -> Optional[float]:
         """Get the latest boiler cold temperature based on recent boiler temperatures."""
         max_temperature = None
 

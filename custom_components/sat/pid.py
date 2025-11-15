@@ -99,7 +99,7 @@ class PID:
         if self._sample_time_limit is not None and time_elapsed < self._sample_time_limit:
             return
 
-        # Update integral and derivative based on the previous stored error
+        # Update integral and derivative based on the previously stored error
         self.update_integral(error, heating_curve_value, True)
         self.update_derivative(error)
 
@@ -217,7 +217,7 @@ class PID:
         if (last_heating_curve := state.attributes.get("heating_curve")) is not None:
             self._last_heating_curve_value = float(last_heating_curve)
 
-        # After restore, reset timing anchors to "now"
+        # After restore, reset timing anchors "now"
         now = monotonic()
         self._last_updated = now
         self._last_derivative_time = now
