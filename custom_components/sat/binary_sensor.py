@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .climate import SatClimate
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS, FlameStatus
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS, FlameStatus, BoilerStatus
 from .entity import SatClimateEntity, SatEntity
 from .helpers import seconds_since
 from .serial import binary_sensor as serial_binary_sensor
@@ -42,6 +42,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 
     _async_add_entities([
         SatFlameHealthSensor(coordinator, _config_entry),
+        SatBoilerHealthSensor(coordinator, _config_entry),
         SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)
     ])
 
@@ -167,6 +168,29 @@ class SatCentralHeatingSynchroSensor(SatSynchroSensor, SatClimateEntity, BinaryS
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-central-heating-synchro"
+
+
+class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Boiler Health"
+
+    @property
+    def device_class(self) -> str:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        return self._coordinator.device_status == BoilerStatus.UNKNOWN
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-health"
 
 
 class SatFlameHealthSensor(SatEntity, BinarySensorEntity):
