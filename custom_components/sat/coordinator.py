@@ -19,6 +19,7 @@ from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
+from .pwm import PWMState
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -163,7 +164,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if self.boiler_temperature > self.setpoint:
             if self.flame_active:
                 if self._boiler_temperature_tracker.active:
-                    if self.boiler_temperature - self.setpoint > 2:
+                    if self.boiler_temperature - self.setpoint > 3:
                         return BoilerStatus.COOLING_DOWN
 
                     return BoilerStatus.NEAR_SETPOINT
@@ -413,7 +414,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         pass
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMStatus] = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, _time=None) -> None:
         """Control the heating loop for the device."""
         # Update Flame State
         self._flame.update(boiler_state=self.boiler, pwm_state=pwm_state)

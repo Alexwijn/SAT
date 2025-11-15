@@ -42,6 +42,7 @@ from .entity import SatEntity
 from .errors import Errors, Error
 from .helpers import convert_time_str_to_seconds
 from .manufacturers.geminox import Geminox
+from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_minimum_setpoint_controller
@@ -421,7 +422,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "relative_modulation_state": self.relative_modulation_state,
             "relative_modulation_enabled": self.relative_modulation.enabled,
 
-            "pulse_width_modulation_state": self.pwm.state,
+            "pulse_width_modulation_state": self.pwm.status,
             "pulse_width_modulation_enabled": self.pwm.enabled,
             "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
         }
@@ -809,7 +810,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
-    async def _async_control_setpoint(self, pwm_state: PWMStatus) -> None:
+    async def _async_control_setpoint(self, pwm_state: PWMState) -> None:
         """Control the setpoint of the heating system based on the current mode and PWM state."""
 
         # Check if the system is in HEAT mode
@@ -819,7 +820,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._setpoint = MINIMUM_SETPOINT
             _LOGGER.info("HVAC mode is not HEAT. Setting setpoint to minimum: %.1f°C", MINIMUM_SETPOINT)
 
-        elif not self.pulse_width_modulation_enabled or pwm_state == PWMStatus.IDLE:
+        elif not self.pulse_width_modulation_enabled or pwm_state.status == PWMStatus.IDLE:
             # Normal cycle without PWM
             self._setpoint = self._calculated_setpoint
             _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
@@ -831,9 +832,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 _LOGGER.debug("Calculated setpoint is too cold. Setting setpoint to minimum: %.1f°C", MINIMUM_SETPOINT)
         else:
             # PWM is enabled and actively controlling the cycle
-            _LOGGER.info("Running PWM cycle with state: %s", pwm_state)
+            _LOGGER.info("Running PWM cycle with state: %s", pwm_state.status)
 
-            if pwm_state == PWMStatus.ON:
+            if pwm_state.status == PWMStatus.ON:
                 self._setpoint = self.minimum_setpoint_value
                 _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self._setpoint)
             else:
@@ -914,14 +915,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def schedule_control_heating_loop(self, _time: Optional[datetime] = None, force: bool = False, ) -> None:
         """Schedule a debounced execution of the heating control loop."""
-        # Cancel previous scheduled run, if any
-        if self._control_heating_loop_unsub is not None:
-            self._control_heating_loop_unsub()
-            self._control_heating_loop_unsub = None
-
         # Force immediate execution
         if force:
-            self.hass.async_create_task(self.async_control_heating_loop())
+            # Cancel previous scheduled run, if any
+            if self._control_heating_loop_unsub is not None:
+                self._control_heating_loop_unsub()
+                self._control_heating_loop_unsub = None
+
+                self.hass.async_create_task(self.async_control_heating_loop())
+                return
+
+        # If a run is already scheduled, do nothing.
+        if self._control_heating_loop_unsub is not None:
             return
 
         self._control_heating_loop_unsub = async_call_later(self.hass, 10, HassJob(self.async_control_heating_loop))
@@ -980,7 +985,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self.minimum_setpoint.warming_up(self._coordinator.boiler)
 
             # Calculate the dynamic minimum setpoint
-            self.minimum_setpoint.calculate(self._coordinator.boiler, self.pwm.state)
+            self.minimum_setpoint.calculate(self._coordinator.boiler, self.pwm.status)
 
         # If the setpoint is high, turn on the heater
         await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)

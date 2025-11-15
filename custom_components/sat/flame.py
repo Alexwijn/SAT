@@ -7,9 +7,10 @@ from statistics import median
 from time import monotonic
 from typing import Deque, Optional, Tuple, Iterable, TYPE_CHECKING
 
-from .const import FlameStatus, BoilerStatus, PWMStatus
+from .const import BoilerStatus, FlameStatus, PWMStatus
 
 if TYPE_CHECKING:
+    from .pwm import PWMState
     from .boiler import BoilerState
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,9 +36,6 @@ class Flame:
     """Tracks boiler flame on/off, maintains rolling statistics, and classifies health."""
 
     # Thresholds
-    MIN_ON_PWM_SECONDS: float = 180.0
-    MIN_ON_NON_PWM_SECONDS: float = 300.0
-
     MAX_CYCLES_PER_HOUR_PWM: float = 8.0
     MAX_CYCLES_PER_HOUR_NON_PWM: float = 3.0
 
@@ -52,16 +50,14 @@ class Flame:
 
     # Debounce
     MEDIAN_TOLERANCE: float = 0.9
-    MIN_ON_SAMPLES_FOR_HEALTH: int = 5
+    MIN_ON_SAMPLES_FOR_HEALTH: int = 3
     MAX_DOMESTIC_HOT_WATER_IDLE_OFF_SECONDS: float = 30.0
 
     # Status buckets
     _TRANSIENT_STATUSES: Iterable[BoilerStatus] = (
         BoilerStatus.PREHEATING,
-        BoilerStatus.PUMP_STARTING,
-        BoilerStatus.WAITING_FOR_FLAME,
         BoilerStatus.INITIALIZING,
-        BoilerStatus.UNKNOWN,
+        BoilerStatus.PUMP_STARTING,
     )
 
     _HEATING_STATUSES: Iterable[BoilerStatus] = (
@@ -90,7 +86,7 @@ class Flame:
 
         # Stored states
         self._last_boiler_state: Optional[BoilerState] = None
-        self._pulse_width_modulation_state: PWMStatus = PWMStatus.IDLE
+        self._last_pulse_width_modulation_state: Optional[PWMState] = None
 
         # Rolling windows
         self._last_update_monotonic: Optional[float] = None
@@ -160,7 +156,7 @@ class Flame:
         _, count = self._median_on_duration(monotonic())
         return count
 
-    def update(self, boiler_state: BoilerState, pwm_state: Optional[PWMStatus] = None) -> None:
+    def update(self, boiler_state: BoilerState, pwm_state: Optional[PWMState] = None) -> None:
 
         now = monotonic()
 
@@ -175,7 +171,7 @@ class Flame:
 
         # Update internal state tracking
         self._last_boiler_state = boiler_state
-        self._pulse_width_modulation_state = pwm_state or self._pulse_width_modulation_state
+        self._last_pulse_width_modulation_state = pwm_state or self._last_pulse_width_modulation_state
 
         _LOGGER.debug("Flame active=%s->%s, last_update=%.1fs", previously_active, currently_active, elapsed)
 
@@ -327,12 +323,12 @@ class Flame:
             return
 
         # PWM-driven demand
-        if self._pulse_width_modulation_state == PWMStatus.ON:
+        if self._last_pulse_width_modulation_state is not None and self._last_pulse_width_modulation_state.status == PWMStatus.ON:
             if cycles_per_hour > self.MAX_CYCLES_PER_HOUR_PWM:
                 self._health_status = FlameStatus.SHORT_CYCLING
                 return
 
-            if median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_PWM_SECONDS:
+            if median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * self._last_pulse_width_modulation_state.duty_cycle[0]:
                 self._health_status = FlameStatus.PWM_SHORT
                 return
 
@@ -345,11 +341,7 @@ class Flame:
                 self._health_status = FlameStatus.HEALTHY
                 return
 
-            if (
-                    median_on_seconds is not None
-                    and cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM
-                    and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_NON_PWM_SECONDS
-            ):
+            if median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * 180 and cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM:
                 self._health_status = FlameStatus.SHORT_CYCLING
                 return
 
@@ -357,11 +349,7 @@ class Flame:
             return
 
         # Non-modulating boiler
-        if (
-                median_on_seconds is not None
-                and cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM
-                and median_on_seconds < self.MEDIAN_TOLERANCE * self.MIN_ON_NON_PWM_SECONDS
-        ):
+        if median_on_seconds is not None and median_on_seconds < self.MEDIAN_TOLERANCE * 180 and cycles_per_hour > self.MAX_CYCLES_PER_HOUR_NON_PWM:
             self._health_status = FlameStatus.SHORT_CYCLING
             return
 

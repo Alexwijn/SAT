@@ -4,7 +4,7 @@ from typing import Optional
 _LOGGER = logging.getLogger(__name__)
 
 DECREASE_STEP = 1.0
-INCREASE_STEP = 0.5
+INCREASE_STEP = 1.0
 
 
 class SetpointAdjuster:
@@ -22,9 +22,8 @@ class SetpointAdjuster:
         self._current = None
 
     def force(self, target_setpoint: float) -> float:
-        """Force setpoint to at least the target value (never decreases)."""
-        if self._current is None or target_setpoint > self._current:
-            self._current = target_setpoint
+        """Force setpoint to at least the target value."""
+        self._current = target_setpoint
 
         return self._current
 
