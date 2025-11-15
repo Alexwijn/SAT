@@ -1,4 +1,5 @@
 import logging
+import math
 from time import monotonic
 from typing import Optional, Tuple, TYPE_CHECKING
 
@@ -136,6 +137,15 @@ class PWM:
         elif self._setpoint_adjuster.current is not None:
             self._setpoint = self._setpoint_adjuster.current
 
+        if (
+                # Check if we are above the overshoot temperature
+                boiler.device_status == BoilerStatus.COOLING_DOWN and
+                self._setpoint_adjuster.current is not None and math.floor(requested_setpoint) > math.floor(self._setpoint)
+        ):
+            _LOGGER.info("Setpoint stabilization detected, disabling Pulse Width Modulation.")
+            self.disable()
+            return
+
         # State transitions for PWM
         if self._state != PWMStatus.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._state == PWMStatus.IDLE):
             if self._current_cycle >= self._cycles.maximum:
@@ -159,10 +169,10 @@ class PWM:
 
     def _calculate_duty_cycle(self, requested_setpoint: float, boiler: "BoilerState") -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
-        boiler_temperature = self._last_boiler_temperature
         base_offset = self._heating_curve.base_offset
+        boiler_temperature = self._last_boiler_temperature
 
-        # Ensure boiler temperature is above the base offset
+        # Ensure the boiler temperature is above the base offset
         boiler_temperature = max(boiler_temperature, base_offset + 1)
 
         # Calculate duty cycle percentage
