@@ -801,7 +801,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 if self.heating_curve.value is not None:
                     self.pid.update(max_error, self.heating_curve.value, self._coordinator.boiler_temperature_filtered)
 
-        elif max_error != self.pid.last_error:
+        elif max_error.value != self.pid.last_error:
             _LOGGER.info(f"Updating error to {max_error.value} from {max_error.entity_id} (Reset: True)")
 
             self.pid.update_reset(error=max_error, heating_curve_value=self.heating_curve.value)
