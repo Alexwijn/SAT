@@ -419,11 +419,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
 
             "relative_modulation_value": self.relative_modulation_value,
-            "relative_modulation_state": self.relative_modulation_state,
             "relative_modulation_enabled": self.relative_modulation.enabled,
+            "relative_modulation_state": self.relative_modulation_state.name,
 
-            "pulse_width_modulation_state": self.pwm.status,
             "pulse_width_modulation_enabled": self.pwm.enabled,
+            "pulse_width_modulation_state": self.pwm.status.name,
             "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
         }
 
