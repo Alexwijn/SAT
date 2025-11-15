@@ -1,5 +1,4 @@
 import math
-from datetime import datetime, timezone
 from re import sub
 from time import monotonic
 from typing import Optional, Union
@@ -7,11 +6,6 @@ from typing import Optional, Union
 from homeassistant.util import dt
 
 from .const import HEATING_SYSTEM_UNDERFLOOR
-
-
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def seconds_since(start_time: float | None) -> float:

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from .helpers import utcnow
+from homeassistant.util import utcnow
 
 
 @dataclass(frozen=True, slots=True)

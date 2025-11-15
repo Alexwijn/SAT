@@ -75,7 +75,7 @@ class Area:
     @property
     def weight(self) -> float | None:
         """
-        Room heating demand weight (0–2 range).
+        Room heating demand weight (0-2 range).
         Based on the difference between target and current temperature.
         """
         target_temperature = self.target_temperature

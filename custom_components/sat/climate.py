@@ -783,7 +783,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update the PID controller with the maximum error
         if not reset:
-            _LOGGER.info(f"Updating error to {max_error} (Reset: False)")
+            _LOGGER.info(f"Updating error to {max_error.value} from {max_error.entity_id} (Reset: False)")
 
             # Calculate an optimal heating curve when we are in the deadband
             if self.target_temperature is not None and -DEADBAND <= max_error.value <= DEADBAND:
@@ -801,7 +801,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     self.pid.update(max_error, self.heating_curve.value, self._coordinator.boiler_temperature_filtered)
 
         elif max_error != self.pid.last_error:
-            _LOGGER.info(f"Updating error to {max_error} (Reset: True)")
+            _LOGGER.info(f"Updating error to {max_error.value} from {max_error.entity_id} (Reset: True)")
 
             self.pid.update_reset(error=max_error, heating_curve_value=self.heating_curve.value)
             self._calculated_setpoint = None
@@ -1088,9 +1088,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     if state is None or state.state == HVACMode.OFF:
                         continue
 
-                    target_temperature = self._presets[preset_mode]
-                    if preset_mode == PRESET_HOME:
-                        target_temperature = self._rooms[entity_id]
+                    if preset_mode != PRESET_HOME:
+                        target_temperature = self._presets[preset_mode]
+                    else:
+                        target_temperature = self._rooms.get(entity_id, self._presets[preset_mode])
 
                     data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: target_temperature}
                     await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
