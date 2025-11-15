@@ -177,7 +177,7 @@ class Flame:
         self._last_boiler_state = boiler_state
         self._pulse_width_modulation_state = pwm_state or self._pulse_width_modulation_state
 
-        _LOGGER.debug("Flame active=%s->%s, elapsed=%.3fs", previously_active, currently_active, elapsed)
+        _LOGGER.debug("Flame active=%s->%s, last_update=%.1fs", previously_active, currently_active, elapsed)
 
         if previously_active and elapsed > 0.0:
             self._on_deltas_window.append((now, elapsed))
@@ -259,7 +259,7 @@ class Flame:
             self._last_update_monotonic = now
 
             _LOGGER.debug(
-                "Flame transition OFF->OFF: off_since=%s, cycles_last_hour=%.1f, duty_ratio_15m=%.2f",
+                "Flame transition OFF->OFF: off_since=%.1fs, cycles_last_hour=%.1f, duty_ratio_15m=%.2f",
                 None if self._flame_off_monotonic is None else now - self._flame_off_monotonic,
                 self._cycles_per_hour(now),
                 self._duty_ratio_last_window(now),
