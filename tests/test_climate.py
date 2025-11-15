@@ -48,6 +48,7 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await coordinator.async_set_boiler_temperature(57)
     await climate.async_set_target_temperature(21.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
+    climate.schedule_control_heating_loop(force=True)
 
     assert climate.setpoint == 57
     assert climate.heating_curve.value == 32.2
@@ -93,6 +94,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await coordinator.async_set_boiler_temperature(58)
     await climate.async_set_target_temperature(19.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
+    climate.schedule_control_heating_loop(force=True)
 
     assert climate.setpoint == 10
     assert climate.heating_curve.value == 27.8
@@ -139,6 +141,7 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await coordinator.async_set_boiler_temperature(41)
     await climate.async_set_target_temperature(20.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
+    climate.schedule_control_heating_loop(force=True)
 
     assert climate.setpoint == 41.0
     assert climate.heating_curve.value == 32.5
