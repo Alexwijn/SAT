@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List, Type
 
-from custom_components.sat.helpers import snake_case
+from .helpers import snake_case
 
 MANUFACTURERS = {
     "Atag": 4,
@@ -43,7 +43,7 @@ class ManufacturerFactory:
     @staticmethod
     def resolve_by_name(name: str) -> Optional[Manufacturer]:
         """Resolve a Manufacturer instance by its name."""
-        if not (member_id := MANUFACTURERS.get(name)):
+        if name not in MANUFACTURERS:
             return None
 
         return ManufacturerFactory._import_class(snake_case(name), name)()

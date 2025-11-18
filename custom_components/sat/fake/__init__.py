@@ -37,8 +37,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
     def member_id(self) -> int | None:
         return -1
 
-    def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
-        self.data = {}
+    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         self.config = SatFakeConfig(True)
 
         self._setpoint = None
@@ -48,7 +47,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._device_state = DeviceState.OFF
         self._relative_modulation_value = 100
 
-        super().__init__(hass, data, options)
+        super().__init__(hass, config_data, options)
 
     @property
     def setpoint(self) -> float | None:

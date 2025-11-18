@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import logging
-from enum import Enum
+from dataclasses import dataclass
 from typing import Optional
 
-from .const import MINIMUM_SETPOINT
+from .const import MINIMUM_SETPOINT, BoilerStatus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -10,67 +12,22 @@ STABILIZATION_MARGIN = 5
 EXCEED_SETPOINT_MARGIN = 1.0
 
 
-class BoilerStatus(str, Enum):
-    HOT_WATER = "hot_water"
-    PREHEATING = "preheating"
-    HEATING_UP = "heating_up"
-    AT_SETPOINT = "at_setpoint"
-    COOLING_DOWN = "cooling_down"
-    NEAR_SETPOINT = "near_setpoint"
-    PUMP_STARTING = "pump_starting"
-    WAITING_FOR_FLAME = "waiting_for_flame"
-    OVERSHOOT_HANDLING = "overshoot_handling"
-    OVERSHOOT_STABILIZED = "overshoot_stabilized"
-
-    IDLE = "idle"
-    UNKNOWN = "unknown"
-    INITIALIZING = "initializing"
-
-
+@dataclass(frozen=True, slots=True, kw_only=True)
 class BoilerState:
     """
     Represents the operational state of a boiler, including activity, flame status, hot water usage, and current temperature.
     """
+    is_active: bool
+    is_inactive: bool
+    status: BoilerStatus
 
-    def __init__(self, device_active: bool, device_status: BoilerStatus, flame_active: bool, flame_on_since: Optional[int], hot_water_active: bool, temperature: float):
-        """Initialize with the boiler's state parameters."""
-        self._flame_active: bool = flame_active
-        self._hot_water_active: bool = hot_water_active
+    flame_active: bool
+    hot_water_active: bool
 
-        self._temperature: float = temperature
-        self._device_active: bool = device_active
-        self._device_status: BoilerStatus = device_status
-        self._flame_on_since: Optional[int] = flame_on_since
-
-    @property
-    def device_active(self) -> bool:
-        """Indicates whether the boiler is running."""
-        return self._device_active
-
-    @property
-    def device_status(self) -> BoilerStatus:
-        """Indicates the boiler status."""
-        return self._device_status
-
-    @property
-    def flame_active(self) -> bool:
-        """Indicates whether the flame is ignited."""
-        return self._flame_active
-
-    @property
-    def flame_on_since(self) -> Optional[int]:
-        """Indicates when the flame has been ignited."""
-        return self._flame_on_since
-
-    @property
-    def hot_water_active(self) -> bool:
-        """Indicates whether the boiler is heating water."""
-        return self._hot_water_active
-
-    @property
-    def temperature(self) -> float:
-        """The boiler's current temperature."""
-        return self._temperature
+    setpoint: Optional[float]
+    flow_temperature: Optional[float]
+    return_temperature: Optional[float]
+    relative_modulation_level: Optional[float]
 
 
 class BoilerTemperatureTracker:
@@ -127,7 +84,7 @@ class BoilerTemperatureTracker:
 
         _LOGGER.debug("Flame inactive: Starting to track boiler temperature.")
 
-    def _handle_tracking(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float):
+    def _handle_tracking(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float) -> None:
         """Handle boiler temperature tracking logic."""
         if not self._warming_up and boiler_temperature_derivative == 0:
             return self._stop_tracking("Temperature not changing.", boiler_temperature, setpoint)
@@ -138,10 +95,14 @@ class BoilerTemperatureTracker:
         if setpoint > boiler_temperature and setpoint - STABILIZATION_MARGIN < boiler_temperature + 1 < self._last_boiler_temperature:
             return self._stop_warming_up("Stabilizing below setpoint.", boiler_temperature, setpoint)
 
-    def _handle_adjusting_to_lower_setpoint(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float):
+        return None
+
+    def _handle_adjusting_to_lower_setpoint(self, boiler_temperature: float, boiler_temperature_derivative: float, setpoint: float) -> None:
         """Handle stabilization when adjusting to a lower setpoint."""
         if boiler_temperature <= setpoint and boiler_temperature_derivative == 0:
             return self._stop_adjusting_to_lower_setpoint("Setpoint stabilization complete.", boiler_temperature, setpoint)
+
+        return None
 
     def _stop_adjusting_to_lower_setpoint(self, reason: str, boiler_temperature: float, setpoint: float):
         """Stop the adjustment to a lower setpoint and log the reason."""

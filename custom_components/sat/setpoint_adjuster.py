@@ -1,10 +1,10 @@
 import logging
+from typing import Optional
 
 _LOGGER = logging.getLogger(__name__)
 
 DECREASE_STEP = 1.0
-INCREASE_STEP = 0.5
-INITIAL_OFFSET = 10
+INCREASE_STEP = 1.0
 
 
 class SetpointAdjuster:
@@ -13,7 +13,7 @@ class SetpointAdjuster:
         self._current = None
 
     @property
-    def current(self) -> float:
+    def current(self) -> Optional[float]:
         """Return the current setpoint."""
         return self._current
 
@@ -22,7 +22,7 @@ class SetpointAdjuster:
         self._current = None
 
     def force(self, target_setpoint: float) -> float:
-        """Force setpoint."""
+        """Force setpoint to at least the target value."""
         self._current = target_setpoint
 
         return self._current

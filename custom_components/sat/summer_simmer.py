@@ -16,7 +16,7 @@ class SummerSimmer:
         Returns:
             float: Summer Simmer Index in Celsius.
         """
-        # Make sure we have a valid values
+        # Make sure we have a valid value
         if temperature is None or humidity is None:
             return None
 
