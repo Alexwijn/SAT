@@ -23,7 +23,7 @@ DATA_CENTRAL_HEATING = "heatingactive"
 DATA_BOILER_CAPACITY = "nompower"
 
 DATA_REL_MIN_MOD_LEVEL = "burnminpower"
-DATA_MAX_REL_MOD_LEVEL_SETTING = "selburnpow"
+DATA_MAX_REL_MOD_LEVEL_SETTING = "burnmaxpower"
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
     async def async_set_control_setpoint(self, value: float) -> None:
         # Minimum valid setting for Bosch/Junkers boiler seems to be 12°. 
         # Lower values set the boiler to 12° except 0° which sets the boiler to 5°.
-        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value < 12 else value}}}')
+        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {max(value, 12)}}}')
 
         await super().async_set_control_setpoint(value)
 
