@@ -109,12 +109,13 @@ class CycleHistory:
 
     @property
     def cycles_last_hour(self) -> float:
-        """Approximate cycles per hour over the cycle's window."""
+        """Cycles per hour, extrapolated from the cycle's window."""
         now = self._current_time_hint()
         if now is not None:
             self._prune_cycles_window(now)
 
-        return float(len(self._cycle_end_times_window))
+        count = len(self._cycle_end_times_window)
+        return count * 3600.0 / self._cycles_window_seconds
 
     @property
     def duty_ratio_last_15m(self) -> float:

@@ -234,7 +234,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.areas.async_added_to_hass(self.hass)
         await self.minimum_setpoint.async_added_to_hass(self.hass, self._coordinator.device_id)
 
-        self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, lambda _: self.async_will_remove_from_hass())
+        self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, lambda _: self.hass.async_create_task(self.async_will_remove_from_hass()))
 
         self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda _: self.minimum_setpoint.update(
             cycles=self._coordinator.cycles,
