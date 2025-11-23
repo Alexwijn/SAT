@@ -609,13 +609,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if last_cycle is None:
             return self.pwm.enabled
 
-        # If the dynamic minimum setpoint indicates that the requested setpoint is high, we don't need PWM.
-        if self._calculated_setpoint > self.minimum_setpoint.value + BOILER_DEADBAND:
-            return False
-
         # If the last cycle was unhealthy (short cycling, overshoot, etc.), enable PWM.
         if last_cycle.classification in UNHEALTHY_CYCLES:
             return True
+
+        # If the dynamic minimum setpoint indicates that the requested setpoint is high, we don't need PWM.
+        if self._calculated_setpoint > self.minimum_setpoint.value + BOILER_DEADBAND:
+            return False
 
         return self.pwm.enabled
 
