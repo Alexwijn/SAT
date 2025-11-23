@@ -899,7 +899,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._control_pid_unsub()
                 self._control_pid_unsub = None
 
-            self.hass.async_create_background_task(self.async_control_pid(reset=True))
+            self.hass.async_create_task(self.async_control_pid(reset=True))
             return
 
         # If a run is already scheduled, do nothing.
@@ -958,7 +958,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._control_heating_loop_unsub()
                 self._control_heating_loop_unsub = None
 
-            self.hass.async_create_background_task(self.async_control_heating_loop())
+            self.hass.async_create_task(self.async_control_heating_loop())
             return
 
         # If a run is already scheduled, do nothing.
