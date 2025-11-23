@@ -130,10 +130,11 @@ class DynamicMinimumSetpoint:
         # Handle large jumps in requested_setpoint (regime changes).
         self._maybe_damp_on_large_jump(requested_setpoint, regime_state)
 
+        # Mark a cycle as completed.
+        regime_state.completed_cycles += 1
+
         # Update the count of cycles and possibly adjust the learned minimum when a cycle has just completed.
-        if last_cycle is not None:
-            regime_state.completed_cycles += 1
-            self._maybe_tune_minimum(regime_state, boiler_state, cycles, last_cycle, base_setpoint=requested_setpoint)
+        self._maybe_tune_minimum(regime_state, boiler_state, cycles, last_cycle, base_setpoint=requested_setpoint)
 
         self._last_base_setpoint = requested_setpoint
 
