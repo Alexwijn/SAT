@@ -906,7 +906,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._control_pid_unsub is not None:
             return
 
-        self._control_pid_unsub = async_call_later(self.hass, 10, HassJob(partial(self.async_control_pid, reset=reset)))
+        self._control_pid_unsub = async_call_later(self.hass, 10, HassJob(self.async_control_pid))
 
     async def async_control_pid(self, _time: Optional[datetime] = None, reset: bool = False) -> None:
         """Control the PID controller."""
