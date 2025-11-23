@@ -335,16 +335,13 @@ class DynamicMinimumSetpoint:
         if boiler_state.hot_water_active:
             return False
 
-        if not boiler_state.is_active:
+        if boiler_state.is_inactive:
             return False
 
         if statistics.sample_count_4h < self._config.minimum_on_samples_for_tuning:
             return False
 
         if statistics.cycles_last_hour < self._config.low_load_minimum_cycles_per_hour:
-            return False
-
-        if statistics.duty_ratio_last_15m > self._config.low_load_maximum_duty_ratio_15m:
             return False
 
         return True
