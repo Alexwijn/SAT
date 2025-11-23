@@ -234,9 +234,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.areas.async_added_to_hass(self.hass)
         await self.minimum_setpoint.async_added_to_hass(self.hass, self._coordinator.device_id)
 
-        self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
+        self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, lambda _: self.async_will_remove_from_hass())
 
-    async def async_will_remove_from_hass(self, _time: Optional[datetime] = None):
+        self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda _: self.minimum_setpoint.update(
+            cycles=self._coordinator.cycles,
+            boiler_state=self._coordinator.state,
+            last_cycle=self._coordinator.last_cycle,
+            requested_setpoint=self._calculated_setpoint
+        ))
+
+    async def async_will_remove_from_hass(self):
         """Run when entity about to be removed."""
         await super().async_will_remove_from_hass()
 
@@ -995,19 +1002,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            self.pwm.enable()
-
-            self.pwm.update(
-                boiler_state=self._coordinator.state,
-                requested_setpoint=self._calculated_setpoint
-            )
-
-            self.minimum_setpoint.update(
-                cycles=self._coordinator.cycles,
-                boiler_state=self._coordinator.state,
-                last_cycle=self._coordinator.last_cycle,
-                requested_setpoint=self._calculated_setpoint
-            )
+            self.pwm.enable(self._coordinator.state, self._calculated_setpoint)
         else:
             self.pwm.disable()
 

@@ -172,6 +172,10 @@ SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION = "start_overshoot_protection_cal
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"
 
+# Events
+EVENT_SAT_CYCLE_STARTED = "sat_cycle_started"
+EVENT_SAT_CYCLE_ENDED = "sat_cycle_ended"
+
 
 # Enumerations
 class CycleKind(str, Enum):

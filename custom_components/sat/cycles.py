@@ -7,7 +7,9 @@ from statistics import median
 from time import monotonic
 from typing import Deque, List, Optional, Tuple, TYPE_CHECKING
 
-from .const import CycleKind, CycleClassification
+from homeassistant.core import HomeAssistant
+
+from .const import CycleKind, CycleClassification, EVENT_SAT_CYCLE_STARTED, EVENT_SAT_CYCLE_ENDED
 from .helpers import clamp
 
 if TYPE_CHECKING:
@@ -204,10 +206,11 @@ class CycleHistory:
 class CycleTracker:
     """Detects and summarizes flame cycles using BoilerState.flame_active."""
 
-    def __init__(self, history: CycleHistory, minimum_samples_per_cycle: int = 3) -> None:
+    def __init__(self, hass: HomeAssistant, history: CycleHistory, minimum_samples_per_cycle: int = 3) -> None:
         if minimum_samples_per_cycle < 1:
             raise ValueError("minimum_samples_per_cycle must be >= 1")
 
+        self._hass = hass
         self._history: CycleHistory = history
         self._current_samples: Deque[CycleSample] = deque()
         self._minimum_samples_per_cycle: int = minimum_samples_per_cycle
@@ -232,9 +235,10 @@ class CycleTracker:
 
         # OFF -> ON: start a new cycle
         if currently_active and not previously_active:
+            _LOGGER.debug("Flame transition OFF->ON, starting new cycle.")
+            self._hass.bus.fire(EVENT_SAT_CYCLE_STARTED)
             self._current_cycle_start = timestamp
             self._current_samples.clear()
-            _LOGGER.debug("Flame transition OFF->ON, starting new cycle.")
 
         # ON -> ON: accumulate samples
         if currently_active:
@@ -244,6 +248,7 @@ class CycleTracker:
         if not currently_active and previously_active:
             _LOGGER.debug("Flame transition ON->OFF, finalizing cycle.")
             cycle_state = self._build_cycle_state(timestamp)
+            self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle_state})
 
             # Push into history
             if cycle_state is not None:

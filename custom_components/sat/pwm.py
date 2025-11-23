@@ -79,17 +79,10 @@ class PWM:
             self._enabled = bool(enabled)
             _LOGGER.debug("Restored Pulse Width Modulation state: %s", enabled)
 
-    def enable(self) -> None:
-        """Enable the PWM control."""
+    def enable(self, boiler_state: "BoilerState", requested_setpoint: Optional[float]) -> None:
+        """Enable and the PWM state based on the output of a PID controller."""
         self._enabled = True
 
-    def disable(self) -> None:
-        """Disable the PWM control."""
-        self.reset()
-        self._enabled = False
-
-    def update(self, boiler_state: "BoilerState", requested_setpoint: Optional[float]) -> None:
-        """Update the PWM state based on the output of a PID controller."""
         if not self._heating_curve.value or requested_setpoint is None or boiler_state.flow_temperature is None:
             self._status = PWMStatus.IDLE
             self._last_update = monotonic()
@@ -141,6 +134,11 @@ class PWM:
             return
 
         _LOGGER.debug("Cycle time elapsed: %.0f seconds in state: %s", elapsed, self._status)
+
+    def disable(self) -> None:
+        """Disable the PWM control."""
+        self.reset()
+        self._enabled = False
 
     def _calculate_duty_cycle(self, requested_setpoint: float, boiler: "BoilerState") -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""

@@ -100,7 +100,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         self._boiler: Boiler = Boiler()
         self._cycles: CycleHistory = CycleHistory()
-        self._cycle_tracker: CycleTracker = CycleTracker(self._cycles)
+        self._cycle_tracker: CycleTracker = CycleTracker(hass, self._cycles)
 
         self._device_on_since: Optional[float] = None
         self._listeners_unsub: Optional[Callable[[], None]] = None
