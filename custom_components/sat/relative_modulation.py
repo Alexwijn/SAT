@@ -28,10 +28,10 @@ class RelativeModulation:
         if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
             return RelativeModulationState.COLD
 
-        if not self._pulse_width_modulation_enabled:
-            return RelativeModulationState.PWM_OFF
+        if self._pulse_width_modulation_enabled:
+            return RelativeModulationState.OFF
 
-        return RelativeModulationState.OFF
+        return RelativeModulationState.PWM_OFF
 
     @property
     def enabled(self) -> bool:
