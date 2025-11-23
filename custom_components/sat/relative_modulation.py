@@ -1,18 +1,9 @@
 import logging
-from enum import Enum
 
-from .const import MINIMUM_SETPOINT
+from .const import MINIMUM_SETPOINT, RelativeModulationState
 from .coordinator import SatDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
-
-
-# Enum to represent different states of relative modulation
-class RelativeModulationState(str, Enum):
-    OFF = "off"
-    COLD = "cold"
-    HOT_WATER = "hot_water"
-    PULSE_WIDTH_MODULATION_OFF = "pulse_width_modulation_off"
 
 
 class RelativeModulation:
@@ -37,10 +28,10 @@ class RelativeModulation:
         if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
             return RelativeModulationState.COLD
 
-        if self._pulse_width_modulation_enabled:
-            return RelativeModulationState.OFF
+        if not self._pulse_width_modulation_enabled:
+            return RelativeModulationState.PWM_OFF
 
-        return RelativeModulationState.PULSE_WIDTH_MODULATION_OFF
+        return RelativeModulationState.OFF
 
     @property
     def enabled(self) -> bool:

@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, Event, EventStateChangedData
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, MODE_SIMULATOR, CONF_MINIMUM_CONSUMPTION, CONF_MAXIMUM_CONSUMPTION
+from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity, SatClimateEntity
 from .serial import sensor as serial_sensor
@@ -42,7 +42,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         await simulator_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     _async_add_entities([
-        SatFlameSensor(coordinator, _config_entry),
+        SatCycleSensor(coordinator, _config_entry),
         SatBoilerSensor(coordinator, _config_entry),
         SatManufacturerSensor(coordinator, _config_entry),
         SatErrorValueSensor(coordinator, _config_entry, climate),
@@ -251,22 +251,21 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-manufacturer"
 
 
-class SatFlameSensor(SatEntity, SensorEntity):
+class SatCycleSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return "Flame Status"
+        return "Cycle Status"
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.flame.health_status.name
+        if self._coordinator.last_cycle is None:
+            return CycleClassification.INSUFFICIENT_DATA.name
 
-    @property
-    def available(self) -> bool:
-        return self._coordinator.flame.health_status is not None
+        return self._coordinator.last_cycle.classification.name
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-flame-status"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-cycle-status"
 
 
 class SatBoilerSensor(SatEntity, SensorEntity):
@@ -280,7 +279,7 @@ class SatBoilerSensor(SatEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return self._coordinator.device_status is not None
+        return self._coordinator.device_status != BoilerStatus.INSUFFICIENT_DATA
 
     @property
     def unique_id(self) -> str:

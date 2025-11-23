@@ -76,10 +76,7 @@ CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
-CONF_PID_CONTROLLER_VERSION = "pid_controller_version"
-
 CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
-CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION = "dynamic_minimum_setpoint_version"
 CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
@@ -152,9 +149,6 @@ OPTIONS_DEFAULTS = {
     CONF_HEATING_CURVE_COEFFICIENT: 2.0,
     CONF_HEATING_MODE: HEATING_MODE_COMFORT,
     CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
-
-    CONF_PID_CONTROLLER_VERSION: 3,
-    CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION: 1,
 }
 
 # Overshoot protection
@@ -180,35 +174,61 @@ STEP_SETUP_SENSORS = "sensors"
 
 
 # Enumerations
-class FlameStatus(str, Enum):
-    HEALTHY = "healthy"
-    IDLE_OK = "idle_ok"
-    STUCK_ON = "stuck_on"
-    STUCK_OFF = "stuck_off"
-    PWM_SHORT = "pwm_short"
-    SHORT_CYCLING = "short_cycling"
+class CycleKind(str, Enum):
+    MIXED = "mixed"
+    UNKNOWN = "unknown"
+    CENTRAL_HEATING = "central_heating"
+    DOMESTIC_HOT_WATER = "domestic_hot_water"
+
+
+class CycleClassification(str, Enum):
+    GOOD = "good"
+    UNCERTAIN = "uncertain"
     INSUFFICIENT_DATA = "insufficient_data"
+    TOO_SHORT_UNDERHEAT = "too_short_underheat"
+    TOO_SHORT_OVERSHOOT = "too_short_overshoot"
+    SHORT_CYCLING_OVERSHOOT = "short_cycling_overshoot"
 
 
-class BoilerStatus(str, Enum):
-    HOT_WATER = "hot_water"
-    PREHEATING = "preheating"
-    HEATING_UP = "heating_up"
-    AT_SETPOINT = "at_setpoint"
-    COOLING_DOWN = "cooling_down"
-    ANTI_CYCLING = "anti_cycling"
-    NEAR_SETPOINT = "near_setpoint"
-    PUMP_STARTING = "pump_starting"
-    WAITING_FOR_FLAME = "waiting_for_flame"
-    OVERSHOOT_HANDLING = "overshoot_handling"
-    OVERSHOOT_STABILIZED = "overshoot_stabilized"
-
+class BoilerStatus(Enum):
+    OFF = "off"
     IDLE = "idle"
     INSUFFICIENT_DATA = "insufficient_data"
+
+    PREHEATING = "preheating"
+    AT_SETPOINT_BAND = "at_setpoint_band"
+
+    MODULATING_UP = "modulating_up"
+    MODULATING_DOWN = "modulating_down"
+    CENTRAL_HEATING = "central_heating"
+    HEATING_HOT_WATER = "heating_hot_water"
+    DHW_COMFORT_PREHEAT = "dhw_comfort_preheat"
+
+    COOLING = "cooling"
+    ANTI_CYCLING = "anti_cycling"
+    PUMP_STARTING = "pump_starting"
+    SHORT_CYCLING = "short_cycling"
+    WAITING_FOR_FLAME = "waiting_for_flame"
+    OVERSHOOT_COOLING = "overshoot_cooling"
+    POST_CYCLE_SETTLING = "post_cycle_settling"
 
 
 class PWMStatus(str, Enum):
-    """The current state of Pulse Width Modulation"""
     ON = "on"
     OFF = "off"
     IDLE = "idle"
+
+
+class RelativeModulationState(str, Enum):
+    OFF = "off"
+    COLD = "cold"
+    PWM_OFF = "pwm_off"
+    HOT_WATER = "hot_water"
+
+
+# Cycles
+UNHEALTHY_CYCLES = (
+    CycleClassification.TOO_SHORT_UNDERHEAT,
+    CycleClassification.TOO_SHORT_OVERSHOOT,
+    CycleClassification.SHORT_CYCLING_OVERSHOOT
+)

@@ -151,10 +151,10 @@ class Areas:
         def __init__(self, areas: list[Area]):
             self.areas = areas
 
-        def update(self, boiler_temperature: float) -> None:
+        def update(self) -> None:
             for area in self.areas:
                 if area.error is not None:
-                    area.pid.update(area.error, area.heating_curve.value, boiler_temperature)
+                    area.pid.update(area.error, area.heating_curve.value)
 
         def reset(self) -> None:
             """Reset PID controllers for all areas."""

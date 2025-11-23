@@ -10,16 +10,15 @@ from homeassistant.core import HomeAssistant, callback, HassJob
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .boiler import BoilerTemperatureTracker, BoilerState, STABILIZATION_MARGIN
+from .boiler import BoilerState, Boiler
 from .const import *
-from .flame import Flame, FlameState
-from .helpers import calculate_default_maximum_setpoint, seconds_since
+from .cycles import CycleTracker, CycleHistory, CycleStatistics, Cycle
+from .helpers import calculate_default_maximum_setpoint
 from .manufacturer import Manufacturer, ManufacturerFactory
 from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
-from .pwm import PWMState
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -99,11 +98,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=DOMAIN)
         self.data: SatData = SatData()
 
-        self._boiler_temperature_cold: Optional[float] = None
-        self._boiler_temperatures: list[tuple[float, float]] = []
-        self._boiler_temperature_tracker: BoilerTemperatureTracker = BoilerTemperatureTracker()
+        self._boiler: Boiler = Boiler()
+        self._cycles: CycleHistory = CycleHistory()
+        self._cycle_tracker: CycleTracker = CycleTracker(self._cycles)
 
-        self._flame: Flame = Flame()
         self._device_on_since: Optional[float] = None
         self._listeners_unsub: Optional[Callable[[], None]] = None
 
@@ -117,7 +115,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if config_data.get(CONF_MANUFACTURER) is not None:
             self._manufacturer = ManufacturerFactory.resolve_by_name(config_data.get(CONF_MANUFACTURER))
 
-        self.async_add_listener(lambda: self._flame.update(boiler_state=self.boiler))
+        self.async_add_listener(lambda: self._cycle_tracker.update(boiler_state=self.state))
+        self.async_add_listener(lambda: self._boiler.update(state=self.state, last_cycle=self.last_cycle))
 
     @property
     @abstractmethod
@@ -132,66 +131,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def device_status(self) -> BoilerStatus:
         """Return the current status of the device."""
-        if self.boiler_temperature is None:
-            return BoilerStatus.INSUFFICIENT_DATA
-
-        if self.hot_water_active:
-            return BoilerStatus.HOT_WATER
-
-        if self.setpoint is None or self.setpoint <= MINIMUM_SETPOINT:
-            return BoilerStatus.IDLE
-
-        if self.device_active:
-            if self.boiler_temperature_cold is not None and self.boiler_temperature_cold > self.boiler_temperature:
-                if self.boiler_temperature_derivative is not None and self.boiler_temperature_derivative <= 0:
-                    return BoilerStatus.PUMP_STARTING
-
-                if self._boiler_temperature_tracker.active and self.setpoint > self.boiler_temperature:
-                    return BoilerStatus.PREHEATING
-
-        # We assume space-heating mode with a valid setpoint.
-        delta = self.boiler_temperature - self.setpoint
-
-        # Below the setpoint
-        if delta < -BOILER_DEADBAND:
-            if self.flame_active:
-                if self._boiler_temperature_tracker.active:
-                    return BoilerStatus.HEATING_UP
-
-                return BoilerStatus.OVERSHOOT_HANDLING
-            else:
-                return BoilerStatus.WAITING_FOR_FLAME
-
-        # Near/at the setpoint
-        if abs(delta) <= BOILER_DEADBAND:
-            return BoilerStatus.AT_SETPOINT
-
-        # Above the setpoint
-        if delta > BOILER_DEADBAND:
-            if self.flame_active:
-                if self._boiler_temperature_tracker.active:
-                    # Way above setpoint -> cooling down.
-                    if delta > STABILIZATION_MARGIN:
-                        return BoilerStatus.COOLING_DOWN
-
-                    # Slightly above the setpoint while still burning -> near setpoint / stabilizing.
-                    return BoilerStatus.NEAR_SETPOINT
-
-                # Flame still on, but tracker inactive. We are over setpoint -> overshoot handling.
-                return BoilerStatus.OVERSHOOT_HANDLING
-
-            # Most modern boilers are in anti-cycling here.
-            return BoilerStatus.ANTI_CYCLING
-
-        return BoilerStatus.INSUFFICIENT_DATA
+        return self._boiler.status
 
     @property
-    def boiler(self) -> BoilerState:
+    def state(self) -> BoilerState:
         return BoilerState(
             flame_active=self.flame_active,
             hot_water_active=self.hot_water_active,
 
-            status=self.device_status,
             is_active=self.device_active,
             is_inactive=not self.device_active,
 
@@ -202,21 +149,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     @property
-    def flame(self) -> FlameState:
-        return FlameState(
-            is_active=self._flame.is_active,
-            is_inactive=self._flame.is_inactive,
-            health_status=self._flame.health_status,
+    def cycles(self) -> CycleStatistics:
+        return self._cycles.statistics
 
-            latest_on_time_seconds=self._flame.latest_on_time_seconds,
-            average_on_time_seconds=self._flame.average_on_time_seconds,
-            last_cycle_duration_seconds=self._flame.last_cycle_duration_seconds,
-
-            sample_count_4h=self._flame.sample_count_4h,
-            cycles_last_hour=self._flame.cycles_last_hour,
-            duty_ratio_last_15m=self._flame.duty_ratio_last_15m,
-            median_on_duration_seconds_4h=self._flame.median_on_duration_seconds_4h,
-        )
+    @property
+    def last_cycle(self) -> Optional[Cycle]:
+        return self._cycles.last_cycle
 
     @property
     def manufacturer(self) -> Optional[Manufacturer]:
@@ -260,42 +198,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def return_temperature(self) -> Optional[float]:
         return None
-
-    @property
-    def boiler_temperature_filtered(self) -> Optional[float]:
-        # Not able to use if we do not have at least two values
-        if len(self._boiler_temperatures) < 2:
-            return self.boiler_temperature
-
-        # Some noise filtering on the boiler temperature
-        difference_boiler_temperature_sum = sum(
-            abs(j[1] - i[1]) for i, j in zip(self._boiler_temperatures, self._boiler_temperatures[1:])
-        )
-
-        # Average it and return it
-        return round(difference_boiler_temperature_sum / (len(self._boiler_temperatures) - 1), 2)
-
-    @property
-    def boiler_temperature_derivative(self) -> Optional[float]:
-        if len(self._boiler_temperatures) <= 1:
-            return None
-
-        first_time, first_temperature = self._boiler_temperatures[-2]
-        last_time, last_temperature = self._boiler_temperatures[-1]
-
-        time_delta = last_time - first_time
-        if time_delta <= 0:
-            return None
-
-        return round((last_temperature - first_temperature) / time_delta, 2)
-
-    @property
-    def boiler_temperature_cold(self) -> Optional[float]:
-        return self._boiler_temperature_cold
-
-    @property
-    def boiler_temperature_tracking(self) -> bool:
-        return self._boiler_temperature_tracker.active
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
@@ -357,7 +259,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def minimum_setpoint(self) -> float:
         """Return the minimum setpoint temperature before the device starts to overshoot."""
-        return float(self._config_data.get(CONF_MINIMUM_SETPOINT))
+        return max(float(self._config_data.get(CONF_MINIMUM_SETPOINT)), MINIMUM_SETPOINT)
 
     @property
     def maximum_setpoint(self) -> float:
@@ -423,55 +325,27 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
-        pass
+        await self._boiler.async_will_remove_from_hass()
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, _time=None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, timestamp: float = None) -> None:
         """Control the heating loop for the device."""
-        # Update Flame State
-        self._flame.update(boiler_state=self.boiler, pwm_state=pwm_state)
+        # Use provided timestamp or current monotonic time
+        timestamp = timestamp or monotonic()
 
-        # Update Device State
+        # Update Device
         if not self.device_active:
             self._device_on_since = None
         elif self._device_on_since is None:
-            self._device_on_since = monotonic()
+            self._device_on_since = timestamp
+
+        # Update States
+        self._cycle_tracker.update(boiler_state=self.state, timestamp=timestamp)
+        self._boiler.update(state=self.state, last_cycle=self.last_cycle, timestamp=timestamp)
 
         # See if we can determine the manufacturer (deprecated)
         if self._manufacturer is None and self.member_id is not None:
             manufacturers = ManufacturerFactory.resolve_by_member_id(self.member_id)
             self._manufacturer = manufacturers[0] if len(manufacturers) > 0 else None
-
-        # Nothing further to do without the temperature
-        if self.boiler_temperature is None:
-            return
-
-        # Handle the temperature tracker
-        if self.setpoint is not None and self.boiler_temperature_derivative is not None and self.device_status is not BoilerStatus.HOT_WATER:
-            self._boiler_temperature_tracker.update(
-                flame_active=self.flame_active,
-                setpoint=round(self.setpoint, 0),
-                boiler_temperature=round(self.boiler_temperature, 0),
-                boiler_temperature_derivative=self.boiler_temperature_derivative
-            )
-
-        # Append current boiler temperature if valid and unique
-        if self.boiler_temperature is not None:
-            current_time = monotonic()
-            if not self._boiler_temperatures or self._boiler_temperatures[-1][0] != current_time:
-                self._boiler_temperatures.append((current_time, self.boiler_temperature))
-
-        # Remove old temperature records beyond the allowed age
-        self._boiler_temperatures = [
-            (timestamp, temperature)
-            for timestamp, temperature in self._boiler_temperatures
-            if seconds_since(timestamp) <= MAX_BOILER_TEMPERATURE_AGE
-        ]
-
-        # Update the cold temperature of the boiler
-        if boiler_temperature_cold := self._get_latest_boiler_cold_temperature():
-            self._boiler_temperature_cold = boiler_temperature_cold
-        elif self._boiler_temperature_cold is not None:
-            self._boiler_temperature_cold = min(self.boiler_temperature, self._boiler_temperature_cold)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
         """Set the state of the device heater."""
@@ -480,17 +354,17 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_set_control_setpoint(self, value: float) -> None:
         """Control the boiler setpoint temperature for the device."""
         if self.supports_setpoint_management:
-            _LOGGER.info("Set control boiler setpoint to %d°C", value)
+            _LOGGER.info("Set control boiler setpoint to %.1f°C", value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
         """Control the DHW setpoint temperature for the device."""
         if self.supports_hot_water_setpoint_management:
-            _LOGGER.info("Set control hot water setpoint to %d°C", value)
+            _LOGGER.info("Set control hot water setpoint to %.1f°C", value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
         """Control the maximum setpoint temperature for the device."""
         if self.supports_maximum_setpoint_management:
-            _LOGGER.info("Set maximum setpoint to %d°C", value)
+            _LOGGER.info("Set maximum setpoint to %.1f°C", value)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         """Control the maximum relative modulation for the device."""
@@ -527,19 +401,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Notify listeners to ensure the entities are updated
             self._listeners_unsub = async_call_later(self.hass, 5, HassJob(self.async_notify_listeners))
-
-    def _get_latest_boiler_cold_temperature(self) -> Optional[float]:
-        """Get the latest boiler cold temperature based on recent boiler temperatures."""
-        max_temperature = None
-
-        for timestamp, temperature in self._boiler_temperatures:
-            is_before_device_on = self._device_on_since is None or timestamp < self._device_on_since
-            is_before_flame_on = self._flame.on_since is None or timestamp < self._flame.on_since
-
-            if is_before_device_on and is_before_flame_on:
-                max_temperature = max(max_temperature, temperature) if max_temperature is not None else temperature
-
-        return max_temperature
 
 
 class SatEntityCoordinator(DataUpdateCoordinator):

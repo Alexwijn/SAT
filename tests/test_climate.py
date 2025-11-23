@@ -1,9 +1,8 @@
 """The tests for the climate component."""
 
 import pytest
+from homeassistant.components import template, sensor
 from homeassistant.components.climate import HVACMode
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from homeassistant.components.template import DOMAIN as TEMPLATE_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -15,7 +14,7 @@ from custom_components.sat.fake import SatFakeCoordinator
 @pytest.mark.parametrize(*[
     "domains, data, options, config",
     [(
-            [(TEMPLATE_DOMAIN, 1)],
+            [(template.DOMAIN, 1)],
             {
                 CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
@@ -27,9 +26,9 @@ from custom_components.sat.fake import SatFakeCoordinator
                 CONF_FORCE_PULSE_WIDTH_MODULATION: True,
             },
             {
-                TEMPLATE_DOMAIN: [
+                template.DOMAIN: [
                     {
-                        SENSOR_DOMAIN: [
+                        sensor.DOMAIN: [
                             {
                                 "name": "test_inside_sensor",
                                 "state": "{{ 20.9 | float }}",
@@ -48,20 +47,23 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await coordinator.async_set_boiler_temperature(57)
     await climate.async_set_target_temperature(21.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
-    climate.schedule_control_heating_loop(force=True)
+
+    await climate.async_control_pid(reset=True)
+    await climate.async_control_heating_loop()
 
     assert climate.setpoint == 57
+    assert climate.max_error.value == 0.1
     assert climate.heating_curve.value == 32.2
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 23.83
-    assert climate.pwm.duty_cycle == (285, 914)
+    assert climate.pwm.state.duty_cycle == (277, 922)
+    assert climate.pwm.state.last_duty_cycle_percentage == 23.15
 
 
 @pytest.mark.parametrize(*[
     "domains, data, options, config",
     [(
-            [(TEMPLATE_DOMAIN, 1)],
+            [(template.DOMAIN, 1)],
             {
                 CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
@@ -73,9 +75,9 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
                 CONF_FORCE_PULSE_WIDTH_MODULATION: True,
             },
             {
-                TEMPLATE_DOMAIN: [
+                template.DOMAIN: [
                     {
-                        SENSOR_DOMAIN: [
+                        sensor.DOMAIN: [
                             {
                                 "name": "test_inside_sensor",
                                 "state": "{{ 18.99 | float }}",
@@ -94,21 +96,24 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await coordinator.async_set_boiler_temperature(58)
     await climate.async_set_target_temperature(19.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
-    climate.schedule_control_heating_loop(force=True)
+
+    await climate.async_control_pid(reset=True)
+    await climate.async_control_heating_loop()
 
     assert climate.setpoint == 10
+    assert climate.max_error.value == 0.01
     assert climate.heating_curve.value == 27.8
-    assert climate.requested_setpoint == 28.0
+    assert climate.requested_setpoint == 27.9
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 2.6
-    assert climate.pwm.duty_cycle == (0, 2400)
+    assert climate.pwm.state.duty_cycle == (0, 2400)
+    assert climate.pwm.state.last_duty_cycle_percentage == 2.27
 
 
 @pytest.mark.parametrize(*[
     "domains, data, options, config",
     [(
-            [(TEMPLATE_DOMAIN, 1)],
+            [(template.DOMAIN, 1)],
             {
                 CONF_MODE: MODE_FAKE,
                 CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
@@ -120,9 +125,9 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
                 CONF_FORCE_PULSE_WIDTH_MODULATION: True,
             },
             {
-                TEMPLATE_DOMAIN: [
+                template.DOMAIN: [
                     {
-                        SENSOR_DOMAIN: [
+                        sensor.DOMAIN: [
                             {
                                 "name": "test_inside_sensor",
                                 "state": "{{ 19.9 | float }}",
@@ -141,12 +146,15 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await coordinator.async_set_boiler_temperature(41)
     await climate.async_set_target_temperature(20.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
-    climate.schedule_control_heating_loop(force=True)
+
+    await climate.async_control_pid(reset=True)
+    await climate.async_control_heating_loop()
 
     assert climate.setpoint == 41.0
+    assert climate.max_error.value == 0.1
     assert climate.heating_curve.value == 32.5
-    assert climate.requested_setpoint == 34.6
+    assert climate.requested_setpoint == 33.5
 
     assert climate.pulse_width_modulation_enabled
-    assert climate.pwm.last_duty_cycle_percentage == 53.62
-    assert climate.pwm.duty_cycle == (643, 556)
+    assert climate.pwm.state.duty_cycle == (547, 652)
+    assert climate.pwm.state.last_duty_cycle_percentage == 45.65

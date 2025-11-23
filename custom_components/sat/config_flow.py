@@ -573,22 +573,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._config_entry.data.get(CONF_HEATING_SYSTEM))
         maximum_setpoint = float(options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
-        schema[vol.Required(CONF_PID_CONTROLLER_VERSION, default=str(options[CONF_PID_CONTROLLER_VERSION]))] = selector.SelectSelector(
-            selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
-                selector.SelectOptionDict(value="1", label="Classic Controller"),
-                selector.SelectOptionDict(value="2", label="Improved Controller"),
-                selector.SelectOptionDict(value="3", label="Adaptive Controller")
-            ])
-        )
-
-        if options[CONF_DYNAMIC_MINIMUM_SETPOINT]:
-            schema[vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION, default=str(options[CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION]))] = selector.SelectSelector(
-                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
-                    selector.SelectOptionDict(value="1", label="Return Temperature"),
-                    selector.SelectOptionDict(value="2", label="Boiler Temperature"),
-                ])
-            )
-
         if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0:
             schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
@@ -605,15 +589,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=0.1, max=12, step=0.1)
         )
 
-        if options[CONF_AUTOMATIC_GAINS]:
-            if int(options[CONF_PID_CONTROLLER_VERSION]) < 3:
-                schema[vol.Required(CONF_AUTOMATIC_GAINS_VALUE, default=options[CONF_AUTOMATIC_GAINS_VALUE])] = selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=5, step=0.1)
-                )
-                schema[vol.Required(CONF_DERIVATIVE_TIME_WEIGHT, default=options[CONF_DERIVATIVE_TIME_WEIGHT])] = selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=6, step=0.1)
-                )
-        else:
+        if not options[CONF_AUTOMATIC_GAINS]:
             schema[vol.Required(CONF_PROPORTIONAL, default=options[CONF_PROPORTIONAL])] = str
             schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
             schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str

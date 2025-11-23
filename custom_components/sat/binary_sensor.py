@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .climate import SatClimate
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS, FlameStatus, BoilerStatus
+from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS, BoilerStatus, CycleClassification
 from .entity import SatClimateEntity, SatEntity
 from .helpers import seconds_since
 from .serial import binary_sensor as serial_binary_sensor
@@ -41,7 +41,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         _async_add_entities([SatWindowSensor(coordinator, _config_entry, climate)])
 
     _async_add_entities([
-        SatFlameHealthSensor(coordinator, _config_entry),
+        SatCycleHealthSensor(coordinator, _config_entry),
         SatBoilerHealthSensor(coordinator, _config_entry),
         SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)
     ])
@@ -185,7 +185,7 @@ class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        return self._coordinator.boiler.status == BoilerStatus.INSUFFICIENT_DATA
+        return self._coordinator.device_status == BoilerStatus.INSUFFICIENT_DATA
 
     @property
     def unique_id(self) -> str:
@@ -193,12 +193,12 @@ class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-health"
 
 
-class SatFlameHealthSensor(SatEntity, BinarySensorEntity):
+class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
 
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return "Flame Health"
+        return "Cycle Health"
 
     @property
     def device_class(self) -> str:
@@ -206,19 +206,17 @@ class SatFlameHealthSensor(SatEntity, BinarySensorEntity):
         return BinarySensorDeviceClass.PROBLEM
 
     @property
-    def available(self) -> bool:
-        """Return availability of the sensor."""
-        return self._coordinator.flame.health_status != FlameStatus.INSUFFICIENT_DATA
-
-    @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        return self._coordinator.flame.health_status not in (FlameStatus.HEALTHY, FlameStatus.IDLE_OK)
+        if self._coordinator.last_cycle is None:
+            return False
+
+        return self._coordinator.last_cycle.classification not in (CycleClassification.GOOD, CycleClassification.UNCERTAIN, CycleClassification.INSUFFICIENT_DATA)
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-flame-health"
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-cycle-health"
 
 
 class SatWindowSensor(SatClimateEntity, BinarySensorGroup):

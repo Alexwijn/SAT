@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import traceback
 
@@ -30,11 +29,7 @@ PLATFORMS = [climate.DOMAIN, sensor.DOMAIN, number.DOMAIN, binary_sensor.DOMAIN]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """
-    Set up this integration using the UI.
-
-    This function is called by Home Assistant when the integration is set up with the UI.
-    """
+    """Set up a config entry."""
     # Make sure we have our default domain property
     hass.data.setdefault(DOMAIN, {})
 
@@ -69,21 +64,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """
-    Handle removal of an entry.
-
-    This function is called by Home Assistant when the integration is being removed.
-    """
-
-    _climate = hass.data[DOMAIN][entry.entry_id][CLIMATE]
-    _coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
-
-    await _coordinator.async_will_remove_from_hass()
-
-    unloaded = all(
-        # Forward entry unload for used platforms
-        await asyncio.gather(hass.config_entries.async_unload_platforms(entry, PLATFORMS))
-    )
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     try:
         if SENTRY in hass.data[DOMAIN]:
@@ -93,19 +75,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as ex:
         _LOGGER.error("Error during Sentry cleanup: %s", str(ex))
 
-    # Remove the entry from the data dictionary if all components are unloaded successfully
-    if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id)
+    hass.data[DOMAIN].pop(entry.entry_id)
 
-    return unloaded
+    return unload_ok
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """
-    Reload config entry.
-
-    This function is called by Home Assistant when the integration configuration is updated.
-    """
+    """Reload a config entry."""
     # Unload the entry and its dependent components
     await async_unload_entry(hass, entry)
 
