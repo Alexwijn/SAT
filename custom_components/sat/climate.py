@@ -1012,7 +1012,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pwm.disable()
 
         # Set the control setpoint to make sure we always stay in control
-        await self._async_control_setpoint(self.pwm.state)
+        await self._async_control_setpoint(self.pwm.status)
 
         # Set the relative modulation value, if supported
         await self._async_control_relative_modulation()
