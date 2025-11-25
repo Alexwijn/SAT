@@ -153,6 +153,16 @@ class Areas:
         def __init__(self, areas: list[Area]):
             self._areas = areas
 
+        @property
+        def output(self) -> float:
+            outputs = [
+                area.heating_curve.value + area.pid.output
+                for area in self._areas
+                if area.heating_curve.value is not None
+            ]
+
+            return round(max(outputs), 1) if outputs else MINIMUM_SETPOINT
+
         def update(self, entity_id: str) -> None:
             if (area := self._get_area(entity_id)) is None:
                 _LOGGER.warning(f"Could not update PID controller for entity {entity_id}")
@@ -170,15 +180,6 @@ class Areas:
             if area.error is not None:
                 _LOGGER.info(f"Updating error to {area.error.value} of {area.id} (Reset: True)")
                 area.pid.update_reset(area.error, area.heating_curve.value)
-
-        def output(self) -> float:
-            outputs = [
-                area.heating_curve.value + area.pid.output
-                for area in self._areas
-                if area.heating_curve.value is not None
-            ]
-
-            return round(max(outputs), 1) if outputs else MINIMUM_SETPOINT
 
         def reset(self) -> None:
             for area in self._areas:

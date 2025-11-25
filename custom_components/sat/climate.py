@@ -539,7 +539,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._heating_mode == HEATING_MODE_ECO:
             return setpoint
 
-        return max(setpoint, self.areas.pids.output())
+        return max(setpoint, self.areas.pids.output)
 
     @property
     def valves_open(self) -> bool:
