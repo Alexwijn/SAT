@@ -153,29 +153,22 @@ class Areas:
         def __init__(self, areas: list[Area]):
             self._areas = areas
 
-        def get(self, entity_id: str) -> Optional[Area]:
-            for area in self._areas:
-                if area.id == entity_id:
-                    return area
-
-            return None
-
         def update(self, entity_id: str) -> None:
-            if (area := self.get(entity_id)) is None:
-                _LOGGER.warning(f"Could not update PID controller for entity {entity_id}. Areas: {self._areas}.")
+            if (area := self._get_area(entity_id)) is None:
+                _LOGGER.warning(f"Could not update PID controller for entity {entity_id}")
                 return
 
-            if area.error is not None:
-                _LOGGER.info(f"Updating error to {area.error.value} from {area.id} (Reset: False)")
+            if area.error is not None and area.heating_curve.value is not None:
+                _LOGGER.info(f"Updating error to {area.error.value} of {area.id} (Reset: False)")
                 area.pid.update(area.error, area.heating_curve.value)
 
         def update_reset(self, entity_id: str) -> None:
-            if (area := self.get(entity_id)) is None:
+            if (area := self._get_area(entity_id)) is None:
                 _LOGGER.warning(f"Could not update PID controller for entity {entity_id}")
                 return
 
             if area.error is not None:
-                _LOGGER.info(f"Updating error to {area.error.value} from {area.id} (Reset: True)")
+                _LOGGER.info(f"Updating error to {area.error.value} of {area.id} (Reset: True)")
                 area.pid.update_reset(area.error, area.heating_curve.value)
 
         def output(self) -> float:
@@ -190,3 +183,10 @@ class Areas:
         def reset(self) -> None:
             for area in self._areas:
                 self.update_reset(area.id)
+
+        def _get_area(self, entity_id: str) -> Optional[Area]:
+            for area in self._areas:
+                if area.id == entity_id:
+                    return area
+
+            return None

@@ -122,9 +122,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._presets = {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
 
         self._alpha = 0.2
-        self._sensors = []
         self._rooms = None
         self._setpoint = None
+        self._sensors: dict[str, str] = {}
         self._last_requested_setpoint = None
         self._last_boiler_temperature = None
 
@@ -323,7 +323,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         for entity_id in self.areas.items():
             state = self.hass.states.get(entity_id)
             if state is not None and (sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID)):
-                self.async_track_sensor_temperature(sensor_temperature_id)
+                self.async_track_sensor_temperature(entity_id, sensor_temperature_id)
 
     async def _restore_previous_state_or_set_defaults(self):
         """Restore the previous state if available or set default values."""
@@ -745,7 +745,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Check if the last state is None, so we can track the attached sensor if needed
         if old_state is None and (sensor_temperature_id := new_attrs.get(SENSOR_TEMPERATURE_ID)):
-            self.async_track_sensor_temperature(sensor_temperature_id)
+            self.async_track_sensor_temperature(new_state.entity_id, sensor_temperature_id)
 
         # If the state has changed or the old state is not available, update the PID controller
         if not old_state or new_state.state != old_state.state:
@@ -773,7 +773,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         _LOGGER.debug(f"Area temperature changed ({new_state.entity_id}).")
 
-        self.areas.pids.update(new_state.entity_id)
+        self.areas.pids.update(self._sensors[new_state.entity_id])
         self.async_write_ha_state()
 
     async def _async_window_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
@@ -888,16 +888,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.minimum_setpoint.reset()
         self._last_requested_setpoint = None
 
-    def async_track_sensor_temperature(self, entity_id):
-        """
-        Track the temperature of the sensor specified by the given entity_id.
-
-        Parameters:
-        entity_id (str): The entity id of the sensor to track.
-
-        If the sensor is already being tracked, the method will return without doing anything.
-        Otherwise, it will register a callback for state changes on the specified sensor and start tracking its temperature.
-        """
+    def async_track_sensor_temperature(self, climate_id: str, entity_id: str) -> None:
+        """Track the temperature of an area sensor."""
         if entity_id in self._sensors:
             return
 
@@ -907,7 +899,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        self._sensors.append(entity_id)
+        self._sensors[entity_id] = climate_id
 
     def schedule_control_pid(self, reset: bool = False) -> None:
         """Schedule a debounced execution of the PID controller."""
@@ -950,13 +942,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         if reset or not self.pid.healthy:
-            _LOGGER.info(f"Updating error to {max_error.value} from {max_error.entity_id} (Reset: True)")
+            _LOGGER.info(f"Updating error to {max_error.value} of {max_error.entity_id} (Reset: True)")
             self._last_requested_setpoint = None
 
             self.pwm.reset()
             self.pid.update_reset(max_error, self.heating_curve.value)
         else:
-            _LOGGER.info(f"Updating error to {max_error.value} from {max_error.entity_id} (Reset: False)")
+            _LOGGER.info(f"Updating error to {max_error.value} of {max_error.entity_id} (Reset: False)")
 
             # Calculate an optimal heating curve when we are in the deadband
             if self.target_temperature is not None and -DEADBAND <= max_error.value <= DEADBAND:
