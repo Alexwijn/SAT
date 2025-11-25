@@ -316,13 +316,6 @@ class DynamicMinimumSetpoint:
             )
             return
 
-        _LOGGER.debug(
-            "Cycle classification=%s, duration=%.1fs, cycles_last_hour=%.1f, duty_15m=%.2f, avg_setpoint=%.1f, min_flow=%.1f, max_flow=%.1f",
-            classification, cycle.duration, statistics.last_hour_count, statistics.duty_ratio_last_15m, average_setpoint,
-            cycle.min_flow_temperature if cycle.min_flow_temperature is not None else float("nan"),
-            cycle.max_flow_temperature if cycle.max_flow_temperature is not None else float("nan"),
-        )
-
         # GOOD:
         #   The boiler produced a long, stable burn without overshoot or underheat.
         #   This means the current minimum_setpoint is appropriate for this regime.
