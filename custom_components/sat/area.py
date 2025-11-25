@@ -1,11 +1,12 @@
+import logging
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Optional
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
 
-from .const import CONF_ROOMS
+from .const import CONF_ROOMS, MINIMUM_SETPOINT
 from .errors import Errors, Error
 from .heating_curve import HeatingCurve
 from .helpers import float_value
@@ -15,6 +16,7 @@ from .util import (
     create_heating_curve_controller,
 )
 
+_LOGGER = logging.getLogger(__name__)
 SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
 
@@ -32,7 +34,7 @@ class Area:
         return self._entity_id
 
     @property
-    def state(self) -> State | None:
+    def state(self) -> Optional[State]:
         """Retrieve the current state of the climate entity."""
         if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
             return None
@@ -40,7 +42,7 @@ class Area:
         return state if state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE] else None
 
     @property
-    def target_temperature(self) -> float | None:
+    def target_temperature(self) -> Optional[float]:
         """Retrieve the target temperature from the climate entity."""
         if (self._hass is None) or (state := self.state) is None:
             return None
@@ -48,7 +50,7 @@ class Area:
         return float_value(state.attributes.get("temperature"))
 
     @property
-    def current_temperature(self) -> float | None:
+    def current_temperature(self) -> Optional[float]:
         """Retrieve the current temperature, overridden by a sensor if set."""
         if (self._hass is None) or (state := self.state) is None:
             return None
@@ -62,7 +64,7 @@ class Area:
         return float_value(state.attributes.get("current_temperature") or self.target_temperature)
 
     @property
-    def error(self) -> Error | None:
+    def error(self) -> Optional[Error]:
         """Calculate the temperature error."""
         target_temperature = self.target_temperature
         current_temperature = self.current_temperature
@@ -73,7 +75,7 @@ class Area:
         return Error(self._entity_id, round(target_temperature - current_temperature, 2))
 
     @property
-    def weight(self) -> float | None:
+    def weight(self) -> Optional[float]:
         """
         Room heating demand weight (0-2 range).
         Based on the difference between target and current temperature.
@@ -151,12 +153,40 @@ class Areas:
         def __init__(self, areas: list[Area]):
             self.areas = areas
 
-        def update(self) -> None:
+        def get(self, entity_id: str) -> Optional[Area]:
             for area in self.areas:
-                if area.error is not None:
-                    area.pid.update(area.error, area.heating_curve.value)
+                if area.id == entity_id:
+                    return area
+
+            return None
+
+        def update(self, entity_id: str) -> None:
+            if (area := self.get(entity_id)) is None:
+                _LOGGER.warning(f"Could not update PID controller for entity {entity_id}")
+                return
+
+            if area.error is not None:
+                _LOGGER.info(f"Updating error to {area.error.value} from {area.id} (Reset: False)")
+                area.pid.update(area.error, area.heating_curve.value)
+
+        def update_reset(self, entity_id: str) -> None:
+            if (area := self.get(entity_id)) is None:
+                _LOGGER.warning(f"Could not update PID controller for entity {entity_id}")
+                return
+
+            if area.error is not None:
+                _LOGGER.info(f"Updating error to {area.error.value} from {area.id} (Reset: True)")
+                area.pid.update_reset(area.error, area.heating_curve.value)
+
+        def output(self) -> float:
+            outputs = [
+                area.heating_curve.value + area.pid.output
+                for area in self.areas
+                if area.heating_curve.value is not None
+            ]
+
+            return round(max(outputs), 1) if outputs else MINIMUM_SETPOINT
 
         def reset(self) -> None:
-            """Reset PID controllers for all areas."""
             for area in self.areas:
-                area.pid.reset()
+                self.update_reset(area.id)

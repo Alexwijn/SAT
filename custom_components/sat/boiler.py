@@ -2,25 +2,32 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import List, Optional, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .const import BoilerStatus, CycleClassification
-from .cycles import Cycle
+
+if TYPE_CHECKING:
+    from .cycles import Cycle
 
 STORAGE_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BoilerState:
+    # High-level activity flags (from integration / device)
     is_active: bool
     is_inactive: bool
 
+    # Flame and DHW
     flame_active: bool
     hot_water_active: bool
 
+    # Hydronic values (flow/return temperatures, setpoint, modulation)
     setpoint: Optional[float]
     flow_temperature: Optional[float]
     return_temperature: Optional[float]
@@ -45,22 +52,32 @@ class Boiler:
 
             modulation_delta_threshold: float = 3.0,
             modulation_reliability_min_samples: int = 8,
+
+            stall_ignition_off_ratio: float = 3.0,
+            stall_ignition_min_off_seconds: float = 600.0,
     ) -> None:
         # Configuration
         self._preheat_delta = preheat_delta
         self._setpoint_band = setpoint_band
         self._overshoot_delta = overshoot_delta
-        self._anti_cycling_min_off_seconds = anti_cycling_min_off_seconds
+
         self._demand_hysteresis = demand_hysteresis
+        self._anti_cycling_min_off_seconds = anti_cycling_min_off_seconds
+
         self._gradient_threshold_up = gradient_threshold_up
         self._gradient_threshold_down = gradient_threshold_down
+
         self._pump_start_window_seconds = pump_start_window_seconds
         self._post_cycle_settling_seconds = post_cycle_settling_seconds
+
         self._modulation_delta_threshold = modulation_delta_threshold
         self._modulation_reliability_min_samples = modulation_reliability_min_samples
 
+        self._stall_ignition_off_ratio = stall_ignition_off_ratio
+        self._stall_ignition_min_off_seconds = stall_ignition_min_off_seconds
+
         # State
-        self._last_cycle: Optional[Cycle] = None
+        self._last_cycle: Optional["Cycle"] = None
         self._current_state: Optional[BoilerState] = None
         self._previous_state: Optional[BoilerState] = None
         self._current_status: Optional[BoilerStatus] = None
@@ -74,6 +91,7 @@ class Boiler:
         self._modulation_reliable: bool = True
         self._modulation_values_when_flame_on: List[float] = []
 
+        # Persistence for modulation reliability
         self._store: Optional[Store] = None
 
     @property
@@ -96,6 +114,7 @@ class Boiler:
         return self._modulation_reliable
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
+        """Called when entity is added to Home Assistant, restore persisted flags."""
         if self._store is None:
             self._store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
 
@@ -104,13 +123,17 @@ class Boiler:
         if stored_flag is not None:
             self._modulation_reliable = bool(stored_flag)
 
-    async def async_will_remove_from_hass(self) -> None:
+        async_track_time_interval(hass, self.async_save_options, timedelta(minutes=15))
+
+    async def async_save_options(self, _time: Optional[datetime] = None) -> None:
+        """Persist modulation reliability on removal."""
         if self._store is None:
             return
 
         await self._store.async_save({"modulation_reliable": self._modulation_reliable})
 
-    def update(self, state: BoilerState, last_cycle: Optional[Cycle], timestamp: Optional[float] = None):
+    def update(self, state: BoilerState, last_cycle: Optional["Cycle"], timestamp: Optional[float] = None) -> None:
+        """Update boiler classification with the latest state and last cycle summary."""
         if timestamp is None:
             timestamp = time.monotonic()
 
@@ -138,11 +161,9 @@ class Boiler:
         if not state.is_active or state.is_inactive:
             return BoilerStatus.OFF
 
-        # The previous cycle ended in overshoot short-cycling → apply protection
         if self._last_cycle is not None and self._last_cycle.classification == CycleClassification.SHORT_CYCLING_OVERSHOOT:
             return BoilerStatus.SHORT_CYCLING
 
-        # Transitional and timing logic when flame is OFF
         if not state.flame_active:
             # Overshoot cooling: flame off due to overshoot, still above setpoint.
             if self._is_in_overshoot_cooling(state):
@@ -152,6 +173,10 @@ class Boiler:
             if self._is_anti_cycling(state, now):
                 return BoilerStatus.ANTI_CYCLING
 
+            # Stalled ignition: OFF for much longer than expected, with demand present.
+            if self._is_stalled_ignition(state, now):
+                return BoilerStatus.STALLED_IGNITION
+
             # Flame just turned off, and we are not overshoot cooling nor anti cycling.
             if previous is not None and previous.flame_active:
                 return BoilerStatus.COOLING
@@ -160,7 +185,7 @@ class Boiler:
             if self._is_pump_starting(state):
                 return BoilerStatus.PUMP_STARTING
 
-            # Waiting for flame: active, demand present, not anti cycling.
+            # Waiting for flame: active, demand present, not anti cycling, not stalled.
             if self._demand_present(state):
                 return BoilerStatus.WAITING_FOR_FLAME
 
@@ -171,10 +196,7 @@ class Boiler:
             # Otherwise, simply idle.
             return BoilerStatus.IDLE
 
-        # From here on: flame is ON
         if state.hot_water_active:
-            # Note: DHW_COMFORT_PREHEAT usually needs extra signals.
-            # For now, all DHW burns are treated as HEATING_HOT_WATER.
             return BoilerStatus.HEATING_HOT_WATER
 
         # Space heating with flame on.
@@ -197,6 +219,7 @@ class Boiler:
 
         if modulation_direction > 0:
             return BoilerStatus.MODULATING_UP
+
         if modulation_direction < 0:
             return BoilerStatus.MODULATING_DOWN
 
@@ -204,12 +227,14 @@ class Boiler:
         return BoilerStatus.CENTRAL_HEATING
 
     def _demand_present(self, state: BoilerState) -> bool:
+        """Return True if space-heating demand is present."""
         if state.setpoint is None or state.flow_temperature is None:
             return False
 
         return state.setpoint > state.flow_temperature + self._demand_hysteresis
 
     def _is_pump_starting(self, state: BoilerState) -> bool:
+        """Detect the initial pump-start phase when the system is newly active."""
         # Once we have had a flame in this active session, we no longer call it pump start.
         if self._last_flame_on_at is not None:
             return False
@@ -223,7 +248,6 @@ class Boiler:
 
         # We only consider pump starting when we are clearly in preheat territory.
         delta_to_setpoint = state.setpoint - state.flow_temperature
-
         if delta_to_setpoint <= self._preheat_delta:
             return False
 
@@ -231,6 +255,7 @@ class Boiler:
         return state.flow_temperature - previous.flow_temperature <= 0.0
 
     def _is_post_cycle_settling(self, state: BoilerState, now: float) -> bool:
+        """Short settling period after a cycle when there is no demand."""
         if self._last_flame_off_at is None:
             return False
 
@@ -241,15 +266,17 @@ class Boiler:
         return 0.0 <= time_since_off <= self._post_cycle_settling_seconds
 
     def _is_in_overshoot_cooling(self, state: BoilerState) -> bool:
+        """True when we turned off due to overshoot and are still above setpoint."""
         if not self._last_flame_off_was_overshoot:
             return False
 
         if state.setpoint is None or state.flow_temperature is None:
             return False
 
-        return not state.flame_active and state.flow_temperature > state.setpoint
+        return (not state.flame_active) and state.flow_temperature > state.setpoint
 
     def _is_anti_cycling(self, state: BoilerState, now: float) -> bool:
+        """True when boiler is in enforced anti-cycling off-time with demand."""
         if self._last_flame_off_at is None:
             return False
 
@@ -265,7 +292,43 @@ class Boiler:
 
         return time_since_off < self._anti_cycling_min_off_seconds
 
+    def _is_stalled_ignition(self, state: BoilerState, now: float) -> bool:
+        """Detect "stalled ignition": flame has stayed OFF much longer than expected while there is clear heating demand."""
+        if self._last_flame_off_at is None:
+            return False
+
+        if state.flame_active:
+            return False
+
+        if not self._demand_present(state):
+            return False
+
+        # If we are still in anti-cycling or overshoot cooling, do not call this stalled.
+        if self._is_anti_cycling(state, now):
+            return False
+
+        if self._is_in_overshoot_cooling(state):
+            return False
+
+        time_since_off = now - self._last_flame_off_at
+        if time_since_off < 0:
+            return False
+
+        # Base threshold on the last cycle duration (if available) plus an absolute floor.
+        threshold = self._stall_ignition_min_off_seconds
+
+        if self._last_cycle is not None:
+            try:
+                last_duration = float(self._last_cycle.duration)
+                threshold = max(threshold, last_duration * self._stall_ignition_off_ratio)
+            except (TypeError, ValueError):
+                # Ignore if duration_seconds is missing or not numeric.
+                pass
+
+        return time_since_off >= threshold
+
     def _track_flame_transitions(self, previous: Optional[BoilerState], current: BoilerState, now: float, ) -> None:
+        """Track flame ON/OFF timestamps and overshoot at OFF."""
         if previous is None:
             if current.flame_active:
                 self._last_flame_on_at = now
@@ -282,7 +345,7 @@ class Boiler:
             self._last_flame_off_was_overshoot = False
 
     def _is_overshoot_at_flame_off(self, state: BoilerState) -> bool:
-        """ Use the state at the moment of flame-off to decide if we shut down because of an overshoot."""
+        """Use the state at the moment of flame-off to decide if we shut down because of an overshoot."""
         if state.setpoint is None or state.flow_temperature is None:
             return False
 
@@ -316,7 +379,7 @@ class Boiler:
             self._modulation_reliable = False
 
     def _modulation_direction(self) -> int:
-        """Determine modulation direction."""
+        """Determine modulation direction"""
         current = self._current_state
         previous = self._previous_state
 

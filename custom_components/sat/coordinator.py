@@ -19,6 +19,7 @@ from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
+from .pwm import PWMState
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -325,9 +326,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
-        await self._boiler.async_will_remove_from_hass()
+        await self._boiler.async_save_options()
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, timestamp: float = None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, timestamp: float = None) -> None:
         """Control the heating loop for the device."""
         # Use provided timestamp or current monotonic time
         timestamp = timestamp or monotonic()
@@ -339,7 +340,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             self._device_on_since = timestamp
 
         # Update States
-        self._cycle_tracker.update(boiler_state=self.state, timestamp=timestamp)
+        self._cycle_tracker.update(boiler_state=self.state, pwm_state=pwm_state, timestamp=timestamp)
         self._boiler.update(state=self.state, last_cycle=self.last_cycle, timestamp=timestamp)
 
         # See if we can determine the manufacturer (deprecated)

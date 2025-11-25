@@ -201,12 +201,12 @@ class BoilerStatus(Enum):
 
     PREHEATING = "preheating"
     AT_SETPOINT_BAND = "at_setpoint_band"
+    STALLED_IGNITION = "stalled_ignition"
 
     MODULATING_UP = "modulating_up"
     MODULATING_DOWN = "modulating_down"
     CENTRAL_HEATING = "central_heating"
     HEATING_HOT_WATER = "heating_hot_water"
-    DHW_COMFORT_PREHEAT = "dhw_comfort_preheat"
 
     COOLING = "cooling"
     ANTI_CYCLING = "anti_cycling"

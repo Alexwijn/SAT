@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import CycleKind, CycleClassification, EVENT_SAT_CYCLE_STARTED, EVENT_SAT_CYCLE_ENDED
 from .helpers import clamp
+from .pwm import PWMState
 
 if TYPE_CHECKING:
     from .boiler import BoilerState
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 # What we consider a "good" minimum burn length
-TARGET_MIN_ON_TIME_SECONDS: float = 300.0  # 5 minutes
+TARGET_MIN_ON_TIME_SECONDS: float = 180
 
 # Low-load detection thresholds
 LOW_LOAD_MIN_CYCLES_PER_HOUR: float = 3.0
@@ -64,10 +65,10 @@ class Cycle:
 
 @dataclass(frozen=True, slots=True)
 class CycleStatistics:
-    # Rolling metrics
     sample_count_4h: int
-    cycles_last_hour: float
+    last_hour_count: float
     duty_ratio_last_15m: float
+    off_with_demand_duration: Optional[float]
     median_on_duration_seconds_4h: Optional[float]
 
 
@@ -97,6 +98,9 @@ class CycleHistory:
 
         # Last completed cycle
         self._last_cycle: Optional[Cycle] = None
+
+        # Last OFF-with-demand duration (seconds) measured just before the most recent cycle started
+        self._off_with_demand_duration: Optional[float] = None
 
     @property
     def sample_count_4h(self) -> int:
@@ -154,11 +158,12 @@ class CycleHistory:
 
     @property
     def statistics(self) -> CycleStatistics:
-        """ Return a snapshot of rolling metrics."""
+        """Return a snapshot of rolling metrics."""
         return CycleStatistics(
             sample_count_4h=self.sample_count_4h,
-            cycles_last_hour=self.cycles_last_hour,
+            last_hour_count=self.cycles_last_hour,
             duty_ratio_last_15m=self.duty_ratio_last_15m,
+            off_with_demand_duration=self._off_with_demand_duration,
             median_on_duration_seconds_4h=self.median_on_duration_seconds_4h,
         )
 
@@ -179,6 +184,12 @@ class CycleHistory:
             "Recorded cycle kind=%s, classification=%s duration=%.1fs, cycles_last_hour=%.1f, samples_4h=%d",
             cycle.kind.name, cycle.classification.name, duration, self.cycles_last_hour, self.sample_count_4h
         )
+
+    def record_off_with_demand_duration(self, duration: Optional[float]) -> None:
+        """
+        Record the OFF-with-demand duration (seconds) immediately before the most recent cycle started.
+        """
+        self._off_with_demand_duration = duration
 
     def _current_time_hint(self) -> Optional[float]:
         candidates: List[float] = []
@@ -217,7 +228,9 @@ class CycleTracker:
         self._minimum_samples_per_cycle: int = minimum_samples_per_cycle
 
         self._last_flame_active: Optional[bool] = None
+        self._last_pwm_state: Optional[PWMState] = None
         self._current_cycle_start: Optional[float] = None
+        self._last_flame_off_timestamp: Optional[float] = None
 
     @property
     def started_since(self) -> Optional[float]:
@@ -228,16 +241,45 @@ class CycleTracker:
         self._current_samples.clear()
         self._last_flame_active = None
         self._current_cycle_start = None
+        self._last_flame_off_timestamp = None
 
-    def update(self, boiler_state: BoilerState, timestamp: float = None) -> None:
+    def update(self, boiler_state: BoilerState, pwm_state: Optional[PWMState] = None, timestamp: float = None) -> None:
         timestamp = timestamp or monotonic()
         previously_active = self._last_flame_active
         currently_active = boiler_state.flame_active
 
+        if pwm_state is not None:
+            self._last_pwm_state = pwm_state
+
         # OFF -> ON: start a new cycle
         if currently_active and not previously_active:
+            # Compute OFF-with-demand duration since last flame OFF, if any.
+            off_with_demand_duration: Optional[float] = None
+
+            if self._last_flame_off_timestamp is not None:
+                off_duration = max(0.0, timestamp - self._last_flame_off_timestamp)
+
+                demand_present = (
+                        not boiler_state.hot_water_active
+                        and boiler_state.is_active
+                        and boiler_state.setpoint is not None
+                        and boiler_state.flow_temperature is not None
+                        and boiler_state.setpoint > boiler_state.flow_temperature
+                )
+
+                if demand_present:
+                    off_with_demand_duration = off_duration
+                else:
+                    self._last_flame_off_timestamp = None
+
+            # Store OFF-with-demand duration
+            self._history.record_off_with_demand_duration(off_with_demand_duration)
+
             _LOGGER.debug("Flame transition OFF->ON, starting new cycle.")
+
+            # Notify listeners that a new cycle has started
             self._hass.bus.fire(EVENT_SAT_CYCLE_STARTED)
+
             self._current_cycle_start = timestamp
             self._current_samples.clear()
 
@@ -248,6 +290,10 @@ class CycleTracker:
         # ON -> OFF: finalize cycle
         if not currently_active and previously_active:
             _LOGGER.debug("Flame transition ON->OFF, finalizing cycle.")
+
+            # Remember when we turned off to compute OFF-with-demand before the next cycle
+            self._last_flame_off_timestamp = timestamp
+
             cycle_state = self._build_cycle_state(timestamp)
             self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle_state})
 
@@ -270,7 +316,7 @@ class CycleTracker:
         duration = max(0.0, end_time - self._current_cycle_start)
 
         if sample_count < self._minimum_samples_per_cycle:
-            _LOGGER.debug("Too few samples (%d < %d), ignoring cycle.", sample_count, self._minimum_samples_per_cycle, )
+            _LOGGER.debug("Too few samples (%d < %d), ignoring cycle.", sample_count, self._minimum_samples_per_cycle)
             return None
 
         samples: List[CycleSample] = list(self._current_samples)
@@ -319,6 +365,7 @@ class CycleTracker:
 
             classification=self._classify_cycle(
                 duration=duration,
+                pwm_state=self._last_pwm_state,
                 average_setpoint=average_setpoint,
                 statistics=self._history.statistics,
                 max_flow_temperature=max_flow_temperature,
@@ -344,7 +391,7 @@ class CycleTracker:
         )
 
     @staticmethod
-    def _classify_cycle(statistics: CycleStatistics, duration: float, max_flow_temperature: float, average_setpoint: float) -> CycleClassification:
+    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_state: Optional[PWMState], max_flow_temperature: Optional[float], average_setpoint: Optional[float]) -> CycleClassification:
         """Decide what the last cycle implies for minimum-setpoint tuning."""
         if duration <= 0.0 or average_setpoint is None:
             return CycleClassification.INSUFFICIENT_DATA
@@ -362,8 +409,12 @@ class CycleTracker:
         overshoot = max_flow_temperature >= average_setpoint + overshoot_margin
         underheat = max_flow_temperature <= average_setpoint - undershoot_margin
 
+        short_threshold = TARGET_MIN_ON_TIME_SECONDS
+        if pwm_state is not None and pwm_state.enabled and pwm_state.duty_cycle:
+            short_threshold = pwm_state.duty_cycle[0]
+
         # Short burns
-        if duration < TARGET_MIN_ON_TIME_SECONDS:
+        if duration < short_threshold:
             if underheat and not overshoot:
                 return CycleClassification.TOO_SHORT_UNDERHEAT
 
@@ -374,7 +425,7 @@ class CycleTracker:
 
         # Longer burns: check for short-cycling with overshoot
         short_cycling_context = (
-                statistics.cycles_last_hour > LOW_LOAD_MIN_CYCLES_PER_HOUR * 2.0
+                statistics.last_hour_count > LOW_LOAD_MIN_CYCLES_PER_HOUR * 2.0
                 and statistics.duty_ratio_last_15m < LOW_LOAD_MAX_DUTY_RATIO_15_M
         )
 
