@@ -280,14 +280,12 @@ class DynamicMinimumSetpoint:
 
         # Do not tune during the initial warmup cycles after starting or reset for this regime.
         if regime_state.completed_cycles <= self._config.warmup_cycles_before_tuning:
-            _LOGGER.debug(
-                "Regime %s: in warmup period (%d <= %d), not tuning yet.",
-                self._active_regime_key, regime_state.completed_cycles, self._config.warmup_cycles_before_tuning,
-            )
+            _LOGGER.debug("In warmup period (%d <= %d), not tuning yet.", regime_state.completed_cycles, self._config.warmup_cycles_before_tuning)
             return
 
         # Check if the current regime is suitable for minimum tuning.
         if not self._is_tunable_regime(boiler_state_at_end, statistics):
+            _LOGGER.debug("Not suitable for tuning, skipping.")
             return
 
         # Only use cycles that are predominantly space heating.
