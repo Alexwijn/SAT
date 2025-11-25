@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 # What we consider a "good" minimum burn length
-TARGET_MIN_ON_TIME_SECONDS: float = 180
+TARGET_MIN_ON_TIME_SECONDS: float = 300.0  # 5 minutes
 
 # Low-load detection thresholds
 LOW_LOAD_MIN_CYCLES_PER_HOUR: float = 3.0
