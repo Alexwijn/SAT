@@ -403,11 +403,8 @@ class CycleTracker:
 
             return CycleClassification.GOOD
 
-        overshoot_margin = OVERSHOOT_MARGIN_CELSIUS
-        undershoot_margin = UNDERSHOOT_MARGIN_CELSIUS
-
-        overshoot = max_flow_temperature >= average_setpoint + overshoot_margin
-        underheat = max_flow_temperature <= average_setpoint - undershoot_margin
+        overshoot = max_flow_temperature >= average_setpoint + OVERSHOOT_MARGIN_CELSIUS
+        underheat = max_flow_temperature <= average_setpoint - UNDERSHOOT_MARGIN_CELSIUS
 
         short_threshold = TARGET_MIN_ON_TIME_SECONDS
         if pwm_state is not None and pwm_state.enabled and pwm_state.duty_cycle:

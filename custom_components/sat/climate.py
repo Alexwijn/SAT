@@ -1005,7 +1005,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Control the heating through the coordinator
-        await self._coordinator.async_control_heating_loop(climate=self)
+        await self._coordinator.async_control_heating_loop(climate=self, pwm_state=self.pwm.state)
 
         if self._last_requested_setpoint is None:
             # Default to the calculated setpoint

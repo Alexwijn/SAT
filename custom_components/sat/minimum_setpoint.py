@@ -71,7 +71,6 @@ class RegimeState:
 
 
 class DynamicMinimumSetpoint:
-
     def __init__(self, config: MinimumSetpointConfig) -> None:
 
         self._config = config
@@ -185,8 +184,8 @@ class DynamicMinimumSetpoint:
                 completed = 0
 
             self._regimes[str(key)] = RegimeState(
-                minimum_setpoint=self._clamp_setpoint(minimum),
                 completed_cycles=max(0, completed),
+                minimum_setpoint=self._clamp_setpoint(minimum),
             )
 
         last_base = data.get("last_requested_setpoint")
@@ -220,7 +219,6 @@ class DynamicMinimumSetpoint:
         _LOGGER.debug("Saved minimum setpoint state to storage (%d regimes).", len(self._regimes))
 
     def _regime_for(self, cycles: CycleStatistics, requested_setpoint: float, outside_temperature: Optional[float]) -> Optional[RegimeState]:
-
         regime_key = self._make_regime_key(cycles, requested_setpoint, outside_temperature)
         regime_state = self._regimes.get(regime_key)
         self._active_regime_key = regime_key
@@ -236,7 +234,6 @@ class DynamicMinimumSetpoint:
         return regime_state
 
     def _make_regime_key(self, cycles: CycleStatistics, requested_setpoint: float, outside_temperature: Optional[float]) -> str:
-
         setpoint_band = int(requested_setpoint // self._config.regime_band_width)
 
         if outside_temperature is None:
@@ -410,7 +407,6 @@ class DynamicMinimumSetpoint:
         When requested_setpoint jumps a lot (for example, cold morning start),
         damp the learned minimum for the active regime so it does not apply too aggressively in a new regime.
         """
-
         if self._last_requested_setpoint is None:
             return
 

@@ -139,11 +139,11 @@ class Areas:
 
     class _HeatingCurves:
         def __init__(self, areas: list[Area]):
-            self.areas = areas
+            self._areas = areas
 
         def update(self, current_outside_temperature: float) -> None:
             """Update the heating curve for all areas based on the current outside temperature."""
-            for area in self.areas:
+            for area in self._areas:
                 if area.target_temperature is None:
                     continue
 
@@ -151,10 +151,10 @@ class Areas:
 
     class _PIDs:
         def __init__(self, areas: list[Area]):
-            self.areas = areas
+            self._areas = areas
 
         def get(self, entity_id: str) -> Optional[Area]:
-            for area in self.areas:
+            for area in self._areas:
                 if area.id == entity_id:
                     return area
 
@@ -162,7 +162,7 @@ class Areas:
 
         def update(self, entity_id: str) -> None:
             if (area := self.get(entity_id)) is None:
-                _LOGGER.warning(f"Could not update PID controller for entity {entity_id}")
+                _LOGGER.warning(f"Could not update PID controller for entity {entity_id}. Areas: {self._areas}.")
                 return
 
             if area.error is not None:
@@ -181,12 +181,12 @@ class Areas:
         def output(self) -> float:
             outputs = [
                 area.heating_curve.value + area.pid.output
-                for area in self.areas
+                for area in self._areas
                 if area.heating_curve.value is not None
             ]
 
             return round(max(outputs), 1) if outputs else MINIMUM_SETPOINT
 
         def reset(self) -> None:
-            for area in self.areas:
+            for area in self._areas:
                 self.update_reset(area.id)
