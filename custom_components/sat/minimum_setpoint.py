@@ -221,7 +221,6 @@ class DynamicMinimumSetpoint:
     def _regime_for(self, cycles: CycleStatistics, requested_setpoint: float, outside_temperature: Optional[float]) -> Optional[RegimeState]:
         regime_key = self._make_regime_key(cycles, requested_setpoint, outside_temperature)
         regime_state = self._regimes.get(regime_key)
-        self._active_regime_key = regime_key
 
         if regime_state is None:
             initial_minimum = self._initial_minimum_for_regime(regime_key, requested_setpoint)
@@ -231,6 +230,7 @@ class DynamicMinimumSetpoint:
 
             _LOGGER.debug("Initialized regime %s with minimum_setpoint=%.1f from requested_setpoint=%.1f", regime_key, initial_minimum, requested_setpoint)
 
+        self._active_regime_key = regime_key
         return regime_state
 
     def _make_regime_key(self, cycles: CycleStatistics, requested_setpoint: float, outside_temperature: Optional[float]) -> str:
@@ -255,7 +255,7 @@ class DynamicMinimumSetpoint:
         return f"{setpoint_band}:{temp_band}:{load_band}"
 
     def _initial_minimum_for_regime(self, regime_key: str, requested_setpoint: float) -> float:
-        # If we already have regimes, reuse the nearest one (unchanged)
+        # If we already have regimes, reuse the nearest one
         if self._regimes:
             try:
                 target_bucket = int(regime_key.split(":", 1)[1])
@@ -271,7 +271,7 @@ class DynamicMinimumSetpoint:
             nearest_key = min(self._regimes.keys(), key=lambda key: abs(bucket_of(key) - target_bucket))
             return self._clamp_setpoint(self._regimes[nearest_key].minimum_setpoint)
 
-        return self._clamp_setpoint(requested_setpoint)
+        return self.value
 
     def _maybe_tune_minimum(self, regime_state: RegimeState, boiler_state_at_end: BoilerState, statistics: CycleStatistics, cycle: Cycle, requested_setpoint: float) -> None:
         """Decide whether and how to adjust the learned minimum setpoint for the active regime after a cycle. """
