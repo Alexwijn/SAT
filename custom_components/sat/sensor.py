@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-import typing
+from typing import Mapping, Any
+from typing import Optional
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
@@ -10,14 +11,12 @@ from homeassistant.core import HomeAssistant, Event, EventStateChangedData
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
+from .climate import SatClimate
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity, SatClimateEntity
 from .serial import sensor as serial_sensor
 from .simulator import sensor as simulator_sensor
-
-if typing.TYPE_CHECKING:
-    pass
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -45,15 +44,75 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         SatCycleSensor(coordinator, _config_entry),
         SatBoilerSensor(coordinator, _config_entry),
         SatManufacturerSensor(coordinator, _config_entry),
+        SatPidSensor(coordinator, _config_entry, climate),
         SatErrorValueSensor(coordinator, _config_entry, climate),
         SatHeatingCurveSensor(coordinator, _config_entry, climate),
     ])
+
+    for entity_id in _config_entry.data.get(CONF_ROOMS) or []:
+        _async_add_entities([SatPidSensor(coordinator, _config_entry, climate, entity_id)])
 
     if coordinator.supports_relative_modulation_management:
         _async_add_entities([SatCurrentPowerSensor(coordinator, _config_entry)])
 
         if float(_config_entry.options.get(CONF_MINIMUM_CONSUMPTION) or 0) > 0 and float(_config_entry.options.get(CONF_MAXIMUM_CONSUMPTION) or 0) > 0:
             _async_add_entities([SatCurrentConsumptionSensor(coordinator, _config_entry)])
+
+
+class SatPidSensor(SatClimateEntity, SensorEntity):
+    def __init__(self, coordinator, config_entry: ConfigEntry, climate: SatClimate, area_id: str = None):
+        super().__init__(coordinator, config_entry, climate)
+
+        self._area_id: Optional[str] = area_id
+
+    @property
+    def _pid(self):
+        if self._area_id is None:
+            return self._climate.pid
+
+        if (area := self._climate.areas.get(self._area_id)) is None:
+            return None
+
+        return area.pid
+
+    @property
+    def name(self) -> str:
+        if self._area_id is None:
+            return f"PID {self._config_entry.data.get(CONF_NAME)}"
+
+        return f"PID {self._config_entry.data.get(CONF_NAME)} ({self._area_id})"
+
+    @property
+    def device_class(self) -> SensorDeviceClass:
+        return SensorDeviceClass.TEMPERATURE
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return UnitOfTemperature.CELSIUS
+
+    @property
+    def available(self):
+        return self._pid.available if self._pid is not None else False
+
+    @property
+    def native_value(self) -> float:
+        return self._pid.output
+
+    @property
+    def unique_id(self) -> str:
+        if self._area_id is None:
+            return f"{self._config_entry.data.get(CONF_NAME).lower()}-pid"
+
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-{self._area_id}-pid"
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        return {
+            "proportional": self._pid.proportional,
+            "integral": self._pid.integral,
+            "derivative": self._pid.derivative,
+        }
 
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):

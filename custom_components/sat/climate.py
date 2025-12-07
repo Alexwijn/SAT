@@ -163,7 +163,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._simulation = bool(config_entry.data.get(CONF_SIMULATION))
         self._heating_system = str(config_entry.data.get(CONF_HEATING_SYSTEM))
         self._overshoot_protection = bool(config_entry.data.get(CONF_OVERSHOOT_PROTECTION))
-        self._sample_time_limit: int = convert_time_str_to_seconds(config_options.get(CONF_SAMPLE_TIME))
         self._push_setpoint_to_thermostat = bool(config_entry.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT))
 
         # User Configuration
@@ -273,7 +272,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(
             async_track_time_interval(
-                self.hass, self.async_control_pid, timedelta(seconds=self._sample_time_limit)
+                self.hass, self.async_control_pid, timedelta(seconds=60)
             )
         )
 
@@ -533,7 +532,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.heating_curve.value is None:
             return MINIMUM_SETPOINT
 
-        setpoint = round(self.heating_curve.value + self.pid.output, 1)
+        setpoint = self.pid.output
         if self._heating_mode == HEATING_MODE_ECO:
             return setpoint
 
@@ -925,19 +924,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # No need to do anything if we are not on
         if self.hvac_mode != HVACMode.HEAT:
             return
-
-        # Log PID control values for main controller
-        _LOGGER.debug(
-            "Main PID [%s] - P: %.2f, I: %.2f, D: %.2f, Output: %.2f",
-            self.entity_id, self.pid.proportional, self.pid.integral, self.pid.derivative, self.pid.output
-        )
-
-        # Log PID control values for each area
-        for area in self.areas.items():
-            _LOGGER.debug(
-                "Area PID [%s] - P: %.2f, I: %.2f, D: %.2f, Output: %.2f",
-                area.id, area.pid.proportional, area.pid.integral, area.pid.derivative, area.pid.output
-            )
 
         if self._last_requested_setpoint is None:
             # Default to the calculated setpoint

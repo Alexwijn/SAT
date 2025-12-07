@@ -720,8 +720,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=0, max=100, step=1)
         )
 
-        schema[vol.Required(CONF_SAMPLE_TIME, default=options[CONF_SAMPLE_TIME])] = selector.TimeSelector()
-
         return self.async_show_form(
             step_id="advanced",
             data_schema=vol.Schema(schema)

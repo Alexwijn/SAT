@@ -12,10 +12,10 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State, CoreState
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_ROOMS, MINIMUM_SETPOINT, CONF_SAMPLE_TIME
+from .const import CONF_ROOMS, MINIMUM_SETPOINT
 from .errors import Errors, Error
 from .heating_curve import HeatingCurve
-from .helpers import float_value, convert_time_str_to_seconds
+from .helpers import float_value
 from .pid import PID
 from .util import create_pid_controller
 
@@ -36,11 +36,9 @@ class Area:
         self._entity_id: str = entity_id
         self._hass: HomeAssistant | None = None
 
-        self._sample_time_limit: int = convert_time_str_to_seconds(config_options.get(CONF_SAMPLE_TIME))
-
         # Controllers and heating curve
-        self.pid: PID = create_pid_controller(config_options)
         self.heating_curve: HeatingCurve = heating_curve
+        self.pid: PID = create_pid_controller(config_options)
 
     @property
     def id(self) -> str:
@@ -119,7 +117,7 @@ class Area:
 
         # Periodic update as a fallback when we do not have a dedicated sensor listener
         self._time_interval = async_track_time_interval(
-            self._hass, self.update, timedelta(seconds=self._sample_time_limit)
+            self._hass, self.update, timedelta(seconds=60)
         )
 
     async def async_will_remove_from_hass(self) -> None:
@@ -209,11 +207,11 @@ class Areas:
             """Aggregate PID output for all areas."""
             outputs: list[float] = []
             for area in self._areas:
-                if area.heating_curve.value is None:
+                if not area.pid.available:
                     continue
 
                 try:
-                    outputs.append(area.heating_curve.value + area.pid.output)
+                    outputs.append(area.pid.output)
                 except Exception as exception:
                     _LOGGER.warning("Failed to compute PID output for area %s: %s", area.id, exception)
 
