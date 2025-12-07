@@ -26,6 +26,7 @@ class BoilerState:
     # Flame and DHW
     flame_active: bool
     hot_water_active: bool
+    modulation_reliable: bool
 
     # Hydronic values (flow/return temperatures, setpoint, modulation)
     setpoint: Optional[float]
@@ -143,6 +144,9 @@ class Boiler:
         self._last_cycle = last_cycle
         self._previous_state = previous
         self._last_update_at = timestamp
+
+        if not self._demand_present(state):
+            self._last_flame_off_at = None
 
         self._track_flame_transitions(previous, state, timestamp)
         self._update_modulation_reliability(state)

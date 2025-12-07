@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from time import monotonic
 from typing import Optional
 
@@ -11,6 +12,16 @@ from .helpers import seconds_since
 _LOGGER = logging.getLogger(__name__)
 
 MAX_BOILER_TEMPERATURE_AGE = 300
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PIDState:
+    """
+    Encapsulates the state of the PID control.
+    """
+    integral: float
+    derivative: float
+    proportional: float
 
 
 class PID:
@@ -55,8 +66,8 @@ class PID:
         self._last_derivative_time: float = now
         self._last_interval_updated: float = now
 
-        self._last_error: float = 0.0
-        self._previous_error: float = 0.0
+        self._last_error: Optional[float] = None
+        self._previous_error: Optional[float] = None
         self._last_heating_curve_value: Optional[float] = None
 
         # Reset integral and derivative
@@ -82,22 +93,6 @@ class PID:
 
         self._last_heating_curve_value = heating_curve_value
 
-    def update_reset(self, error: Error, heating_curve_value: Optional[float]) -> None:
-        now = monotonic()
-
-        self._last_updated = now
-        self._last_derivative_time = now
-        self._last_interval_updated = now
-
-        self._integral = 0.0
-        self._time_elapsed = 0.0
-        self._raw_derivative = 0.0
-
-        self._last_error = error.value
-        self._previous_error = error.value
-
-        self._last_heating_curve_value = heating_curve_value
-
     def update_integral(self, error: Error, heating_curve_value: float, force: bool = False) -> None:
         """
         Update the integral value in the PID controller.
@@ -107,7 +102,7 @@ class PID:
         :param force: Force an update even if the integral time limit has not been reached.
         """
         # Reset the time if we just entered deadband
-        if abs(self.last_error) > self._deadband >= abs(error.value):
+        if self._last_error is not None and abs(self._last_error) > self._deadband >= abs(error.value):
             self._last_interval_updated = monotonic()
 
         # Ensure the integral term is enabled
@@ -146,6 +141,9 @@ class PID:
         :param alpha1: First low-pass filter parameter (0..1).
         :param alpha2: Second low-pass filter parameter (0..1).
         """
+        if self._last_error is None:
+            return
+
         # If the derivative is disabled, freeze it
         if not self.derivative_enabled:
             return
@@ -189,12 +187,12 @@ class PID:
         self._last_interval_updated = now
 
     @property
-    def last_error(self) -> float:
+    def last_error(self) -> Optional[float]:
         """Return the last error value used by the PID controller."""
         return self._last_error
 
     @property
-    def previous_error(self) -> float:
+    def previous_error(self) -> Optional[float]:
         """Return the previous error value used by the PID controller."""
         return self._previous_error
 
@@ -206,41 +204,35 @@ class PID:
     @property
     def kp(self) -> Optional[float]:
         """Return the value of kp based on the current configuration."""
-        if self._automatic_gains:
-            if self._last_heating_curve_value is None:
-                return 0.0
+        if not self._automatic_gains:
+            return float(self._kp)
 
-            automatic_gain_value = 4 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 3
-            return round((self._heating_curve_coefficient * self._last_heating_curve_value) / automatic_gain_value, 6)
+        if self._last_heating_curve_value is None:
+            return 0.0
 
-        return float(self._kp)
+        automatic_gain_value = 4 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 3
+        return round((self._heating_curve_coefficient * self._last_heating_curve_value) / automatic_gain_value, 6)
 
     @property
     def ki(self) -> Optional[float]:
         """Return the value of ki based on the current configuration."""
-        if self._automatic_gains:
-            if self._last_heating_curve_value is None:
-                return 0.0
+        if not self._automatic_gains:
+            return float(self._ki)
 
-            return round(self.kp / 8400, 6)
-
-        return float(self._ki)
+        return round(self.kp / 8400, 6)
 
     @property
     def kd(self) -> Optional[float]:
         """Return the value of kd based on the current configuration."""
-        if self._automatic_gains:
-            if self._last_heating_curve_value is None:
-                return 0.0
+        if not self._automatic_gains:
+            return float(self._kd)
 
-            return round(0.07 * 8400 * self.kp, 6)
-
-        return float(self._kd)
+        return round(0.07 * 8400 * self.kp, 6)
 
     @property
     def proportional(self) -> float:
         """Return the proportional value."""
-        return round(self.kp * self._last_error, 3) if self.kp is not None else 0.0
+        return round(self.kp * self._last_error, 3) if self.kp is not None and self._last_error is not None else 0.0
 
     @property
     def integral(self) -> float:
@@ -268,14 +260,17 @@ class PID:
     @property
     def integral_enabled(self) -> bool:
         """Return whether the updates of the integral are enabled."""
-        return abs(self._last_error) <= self._deadband
+        return abs(self._last_error) <= self._deadband if self._last_error is not None else False
 
     @property
     def derivative_enabled(self) -> bool:
         """Return whether the updates of the derivative are enabled."""
-        return abs(self._last_error) > self._deadband
+        return abs(self._last_error) > self._deadband if self._last_error is not None else False
 
     @property
-    def healthy(self) -> bool:
-        """Return the heating curve value."""
-        return self._last_heating_curve_value is not None
+    def state(self):
+        return PIDState(
+            integral=self.integral,
+            derivative=self.derivative,
+            proportional=self.proportional
+        )

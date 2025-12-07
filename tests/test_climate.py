@@ -48,7 +48,7 @@ async def test_scenario_1(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_target_temperature(21.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    await climate.async_control_pid(reset=True)
+    await climate.async_control_pid()
     await climate.async_control_heating_loop()
 
     assert climate.setpoint == 57
@@ -97,7 +97,7 @@ async def test_scenario_2(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_target_temperature(19.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    await climate.async_control_pid(reset=True)
+    await climate.async_control_pid()
     await climate.async_control_heating_loop()
 
     assert climate.setpoint == 10
@@ -147,7 +147,7 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     await climate.async_set_target_temperature(20.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    await climate.async_control_pid(reset=True)
+    await climate.async_control_pid()
     await climate.async_control_heating_loop()
 
     assert climate.setpoint == 41.0

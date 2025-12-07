@@ -9,17 +9,19 @@ from typing import Deque, List, Optional, Tuple, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 
-from .const import CycleKind, CycleClassification, EVENT_SAT_CYCLE_STARTED, EVENT_SAT_CYCLE_ENDED
+from .const import CycleKind, CycleClassification, EVENT_SAT_CYCLE_STARTED, EVENT_SAT_CYCLE_ENDED, PWMStatus
 from .helpers import clamp
-from .pwm import PWMState
 
 if TYPE_CHECKING:
     from .boiler import BoilerState
 
 _LOGGER = logging.getLogger(__name__)
 
-# What we consider a "good" minimum burn length
-TARGET_MIN_ON_TIME_SECONDS: float = 300.0  # 5 minutes
+# Anything shorter than this is basically noise / transient.
+MIN_OBSERVATION_ON_SECONDS: float = 120.0  # 2 minutes
+
+# Below this, if we overshoot / underheat, we call it "too short".
+TARGET_MIN_ON_TIME_SECONDS: float = 600.0  # 10 minutes
 
 # Low-load detection thresholds
 LOW_LOAD_MIN_CYCLES_PER_HOUR: float = 3.0
@@ -154,6 +156,9 @@ class CycleHistory:
 
     @property
     def last_cycle(self) -> Optional[Cycle]:
+        if self._last_cycle is None or (monotonic() - self._last_cycle.end) > 3600:
+            return None
+
         return self._last_cycle
 
     @property
@@ -228,7 +233,6 @@ class CycleTracker:
         self._minimum_samples_per_cycle: int = minimum_samples_per_cycle
 
         self._last_flame_active: Optional[bool] = None
-        self._last_pwm_state: Optional[PWMState] = None
         self._current_cycle_start: Optional[float] = None
         self._last_flame_off_timestamp: Optional[float] = None
 
@@ -243,13 +247,10 @@ class CycleTracker:
         self._current_cycle_start = None
         self._last_flame_off_timestamp = None
 
-    def update(self, boiler_state: BoilerState, pwm_state: Optional[PWMState] = None, timestamp: float = None) -> None:
+    def update(self, boiler_state: BoilerState, pwm_status: PWMStatus, timestamp: float = None) -> None:
         timestamp = timestamp or monotonic()
         previously_active = self._last_flame_active
         currently_active = boiler_state.flame_active
-
-        if pwm_state is not None:
-            self._last_pwm_state = pwm_state
 
         # OFF -> ON: start a new cycle
         if currently_active and not previously_active:
@@ -294,7 +295,7 @@ class CycleTracker:
             # Remember when we turned off to compute OFF-with-demand before the next cycle
             self._last_flame_off_timestamp = timestamp
 
-            cycle_state = self._build_cycle_state(timestamp)
+            cycle_state = self._build_cycle_state(pwm_status, timestamp)
             self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle_state})
 
             # Push into history
@@ -307,7 +308,7 @@ class CycleTracker:
 
         self._last_flame_active = currently_active
 
-    def _build_cycle_state(self, end_time: float) -> Optional[Cycle]:
+    def _build_cycle_state(self, pwm_status: PWMStatus, end_time: float) -> Optional[Cycle]:
         if self._current_cycle_start is None:
             _LOGGER.debug("No start time, ignoring cycle.")
             return None
@@ -365,7 +366,7 @@ class CycleTracker:
 
             classification=self._classify_cycle(
                 duration=duration,
-                pwm_state=self._last_pwm_state,
+                pwm_status=pwm_status,
                 average_setpoint=average_setpoint,
                 statistics=self._history.statistics,
                 max_flow_temperature=max_flow_temperature,
@@ -391,44 +392,41 @@ class CycleTracker:
         )
 
     @staticmethod
-    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_state: Optional[PWMState], max_flow_temperature: Optional[float], average_setpoint: Optional[float]) -> CycleClassification:
+    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: Optional[PWMStatus], max_flow_temperature: Optional[float], average_setpoint: Optional[float]) -> CycleClassification:
         """Decide what the last cycle implies for minimum-setpoint tuning."""
         if duration <= 0.0 or average_setpoint is None:
             return CycleClassification.INSUFFICIENT_DATA
 
+        # No flow temperature: we cannot determine overshoot or underheat, just note the cycle happened
         if max_flow_temperature is None:
-            # Without temperature, we cannot tell underheating vs. overshooting.
-            if duration < TARGET_MIN_ON_TIME_SECONDS:
-                return CycleClassification.UNCERTAIN
-
-            return CycleClassification.GOOD
+            return CycleClassification.UNCERTAIN
 
         overshoot = max_flow_temperature >= average_setpoint + OVERSHOOT_MARGIN_CELSIUS
         underheat = max_flow_temperature <= average_setpoint - UNDERSHOOT_MARGIN_CELSIUS
 
         short_threshold = TARGET_MIN_ON_TIME_SECONDS
-        if pwm_state is not None and pwm_state.enabled and pwm_state.duty_cycle:
-            short_threshold = pwm_state.duty_cycle[0]
+        if pwm_status == PWMStatus.OFF:
+            # If PWM explicitly requested OFF, we do not treat this as "too short"
+            short_threshold = 0.0
 
-        # Short burns
+        # Only treat shortness as a problem when we actually have evidence of over- or under-shoot.
         if duration < short_threshold:
-            if underheat and not overshoot:
-                return CycleClassification.TOO_SHORT_UNDERHEAT
-
-            if overshoot and not underheat:
+            if overshoot:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
 
-            return CycleClassification.UNCERTAIN
+            if underheat:
+                return CycleClassification.TOO_SHORT_UNDERHEAT
 
-        # Longer burns: check for short-cycling with overshoot
+        if underheat and not overshoot:
+            return CycleClassification.LONG_UNDERHEAT
+
         short_cycling_context = (
                 statistics.last_hour_count > LOW_LOAD_MIN_CYCLES_PER_HOUR * 2.0
                 and statistics.duty_ratio_last_15m < LOW_LOAD_MAX_DUTY_RATIO_15_M
         )
 
-        # Clear low-load overshoot behavior: many cycles/hour, low duty, flow above setpoint
         if short_cycling_context and overshoot and not underheat:
             return CycleClassification.SHORT_CYCLING_OVERSHOOT
 
-        # All other long burns are "good enough" for minimum tuning.
+        # No strong evidence of trouble: treat as a "good enough" cycle
         return CycleClassification.GOOD

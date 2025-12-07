@@ -21,6 +21,8 @@ MODE_SIMULATOR = "simulator"
 DEADBAND = 0.1
 BOILER_DEADBAND = 2
 HEATER_STARTUP_TIMEFRAME = 180
+PWM_ENABLE_MARGIN_CELSIUS = 0.5
+PWM_DISABLE_MARGIN_CELSIUS = 1.5
 
 COLD_SETPOINT = 28.2
 MINIMUM_SETPOINT = 10
@@ -133,7 +135,7 @@ OPTIONS_DEFAULTS = {
     CONF_MAXIMUM_CONSUMPTION: 0,
 
     CONF_DUTY_CYCLE: "00:13:00",
-    CONF_SAMPLE_TIME: "00:01:00",
+    CONF_SAMPLE_TIME: "00:00:30",
     CONF_CLIMATE_VALVE_OFFSET: 0,
     CONF_TARGET_TEMPERATURE_STEP: 0.5,
     CONF_SENSOR_MAX_VALUE_AGE: "06:00:00",
@@ -188,6 +190,7 @@ class CycleKind(str, Enum):
 class CycleClassification(str, Enum):
     GOOD = "good"
     UNCERTAIN = "uncertain"
+    LONG_UNDERHEAT = "long_underheat"
     INSUFFICIENT_DATA = "insufficient_data"
     TOO_SHORT_UNDERHEAT = "too_short_underheat"
     TOO_SHORT_OVERSHOOT = "too_short_overshoot"

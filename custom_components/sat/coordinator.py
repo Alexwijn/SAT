@@ -19,7 +19,6 @@ from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
-from .pwm import PWMState
 
 if TYPE_CHECKING:
     from .climate import SatClimate
@@ -104,6 +103,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._cycle_tracker: CycleTracker = CycleTracker(hass, self._cycles)
 
         self._device_on_since: Optional[float] = None
+        self._last_pwm_status: Optional[PWMStatus] = None
         self._listeners_unsub: Optional[Callable[[], None]] = None
 
         self._options: Mapping[str, Any] = options or {}
@@ -116,8 +116,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if config_data.get(CONF_MANUFACTURER) is not None:
             self._manufacturer = ManufacturerFactory.resolve_by_name(config_data.get(CONF_MANUFACTURER))
 
-        self.async_add_listener(lambda: self._cycle_tracker.update(boiler_state=self.state))
         self.async_add_listener(lambda: self._boiler.update(state=self.state, last_cycle=self.last_cycle))
+        self.async_add_listener(lambda: self._cycle_tracker.update(boiler_state=self.state, pwm_status=self._last_pwm_status))
 
     @property
     @abstractmethod
@@ -142,6 +142,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
             is_active=self.device_active,
             is_inactive=not self.device_active,
+            modulation_reliable=self._boiler.modulation_reliable,
 
             setpoint=self.setpoint,
             flow_temperature=self.boiler_temperature,
@@ -328,7 +329,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         await self._boiler.async_save_options()
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, timestamp: float = None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_status: Optional[PWMStatus] = None, timestamp: float = None) -> None:
         """Control the heating loop for the device."""
         # Use provided timestamp or current monotonic time
         timestamp = timestamp or monotonic()
@@ -339,9 +340,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         elif self._device_on_since is None:
             self._device_on_since = timestamp
 
-        # Update States
-        self._cycle_tracker.update(boiler_state=self.state, pwm_state=pwm_state, timestamp=timestamp)
-        self._boiler.update(state=self.state, last_cycle=self.last_cycle, timestamp=timestamp)
+        # Update PWM Status
+        if pwm_status is not None:
+            self._last_pwm_status = pwm_status
 
         # See if we can determine the manufacturer (deprecated)
         if self._manufacturer is None and self.member_id is not None:

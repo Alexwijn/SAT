@@ -10,13 +10,14 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .boiler import BoilerState
-from .const import CycleClassification
+from .const import CycleClassification, COLD_SETPOINT
 from .cycles import CycleKind, CycleStatistics, Cycle
 from .helpers import clamp
 
 _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
+FLOOR_MARGIN_C = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +44,6 @@ class MinimumSetpointConfig:
     minimum_setpoint_learning_band: float = 2.0
 
     # Offset decay factors in various cases
-    minimum_relax_factor_when_inactive: float = 0.5
     minimum_relax_factor_when_untunable: float = 0.9
     minimum_relax_factor_when_uncertain: float = 0.95
 
@@ -130,18 +130,18 @@ class DynamicMinimumSetpoint:
 
         threshold = max(absolute_limit, dynamic_limit)
         if cycles.off_with_demand_duration >= threshold:
-            regime_state = self._regime_for(cycles, requested_setpoint, outside_temperature)
+            regime_state = self._regime_for(cycles, last_cycle, requested_setpoint, outside_temperature)
 
             regime_state.minimum_setpoint += self._config.increase_step
             regime_state.minimum_setpoint = self._clamp_setpoint(regime_state.minimum_setpoint)
-            _LOGGER.debug(f"Updated regime %s minimum_setpoint=%.1f after starvation.", regime_state.minimum_setpoint)
+            _LOGGER.debug(f"Updated regime minimum_setpoint=%.1f after starvation.", regime_state.minimum_setpoint)
 
     def on_cycle_end(self, boiler_state: BoilerState, cycles: CycleStatistics, last_cycle: Cycle, requested_setpoint: Optional[float], outside_temperature: Optional[float]) -> None:
         if requested_setpoint is None:
             return
 
         # Determine the active regime for this requested_setpoint.
-        regime_state = self._regime_for(cycles, requested_setpoint, outside_temperature)
+        regime_state = self._regime_for(cycles, last_cycle, requested_setpoint, outside_temperature)
 
         # Handle large jumps in requested_setpoint (regime changes).
         self._maybe_damp_on_large_jump(requested_setpoint, regime_state)
@@ -218,12 +218,12 @@ class DynamicMinimumSetpoint:
         await self._store.async_save(data)
         _LOGGER.debug("Saved minimum setpoint state to storage (%d regimes).", len(self._regimes))
 
-    def _regime_for(self, cycles: CycleStatistics, requested_setpoint: float, outside_temperature: Optional[float]) -> Optional[RegimeState]:
+    def _regime_for(self, cycles: CycleStatistics, last_cycle: Cycle, requested_setpoint: float, outside_temperature: Optional[float]) -> Optional[RegimeState]:
         regime_key = self._make_regime_key(cycles, requested_setpoint, outside_temperature)
         regime_state = self._regimes.get(regime_key)
 
         if regime_state is None:
-            initial_minimum = self._initial_minimum_for_regime(regime_key, requested_setpoint)
+            initial_minimum = self._initial_minimum_for_regime(last_cycle, requested_setpoint)
             regime_state = RegimeState(minimum_setpoint=initial_minimum, completed_cycles=0)
 
             self._regimes[regime_key] = regime_state
@@ -254,28 +254,19 @@ class DynamicMinimumSetpoint:
 
         return f"{setpoint_band}:{temp_band}:{load_band}"
 
-    def _initial_minimum_for_regime(self, regime_key: str, requested_setpoint: float) -> float:
-        # If we already have regimes, reuse the nearest one
-        if self._regimes:
-            try:
-                target_bucket = int(regime_key.split(":", 1)[1])
-            except (IndexError, ValueError):
-                target_bucket = 0
+    def _initial_minimum_for_regime(self, last_cycle: Cycle, requested_setpoint: float) -> float:
+        current_minimum = self.value
+        baseline = max(self._config.minimum_setpoint, requested_setpoint, current_minimum)
 
-            def bucket_of(key: str) -> int:
-                try:
-                    return int(key.split(":", 1)[1])
-                except (IndexError, ValueError):
-                    return 0
+        if last_cycle.max_flow_temperature is not None and last_cycle.classification in (CycleClassification.TOO_SHORT_OVERSHOOT, CycleClassification.SHORT_CYCLING_OVERSHOOT):
+            effective_floor = last_cycle.max_flow_temperature - FLOOR_MARGIN_C
+            baseline = max(baseline, effective_floor)
 
-            nearest_key = min(self._regimes.keys(), key=lambda key: abs(bucket_of(key) - target_bucket))
-            return self._clamp_setpoint(self._regimes[nearest_key].minimum_setpoint)
+        return self._clamp_setpoint(baseline)
 
-        return self.value
-
-    def _maybe_tune_minimum(self, regime_state: RegimeState, boiler_state_at_end: BoilerState, statistics: CycleStatistics, cycle: Cycle, requested_setpoint: float) -> None:
+    def _maybe_tune_minimum(self, regime_state: RegimeState, boiler_state_at_end: BoilerState, statistics: CycleStatistics, last_cycle: Cycle, requested_setpoint: float) -> None:
         """Decide whether and how to adjust the learned minimum setpoint for the active regime after a cycle. """
-        if self._active_regime_key is None or cycle is None:
+        if self._active_regime_key is None:
             return
 
         # Do not tune during the initial warmup cycles after starting or reset for this regime.
@@ -285,20 +276,20 @@ class DynamicMinimumSetpoint:
 
         # Check if the current regime is suitable for minimum tuning.
         if not self._is_tunable_regime(boiler_state_at_end, statistics):
-            _LOGGER.debug("Not suitable for tuning, skipping.")
+            self._relax_toward_anchor(regime_state, last_cycle, requested_setpoint, self._config.minimum_relax_factor_when_untunable)
             return
 
         # Only use cycles that are predominantly space heating.
-        if cycle.kind not in (CycleKind.CENTRAL_HEATING, CycleKind.MIXED):
-            _LOGGER.debug("Ignoring non-heating cycle kind=%s for tuning.", cycle.kind)
+        if last_cycle.kind not in (CycleKind.CENTRAL_HEATING, CycleKind.MIXED):
+            _LOGGER.debug("Ignoring non-heating cycle kind=%s for tuning.", last_cycle.kind)
             return
 
-        if cycle.fraction_space_heating < self._config.min_space_heating_fraction_for_tuning:
-            _LOGGER.debug("Cycle has too little space-heating fraction (%.2f), ignoring.", cycle.fraction_space_heating)
+        if last_cycle.fraction_space_heating < self._config.min_space_heating_fraction_for_tuning:
+            _LOGGER.debug("Cycle has too little space-heating fraction (%.2f), ignoring.", last_cycle.fraction_space_heating)
             return
 
-        classification = cycle.classification
-        average_setpoint = cycle.average_setpoint
+        classification = last_cycle.classification
+        average_setpoint = last_cycle.average_setpoint
 
         if average_setpoint is None:
             average_setpoint = boiler_state_at_end.setpoint
@@ -328,15 +319,8 @@ class DynamicMinimumSetpoint:
         # TOO_SHORT_UNDERHEAT:
         #   - The cycle ended too quickly (short flame ON time).
         #   - The boiler NEVER approached the requested flow setpoint.
-        #   - This means the *requested flow temperature is too high* for the current
-        #     thermal regime or boiler output at minimum modulation.
+        #   - This means the requested flow temperature is *too high*.
         if classification == CycleClassification.TOO_SHORT_UNDERHEAT:
-            # If modulation is extremely low (< 20%), we cannot trust the underheated signal.
-            if cycle.average_relative_modulation_level is not None and cycle.average_relative_modulation_level < 20:
-                self._relax_toward_base(regime_state, requested_setpoint, self._config.minimum_relax_factor_when_uncertain)
-                return
-
-            # The requested setpoint is too high for this regime. Lower the learned minimum_setpoint.
             regime_state.minimum_setpoint -= self._config.decrease_step
 
         # TOO_SHORT_OVERSHOOT:
@@ -349,11 +333,18 @@ class DynamicMinimumSetpoint:
         elif classification in (CycleClassification.TOO_SHORT_OVERSHOOT, CycleClassification.SHORT_CYCLING_OVERSHOOT):
             regime_state.minimum_setpoint += self._config.increase_step
 
+        # LONG_UNDERHEAT:
+        #   - The cycle ended too long (long flame ON time).
+        #   - The boiler did not approach the requested flow setpoint.
+        #   - This means the requested flow temperature is *too low*.
+        elif classification == CycleClassification.LONG_UNDERHEAT:
+            regime_state.minimum_setpoint -= self._config.decrease_step
+
         # UNCERTAIN:
         #   - Conflicting signals, borderline flows, or sensor noise.
         #   - Neither direction (up or down) is reliable.
         elif classification == CycleClassification.UNCERTAIN:
-            self._relax_toward_base(regime_state, requested_setpoint, self._config.minimum_relax_factor_when_uncertain)
+            self._relax_toward_anchor(regime_state, last_cycle, requested_setpoint, self._config.minimum_relax_factor_when_uncertain)
             return
 
         # Clamp learned the minimum for this regime to absolute range.
@@ -376,22 +367,26 @@ class DynamicMinimumSetpoint:
 
         return True
 
-    def _relax_toward_base(self, regime_state: RegimeState, requested_setpoint: float, factor: float) -> None:
-        """ Relax the regime minimum toward the requested_setpoint. """
+    def _relax_toward_anchor(self, regime_state: RegimeState, last_cycle: Cycle, requested_setpoint: float, factor: float) -> None:
+        """ Relax the regime minimum toward the closest anchor. """
         if factor <= 0.0 or factor >= 1.0:
             # If the factor is out of range, do nothing.
             return
 
-        current = regime_state.minimum_setpoint
-        relaxed = requested_setpoint + (current - requested_setpoint) * factor
-        relaxed = self._clamp_setpoint(relaxed)
+        anchor = requested_setpoint
+        if last_cycle.max_flow_temperature is not None:
+            effective_floor = last_cycle.max_flow_temperature - FLOOR_MARGIN_C
+            anchor = max(anchor, effective_floor)
+
+        old = regime_state.minimum_setpoint
+        new = factor * old + (1.0 - factor) * anchor
 
         _LOGGER.debug(
-            "Relaxing regime %s minimum toward requested_setpoint=%.1f: %.1f -> %.1f (factor=%.2f)",
-            self._active_regime_key, requested_setpoint, current, relaxed, factor
+            "Relaxing regime %s minimum toward anchor=%.1f: %.1f -> %.1f (factor=%.2f)",
+            self._active_regime_key, anchor, old, new, factor
         )
 
-        regime_state.minimum_setpoint = relaxed
+        regime_state.minimum_setpoint = self._clamp_setpoint(new)
 
     def _maybe_damp_on_large_jump(self, requested_setpoint: float, regime_state: RegimeState) -> None:
         """
@@ -406,7 +401,7 @@ class DynamicMinimumSetpoint:
             return
 
         old_minimum = regime_state.minimum_setpoint
-        regime_state.minimum_setpoint = self._config.minimum_setpoint + (regime_state.minimum_setpoint - self._config.minimum_setpoint) * self._config.large_jump_damping_factor
+        regime_state.minimum_setpoint *= self._config.large_jump_damping_factor
         regime_state.minimum_setpoint = self._clamp_setpoint(regime_state.minimum_setpoint)
 
         _LOGGER.debug(
@@ -415,4 +410,4 @@ class DynamicMinimumSetpoint:
         )
 
     def _clamp_setpoint(self, value: float) -> float:
-        return clamp(value, self._config.minimum_setpoint, self._config.maximum_setpoint)
+        return clamp(value, COLD_SETPOINT, self._config.maximum_setpoint)
