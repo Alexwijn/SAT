@@ -524,8 +524,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Get the list of all controlled climates
         climates = self._radiators + self.areas.items()
 
-        # If there are no thermostats, we can safely assume the valves are open
-        if len(climates) == 0:
+        # If there are no radiators, we can safely assume the valves are open
+        if len(self._radiators) == 0:
             return True
 
         # Iterate through each controlled thermostat
