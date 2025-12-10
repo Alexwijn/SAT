@@ -12,7 +12,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State, CoreState
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_ROOMS, MINIMUM_SETPOINT
+from .const import CONF_ROOMS, COLD_SETPOINT
 from .errors import Errors, Error
 from .heating_curve import HeatingCurve
 from .helpers import float_value
@@ -21,9 +21,14 @@ from .util import create_pid_controller
 
 _LOGGER = logging.getLogger(__name__)
 
-ATTR_SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 ATTR_TEMPERATURE = "temperature"
 ATTR_CURRENT_TEMPERATURE = "current_temperature"
+ATTR_SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
+
+COMFORT_BAND = 0.1
+COOLING_SLOPE = 4.0
+OVERSHOOT_MARGIN = 0.3
+COOLING_HEADROOM = 10.0
 
 
 class Area:
@@ -199,26 +204,77 @@ class Areas:
     class _PIDs:
         """Helper for interacting with PID controllers of all areas."""
 
-        def __init__(self, areas: list[Area]) -> None:
+        def __init__(self, areas, percentile: float = 0.75, headroom: float = 5.0):
             self._areas = areas
+            self._headroom = headroom
+            self._percentile = percentile
 
         @property
-        def output(self) -> float:
-            """Aggregate PID output for all areas."""
+        def output(self) -> float | None:
+            """Aggregate PID output for areas that still need heat."""
             outputs: list[float] = []
+
             for area in self._areas:
                 if not area.pid.available:
                     continue
 
+                # Only consider rooms that are actually below target by a meaningful amount.
+                if area.error.value <= COMFORT_BAND:
+                    continue
+
                 try:
-                    outputs.append(area.pid.output)
+                    value = area.pid.output
                 except Exception as exception:
                     _LOGGER.warning("Failed to compute PID output for area %s: %s", area.id, exception)
+                    continue
+
+                outputs.append(value)
 
             if not outputs:
-                return MINIMUM_SETPOINT
+                return None
 
-            return round(max(outputs), 1)
+            outputs.sort()
+
+            index = max(0, min(len(outputs) - 1, int(len(outputs) * self._percentile)))
+            baseline = outputs[index]
+
+            allowed = baseline + self._headroom
+            chosen = min(outputs[-1], allowed)
+
+            return round(chosen, 1)
+
+        @property
+        def overshoot_cap(self) -> float | None:
+            """Compute a cooling-driven cap based on overshooting rooms."""
+            caps: list[float] = []
+
+            for area in self._areas:
+                if not area.pid.available:
+                    continue
+
+                error = area.target_temperature - area.current_temperature
+
+                # Overshoot: current > target and margin (error negative beyond margin)
+                if error >= -OVERSHOOT_MARGIN:
+                    continue
+
+                # Degrees above target (positive number)
+                degrees_over = -error
+
+                # Start from a “max allowed in cooling” and pull it down with overshoot severity.
+                cap = COLD_SETPOINT + COOLING_HEADROOM - COOLING_SLOPE * degrees_over
+                caps.append(cap)
+
+            if not caps:
+                return None
+
+            # The strictest cap wins: we take the minimum.
+            cap = min(caps)
+
+            # Ensure we never go below the minimum.
+            cap = max(COLD_SETPOINT, cap)
+
+            return round(cap, 1)
 
         def reset(self):
             for area in self._areas:

@@ -528,7 +528,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def requested_setpoint(self) -> float:
-        """Get the requested setpoint based on the heating curve and PID output."""
+        """Get the requested setpoint based on the heating curve and PIDs."""
         if self.heating_curve.value is None:
             return MINIMUM_SETPOINT
 
@@ -536,7 +536,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._heating_mode == HEATING_MODE_ECO:
             return setpoint
 
-        return max(setpoint, self.areas.pids.output)
+        # Secondary rooms: heating and overshoot information.
+        secondary_heating = self.areas.pids.output
+        overshoot_cap = self.areas.pids.overshoot_cap
+
+        if secondary_heating is not None:
+            if secondary_heating >= setpoint:
+                # Other rooms need more heat: allow some boost.
+                setpoint = min(secondary_heating, setpoint + 3.0)
+            else:
+                # Other rooms are satisfied sooner: allow some reduction.
+                setpoint = max(secondary_heating, setpoint - 2.0)
+
+        # Apply the overshoot cap so overshooting rooms can cool down.
+        if overshoot_cap is not None:
+            setpoint = min(setpoint, overshoot_cap)
+
+        return setpoint
 
     @property
     def valves_open(self) -> bool:
@@ -852,8 +868,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def reset_control_state(self):
         """Reset control state when major changes occur."""
-        self.pwm.disable()
+        self.pid.reset()
+        self.areas.pids.reset()
         self.minimum_setpoint.reset()
+
         self._last_requested_setpoint = None
 
     async def async_control_pid(self, _time: Optional[datetime] = None) -> None:

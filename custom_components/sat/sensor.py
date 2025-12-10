@@ -46,6 +46,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         SatManufacturerSensor(coordinator, _config_entry),
         SatPidSensor(coordinator, _config_entry, climate),
         SatErrorValueSensor(coordinator, _config_entry, climate),
+        SatRequestedSetpoint(coordinator, _config_entry, climate),
         SatHeatingCurveSensor(coordinator, _config_entry, climate),
     ])
 
@@ -57,6 +58,30 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 
         if float(_config_entry.options.get(CONF_MINIMUM_CONSUMPTION) or 0) > 0 and float(_config_entry.options.get(CONF_MAXIMUM_CONSUMPTION) or 0) > 0:
             _async_add_entities([SatCurrentConsumptionSensor(coordinator, _config_entry)])
+
+
+class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
+
+    @property
+    def name(self) -> str:
+        return f"Requested Setpoint {self._config_entry.data.get(CONF_NAME)}"
+
+    @property
+    def device_class(self) -> SensorDeviceClass:
+        return SensorDeviceClass.TEMPERATURE
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return UnitOfTemperature.CELSIUS
+
+    @property
+    def native_value(self) -> float:
+        return self._climate.requested_setpoint
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-requested-setpoint"
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
@@ -230,15 +255,12 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._climate.extra_state_attributes.get("heating_curve") is not None
+        return self._climate.heating_curve.value is not None
 
     @property
     def native_value(self) -> float:
-        """Return the state of the device in native units.
-
-        In this case, the state represents the current heating curve value.
-        """
-        return self._climate.extra_state_attributes.get("heating_curve")
+        """Return the state of the device in native units."""
+        return self._climate.heating_curve.value
 
     @property
     def unique_id(self) -> str:
@@ -273,17 +295,9 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
         return UnitOfTemperature.CELSIUS
 
     @property
-    def available(self):
-        """Return availability of the sensor."""
-        return self._climate.extra_state_attributes.get("error") is not None
-
-    @property
     def native_value(self) -> float:
-        """Return the state of the device in native units.
-
-        In this case, the state represents the current error value.
-        """
-        return self._climate.extra_state_attributes.get("error")
+        """Return the state of the device in native units."""
+        return self._climate.error
 
     @property
     def unique_id(self) -> str:
@@ -294,7 +308,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 class SatManufacturerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return "Boiler Manufacturer"
+        return f"Boiler Manufacturer {self._config_entry.data.get(CONF_NAME)}"
 
     @property
     def native_value(self) -> str:
@@ -313,7 +327,7 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 class SatCycleSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return "Cycle Status"
+        return f"Cycle Status {self._config_entry.data.get(CONF_NAME)}"
 
     @property
     def native_value(self) -> str:
@@ -330,7 +344,7 @@ class SatCycleSensor(SatEntity, SensorEntity):
 class SatBoilerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return "Boiler Status"
+        return f"Boiler Status {self._config_entry.data.get(CONF_NAME)}"
 
     @property
     def native_value(self) -> str:

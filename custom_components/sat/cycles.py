@@ -48,6 +48,9 @@ class Cycle:
     sample_count: int
     duration: float
 
+    # Reference setpoint used for classification
+    minimum_setpoint_at_start: Optional[float]
+
     # Averages over the samples where the value was not None
     average_setpoint: Optional[float]
     average_flow_temperature: Optional[float]
@@ -235,6 +238,7 @@ class CycleTracker:
         self._last_flame_active: Optional[bool] = None
         self._current_cycle_start: Optional[float] = None
         self._last_flame_off_timestamp: Optional[float] = None
+        self._minimum_setpoint_at_start: Optional[float] = None
 
     @property
     def started_since(self) -> Optional[float]:
@@ -246,6 +250,7 @@ class CycleTracker:
         self._last_flame_active = None
         self._current_cycle_start = None
         self._last_flame_off_timestamp = None
+        self._minimum_setpoint_at_start = None
 
     def update(self, boiler_state: BoilerState, pwm_status: PWMStatus, timestamp: float = None) -> None:
         timestamp = timestamp or monotonic()
@@ -278,11 +283,12 @@ class CycleTracker:
 
             _LOGGER.debug("Flame transition OFF->ON, starting new cycle.")
 
-            # Notify listeners that a new cycle has started
-            self._hass.bus.fire(EVENT_SAT_CYCLE_STARTED)
-
+            self._minimum_setpoint_at_start = boiler_state.setpoint
             self._current_cycle_start = timestamp
             self._current_samples.clear()
+
+            # Notify listeners that a new cycle has started
+            self._hass.bus.fire(EVENT_SAT_CYCLE_STARTED)
 
         # ON -> ON: accumulate samples
         if currently_active:
@@ -303,8 +309,9 @@ class CycleTracker:
                 self._history.record_cycle(cycle_state)
 
             # Reset for the next potential cycle
-            self._current_cycle_start = None
             self._current_samples.clear()
+            self._current_cycle_start = None
+            self._minimum_setpoint_at_start = None
 
         self._last_flame_active = currently_active
 
@@ -367,15 +374,17 @@ class CycleTracker:
             classification=self._classify_cycle(
                 duration=duration,
                 pwm_status=pwm_status,
-                average_setpoint=average_setpoint,
                 statistics=self._history.statistics,
                 max_flow_temperature=max_flow_temperature,
+                reference_setpoint=self._minimum_setpoint_at_start,
             ),
 
             end=end_time,
             duration=duration,
             sample_count=sample_count,
             start=self._current_cycle_start,
+
+            minimum_setpoint_at_start=self._minimum_setpoint_at_start,
 
             average_setpoint=average_setpoint,
             average_flow_temperature=average_flow_temperature,
@@ -392,17 +401,17 @@ class CycleTracker:
         )
 
     @staticmethod
-    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: Optional[PWMStatus], max_flow_temperature: Optional[float], average_setpoint: Optional[float]) -> CycleClassification:
+    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: Optional[PWMStatus], max_flow_temperature: Optional[float], reference_setpoint: Optional[float]) -> CycleClassification:
         """Decide what the last cycle implies for minimum-setpoint tuning."""
-        if duration <= 0.0 or average_setpoint is None:
+        if duration <= 0.0 or reference_setpoint is None:
             return CycleClassification.INSUFFICIENT_DATA
 
         # No flow temperature: we cannot determine overshoot or underheat, just note the cycle happened
         if max_flow_temperature is None:
             return CycleClassification.UNCERTAIN
 
-        overshoot = max_flow_temperature >= average_setpoint + OVERSHOOT_MARGIN_CELSIUS
-        underheat = max_flow_temperature <= average_setpoint - UNDERSHOOT_MARGIN_CELSIUS
+        overshoot = max_flow_temperature >= reference_setpoint + OVERSHOOT_MARGIN_CELSIUS
+        underheat = max_flow_temperature <= reference_setpoint - UNDERSHOOT_MARGIN_CELSIUS
 
         short_threshold = TARGET_MIN_ON_TIME_SECONDS
         if pwm_status == PWMStatus.OFF:
