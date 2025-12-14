@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import timedelta, datetime
+from datetime import datetime
 from typing import Optional, Dict, Any
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .boiler import BoilerState
@@ -197,7 +196,6 @@ class DynamicMinimumSetpoint:
             self._last_requested_setpoint = None
 
         _LOGGER.debug("Loaded minimum setpoint state from storage: %d regimes.", len(self._regimes))
-        async_track_time_interval(hass, self.async_save_regimes, timedelta(minutes=15))
 
     async def async_save_regimes(self, _time: Optional[datetime] = None) -> None:
         if self._store is None:
