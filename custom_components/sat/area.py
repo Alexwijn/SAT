@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from datetime import timedelta, datetime
 from types import MappingProxyType
 from typing import Any, Optional
@@ -31,6 +32,13 @@ COMFORT_BAND = 0.1
 COOLING_SLOPE = 4.0
 OVERSHOOT_MARGIN = 0.3
 COOLING_HEADROOM = 10.0
+
+
+@dataclass(frozen=True)
+class HeatingAggregate:
+    """Aggregated secondary heating request."""
+    area_count: int
+    output: Optional[float]
 
 
 class Area:
@@ -75,7 +83,7 @@ class Area:
             return None
 
         # Check if there is an overridden sensor temperature
-        if sensor_temperature_id := state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID):
+        if (sensor_temperature_id := state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
             sensor_state = self._hass.states.get(sensor_temperature_id)
             if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                 return float_value(sensor_state.state)
@@ -88,7 +96,7 @@ class Area:
         if (self._hass is None) or (state := self.state) is None:
             return None
 
-        if ATTR_CURRENT_VALVE_POSITION in state.attributes:
+        if ATTR_CURRENT_VALVE_POSITION not in state.attributes:
             return None
 
         raw_value = state.attributes.get(ATTR_CURRENT_VALVE_POSITION)
@@ -133,10 +141,16 @@ class Area:
     @property
     def requires_heat(self) -> bool:
         """Determine if this area should influence heating arbitration."""
-        if self.valve_position is not None:
-            return self.valve_position >= 10
+        # Prefer real valve signal if available
+        valve_position = self.valve_position
+        if valve_position is not None:
+            return valve_position >= 10.0
 
-        return self.error.value > 0.3
+        # Otherwise, use PID output relative to boiler cold setpoint
+        if not self.pid.available:
+            return False
+
+        return self.pid.output > COLD_SETPOINT
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:
         """Run when the area is added to Home Assistant."""
@@ -238,8 +252,9 @@ class Areas:
             self._percentile = percentile
 
         @property
-        def output(self) -> float | None:
-            """Aggregate PID output for areas that still need heat."""
+        def heating_aggregate(self) -> HeatingAggregate:
+            """Aggregate PID output + count for areas that are calling for heat."""
+            area_count = 0
             outputs: list[float] = []
 
             for area in self._areas:
@@ -252,20 +267,20 @@ class Areas:
                     _LOGGER.warning("Failed to compute PID output for area %s: %s", area.id, exception)
                     continue
 
+                area_count += 1
                 outputs.append(value)
 
             if not outputs:
-                return None
+                return HeatingAggregate(output=None, area_count=0)
 
             outputs.sort()
-
             index = max(0, min(len(outputs) - 1, int(len(outputs) * self._percentile)))
             baseline = outputs[index]
 
             allowed = baseline + self._headroom
             chosen = min(outputs[-1], allowed)
 
-            return round(chosen, 1)
+            return HeatingAggregate(output=round(chosen, 1), area_count=area_count)
 
         @property
         def overshoot_cap(self) -> float | None:
@@ -273,21 +288,21 @@ class Areas:
             caps: list[float] = []
 
             for area in self._areas:
-                if not area.pid.available:
+                if not area.pid.available or not area.requires_heat:
                     continue
 
-                error = area.target_temperature - area.current_temperature
+                error = area.error
+                if error is None:
+                    continue
 
-                # Overshoot: current > target and margin (error negative beyond margin)
-                if error >= -OVERSHOOT_MARGIN:
+                if error.value >= -OVERSHOOT_MARGIN:
                     continue
 
                 # Degrees above target (positive number)
                 degrees_over = -error
 
                 # Start from a “max allowed in cooling” and pull it down with overshoot severity.
-                cap = COLD_SETPOINT + COOLING_HEADROOM - COOLING_SLOPE * degrees_over
-                caps.append(cap)
+                caps.append(COLD_SETPOINT + COOLING_HEADROOM - COOLING_SLOPE * degrees_over)
 
             if not caps:
                 return None
@@ -306,7 +321,7 @@ class Areas:
 
         def update(self, entity_id: str) -> None:
             """Update the PID controller for a specific area."""
-            if area := self._get_area(entity_id) is None:
+            if (area := self._get_area(entity_id)) is None:
                 return
 
             if area.error is None or area.heating_curve.value is None:

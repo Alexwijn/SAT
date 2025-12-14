@@ -515,25 +515,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         setpoint = self.pid.output
         if self._heating_mode == HEATING_MODE_ECO:
-            return setpoint
+            return round(setpoint, 1)
 
         # Secondary rooms: heating and overshoot information.
-        secondary_heating = self.areas.pids.output
+        aggregate = self.areas.pids.heating_aggregate
         overshoot_cap = self.areas.pids.overshoot_cap
 
-        if secondary_heating is not None:
-            if secondary_heating >= setpoint:
-                # Other rooms need more heat: allow some boost.
-                setpoint = min(secondary_heating, setpoint + 3.0)
-            else:
-                # Other rooms are satisfied sooner: allow some reduction.
-                setpoint = max(secondary_heating, setpoint - 2.0)
+        secondary_heating = aggregate.output
+        scaled_headroom_up = min(6.0, 2.0 + max(0, aggregate.area_count - 1) * 0.7)
 
-        # Apply the overshoot cap so overshooting rooms can cool down.
+        if secondary_heating is not None:
+            setpoint = min(max(setpoint, secondary_heating), setpoint + scaled_headroom_up)
+
         if overshoot_cap is not None:
             setpoint = min(setpoint, overshoot_cap)
 
-        return setpoint
+        return round(max(MINIMUM_SETPOINT, setpoint), 1)
 
     @property
     def valves_open(self) -> bool:
