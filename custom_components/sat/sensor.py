@@ -300,6 +300,11 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
         return self._climate.error.value
 
     @property
+    def available(self):
+        """Return availability of the sensor."""
+        return self._climate.error is not None
+
+    @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-error-value"
