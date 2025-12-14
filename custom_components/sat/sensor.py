@@ -297,7 +297,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
     @property
     def native_value(self) -> float:
         """Return the state of the device in native units."""
-        return self._climate.error
+        return self._climate.error.value
 
     @property
     def unique_id(self) -> str:

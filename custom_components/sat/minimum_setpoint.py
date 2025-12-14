@@ -152,6 +152,7 @@ class DynamicMinimumSetpoint:
         # Update the count of cycles and possibly adjust the learned minimum when a cycle has just completed.
         self._maybe_tune_minimum(regime_state, boiler_state, cycles, last_cycle, requested_setpoint)
 
+        self.async_save_regimes()
         self._last_requested_setpoint = requested_setpoint
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:

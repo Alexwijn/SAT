@@ -39,10 +39,9 @@ from .const import *
 from .const import PWMStatus
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
-from .errors import Errors, Error
+from .errors import Error
 from .helpers import convert_time_str_to_seconds, clamp
 from .manufacturers.geminox import Geminox
-from .pid import PID
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_dynamic_minimum_setpoint_controller
@@ -400,13 +399,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def extra_state_attributes(self):
         """Return device state attributes."""
         return {
-            "error": self.max_error.value,
-            "error_source": self.max_error.entity_id,
-
-            "integral": self.current_pid.integral,
-            "derivative": self.current_pid.derivative,
-            "proportional": self.current_pid.proportional,
-            "integral_enabled": self.current_pid.integral_enabled,
+            "error": self.error.value,
+            "integral": self.pid.integral,
+            "derivative": self.pid.derivative,
+            "proportional": self.pid.proportional,
+            "integral_enabled": self.pid.integral_enabled,
 
             "pre_custom_temperature": self._pre_custom_temperature,
             "pre_activity_temperature": self._pre_activity_temperature,
@@ -455,19 +452,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return self._current_humidity
 
     @property
-    def error(self) -> float:
+    def error(self) -> Optional[Error]:
         """Return the error value."""
-        if self.target_temperature is None or self.current_temperature is None:
-            return 0
+        target_temperature = self.target_temperature
+        current_temperature = self.current_temperature
 
-        return round(self.target_temperature - self.current_temperature, 2)
+        if target_temperature is None or current_temperature is None:
+            return None
 
-    @property
-    def current_pid(self) -> PID:
-        if self._heating_mode == HEATING_MODE_ECO:
-            return self.pid
-
-        return max([self.pid] + list(area.pid for area in self.areas.items()), key=lambda pid: pid.output)
+        return Error(self.entity_id, round(target_temperature - current_temperature, 2))
 
     @property
     def current_outside_temperature(self) -> Optional[float]:
@@ -509,18 +502,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return HVACAction.IDLE
 
         return HVACAction.HEATING
-
-    @property
-    def errors(self) -> Errors:
-        errors = Errors([Error(self.entity_id, self.error)])
-        if self._heating_mode == HEATING_MODE_ECO:
-            return errors
-
-        return errors + self.areas.errors
-
-    @property
-    def max_error(self) -> Error:
-        return max(self.errors, key=lambda error: error.value)
 
     @property
     def setpoint(self) -> float | None:
@@ -881,27 +862,28 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.warning("Current outside temperature is not available. Skipping PID control.")
             return
 
+        if self.error is None:
+            _LOGGER.debug("Skipping control loop for %s because error could not be computed", self.entity_id)
+            return
+
         # Reset the PID controller if the sensor data is too old
         if self._sensor_max_value_age != 0 and monotonic() - self.pid.last_updated > self._sensor_max_value_age:
             self.pid.reset()
-
-        # Calculate the error between the current temperature and the target temperature
-        error = Error(self.entity_id, self.error)
 
         # Make sure we use the latest heating curve value
         if self.target_temperature is not None:
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         # Calculate an optimal heating curve when we are in the deadband
-        if self.target_temperature is not None and -DEADBAND <= error.value <= DEADBAND:
+        if self.target_temperature is not None and -DEADBAND <= self.error.value <= DEADBAND:
             self.heating_curve.autotune(self.requested_setpoint, self.target_temperature, self.current_outside_temperature)
 
         if self.heating_curve.value is None:
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self.entity_id)
             return
 
-        self.pid.update(error, self.heating_curve.value)
-        _LOGGER.debug("PID update for %s (error=%s, curve=%s)", self.entity_id, error.value, self.heating_curve.value)
+        self.pid.update(self.error, self.heating_curve.value)
+        _LOGGER.debug("PID update for %s (error=%s, curve=%s)", self.entity_id, self.error.value, self.heating_curve.value)
 
         self.async_write_ha_state()
 
@@ -960,8 +942,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pwm.disable()
 
         # Control the integral (if exceeded the time limit)
-        if self.heating_curve.value is not None:
-            self.pid.update_integral(self.max_error, self.heating_curve.value)
+        if self.error is not None and self.heating_curve.value is not None:
+            self.pid.update_integral(self.error, self.heating_curve.value)
 
         # Control our area coordinators
         await self.areas.async_control_heating_loops()

@@ -23,6 +23,8 @@ _LOGGER = logging.getLogger(__name__)
 
 ATTR_TEMPERATURE = "temperature"
 ATTR_CURRENT_TEMPERATURE = "current_temperature"
+ATTR_CURRENT_VALVE_POSITION = "current_valve_position"
+
 ATTR_SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 
 COMFORT_BAND = 0.1
@@ -81,6 +83,23 @@ class Area:
         return float_value(state.attributes.get("current_temperature") or self.target_temperature)
 
     @property
+    def valve_position(self) -> Optional[float]:
+        """Retrieve the valve position from the climate entity."""
+        if (self._hass is None) or (state := self.state) is None:
+            return None
+
+        if ATTR_CURRENT_VALVE_POSITION in state.attributes:
+            return None
+
+        raw_value = state.attributes.get(ATTR_CURRENT_VALVE_POSITION)
+
+        try:
+            return float_value(raw_value)
+        except (TypeError, ValueError):
+            _LOGGER.debug("Invalid valve position for %s: %r", self.id, raw_value)
+            return None
+
+    @property
     def error(self) -> Optional[Error]:
         """Calculate the temperature error (target - current)."""
         target_temperature = self.target_temperature
@@ -110,6 +129,14 @@ class Area:
         clamped_weight = max(0.0, min(raw_weight, 2.0))
 
         return round(clamped_weight, 3)
+
+    @property
+    def requires_heat(self) -> bool:
+        """Determine if this area should influence heating arbitration."""
+        if self.valve_position is not None:
+            return self.valve_position >= 10
+
+        return self.error.value > 0.3
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:
         """Run when the area is added to Home Assistant."""
@@ -181,6 +208,7 @@ class Areas:
         for area in self._areas:
             if area.id == entity_id:
                 return area
+
         return None
 
     def ids(self) -> list[str]:
@@ -215,11 +243,7 @@ class Areas:
             outputs: list[float] = []
 
             for area in self._areas:
-                if not area.pid.available:
-                    continue
-
-                # Only consider rooms that are actually below target by a meaningful amount.
-                if area.error.value <= COMFORT_BAND:
+                if not area.pid.available or not area.requires_heat:
                     continue
 
                 try:
