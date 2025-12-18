@@ -6,7 +6,7 @@ from time import monotonic
 from typing import TYPE_CHECKING, Mapping, Any, Optional, Callable
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
-from homeassistant.core import HomeAssistant, callback, HassJob
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from .climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+
+CONTROL_DEBOUNCE_SECONDS = 5
+HASS_NOTIFY_DEBOUNCE_SECONDS = 5
 
 
 class DeviceState(str, Enum):
@@ -104,7 +107,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         self._device_on_since: Optional[float] = None
         self._last_pwm_status: Optional[PWMStatus] = None
-        self._listeners_unsub: Optional[Callable[[], None]] = None
+
+        self._hass_notify_cancel: Callable[[], None] | None = None
+        self._control_update_cancel: Callable[[], None] | None = None
 
         self._options: Mapping[str, Any] = options or {}
         self._config_data: Mapping[str, Any] = config_data
@@ -115,9 +120,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         if config_data.get(CONF_MANUFACTURER) is not None:
             self._manufacturer = ManufacturerFactory.resolve_by_name(config_data.get(CONF_MANUFACTURER))
-
-        self.async_add_listener(lambda: self._boiler.update(state=self.state, last_cycle=self.last_cycle))
-        self.async_add_listener(lambda: self._cycle_tracker.update(boiler_state=self.state, pwm_status=self._last_pwm_status))
 
     @property
     @abstractmethod
@@ -392,17 +394,30 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         # Update the internal data store with new values
         self.data.update(data)
 
-        if self.data.is_dirty():
-            # Cancel previous scheduled run, if any
-            if self._listeners_unsub is not None:
-                self._listeners_unsub()
-                self._listeners_unsub = None
+        if not self.data.is_dirty():
+            return
 
-            # Confirm that we've taken care of the changes
-            self.data.reset_dirty()
+        # Confirm that we've taken care of the changes
+        self.data.reset_dirty()
 
-            # Notify listeners to ensure the entities are updated
-            self._listeners_unsub = async_call_later(self.hass, 5, HassJob(self.async_notify_listeners))
+        # Coalesce internal control-plane updates
+        if self._control_update_cancel is None:
+            @callback
+            def _control(_: object) -> None:
+                self._control_update_cancel = None
+                self._boiler.update(state=self.state, last_cycle=self.last_cycle)
+                self._cycle_tracker.update(boiler_state=self.state, pwm_status=self._last_pwm_status)
+
+            self._control_update_cancel = async_call_later(self.hass, CONTROL_DEBOUNCE_SECONDS, _control)
+
+        # Coalesce HA entity listener updates
+        if self._hass_notify_cancel is None:
+            @callback
+            def _notify(_: object) -> None:
+                self._hass_notify_cancel = None
+                self.async_update_listeners()
+
+            self._hass_notify_cancel = async_call_later(self.hass, HASS_NOTIFY_DEBOUNCE_SECONDS, _notify)
 
 
 class SatEntityCoordinator(DataUpdateCoordinator):

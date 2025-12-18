@@ -13,7 +13,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State, CoreState
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_ROOMS, COLD_SETPOINT
+from .const import CONF_ROOMS, COLD_SETPOINT, CONF_ROOM_WEIGHTS, MINIMUM_SETPOINT
 from .errors import Errors, Error
 from .heating_curve import HeatingCurve
 from .helpers import float_value
@@ -34,11 +34,12 @@ OVERSHOOT_MARGIN = 0.3
 COOLING_HEADROOM = 10.0
 
 
-@dataclass(frozen=True)
-class HeatingAggregate:
-    """Aggregated secondary heating request."""
-    area_count: int
-    output: Optional[float]
+@dataclass(frozen=True, slots=True)
+class AreasSnapshot:
+    active_area_count: int
+    total_area_count: int
+    demand_weight_mean: Optional[float]
+    demand_weight_sum: Optional[float]
 
 
 class Area:
@@ -55,10 +56,29 @@ class Area:
         self.heating_curve: HeatingCurve = heating_curve
         self.pid: PID = create_pid_controller(config_options)
 
+        # Per-room influence scaling for demand calculations.
+        raw_weights = config_options.get(CONF_ROOM_WEIGHTS, {}) or {}
+        raw_value = raw_weights.get(entity_id, 1.0)
+
+        try:
+            room_weight = float(raw_value)
+        except (TypeError, ValueError):
+            room_weight = 1.0
+
+        # Clamp for safety; keep consistent with your UI min/max (0.1..3.0)
+        self._room_weight: float = max(0.1, min(room_weight, 3.0))
+
+        _LOGGER.debug("Area %s initialized with room_weight=%.3f", self._entity_id, self._room_weight)
+
     @property
     def id(self) -> str:
         """Return the entity id of this area."""
         return self._entity_id
+
+    @property
+    def room_weight(self) -> float:
+        """User-defined influence scaling factor for this room."""
+        return self._room_weight
 
     @property
     def state(self) -> Optional[State]:
@@ -139,6 +159,15 @@ class Area:
         return round(clamped_weight, 3)
 
     @property
+    def demand_weight(self) -> Optional[float]:
+        """Scaled demand weight, applying the user-defined room_weight."""
+        base = self.weight
+        if base is None:
+            return None
+
+        return round(base * self._room_weight, 3)
+
+    @property
     def requires_heat(self) -> bool:
         """Determine if this area should influence heating arbitration."""
         # Prefer real valve signal if available
@@ -193,7 +222,7 @@ class Area:
             return
 
         self.pid.update(self.error, self.heating_curve.value)
-        _LOGGER.debug("PID update for %s (error=%s, curve=%s)", self._entity_id, self.error.value, self.heating_curve.value)
+        _LOGGER.debug("PID update for %s (error=%s, curve=%s, output=%s)", self._entity_id, self.error.value, self.heating_curve.value, self.pid.output)
 
 
 class Areas:
@@ -216,6 +245,42 @@ class Areas:
     def pids(self) -> "Areas._PIDs":
         """Return an interface to reset PID controllers for all areas."""
         return Areas._PIDs(self._areas)
+
+    @property
+    def snapshot(self) -> AreasSnapshot:
+        """Create a point-in-time snapshot of area demand."""
+        active_areas: list[Area] = []
+        scaled_weights: list[float] = []
+
+        for area in self._areas:
+            if not area.requires_heat:
+                continue
+
+            active_areas.append(area)
+
+            weight = area.demand_weight
+            if weight is None:
+                continue
+
+            scaled_weights.append(float(weight))
+
+        if not scaled_weights:
+            return AreasSnapshot(
+                active_area_count=len(active_areas),
+                total_area_count=len(self._areas),
+                demand_weight_mean=None,
+                demand_weight_sum=None,
+            )
+
+        demand_weight_sum = float(sum(scaled_weights))
+        demand_weight_mean = float(demand_weight_sum / len(scaled_weights))
+
+        return AreasSnapshot(
+            active_area_count=len(active_areas),
+            total_area_count=len(self._areas),
+            demand_weight_mean=round(demand_weight_mean, 3),
+            demand_weight_sum=round(demand_weight_sum, 3),
+        )
 
     def get(self, entity_id: str) -> Optional[Area]:
         """Return the Area instance for a given entity id, if present."""
@@ -252,7 +317,7 @@ class Areas:
             self._percentile = percentile
 
         @property
-        def heating_aggregate(self) -> HeatingAggregate:
+        def output(self) -> float:
             """Aggregate PID output + count for areas that are calling for heat."""
             area_count = 0
             outputs: list[float] = []
@@ -271,7 +336,7 @@ class Areas:
                 outputs.append(value)
 
             if not outputs:
-                return HeatingAggregate(output=None, area_count=0)
+                return MINIMUM_SETPOINT
 
             outputs.sort()
             index = max(0, min(len(outputs) - 1, int(len(outputs) * self._percentile)))
@@ -280,7 +345,7 @@ class Areas:
             allowed = baseline + self._headroom
             chosen = min(outputs[-1], allowed)
 
-            return HeatingAggregate(output=round(chosen, 1), area_count=area_count)
+            return round(chosen, 1)
 
         @property
         def overshoot_cap(self) -> float | None:
@@ -321,7 +386,7 @@ class Areas:
 
         def update(self, entity_id: str) -> None:
             """Update the PID controller for a specific area."""
-            if (area := self._get_area(entity_id)) is None:
+            if (area := self._areas.get(entity_id)) is None:
                 return
 
             if area.error is None or area.heating_curve.value is None:
@@ -329,10 +394,3 @@ class Areas:
 
             _LOGGER.info("Updating PID for %s with error=%s", area.id, area.error.value)
             area.pid.update(area.error, area.heating_curve.value)
-
-        def _get_area(self, entity_id: str) -> Optional[Area]:
-            for area in self._areas:
-                if area.id == entity_id:
-                    return area
-
-            return None

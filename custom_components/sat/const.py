@@ -47,6 +47,7 @@ CONF_MINIMUM_SETPOINT = "minimum_setpoint"
 CONF_MAXIMUM_SETPOINT = "maximum_setpoint"
 CONF_MAXIMUM_RELATIVE_MODULATION = "maximum_relative_modulation"
 CONF_ROOMS = "secondary_climates"
+CONF_ROOM_WEIGHTS = "secondary_climate_weights"
 CONF_MQTT_TOPIC = "mqtt_topic"
 CONF_RADIATORS = "main_climates"
 CONF_WINDOW_SENSORS = "window_sensors"
@@ -114,6 +115,7 @@ OPTIONS_DEFAULTS = {
 
     CONF_RADIATORS: [],
     CONF_ROOMS: [],
+    CONF_ROOM_WEIGHTS: {},
 
     CONF_SIMULATION: False,
     CONF_WINDOW_SENSORS: [],

@@ -10,7 +10,7 @@ from typing import Deque, List, Optional, Tuple, TYPE_CHECKING
 from homeassistant.core import HomeAssistant
 
 from .const import CycleKind, CycleClassification, EVENT_SAT_CYCLE_STARTED, EVENT_SAT_CYCLE_ENDED, PWMStatus
-from .helpers import clamp
+from .helpers import clamp, min_max, average
 
 if TYPE_CHECKING:
     from .boiler import BoilerState
@@ -48,10 +48,10 @@ class Cycle:
     sample_count: int
     duration: float
 
-    # Reference setpoint used for classification
-    minimum_setpoint_at_start: Optional[float]
+    # Averages and extreme (min / max) over the samples where the value was not None
+    min_setpoint: Optional[float]
+    max_setpoint: Optional[float]
 
-    # Averages over the samples where the value was not None
     average_setpoint: Optional[float]
     average_flow_temperature: Optional[float]
     average_return_temperature: Optional[float]
@@ -238,7 +238,6 @@ class CycleTracker:
         self._last_flame_active: Optional[bool] = None
         self._current_cycle_start: Optional[float] = None
         self._last_flame_off_timestamp: Optional[float] = None
-        self._minimum_setpoint_at_start: Optional[float] = None
 
     @property
     def started_since(self) -> Optional[float]:
@@ -250,7 +249,6 @@ class CycleTracker:
         self._last_flame_active = None
         self._current_cycle_start = None
         self._last_flame_off_timestamp = None
-        self._minimum_setpoint_at_start = None
 
     def update(self, boiler_state: BoilerState, pwm_status: PWMStatus, timestamp: float = None) -> None:
         timestamp = timestamp or monotonic()
@@ -259,7 +257,7 @@ class CycleTracker:
 
         # OFF -> ON: start a new cycle
         if currently_active and not previously_active:
-            # Compute OFF-with-demand duration since last flame OFF, if any.
+            # Compute OFF-with-demand duration since the last flame OFF, if any.
             off_with_demand_duration: Optional[float] = None
 
             if self._last_flame_off_timestamp is not None:
@@ -283,7 +281,6 @@ class CycleTracker:
 
             _LOGGER.debug("Flame transition OFF->ON, starting new cycle.")
 
-            self._minimum_setpoint_at_start = boiler_state.setpoint
             self._current_cycle_start = timestamp
             self._current_samples.clear()
 
@@ -311,7 +308,6 @@ class CycleTracker:
             # Reset for the next potential cycle
             self._current_samples.clear()
             self._current_cycle_start = None
-            self._minimum_setpoint_at_start = None
 
         self._last_flame_active = currently_active
 
@@ -320,53 +316,36 @@ class CycleTracker:
             _LOGGER.debug("No start time, ignoring cycle.")
             return None
 
-        sample_count = len(self._current_samples)
         duration = max(0.0, end_time - self._current_cycle_start)
+        sample_count = len(self._current_samples)
 
         if sample_count < self._minimum_samples_per_cycle:
             _LOGGER.debug("Too few samples (%d < %d), ignoring cycle.", sample_count, self._minimum_samples_per_cycle)
             return None
 
-        samples: List[CycleSample] = list(self._current_samples)
+        samples: list[CycleSample] = list(self._current_samples)
 
         # Determine cycle kind and fractions
-        dhw_count = sum(1 for s in samples if s.boiler_state.hot_water_active)
+        dhw_count = sum(1 for sample in samples if sample.boiler_state.hot_water_active)
         heating_count = sum(1 for sample in samples if not sample.boiler_state.hot_water_active and sample.boiler_state.is_active)
 
-        fraction_dhw = dhw_count / float(sample_count) if sample_count else 0.0
-        fraction_heating = heating_count / float(sample_count) if sample_count else 0.0
-
-        if fraction_dhw > 0.8 and fraction_heating < 0.2:
-            kind = CycleKind.DOMESTIC_HOT_WATER
-        elif fraction_heating > 0.8 and fraction_dhw < 0.2:
-            kind = CycleKind.CENTRAL_HEATING
-        elif fraction_dhw > 0.1 and fraction_heating > 0.1:
-            kind = CycleKind.MIXED
-        else:
-            kind = CycleKind.UNKNOWN
-
-        # Aggregate numeric fields
-        def _avg(values: List[Optional[float]]) -> Optional[float]:
-            filtered = [value for value in values if value is not None]
-            if not filtered:
-                return None
-
-            return sum(filtered) / float(len(filtered))
+        fraction_dhw = dhw_count / float(sample_count)
+        fraction_heating = heating_count / float(sample_count)
+        kind = self.determine_cycle_kind(fraction_dhw, fraction_heating)
 
         setpoints = [sample.boiler_state.setpoint for sample in samples]
         flow_temperatures = [sample.boiler_state.flow_temperature for sample in samples]
         return_temperatures = [sample.boiler_state.return_temperature for sample in samples]
         modulation_levels = [sample.boiler_state.relative_modulation_level for sample in samples]
 
-        average_setpoint = _avg(setpoints)
-        average_flow_temperature = _avg(flow_temperatures)
-        average_return_temperature = _avg(return_temperatures)
-        average_relative_modulation_level = _avg(modulation_levels)
+        min_setpoint, max_setpoint = min_max(setpoints)
+        min_flow_temperature, max_flow_temperature = min_max(flow_temperatures)
+        min_return_temperature, max_return_temperature = min_max(return_temperatures)
 
-        min_flow_temperature = min((value for value in flow_temperatures if value is not None), default=None)
-        max_flow_temperature = max((value for value in flow_temperatures if value is not None), default=None)
-        min_return_temperature = min((value for value in return_temperatures if value is not None), default=None)
-        max_return_temperature = max((value for value in return_temperatures if value is not None), default=None)
+        average_setpoint = average(setpoints)
+        average_flow_temperature = average(flow_temperatures)
+        average_return_temperature = average(return_temperatures)
+        average_relative_modulation_level = average(modulation_levels)
 
         return Cycle(
             kind=kind,
@@ -374,9 +353,9 @@ class CycleTracker:
             classification=self._classify_cycle(
                 duration=duration,
                 pwm_status=pwm_status,
+                max_setpoint=max_setpoint,
                 statistics=self._history.statistics,
                 max_flow_temperature=max_flow_temperature,
-                reference_setpoint=self._minimum_setpoint_at_start,
             ),
 
             end=end_time,
@@ -384,7 +363,8 @@ class CycleTracker:
             sample_count=sample_count,
             start=self._current_cycle_start,
 
-            minimum_setpoint_at_start=self._minimum_setpoint_at_start,
+            min_setpoint=min_setpoint,
+            max_setpoint=max_setpoint,
 
             average_setpoint=average_setpoint,
             average_flow_temperature=average_flow_temperature,
@@ -393,6 +373,7 @@ class CycleTracker:
 
             min_flow_temperature=min_flow_temperature,
             max_flow_temperature=max_flow_temperature,
+
             min_return_temperature=min_return_temperature,
             max_return_temperature=max_return_temperature,
 
@@ -401,17 +382,30 @@ class CycleTracker:
         )
 
     @staticmethod
-    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: Optional[PWMStatus], max_flow_temperature: Optional[float], reference_setpoint: Optional[float]) -> CycleClassification:
+    def determine_cycle_kind(fraction_dhw: float, fraction_heating: float):
+        if fraction_dhw > 0.8 and fraction_heating < 0.2:
+            return CycleKind.DOMESTIC_HOT_WATER
+
+        if fraction_heating > 0.8 and fraction_dhw < 0.2:
+            return CycleKind.CENTRAL_HEATING
+
+        if fraction_dhw > 0.1 and fraction_heating > 0.1:
+            return CycleKind.MIXED
+
+        return CycleKind.UNKNOWN
+
+    @staticmethod
+    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: Optional[PWMStatus], max_flow_temperature: Optional[float], max_setpoint: Optional[float]) -> CycleClassification:
         """Decide what the last cycle implies for minimum-setpoint tuning."""
-        if duration <= 0.0 or reference_setpoint is None:
+        if duration <= 0.0 or max_setpoint is None:
             return CycleClassification.INSUFFICIENT_DATA
 
         # No flow temperature: we cannot determine overshoot or underheat, just note the cycle happened
         if max_flow_temperature is None:
             return CycleClassification.UNCERTAIN
 
-        overshoot = max_flow_temperature >= reference_setpoint + OVERSHOOT_MARGIN_CELSIUS
-        underheat = max_flow_temperature <= reference_setpoint - UNDERSHOOT_MARGIN_CELSIUS
+        overshoot = max_flow_temperature >= max_setpoint + OVERSHOOT_MARGIN_CELSIUS
+        underheat = max_flow_temperature <= max_setpoint - UNDERSHOOT_MARGIN_CELSIUS
 
         short_threshold = TARGET_MIN_ON_TIME_SECONDS
         if pwm_status == PWMStatus.OFF:

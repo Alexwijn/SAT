@@ -135,9 +135,7 @@ class Boiler:
 
     def update(self, state: BoilerState, last_cycle: Optional["Cycle"], timestamp: Optional[float] = None) -> None:
         """Update boiler classification with the latest state and last cycle summary."""
-        if timestamp is None:
-            timestamp = time.monotonic()
-
+        timestamp = timestamp or time.monotonic()
         previous = self._current_state
 
         self._current_state = state

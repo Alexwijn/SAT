@@ -1,7 +1,7 @@
 import math
 from re import sub
 from time import monotonic
-from typing import Optional, Union
+from typing import Optional, Union, Iterable, Tuple
 
 from homeassistant.util import dt
 
@@ -93,3 +93,26 @@ def clamp(value: float, low: float, high: Optional[float] = None) -> float:
         return max(low, value)
 
     return max(low, min(value, high))
+
+
+def filter_none(values: Iterable[Optional[float]]) -> list[float]:
+    """Return a list with all None values removed."""
+    return [value for value in values if value is not None]
+
+
+def average(values: Iterable[Optional[float]]) -> Optional[float]:
+    """Return the arithmetic mean, or None if no values are present."""
+    filtered = filter_none(values)
+    if not filtered:
+        return None
+
+    return sum(filtered) / float(len(filtered))
+
+
+def min_max(values: Iterable[Optional[float]]) -> Tuple[Optional[float], Optional[float]]:
+    """Return (min, max), or (None, None) if no values are present."""
+    filtered = filter_none(values)
+    if not filtered:
+        return None, None
+
+    return min(filtered), max(filtered)

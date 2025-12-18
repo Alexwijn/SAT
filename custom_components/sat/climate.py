@@ -40,7 +40,7 @@ from .const import PWMStatus
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .errors import Error
-from .helpers import convert_time_str_to_seconds, clamp
+from .helpers import convert_time_str_to_seconds, clamp, float_value
 from .manufacturers.geminox import Geminox
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
@@ -235,7 +235,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.hass.bus.async_listen(EVENT_SAT_CYCLE_STARTED, lambda _: self.minimum_setpoint.on_cycle_start(
             cycles=self._coordinator.cycles,
-            boiler_state=self._coordinator.state,
+            areas_snapshot=self.areas.snapshot,
             last_cycle=self._coordinator.last_cycle,
             requested_setpoint=self._last_requested_setpoint,
             outside_temperature=self.current_outside_temperature
@@ -243,6 +243,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda _: self.minimum_setpoint.on_cycle_end(
             cycles=self._coordinator.cycles,
+            areas_snapshot=self.areas.snapshot,
             boiler_state=self._coordinator.state,
             last_cycle=self._coordinator.last_cycle,
             requested_setpoint=self._last_requested_setpoint,
@@ -342,7 +343,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._hvac_mode = old_state.state
 
             if old_state.attributes.get(ATTR_SETPOINT):
-                self._setpoint = old_state.attributes.get(ATTR_SETPOINT)
+                self._setpoint = float_value(old_state.attributes.get(ATTR_SETPOINT))
 
             if old_state.attributes.get(ATTR_PRESET_MODE):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
@@ -514,18 +515,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return MINIMUM_SETPOINT
 
         setpoint = self.pid.output
+
+        # ECO: only follow the primary PID.
         if self._heating_mode == HEATING_MODE_ECO:
             return round(setpoint, 1)
 
         # Secondary rooms: heating and overshoot information.
-        aggregate = self.areas.pids.heating_aggregate
+        secondary_heating = self.areas.pids.output
         overshoot_cap = self.areas.pids.overshoot_cap
 
-        secondary_heating = aggregate.output
-        scaled_headroom_up = min(6.0, 2.0 + max(0, aggregate.area_count - 1) * 0.7)
-
         if secondary_heating is not None:
-            setpoint = min(max(setpoint, secondary_heating), setpoint + scaled_headroom_up)
+            setpoint = max(setpoint, secondary_heating)
 
         if overshoot_cap is not None:
             setpoint = min(setpoint, overshoot_cap)
@@ -617,24 +617,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         last_cycle = self._coordinator.last_cycle
         boiler_status = self._coordinator.device_status
 
-        # No history yet: keep the current state to avoid flapping on startup.
-        if last_cycle is None:
-            return self.pwm.enabled
-
         # If the last cycle was unhealthy (short cycling, overshoot, etc.), enable PWM.
-        if last_cycle.classification in UNHEALTHY_CYCLES:
+        if last_cycle is not None and last_cycle.classification in UNHEALTHY_CYCLES:
             return True
 
         # If the boiler is stalled, enable PWM.
         if boiler_status == BoilerStatus.STALLED_IGNITION:
             return True
 
-        # Distance to the dynamic minimum setpoint
-        if self._last_requested_setpoint is None:
-            return self.pwm.enabled
-
-        minimum_setpoint = self.minimum_setpoint.value
-        delta = self._last_requested_setpoint - minimum_setpoint
+        delta = self.requested_setpoint - self.minimum_setpoint.value
 
         # Near or below the dynamic minimum -> low load -> we want PWM.
         if delta <= PWM_ENABLE_MARGIN_CELSIUS:
@@ -880,7 +871,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         self.pid.update(self.error, self.heating_curve.value)
-        _LOGGER.debug("PID update for %s (error=%s, curve=%s)", self.entity_id, self.error.value, self.heating_curve.value)
+        _LOGGER.debug("PID update for %s (error=%s, curve=%s, output=%s)", self.entity_id, self.error.value, self.heating_curve.value, self.pid.output)
 
         self.async_write_ha_state()
 

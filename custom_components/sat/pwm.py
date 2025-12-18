@@ -110,10 +110,10 @@ class PWM:
             if elapsed <= HEATER_STARTUP_TIMEFRAME:
                 self._last_boiler_temperature = (self._alpha * boiler_state.flow_temperature + (1 - self._alpha) * self._last_boiler_temperature)
 
-                _LOGGER.debug("Updated last boiler temperature with weighted average during startup phase.")
+                _LOGGER.debug("Updated last boiler temperature with weighted average during startup phase to %.1f°C", self._last_boiler_temperature)
             else:
                 self._last_boiler_temperature = boiler_state.flow_temperature
-                _LOGGER.debug("Updated last boiler temperature to %.1f°C", boiler_state.flow_temperature)
+                _LOGGER.debug("Updated last boiler temperature to %.1f°C", self._last_boiler_temperature)
 
         # State transitions for PWM
         if self._status != PWMStatus.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._status == PWMStatus.IDLE):

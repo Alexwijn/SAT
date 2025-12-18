@@ -553,7 +553,12 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._options = dict(config_entry.options)
 
     async def async_step_init(self, _user_input: dict[str, Any] | None = None):
-        menu_options = ["general", "presets", "system_configuration"]
+        menu_options = ["general", "presets"]
+
+        if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0:
+            menu_options.append("areas")
+
+        menu_options.append("system_configuration")
 
         if self.show_advanced_options:
             menu_options.append("advanced")
@@ -647,6 +652,40 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=options[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
                 vol.Required(CONF_PUSH_SETPOINT_TO_THERMOSTAT, default=options[CONF_PUSH_SETPOINT_TO_THERMOSTAT]): bool,
             })
+        )
+
+    async def async_step_areas(self, user_input: dict[str, Any] | None = None):
+        room_weights: dict[str, float] = dict(self._options.get(CONF_ROOM_WEIGHTS, {}))
+
+        room_entity_ids: list[str] = list(self._config_entry.data.get(CONF_ROOMS, []))
+
+        # Build stable schema keys (entity_id) and friendly labels separately
+        room_labels: dict[str, str] = {}
+        for entity_id in room_entity_ids:
+            state = self.hass.states.get(entity_id)
+            name = state.name if state else entity_id
+            room_labels[entity_id] = f"{name} ({entity_id})"
+
+        if user_input is not None:
+            # Persist only currently configured rooms, normalize to float
+            new_room_weights: dict[str, float] = {}
+            for entity_id in room_entity_ids:
+                raw_value = user_input.get(entity_id, room_weights.get(entity_id, 1.0))
+                new_room_weights[entity_id] = float(raw_value)
+
+            return await self.update_options({CONF_ROOM_WEIGHTS: new_room_weights})
+
+        schema_fields = {}
+        for entity_id in room_entity_ids:
+            schema_fields[
+                vol.Required(entity_id, default=room_weights.get(entity_id, 1.0))
+            ] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0.1, max=3.0, step=0.1, mode=selector.NumberSelectorMode.SLIDER)
+            )
+
+        return self.async_show_form(
+            step_id="areas",
+            data_schema=vol.Schema(schema_fields),
         )
 
     async def async_step_system_configuration(self, _user_input: dict[str, Any] | None = None):
