@@ -167,12 +167,17 @@ class DynamicMinimumSetpoint:
         # Update the count of cycles and possibly adjust the learned minimum when a cycle has just completed.
         self._maybe_tune_minimum(regime_state, boiler_state, cycles, last_cycle, requested_setpoint)
 
-        self.async_save_regimes()
+        if self._hass is not None:
+            self._hass.create_task(self.async_save_regimes())
+        else:
+            _LOGGER.debug("Cannot save minimum setpoint regimes: hass not set")
 
         self._value = regime_state.minimum_setpoint
         self._last_requested_setpoint = requested_setpoint
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
+        self._hass = hass
+
         if self._store is None:
             self._store = Store(hass, STORAGE_VERSION, f"sat.minimum_setpoint.{device_id}")
 
@@ -473,11 +478,16 @@ class DynamicMinimumSetpoint:
             return
 
         old_minimum = regime_state.minimum_setpoint
-        regime_state.minimum_setpoint *= self._config.large_jump_damping_factor
-        regime_state.minimum_setpoint = self._clamp_setpoint(regime_state.minimum_setpoint)
+        factor = self._config.large_jump_damping_factor
+        blended = factor * old_minimum + (1.0 - factor) * requested_setpoint
+
+        if requested_setpoint < self._last_requested_setpoint:
+            blended = min(blended, requested_setpoint)
+
+        regime_state.minimum_setpoint = self._clamp_setpoint(blended)
 
         _LOGGER.debug(
-            "Large requested_setpoint jump (%.1f -> %.1f, delta=%.1f).  Damping learned minimum for regime %s: %.1f -> %.1f",
+            "Large requested_setpoint jump (%.1f -> %.1f, delta=%.1f). Damping learned minimum for regime %s: %.1f -> %.1f",
             self._last_requested_setpoint, requested_setpoint, jump, self._active_regime_key, old_minimum, regime_state.minimum_setpoint
         )
 
