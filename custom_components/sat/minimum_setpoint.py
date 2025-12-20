@@ -158,9 +158,6 @@ class DynamicMinimumSetpoint:
         # Determine the active regime for this requested_setpoint.
         regime_state = self._regime_for(cycles, requested_setpoint, outside_temperature, areas_snapshot)
 
-        # Handle large jumps in requested_setpoint (regime changes).
-        self._maybe_damp_on_large_jump(requested_setpoint, regime_state)
-
         # Mark a cycle as completed.
         regime_state.completed_cycles += 1
 
@@ -464,32 +461,6 @@ class DynamicMinimumSetpoint:
         )
 
         regime_state.minimum_setpoint = self._clamp_setpoint(new)
-
-    def _maybe_damp_on_large_jump(self, requested_setpoint: float, regime_state: "RegimeState") -> None:
-        """
-        When requested_setpoint jumps a lot (for example, cold morning start),
-        damp the learned minimum for the active regime so it does not apply too aggressively in a new regime.
-        """
-        if self._last_requested_setpoint is None:
-            return
-
-        jump = abs(requested_setpoint - self._last_requested_setpoint)
-        if jump <= self._config.max_setpoint_jump_without_damping:
-            return
-
-        old_minimum = regime_state.minimum_setpoint
-        factor = self._config.large_jump_damping_factor
-        blended = factor * old_minimum + (1.0 - factor) * requested_setpoint
-
-        if requested_setpoint < self._last_requested_setpoint:
-            blended = min(blended, requested_setpoint)
-
-        regime_state.minimum_setpoint = self._clamp_setpoint(blended)
-
-        _LOGGER.debug(
-            "Large requested_setpoint jump (%.1f -> %.1f, delta=%.1f). Damping learned minimum for regime %s: %.1f -> %.1f",
-            self._last_requested_setpoint, requested_setpoint, jump, self._active_regime_key, old_minimum, regime_state.minimum_setpoint
-        )
 
     def _clamp_setpoint(self, value: float) -> float:
         return clamp(value, COLD_SETPOINT, self._config.maximum_setpoint)
