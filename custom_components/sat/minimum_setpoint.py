@@ -86,9 +86,6 @@ class DynamicMinimumSetpoint:
         # Currently active regime key.
         self._active_regime_key: Optional[str] = None
 
-        # Last seen requested_setpoint, for jump detection and safety.
-        self._last_requested_setpoint: Optional[float] = None
-
     @property
     def value(self) -> float:
         if self._value is None:
@@ -98,7 +95,6 @@ class DynamicMinimumSetpoint:
 
     def reset(self) -> None:
         """Reset learned minimums and internal state."""
-        self._last_requested_setpoint = None
         self._active_regime_key = None
         self._regimes.clear()
         self._value = None
@@ -170,7 +166,6 @@ class DynamicMinimumSetpoint:
             _LOGGER.debug("Cannot save minimum setpoint regimes: hass not set")
 
         self._value = regime_state.minimum_setpoint
-        self._last_requested_setpoint = requested_setpoint
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
         self._hass = hass
@@ -208,16 +203,8 @@ class DynamicMinimumSetpoint:
                 minimum_setpoint=self._clamp_setpoint(minimum),
             )
 
-        last_base = data.get("last_requested_setpoint")
-
         try:
-            self._last_requested_setpoint = float(last_base) if last_base is not None else None
-        except (TypeError, ValueError):
-            self._last_requested_setpoint = None
-
-        last_value = data.get("value")
-
-        try:
+            last_value = data.get("value")
             self._value = float(last_value) if last_value is not None else None
         except (TypeError, ValueError):
             self._value = None
@@ -239,7 +226,6 @@ class DynamicMinimumSetpoint:
             "value": self._value,
             "regimes": regimes_data,
             "version": STORAGE_VERSION,
-            "last_requested_setpoint": self._last_requested_setpoint,
         }
 
         await self._store.async_save(data)
