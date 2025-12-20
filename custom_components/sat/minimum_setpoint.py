@@ -304,6 +304,14 @@ class DynamicMinimumSetpoint:
 
     def _initial_minimum_for_regime(self, new_regime_key: str) -> float:
         if self._regimes:
+            temperature_band_order: dict[str, int] = {
+                "unknown": 0,
+                "freezing": 1,
+                "cold": 2,
+                "mild": 3,
+                "warm": 4,
+            }
+
             def regime_distance(key: str) -> tuple[int, int]:
                 parts_a = key.split(":")
                 parts_b = new_regime_key.split(":")
@@ -311,10 +319,10 @@ class DynamicMinimumSetpoint:
                 setpoint_a = int(parts_a[0])
                 setpoint_b = int(parts_b[0])
 
-                outside_a = int(parts_a[1]) if len(parts_a) > 1 else 0
-                outside_b = int(parts_b[1]) if len(parts_b) > 1 else 0
+                temperature_a = temperature_band_order.get(parts_a[1], 0) if len(parts_a) > 1 else 0
+                temperature_b = temperature_band_order.get(parts_b[1], 0) if len(parts_b) > 1 else 0
 
-                return abs(setpoint_a - setpoint_b), abs(outside_a - outside_b)
+                return abs(setpoint_a - setpoint_b), abs(temperature_a - temperature_b)
 
             closest_key = min(self._regimes.keys(), key=regime_distance)
             closest_state = self._regimes.get(closest_key)
