@@ -266,13 +266,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Register event listeners."""
         self.async_on_remove(
             async_track_time_interval(
-                self.hass, self.schedule_control_heating_loop, timedelta(seconds=30)
+                self.hass, self.schedule_control_heating_loop, timedelta(seconds=10)
             )
         )
 
         self.async_on_remove(
             async_track_time_interval(
-                self.hass, self.async_control_pid, timedelta(seconds=60)
+                self.hass, self.async_control_pid, timedelta(seconds=30)
             )
         )
 
