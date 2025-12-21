@@ -10,7 +10,7 @@ from homeassistant.helpers.storage import Store
 
 from .boiler import BoilerState
 from .const import CycleClassification, COLD_SETPOINT
-from .cycles import CycleKind, UNDERSHOOT_MARGIN_CELSIUS, OVERSHOOT_MARGIN_CELSIUS
+from .cycles import CycleKind
 from .helpers import clamp
 
 if TYPE_CHECKING:
@@ -386,8 +386,7 @@ class DynamicMinimumSetpoint:
         #   - The boiler did not approach the requested flow setpoint.
         #   - This means the requested flow temperature is *too high*.
         if classification in (CycleClassification.TOO_SHORT_UNDERHEAT, CycleClassification.LONG_UNDERHEAT):
-            magnitude = max(0.0, last_cycle.max_flow_temperature - (last_cycle.max_setpoint + OVERSHOOT_MARGIN_CELSIUS))
-            regime_state.minimum_setpoint -= clamp(1.0 + 0.3 * magnitude, 1.0, 2.5)
+            regime_state.minimum_setpoint -= self._config.decrease_step
 
         # TOO_SHORT_OVERSHOOT:
         #   - Short burn AND flow shoots past setpoint.
@@ -397,8 +396,7 @@ class DynamicMinimumSetpoint:
         #   - Long-ish burns but high cycles/hour and overshoot.
         #   - Also indicates the requested setpoint is too low for stable operation.
         elif classification in (CycleClassification.TOO_SHORT_OVERSHOOT, CycleClassification.SHORT_CYCLING_OVERSHOOT):
-            magnitude = max(0.0, (last_cycle.max_setpoint - UNDERSHOOT_MARGIN_CELSIUS) - last_cycle.max_flow_temperature)
-            regime_state.minimum_setpoint += clamp(1.0 + 0.3 * magnitude, 1.0, 2.5)
+            regime_state.minimum_setpoint += self._config.increase_step
 
         # UNCERTAIN:
         #   - Conflicting signals, borderline flows, or sensor noise.
