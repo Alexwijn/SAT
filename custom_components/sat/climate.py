@@ -913,7 +913,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.hvac_mode != HVACMode.HEAT:
             return
 
-        if self._last_requested_setpoint is None:
+        if self._last_requested_setpoint is None or self.pwm.enabled:
             # Default to the calculated setpoint
             self._last_requested_setpoint = self.requested_setpoint
         else:
