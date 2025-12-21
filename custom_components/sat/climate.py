@@ -891,7 +891,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._control_heating_loop_unsub is not None:
             return
 
-        self._control_heating_loop_unsub = async_call_later(self.hass, 10, HassJob(self.async_control_heating_loop))
+        self._control_heating_loop_unsub = async_call_later(self.hass, 5, HassJob(self.async_control_heating_loop))
 
     async def async_control_heating_loop(self, _time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
