@@ -364,7 +364,7 @@ class Areas:
                     continue
 
                 # Degrees above target (positive number)
-                degrees_over = -error
+                degrees_over = -error.value
 
                 # Start from a “max allowed in cooling” and pull it down with overshoot severity.
                 caps.append(COLD_SETPOINT + COOLING_HEADROOM - COOLING_SLOPE * degrees_over)
