@@ -192,7 +192,7 @@ class Area:
 
         # Periodic update as a fallback when we do not have a dedicated sensor listener
         self._time_interval = async_track_time_interval(
-            self._hass, self.update, timedelta(seconds=60)
+            self._hass, self.update, timedelta(seconds=30)
         )
 
     async def async_will_remove_from_hass(self) -> None:
