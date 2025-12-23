@@ -168,7 +168,7 @@ class DynamicMinimumSetpoint:
                 and last_cycle.classification in (CycleClassification.GOOD, CycleClassification.UNCERTAIN)
                 and float(cycles.off_with_demand_duration) >= float(self._starvation_threshold.limit_seconds)
         ):
-            regime_state.minimum_setpoint = boiler_state.flow_temperature + 5
+            regime_state.minimum_setpoint = boiler_state.flow_temperature + 10
             _LOGGER.debug("Updated regime minimum_setpoint=%.1f after starvation.", regime_state.minimum_setpoint)
 
         # Update the count of cycles and possibly adjust the learned minimum when a cycle has just completed.
