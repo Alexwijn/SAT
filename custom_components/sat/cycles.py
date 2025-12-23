@@ -299,10 +299,10 @@ class CycleTracker:
             self._last_flame_off_timestamp = timestamp
 
             cycle_state = self._build_cycle_state(pwm_status, timestamp)
-            self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle_state})
 
             # Push into history
             if cycle_state is not None:
+                self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle_state})
                 self._history.record_cycle(cycle_state)
 
             # Reset for the next potential cycle

@@ -233,22 +233,21 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.areas.async_added_to_hass(self.hass)
         await self.minimum_setpoint.async_added_to_hass(self.hass, self._coordinator.device_id)
 
-        self.hass.bus.async_listen(EVENT_SAT_CYCLE_STARTED, lambda _: self.minimum_setpoint.on_cycle_start(
+        self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_STARTED, lambda _: self.minimum_setpoint.on_cycle_start(
             cycles=self._coordinator.cycles,
             areas_snapshot=self.areas.snapshot,
-            last_cycle=self._coordinator.last_cycle,
-            requested_setpoint=self._last_requested_setpoint,
+            requested_setpoint=self.requested_setpoint,
             outside_temperature=self.current_outside_temperature
-        ))
+        )))
 
-        self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda _: self.minimum_setpoint.on_cycle_end(
+        self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda event: self.minimum_setpoint.on_cycle_end(
             cycles=self._coordinator.cycles,
             areas_snapshot=self.areas.snapshot,
             boiler_state=self._coordinator.state,
-            last_cycle=self._coordinator.last_cycle,
-            requested_setpoint=self._last_requested_setpoint,
+            last_cycle=event.data.get("cycle"),
+            requested_setpoint=self.requested_setpoint,
             outside_temperature=self.current_outside_temperature
-        ))
+        )))
 
         self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
 
@@ -913,7 +912,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.hvac_mode != HVACMode.HEAT:
             return
 
-        if self._last_requested_setpoint is None or self.pwm.enabled:
+        if self._last_requested_setpoint is None:
             # Default to the calculated setpoint
             self._last_requested_setpoint = self.requested_setpoint
         else:

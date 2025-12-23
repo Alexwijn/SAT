@@ -24,6 +24,16 @@ FLOOR_MARGIN = 3
 
 
 @dataclass(frozen=True, slots=True)
+class StarvationThreshold:
+    absolute_limit_seconds: float
+    dynamic_limit_seconds: float
+
+    @property
+    def limit_seconds(self) -> float:
+        return max(self.absolute_limit_seconds, self.dynamic_limit_seconds)
+
+
+@dataclass(frozen=True, slots=True)
 class MinimumSetpointConfig:
     # The absolute allowed range for any setpoint
     minimum_setpoint: float
@@ -102,52 +112,46 @@ class DynamicMinimumSetpoint:
     def on_cycle_start(
             self,
             cycles: CycleStatistics,
-            last_cycle: Optional[Cycle],
             requested_setpoint: Optional[float],
             outside_temperature: Optional[float],
-            areas_snapshot: Optional[AreasSnapshot]
+            areas_snapshot: Optional[AreasSnapshot] = None,
     ) -> None:
-        # Make sure we have enough values to work with
-        if requested_setpoint is None or cycles.off_with_demand_duration is None:
+        self._starvation_threshold = None
+
+        if requested_setpoint is None:
             return
 
-        # Require relevant heating context
-        if last_cycle is None or last_cycle.kind not in (CycleKind.CENTRAL_HEATING, CycleKind.MIXED):
-            return
+        absolute_limit_seconds = float(self._config.starvation_min_off_seconds)
+        reference_on_duration_seconds = cycles.median_on_duration_seconds_4h
 
-        # Avoid changing minimum for demanded overshoot/short cycles
-        if last_cycle.classification not in (CycleClassification.GOOD, CycleClassification.UNCERTAIN):
-            return
+        if reference_on_duration_seconds is None:
+            reference_on_duration_seconds = 600.0
 
-        # Determine starvation
-        absolute_limit = self._config.starvation_min_off_seconds
-        dynamic_limit = last_cycle.duration * self._config.starvation_off_ratio
+        dynamic_limit_seconds = float(reference_on_duration_seconds) * float(self._config.starvation_off_ratio)
 
-        regime_state = self._regime_for(
-            cycles=cycles,
-            requested_setpoint=requested_setpoint,
-            outside_temperature=outside_temperature,
-            areas_snapshot=areas_snapshot
+        self._starvation_threshold = StarvationThreshold(
+            absolute_limit_seconds=absolute_limit_seconds,
+            dynamic_limit_seconds=dynamic_limit_seconds,
         )
 
-        threshold = max(absolute_limit, dynamic_limit)
-        if cycles.off_with_demand_duration >= threshold:
-            regime_state.minimum_setpoint += self._config.increase_step
-            regime_state.minimum_setpoint = self._clamp_setpoint(regime_state.minimum_setpoint)
-            _LOGGER.debug("Updated regime minimum_setpoint=%.1f after starvation.", regime_state.minimum_setpoint)
+        self._active_regime_key = self._make_regime_key(
+            cycles=cycles,
+            requested_setpoint=float(requested_setpoint),
+            outside_temperature=outside_temperature,
+            areas_snapshot=areas_snapshot,
+        )
 
-        self._value = regime_state.minimum_setpoint
+        self._minimum_setpoint_at_cycle_start = float(self.value)
 
     def on_cycle_end(
             self,
             boiler_state: BoilerState,
-            cycles: CycleStatistics,
-            last_cycle: Cycle,
+            cycles: "CycleStatistics",
+            last_cycle: "Cycle",
             requested_setpoint: Optional[float],
             outside_temperature: Optional[float],
-            areas_snapshot: Optional[AreasSnapshot]
+            areas_snapshot: Optional["AreasSnapshot"],
     ) -> None:
-        # Make sure we have enough values to work with
         if requested_setpoint is None:
             return
 
@@ -156,6 +160,16 @@ class DynamicMinimumSetpoint:
 
         # Mark a cycle as completed.
         regime_state.completed_cycles += 1
+
+        if (
+                self._starvation_threshold is not None
+                and cycles.off_with_demand_duration is not None
+                and last_cycle.kind in (CycleKind.CENTRAL_HEATING, CycleKind.MIXED)
+                and last_cycle.classification in (CycleClassification.GOOD, CycleClassification.UNCERTAIN)
+                and float(cycles.off_with_demand_duration) >= float(self._starvation_threshold.limit_seconds)
+        ):
+            regime_state.minimum_setpoint = boiler_state.flow_temperature + 5
+            _LOGGER.debug("Updated regime minimum_setpoint=%.1f after starvation.", regime_state.minimum_setpoint)
 
         # Update the count of cycles and possibly adjust the learned minimum when a cycle has just completed.
         self._maybe_tune_minimum(regime_state, boiler_state, cycles, last_cycle, requested_setpoint)
