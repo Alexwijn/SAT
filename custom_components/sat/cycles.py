@@ -163,7 +163,7 @@ class CycleHistory:
 
     @property
     def last_cycle(self) -> Optional[Cycle]:
-        if self._last_cycle is None or (monotonic() - self._last_cycle.end) > 3600:
+        if self._last_cycle is None or (monotonic() - self._last_cycle.end) > 12 * 3600:
             return None
 
         return self._last_cycle
