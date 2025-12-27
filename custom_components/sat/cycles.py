@@ -63,6 +63,10 @@ class Cycle:
     min_return_temperature: Optional[float]
     max_return_temperature: Optional[float]
 
+    # Tail-window percentiles
+    tail_p90_flow_temperature: Optional[float]
+    tail_p90_delta_flow_minus_setpoint: Optional[float]
+
     # Fractions of time in DHW vs. space heating (approximated by sample counts)
     fraction_domestic_hot_water: float
     fraction_space_heating: float
@@ -352,10 +356,11 @@ class CycleTracker:
 
             classification=self._classify_cycle(
                 duration=duration,
-                pwm_status=pwm_status,
-                max_setpoint=max_setpoint,
                 statistics=self._history.statistics,
-                max_flow_temperature=max_flow_temperature,
+                pwm_status=pwm_status,
+                samples=samples,
+                start_time=self._current_cycle_start,
+                end_time=end_time,
             ),
 
             end=end_time,
@@ -377,6 +382,24 @@ class CycleTracker:
             min_return_temperature=min_return_temperature,
             max_return_temperature=max_return_temperature,
 
+            tail_p90_flow_temperature=CycleTracker._tail_flow_percentile(
+                samples,
+                start_time=self._current_cycle_start,
+                end_time=end_time,
+                warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
+                tail_seconds=90.0,
+                percentile=0.90,
+            ),
+
+            tail_p90_delta_flow_minus_setpoint=CycleTracker._tail_delta_percentile(
+                samples,
+                start_time=self._current_cycle_start,
+                end_time=end_time,
+                warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
+                tail_seconds=90.0,
+                percentile=0.90,
+            ),
+
             fraction_domestic_hot_water=fraction_dhw,
             fraction_space_heating=fraction_heating,
         )
@@ -395,24 +418,99 @@ class CycleTracker:
         return CycleKind.UNKNOWN
 
     @staticmethod
-    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: Optional[PWMStatus], max_flow_temperature: Optional[float], max_setpoint: Optional[float]) -> CycleClassification:
+    def _tail_flow_percentile(samples: list[CycleSample], start_time: float, end_time: float, warmup_seconds: float, tail_seconds: float, percentile: float, minimum_points: int = 3) -> Optional[float]:
+        """Percentile of flow_temperature in a tail window (time-based)."""
+        if end_time <= start_time:
+            return None
+
+        observation_start = start_time + max(0.0, warmup_seconds)
+        tail_start = max(observation_start, end_time - max(0.0, tail_seconds))
+
+        values: list[float] = []
+        for sample in samples:
+            if sample.timestamp < tail_start or sample.timestamp > end_time:
+                continue
+
+            flow_temperature = sample.boiler_state.flow_temperature
+            if flow_temperature is None:
+                continue
+
+            values.append(flow_temperature)
+
+        if len(values) < minimum_points:
+            return None
+
+        values.sort()
+        index = int(round((len(values) - 1) * percentile))
+        index = max(0, min(index, len(values) - 1))
+        return values[index]
+
+    @staticmethod
+    def _tail_delta_percentile(samples: list[CycleSample], start_time: float, end_time: float, warmup_seconds: float, tail_seconds: float, percentile: float, minimum_points: int = 3) -> Optional[float]:
+        """Percentile of (flow_temperature - setpoint) in a tail window (time-based)."""
+        if end_time <= start_time:
+            return None
+
+        observation_start = start_time + max(0.0, warmup_seconds)
+        tail_start = max(observation_start, end_time - max(0.0, tail_seconds))
+
+        deltas: list[float] = []
+        for sample in samples:
+            if sample.timestamp < tail_start or sample.timestamp > end_time:
+                continue
+
+            flow_temperature = sample.boiler_state.flow_temperature
+            setpoint = sample.boiler_state.setpoint
+            if flow_temperature is None or setpoint is None:
+                continue
+
+            deltas.append(flow_temperature - setpoint)
+
+        if len(deltas) < minimum_points:
+            return None
+
+        deltas.sort()
+        index = int(round((len(deltas) - 1) * percentile))
+        index = max(0, min(index, len(deltas) - 1))
+        return deltas[index]
+
+    @staticmethod
+    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: PWMStatus, samples: list[CycleSample], start_time: float, end_time: float) -> CycleClassification:
         """Decide what the last cycle implies for minimum-setpoint tuning."""
-        if duration <= 0.0 or max_setpoint is None:
+        if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
-        # No flow temperature: we cannot determine overshoot or underheat, just note the cycle happened
-        if max_flow_temperature is None:
+        tail_p90_delta = CycleTracker._tail_delta_percentile(
+            samples,
+            start_time=start_time,
+            end_time=end_time,
+            warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
+            tail_seconds=90.0,
+            percentile=0.90,
+        )
+
+        # Fallback if the tail window is too sparse (short cycle or missing values).
+        if tail_p90_delta is None:
+            tail_p90_delta = CycleTracker._tail_delta_percentile(
+                samples,
+                start_time=start_time,
+                end_time=end_time,
+                warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
+                tail_seconds=180.0,
+                percentile=0.90,
+            )
+
+        if tail_p90_delta is None:
             return CycleClassification.UNCERTAIN
 
-        overshoot = max_flow_temperature >= max_setpoint + OVERSHOOT_MARGIN_CELSIUS
-        underheat = max_flow_temperature <= max_setpoint - UNDERSHOOT_MARGIN_CELSIUS
+        overshoot = tail_p90_delta >= OVERSHOOT_MARGIN_CELSIUS
+        underheat = tail_p90_delta <= -UNDERSHOOT_MARGIN_CELSIUS
 
         short_threshold = TARGET_MIN_ON_TIME_SECONDS
         if pwm_status == PWMStatus.OFF:
-            # If PWM explicitly requested OFF, we do not treat this as "too short"
+            # If PWM explicitly requested OFF, we do not treat this as "too short".
             short_threshold = 0.0
 
-        # Only treat shortness as a problem when we actually have evidence of over- or under-shoot.
         if duration < short_threshold:
             if overshoot:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
@@ -431,5 +529,4 @@ class CycleTracker:
         if short_cycling_context and overshoot and not underheat:
             return CycleClassification.SHORT_CYCLING_OVERSHOOT
 
-        # No strong evidence of trouble: treat as a "good enough" cycle
         return CycleClassification.GOOD

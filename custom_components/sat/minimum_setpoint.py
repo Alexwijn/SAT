@@ -50,13 +50,6 @@ class MinimumSetpointConfig:
     minimum_relax_factor_when_untunable: float = 0.9
     minimum_relax_factor_when_uncertain: float = 0.95
 
-    # On large requested_setpoint jumps, reduce the impact of the previously learned minimum so we do not starve completely different regimes.
-    large_jump_damping_factor: float = 0.5
-    max_setpoint_jump_without_damping: float = 10.0
-
-    # Safety: maximum deviation from the typical requested_setpoint we allow for the learned minimum.
-    max_deviation_from_recent_base: float = 15.0
-
     # How many completed cycles we require after the first initialization before we start tuning.
     warmup_cycles_before_tuning: int = 1
 
@@ -88,7 +81,7 @@ class DynamicMinimumSetpoint:
         if self._value is None:
             return self._config.minimum_setpoint
 
-        return self._value
+        return clamp(self._value, self._config.minimum_setpoint, self._config.maximum_setpoint)
 
     def reset(self) -> None:
         """Reset learned minimums and internal state."""
@@ -133,7 +126,11 @@ class DynamicMinimumSetpoint:
             )
 
             if initial_minimum is None:
-                initial_minimum = last_cycle.max_flow_temperature
+                initial_minimum = (
+                    last_cycle.tail_p90_flow_temperature
+                    if last_cycle.tail_p90_flow_temperature is not None
+                    else last_cycle.average_setpoint
+                )
 
             regime_state = RegimeState(minimum_setpoint=initial_minimum)
             self._regimes[self._active_regime_key] = regime_state
@@ -175,7 +172,7 @@ class DynamicMinimumSetpoint:
                 continue
 
             try:
-                minimum = float(item["minimum_setpoint"])
+                minimum_setpoint = float(item["minimum_setpoint"])
             except (KeyError, TypeError, ValueError):
                 continue
 
@@ -185,8 +182,8 @@ class DynamicMinimumSetpoint:
                 completed = 0
 
             self._regimes[str(key)] = RegimeState(
+                minimum_setpoint=minimum_setpoint,
                 completed_cycles=max(0, completed),
-                minimum_setpoint=self._clamp_setpoint(minimum),
             )
 
         try:
@@ -256,7 +253,7 @@ class DynamicMinimumSetpoint:
         if closest_state is None:
             return None
 
-        return self._clamp_setpoint(closest_state.minimum_setpoint)
+        return closest_state.minimum_setpoint
 
     def _maybe_tune_minimum(self, regime_state: "RegimeState", boiler_state_at_end: "BoilerState", statistics: "CycleStatistics", last_cycle: Cycle, requested_setpoint: float) -> None:
         """Decide whether and how to adjust the learned minimum setpoint for the active regime after a cycle. """
@@ -334,7 +331,7 @@ class DynamicMinimumSetpoint:
             return
 
         # Clamp learned the minimum for this regime to absolute range.
-        regime_state.minimum_setpoint = self._clamp_setpoint(regime_state.minimum_setpoint)
+        regime_state.minimum_setpoint = regime_state.minimum_setpoint
         _LOGGER.debug("Updated regime %s minimum_setpoint=%.1f after cycle.", self._active_regime_key, regime_state.minimum_setpoint, )
 
     def _is_tunable_regime(self, boiler_state: BoilerState, statistics: CycleStatistics) -> bool:
@@ -361,8 +358,15 @@ class DynamicMinimumSetpoint:
 
         anchor = requested_setpoint
         if last_cycle.max_flow_temperature is not None:
-            effective_floor = last_cycle.max_flow_temperature - FLOOR_MARGIN
-            anchor = max(anchor, effective_floor)
+            reference_flow = (
+                last_cycle.tail_p90_flow_temperature
+                if last_cycle.tail_p90_flow_temperature is not None
+                else last_cycle.max_flow_temperature
+            )
+
+            if reference_flow is not None:
+                effective_floor = reference_flow - FLOOR_MARGIN
+                anchor = max(anchor, effective_floor)
 
         old = regime_state.minimum_setpoint
         new = factor * old + (1.0 - factor) * anchor
@@ -372,7 +376,7 @@ class DynamicMinimumSetpoint:
             self._active_regime_key, anchor, old, new, factor
         )
 
-        regime_state.minimum_setpoint = self._clamp_setpoint(new)
+        regime_state.minimum_setpoint = new
 
     def _make_regime_key(
             self,
@@ -504,6 +508,3 @@ class DynamicMinimumSetpoint:
 
         self._previous_demand_weight_bucket = previous_bucket
         return previous_bucket
-
-    def _clamp_setpoint(self, value: float) -> float:
-        return clamp(value, self._config.minimum_setpoint, self._config.maximum_setpoint)
