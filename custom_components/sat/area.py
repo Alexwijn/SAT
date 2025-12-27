@@ -380,9 +380,11 @@ class Areas:
 
             return round(cap, 1)
 
-        def reset(self):
+        def reset(self, entity_id: Optional[str] = None) -> None:
             for area in self._areas:
-                area.pid.reset()
+                if entity_id is None or entity_id == area.id:
+                    _LOGGER.info("Reset PID controller for %s", area.id)
+                    area.pid.reset()
 
         def update(self, entity_id: str) -> None:
             """Update the PID controller for a specific area."""

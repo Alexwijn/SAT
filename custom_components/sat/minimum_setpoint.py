@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .boiler import BoilerState
-from .const import CycleClassification, COLD_SETPOINT
+from .const import CycleClassification
 from .cycles import CycleKind
 from .helpers import clamp
 
@@ -21,16 +21,6 @@ _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 FLOOR_MARGIN = 3
-
-
-@dataclass(frozen=True, slots=True)
-class StarvationThreshold:
-    absolute_limit_seconds: float
-    dynamic_limit_seconds: float
-
-    @property
-    def limit_seconds(self) -> float:
-        return max(self.absolute_limit_seconds, self.dynamic_limit_seconds)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,9 +63,6 @@ class MinimumSetpointConfig:
     # Regime grouping: bucket base setpoint into bands so we can remember different regimes.
     regime_band_width: float = 3.0
 
-    starvation_off_ratio: float = 2.0
-    starvation_min_off_seconds: float = 600.0
-
 
 @dataclass(slots=True)
 class RegimeState:
@@ -89,12 +76,12 @@ class DynamicMinimumSetpoint:
         self._config = config
         self._store: Optional[Store] = None
         self._value: Optional[float] = None
+        self._hass: Optional[HomeAssistant] = None
 
-        # Learned per-regime minimum setpoints.
         self._regimes: Dict[str, RegimeState] = {}
-
-        # Currently active regime key.
         self._active_regime_key: Optional[str] = None
+        self._previous_active_area_bucket: Optional[str] = None
+        self._previous_demand_weight_bucket: Optional[str] = None
 
     @property
     def value(self) -> float:
@@ -116,60 +103,45 @@ class DynamicMinimumSetpoint:
             outside_temperature: Optional[float],
             areas_snapshot: Optional[AreasSnapshot] = None,
     ) -> None:
-        self._starvation_threshold = None
-
         if requested_setpoint is None:
             return
 
-        absolute_limit_seconds = float(self._config.starvation_min_off_seconds)
-        reference_on_duration_seconds = cycles.median_on_duration_seconds_4h
-
-        if reference_on_duration_seconds is None:
-            reference_on_duration_seconds = 600.0
-
-        dynamic_limit_seconds = float(reference_on_duration_seconds) * float(self._config.starvation_off_ratio)
-
-        self._starvation_threshold = StarvationThreshold(
-            absolute_limit_seconds=absolute_limit_seconds,
-            dynamic_limit_seconds=dynamic_limit_seconds,
-        )
-
         self._active_regime_key = self._make_regime_key(
             cycles=cycles,
-            requested_setpoint=float(requested_setpoint),
+            requested_setpoint=requested_setpoint,
             outside_temperature=outside_temperature,
             areas_snapshot=areas_snapshot,
         )
-
-        self._minimum_setpoint_at_cycle_start = float(self.value)
 
     def on_cycle_end(
             self,
             boiler_state: BoilerState,
             cycles: "CycleStatistics",
             last_cycle: "Cycle",
-            requested_setpoint: Optional[float],
-            outside_temperature: Optional[float],
-            areas_snapshot: Optional["AreasSnapshot"],
+            requested_setpoint: Optional[float]
     ) -> None:
-        if requested_setpoint is None:
+        if requested_setpoint is None or self._active_regime_key is None:
             return
 
-        # Determine the active regime for this requested_setpoint.
-        regime_state = self._regime_for(cycles, requested_setpoint, outside_temperature, areas_snapshot)
+        regime_state = self._regimes.get(
+            self._active_regime_key
+        )
+
+        if regime_state is None:
+            initial_minimum = self._initial_minimum_for_regime(
+                self._active_regime_key
+            )
+
+            if initial_minimum is None:
+                initial_minimum = last_cycle.max_flow_temperature
+
+            regime_state = RegimeState(minimum_setpoint=initial_minimum)
+            self._regimes[self._active_regime_key] = regime_state
+
+            _LOGGER.debug("Initialized regime %s with minimum_setpoint=%.1f from requested_setpoint=%.1f", self._active_regime_key, initial_minimum, requested_setpoint)
 
         # Mark a cycle as completed.
         regime_state.completed_cycles += 1
-
-        if (
-                self._starvation_threshold is not None
-                and cycles.off_with_demand_duration is not None
-                and last_cycle.kind in (CycleKind.CENTRAL_HEATING, CycleKind.MIXED)
-                and last_cycle.classification in (CycleClassification.GOOD, CycleClassification.UNCERTAIN)
-                and float(cycles.off_with_demand_duration) >= float(self._starvation_threshold.limit_seconds)
-        ):
-            regime_state.minimum_setpoint = boiler_state.flow_temperature + 10
-            _LOGGER.debug("Updated regime minimum_setpoint=%.1f after starvation.", regime_state.minimum_setpoint)
 
         # Update the count of cycles and possibly adjust the learned minimum when a cycle has just completed.
         self._maybe_tune_minimum(regime_state, boiler_state, cycles, last_cycle, requested_setpoint)
@@ -245,108 +217,50 @@ class DynamicMinimumSetpoint:
         await self._store.async_save(data)
         _LOGGER.debug("Saved minimum setpoint state to storage (%d regimes).", len(self._regimes))
 
-    def _regime_for(self, cycles: CycleStatistics, requested_setpoint: float, outside_temperature: Optional[float], areas_snapshot: Optional[AreasSnapshot]) -> RegimeState:
-        regime_key = self._make_regime_key(cycles, requested_setpoint, outside_temperature, areas_snapshot)
-        regime_state = self._regimes.get(regime_key)
+    def _initial_minimum_for_regime(self, new_regime_key: str) -> Optional[float]:
+        if not self._regimes:
+            return None
 
-        if regime_state is None:
-            initial_minimum = self._initial_minimum_for_regime(new_regime_key=regime_key)
-            regime_state = RegimeState(minimum_setpoint=initial_minimum)
-            self._regimes[regime_key] = regime_state
+        temperature_band_order: dict[str, int] = {
+            "unknown": 0,
+            "freezing": 1,
+            "cold": 2,
+            "mild": 3,
+            "warm": 4,
+        }
 
-            _LOGGER.debug("Initialized regime %s with minimum_setpoint=%.1f from requested_setpoint=%.1f", regime_key, initial_minimum, requested_setpoint)
+        def regime_distance(key: str) -> tuple[int, int, int]:
+            parts_a = key.split(":")
+            parts_b = new_regime_key.split(":")
 
-        self._active_regime_key = regime_key
-        return regime_state
+            setpoint_a = int(parts_a[0])
+            setpoint_b = int(parts_b[0])
 
-    def _make_regime_key(self, cycles: "CycleStatistics", requested_setpoint: float, outside_temperature: float, areas_snapshot: Optional["AreasSnapshot"]) -> str:
-        setpoint_band = int(round(requested_setpoint / self._config.regime_band_width))
+            temperature_a = temperature_band_order.get(parts_a[1], 0) if len(parts_a) > 1 else 0
+            temperature_b = temperature_band_order.get(parts_b[1], 0) if len(parts_b) > 1 else 0
 
-        if outside_temperature is None:
-            temperature_band = "unknown"
-        elif outside_temperature < 0:
-            temperature_band = "freezing"
-        elif outside_temperature < 5:
-            temperature_band = "cold"
-        elif outside_temperature < 15:
-            temperature_band = "mild"
-        else:
-            temperature_band = "warm"
+            primary = abs(setpoint_a - setpoint_b)
+            secondary = abs(temperature_a - temperature_b)
 
-        if cycles.last_hour_count > 4.5 and cycles.duty_ratio_last_15m < 0.4:
-            load_band = "low"
-        else:
-            load_band = "normal"
+            trv_mismatch = 0
+            if len(parts_a) > 3 and len(parts_b) > 3 and parts_a[3] != parts_b[3]:
+                trv_mismatch += 1
+            if len(parts_a) > 4 and len(parts_b) > 4 and parts_a[4] != parts_b[4]:
+                trv_mismatch += 1
 
-        if areas_snapshot is None:
-            active_band = "unknown"
-        elif areas_snapshot.active_area_count <= 0:
-            active_band = "0"
-        elif areas_snapshot.active_area_count == 1:
-            active_band = "1"
-        elif areas_snapshot.active_area_count <= 3:
-            active_band = "2-3"
-        else:
-            active_band = "4+"
+            return primary, secondary, trv_mismatch
 
-        if areas_snapshot is None or areas_snapshot.demand_weight_sum is None:
-            weight_band = "unknown"
-        elif areas_snapshot.demand_weight_sum < 0.5:
-            weight_band = "0-0.5"
-        elif areas_snapshot.demand_weight_sum < 1.5:
-            weight_band = "0.5-1.5"
-        elif areas_snapshot.demand_weight_sum < 3.0:
-            weight_band = "1.5-3.0"
-        elif areas_snapshot.demand_weight_sum < 5.0:
-            weight_band = "3.0-5.0"
-        else:
-            weight_band = "5.0+"
+        closest_key = min(self._regimes.keys(), key=regime_distance)
+        closest_state = self._regimes.get(closest_key)
 
-        return f"{setpoint_band}:{temperature_band}:{load_band}:sec{active_band}:w{weight_band}"
+        if closest_state is None:
+            return None
 
-    def _initial_minimum_for_regime(self, new_regime_key: str) -> float:
-        if self._regimes:
-            temperature_band_order: dict[str, int] = {
-                "unknown": 0,
-                "freezing": 1,
-                "cold": 2,
-                "mild": 3,
-                "warm": 4,
-            }
-
-            def regime_distance(key: str) -> tuple[int, int]:
-                parts_a = key.split(":")
-                parts_b = new_regime_key.split(":")
-
-                setpoint_a = int(parts_a[0])
-                setpoint_b = int(parts_b[0])
-
-                temperature_a = temperature_band_order.get(parts_a[1], 0) if len(parts_a) > 1 else 0
-                temperature_b = temperature_band_order.get(parts_b[1], 0) if len(parts_b) > 1 else 0
-
-                return abs(setpoint_a - setpoint_b), abs(temperature_a - temperature_b)
-
-            closest_key = min(self._regimes.keys(), key=regime_distance)
-            closest_state = self._regimes.get(closest_key)
-
-            if closest_state is not None:
-                return self._clamp_setpoint(closest_state.minimum_setpoint)
-
-        if self._active_regime_key is not None:
-            previous = self._regimes.get(self._active_regime_key)
-            if previous is not None:
-                return self._clamp_setpoint(previous.minimum_setpoint)
-
-        return self._clamp_setpoint(self._config.minimum_setpoint)
+        return self._clamp_setpoint(closest_state.minimum_setpoint)
 
     def _maybe_tune_minimum(self, regime_state: "RegimeState", boiler_state_at_end: "BoilerState", statistics: "CycleStatistics", last_cycle: Cycle, requested_setpoint: float) -> None:
         """Decide whether and how to adjust the learned minimum setpoint for the active regime after a cycle. """
         if self._active_regime_key is None:
-            return
-
-        # Do not tune during the initial warmup cycles after starting or reset for this regime.
-        if regime_state.completed_cycles <= self._config.warmup_cycles_before_tuning:
-            _LOGGER.debug("In warmup period (%d <= %d), not tuning yet.", regime_state.completed_cycles, self._config.warmup_cycles_before_tuning)
             return
 
         # Check if the current regime is suitable for minimum tuning.
@@ -460,5 +374,136 @@ class DynamicMinimumSetpoint:
 
         regime_state.minimum_setpoint = self._clamp_setpoint(new)
 
+    def _make_regime_key(
+            self,
+            cycles: "CycleStatistics",
+            requested_setpoint: float,
+            outside_temperature: Optional[float],
+            areas_snapshot: Optional["AreasSnapshot"],
+    ) -> str:
+        setpoint_band = int(requested_setpoint // self._config.regime_band_width)
+
+        if outside_temperature is None:
+            temperature_band = "unknown"
+        elif outside_temperature < 0.0:
+            temperature_band = "freezing"
+        elif outside_temperature < 5.0:
+            temperature_band = "cold"
+        elif outside_temperature < 15.0:
+            temperature_band = "mild"
+        else:
+            temperature_band = "warm"
+
+        # Load band (keep coarse and stable)
+        if cycles.sample_count_4h < max(6, self._config.minimum_on_samples_for_tuning):
+            load_band = "unknown"
+        else:
+            is_low_load = (
+                    cycles.last_hour_count >= self._config.low_load_minimum_cycles_per_hour
+                    and cycles.duty_ratio_last_15m <= self._config.low_load_maximum_duty_ratio_15m
+            )
+            load_band = "low" if is_low_load else "normal"
+
+        # TRV-derived regime dimensions (coarse + hysteresis)
+        active_area_bucket = "sec_unknown"
+        demand_weight_bucket = "w_unknown"
+
+        if areas_snapshot is not None:
+            active_area_bucket = self._bucket_active_area_count_with_hysteresis(areas_snapshot.active_area_count)
+            demand_weight_bucket = self._bucket_demand_weight_with_hysteresis(areas_snapshot.demand_weight_sum or 0.0)
+
+        return f"{setpoint_band}:{temperature_band}:{load_band}:{active_area_bucket}:{demand_weight_bucket}"
+
+    def _bucket_active_area_count_with_hysteresis(self, active_area_count: int) -> str:
+        previous_bucket = self._previous_demand_weight_bucket
+
+        if previous_bucket is None:
+            if active_area_count <= 0:
+                bucket = "sec0"
+            elif active_area_count == 1:
+                bucket = "sec1"
+            elif active_area_count <= 3:
+                bucket = "sec2-3"
+            else:
+                bucket = "sec4+"
+
+            self._previous_active_area_bucket = bucket
+            return bucket
+
+        # Hysteresis rules: require a full step change to move buckets
+        if previous_bucket == "sec0":
+            if active_area_count >= 2:
+                previous_bucket = "sec2-3"
+            elif active_area_count == 1:
+                previous_bucket = "sec1"
+
+        elif previous_bucket == "sec1":
+            if active_area_count <= 0:
+                previous_bucket = "sec0"
+            elif active_area_count >= 3:
+                previous_bucket = "sec2-3"
+
+        elif previous_bucket == "sec2-3":
+            if active_area_count <= 1:
+                previous_bucket = "sec1"
+            elif active_area_count >= 5:
+                previous_bucket = "sec4+"
+
+        elif previous_bucket == "sec4+":
+            if active_area_count <= 3:
+                previous_bucket = "sec2-3"
+
+        self._previous_active_area_bucket = previous_bucket
+        return previous_bucket
+
+    def _bucket_demand_weight_with_hysteresis(self, demand_weight_sum: float) -> str:
+
+        previous_bucket = self._previous_demand_weight_bucket
+
+        # Thresholds (coarse).
+        low_threshold = 0.6
+        medium_threshold = 1.5
+        high_threshold = 3.0
+
+        # Hysteresis margins
+        margin = 0.15
+
+        if previous_bucket is None:
+            if demand_weight_sum < low_threshold:
+                bucket = "w_none"
+            elif demand_weight_sum < medium_threshold:
+                bucket = "w_low"
+            elif demand_weight_sum < high_threshold:
+                bucket = "w_med"
+            else:
+                bucket = "w_high"
+
+            self._previous_demand_weight_bucket = bucket
+            return bucket
+
+        # Stickiness around thresholds
+        if previous_bucket == "w_none":
+            if demand_weight_sum >= low_threshold + margin:
+                previous_bucket = "w_low"
+
+        elif previous_bucket == "w_low":
+            if demand_weight_sum < low_threshold - margin:
+                previous_bucket = "w_none"
+            elif demand_weight_sum >= medium_threshold + margin:
+                previous_bucket = "w_med"
+
+        elif previous_bucket == "w_med":
+            if demand_weight_sum < medium_threshold - margin:
+                previous_bucket = "w_low"
+            elif demand_weight_sum >= high_threshold + margin:
+                previous_bucket = "w_high"
+
+        elif previous_bucket == "w_high":
+            if demand_weight_sum < high_threshold - margin:
+                previous_bucket = "w_med"
+
+        self._previous_demand_weight_bucket = previous_bucket
+        return previous_bucket
+
     def _clamp_setpoint(self, value: float) -> float:
-        return clamp(value, COLD_SETPOINT, self._config.maximum_setpoint)
+        return clamp(value, self._config.minimum_setpoint, self._config.maximum_setpoint)

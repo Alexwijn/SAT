@@ -242,11 +242,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda event: self.minimum_setpoint.on_cycle_end(
             cycles=self._coordinator.cycles,
-            areas_snapshot=self.areas.snapshot,
             boiler_state=self._coordinator.state,
             last_cycle=event.data.get("cycle"),
-            requested_setpoint=self.requested_setpoint,
-            outside_temperature=self.current_outside_temperature
+            requested_setpoint=self.requested_setpoint
         )))
 
         self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
@@ -719,12 +717,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if (target_temperature := new_attrs.get("temperature")) is None:
             return
 
-        if (
-                new_state.entity_id not in self._rooms or
-                (self.preset_mode == PRESET_HOME and float(target_temperature) != self._rooms.get(new_state.entity_id, target_temperature))
-        ):
+        if float(target_temperature) == self._rooms.get(new_state.entity_id, target_temperature):
+            return
+
+        if new_state.entity_id not in self._rooms or self.preset_mode == PRESET_HOME:
             self._rooms[new_state.entity_id] = float(target_temperature)
             _LOGGER.debug(f"Updated area preset temperature for {new_state.entity_id} to {target_temperature}")
+
+        self.areas.pids.reset(new_state.entity_id)
 
         self.async_write_ha_state()
 
