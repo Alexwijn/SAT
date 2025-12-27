@@ -369,7 +369,7 @@ class DynamicMinimumSetpoint:
                 anchor = max(anchor, effective_floor)
 
         old = regime_state.minimum_setpoint
-        new = round(factor * old + (1.0 - factor) * anchor * 2, 0) / 2
+        new = round(factor * old + (1.0 - factor) * anchor * 2, 1)
 
         _LOGGER.debug(
             "Relaxing regime %s minimum toward anchor=%.1f: %.1f -> %.1f (factor=%.2f)",
