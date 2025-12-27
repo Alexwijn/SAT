@@ -127,9 +127,9 @@ class DynamicMinimumSetpoint:
 
             if initial_minimum is None:
                 initial_minimum = (
-                    last_cycle.tail_p90_flow_temperature
-                    if last_cycle.tail_p90_flow_temperature is not None
-                    else last_cycle.average_setpoint
+                    last_cycle.tail.flow_temperature.p90
+                    if  last_cycle.tail.flow_temperature.p90 is not None
+                    else last_cycle.max_setpoint
                 )
 
             regime_state = RegimeState(minimum_setpoint=initial_minimum)
@@ -275,21 +275,21 @@ class DynamicMinimumSetpoint:
             return
 
         classification = last_cycle.classification
-        average_setpoint = last_cycle.average_setpoint
+        p90_setpoint = last_cycle.tail.setpoint.p90
 
-        if average_setpoint is None:
-            average_setpoint = boiler_state_at_end.setpoint
+        if p90_setpoint is None:
+            p90_setpoint = boiler_state_at_end.setpoint
 
-        if average_setpoint is None:
-            _LOGGER.debug("No average setpoint for cycle, skipping tuning.")
+        if p90_setpoint is None:
+            _LOGGER.debug("No setpoint found for cycle, skipping tuning.")
             return
 
         current_minimum = regime_state.minimum_setpoint
 
-        if abs(average_setpoint - current_minimum) > self._config.minimum_setpoint_learning_band:
+        if abs(p90_setpoint - current_minimum) > self._config.minimum_setpoint_learning_band:
             _LOGGER.debug(
-                "Cycle average_setpoint=%.1f is too far from regime minimum_setpoint=%.1f (band=%.1f), skipping tuning.",
-                average_setpoint, current_minimum, self._config.minimum_setpoint_learning_band,
+                "Cycle p90_setpoint=%.1f is too far from regime minimum_setpoint=%.1f (band=%.1f), skipping tuning.",
+                p90_setpoint, current_minimum, self._config.minimum_setpoint_learning_band,
             )
             return
 
@@ -359,8 +359,8 @@ class DynamicMinimumSetpoint:
         anchor = requested_setpoint
         if last_cycle.max_flow_temperature is not None:
             reference_flow = (
-                last_cycle.tail_p90_flow_temperature
-                if last_cycle.tail_p90_flow_temperature is not None
+                last_cycle.tail.flow_temperature.p90
+                if last_cycle.tail.flow_temperature.p90 is not None
                 else last_cycle.max_flow_temperature
             )
 
@@ -369,7 +369,7 @@ class DynamicMinimumSetpoint:
                 anchor = max(anchor, effective_floor)
 
         old = regime_state.minimum_setpoint
-        new = factor * old + (1.0 - factor) * anchor
+        new = round(factor * old + (1.0 - factor) * anchor * 2, 0) / 2
 
         _LOGGER.debug(
             "Relaxing regime %s minimum toward anchor=%.1f: %.1f -> %.1f (factor=%.2f)",
