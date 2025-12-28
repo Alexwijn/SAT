@@ -5,7 +5,6 @@ import asyncio
 import logging
 from datetime import timedelta, datetime
 from time import monotonic, time
-from typing import Optional, Callable
 
 from homeassistant.components import notify, sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -936,7 +935,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.areas.async_control_heating_loops()
 
         # Control the heating through the coordinator
-        await self._coordinator.async_control_heating_loop(climate=self, pwm_status=self.pwm.status)
+        await self._coordinator.async_control_heating_loop(climate=self, pwm_state=self.pwm.state)
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint()

@@ -20,6 +20,7 @@ class PWMState:
     Encapsulates the state of the PWM control.
     """
     enabled: bool
+    status: PWMStatus
     duty_cycle: Optional[Tuple[int, int]]
     last_duty_cycle_percentage: Optional[float]
 
@@ -238,6 +239,7 @@ class PWM:
     @property
     def state(self):
         return PWMState(
+            status=self._status,
             enabled=self._enabled,
             duty_cycle=self._duty_cycle,
             last_duty_cycle_percentage=round(self._last_duty_cycle_percentage * 100, 2) if self._last_duty_cycle_percentage is not None else None

@@ -13,6 +13,7 @@ from .const import CycleClassification, CycleKind, EVENT_SAT_CYCLE_ENDED, EVENT_
 from .helpers import clamp, min_max
 
 if TYPE_CHECKING:
+    from .pwm import PWMState
     from .boiler import BoilerState
 
 _LOGGER = logging.getLogger(__name__)
@@ -96,8 +97,10 @@ class CycleHistory:
     def __init__(self, duty_window_seconds: int = 15 * 60, cycles_window_seconds: int = 60 * 60, median_window_seconds: int = 4 * 60 * 60) -> None:
         if duty_window_seconds <= 0:
             raise ValueError("duty_window_seconds must be > 0")
+
         if cycles_window_seconds <= 0:
             raise ValueError("cycles_window_seconds must be > 0")
+
         if median_window_seconds <= 0:
             raise ValueError("median_window_seconds must be > 0")
 
@@ -140,11 +143,7 @@ class CycleHistory:
             return 0.0
 
         cutoff = now - float(self._duty_window_seconds)
-        on_seconds = sum(
-            duration_seconds
-            for end_time, duration_seconds in self._cycle_end_times_window
-            if end_time >= cutoff
-        )
+        on_seconds = sum(duration_seconds for end_time, duration_seconds in self._cycle_end_times_window if end_time >= cutoff)
 
         if on_seconds <= 0.0:
             return 0.0
@@ -170,8 +169,10 @@ class CycleHistory:
         """Most recent completed cycle, or None if it is too old."""
         if self._last_cycle is None:
             return None
+
         if (monotonic() - self._last_cycle.end) > LAST_CYCLE_MAX_AGE_SECONDS:
             return None
+
         return self._last_cycle
 
     @property
@@ -261,7 +262,7 @@ class CycleTracker:
         self._current_cycle_start = None
         self._last_flame_off_timestamp = None
 
-    def update(self, boiler_state: BoilerState, pwm_status: PWMStatus, timestamp: Optional[float] = None) -> None:
+    def update(self, boiler_state: BoilerState, pwm_state: PWMState, timestamp: Optional[float] = None) -> None:
         timestamp = monotonic() if timestamp is None else timestamp
 
         previously_active = self._last_flame_active
@@ -286,7 +287,7 @@ class CycleTracker:
             _LOGGER.debug("Flame transition ON->OFF, finalizing cycle.")
             self._last_flame_off_timestamp = timestamp
 
-            cycle = self._build_cycle_state(pwm_status=pwm_status, end_time=timestamp)
+            cycle = self._build_cycle_state(pwm_state=pwm_state, end_time=timestamp)
             if cycle is not None:
                 self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle})
                 self._history.record_cycle(cycle)
@@ -317,7 +318,7 @@ class CycleTracker:
         self._last_flame_off_timestamp = None
         return None
 
-    def _build_cycle_state(self, pwm_status: PWMStatus, end_time: float) -> Optional[Cycle]:
+    def _build_cycle_state(self, pwm_state: PWMState, end_time: float) -> Optional[Cycle]:
         if self._current_cycle_start is None:
             _LOGGER.debug("No start time, ignoring cycle.")
             return None
@@ -327,11 +328,7 @@ class CycleTracker:
         sample_count = len(self._current_samples)
 
         if sample_count < self._minimum_samples_per_cycle:
-            _LOGGER.debug(
-                "Too few samples (%d < %d), ignoring cycle.",
-                sample_count,
-                self._minimum_samples_per_cycle,
-            )
+            _LOGGER.debug("Too few samples (%d < %d), ignoring cycle.", sample_count, self._minimum_samples_per_cycle)
             return None
 
         statistics = self._history.statistics
@@ -359,7 +356,7 @@ class CycleTracker:
         classification = self._classify_cycle(
             duration=duration_seconds,
             statistics=statistics,
-            pwm_status=pwm_status,
+            pwm_state=pwm_state,
             samples=samples,
             start_time=start_time,
             end_time=end_time,
@@ -446,7 +443,7 @@ class CycleTracker:
         return CycleKind.UNKNOWN
 
     @staticmethod
-    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_status: PWMStatus, samples: list[CycleSample], start_time: float, end_time: float) -> CycleClassification:
+    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_state: PWMState, samples: list[CycleSample], start_time: float, end_time: float) -> CycleClassification:
         """Decide what the last cycle implies for minimum-setpoint tuning."""
         if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
@@ -486,7 +483,12 @@ class CycleTracker:
         overshoot = tail_p90_delta >= OVERSHOOT_MARGIN_CELSIUS
         underheat = tail_p90_delta <= -UNDERSHOOT_MARGIN_CELSIUS
 
-        short_threshold_seconds = TARGET_MIN_ON_TIME_SECONDS if pwm_status != PWMStatus.OFF else 0.0
+        if pwm_state.status == PWMStatus.OFF:
+            short_threshold_seconds = 0
+        elif pwm_state.status == PWMStatus.ON and pwm_state.duty_cycle[0] is not None:
+            short_threshold_seconds = int(pwm_state.duty_cycle[0] * 0.9)
+        else:
+            short_threshold_seconds = TARGET_MIN_ON_TIME_SECONDS
 
         if duration < short_threshold_seconds:
             if overshoot:

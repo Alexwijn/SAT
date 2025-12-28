@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from abc import abstractmethod
 from time import monotonic
-from typing import TYPE_CHECKING, Mapping, Any, Optional, Callable
+from typing import Mapping, Any
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
@@ -21,6 +21,7 @@ from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
 
 if TYPE_CHECKING:
+    from .pwm import PWMState
     from .climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -106,7 +107,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._cycle_tracker: CycleTracker = CycleTracker(hass, self._cycles)
 
         self._device_on_since: Optional[float] = None
-        self._last_pwm_status: Optional[PWMStatus] = None
+        self._last_pwm_state: Optional[PWMState] = None
 
         self._hass_notify_cancel: Callable[[], None] | None = None
         self._control_update_cancel: Callable[[], None] | None = None
@@ -331,7 +332,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         await self._boiler.async_save_options()
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_status: Optional[PWMStatus] = None, timestamp: float = None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, timestamp: float = None) -> None:
         """Control the heating loop for the device."""
         # Use provided timestamp or current monotonic time
         timestamp = timestamp or monotonic()
@@ -343,8 +344,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             self._device_on_since = timestamp
 
         # Update PWM Status
-        if pwm_status is not None:
-            self._last_pwm_status = pwm_status
+        if pwm_state is not None:
+            self._last_pwm_state = pwm_state
 
         # See if we can determine the manufacturer (deprecated)
         if self._manufacturer is None and self.member_id is not None:
@@ -406,7 +407,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             def _control(_: object) -> None:
                 self._control_update_cancel = None
                 self._boiler.update(state=self.state, last_cycle=self.last_cycle)
-                self._cycle_tracker.update(boiler_state=self.state, pwm_status=self._last_pwm_status)
+                self._cycle_tracker.update(boiler_state=self.state, pwm_state=self._last_pwm_state)
 
             self._control_update_cancel = async_call_later(self.hass, CONTROL_DEBOUNCE_SECONDS, _control)
 

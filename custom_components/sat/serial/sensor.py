@@ -1,6 +1,6 @@
 """Sensor platform for SAT."""
 import logging
-from typing import Optional, List
+from typing import List
 
 from homeassistant.components import sensor
 from homeassistant.config_entries import ConfigEntry

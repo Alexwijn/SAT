@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from typing import Mapping, Any
-from typing import Optional
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry

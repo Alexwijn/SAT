@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from types import MappingProxyType
 from typing import Any
-from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
