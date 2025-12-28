@@ -486,7 +486,7 @@ class CycleTracker:
         if pwm_state.status == PWMStatus.IDLE:
             short_threshold_seconds = 0
         elif pwm_state.status == PWMStatus.ON and pwm_state.duty_cycle[0] is not None:
-            short_threshold_seconds = int(pwm_state.duty_cycle[0] * 0.9)
+            short_threshold_seconds = min(pwm_state.duty_cycle[0] * 0.9, TARGET_MIN_ON_TIME_SECONDS)
         else:
             short_threshold_seconds = TARGET_MIN_ON_TIME_SECONDS
 

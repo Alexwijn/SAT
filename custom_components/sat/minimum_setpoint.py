@@ -377,7 +377,6 @@ class DynamicMinimumSetpoint:
         #   - Conflicting signals, borderline flows, or sensor noise.
         #   - Neither direction (up or down) is reliable.
         elif classification == CycleClassification.UNCERTAIN:
-            self._relax_toward_anchor(regime_state, last_cycle, requested_setpoint, self._config.minimum_relax_factor_when_uncertain)
             return
 
         _LOGGER.debug("Updated regime %s minimum_setpoint=%.1f after cycle.", self._active_regime_key, regime_state.minimum_setpoint, )
