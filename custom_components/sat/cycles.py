@@ -483,12 +483,12 @@ class CycleTracker:
         overshoot = tail_p90_delta >= OVERSHOOT_MARGIN_CELSIUS
         underheat = tail_p90_delta <= -UNDERSHOOT_MARGIN_CELSIUS
 
-        if pwm_state.status == PWMStatus.OFF:
-            short_threshold_seconds = TARGET_MIN_ON_TIME_SECONDS
+        if pwm_state.status == PWMStatus.IDLE:
+            short_threshold_seconds = 0
         elif pwm_state.status == PWMStatus.ON and pwm_state.duty_cycle[0] is not None:
             short_threshold_seconds = int(pwm_state.duty_cycle[0] * 0.9)
         else:
-            short_threshold_seconds = 0
+            short_threshold_seconds = TARGET_MIN_ON_TIME_SECONDS
 
         if duration < short_threshold_seconds:
             if overshoot:
