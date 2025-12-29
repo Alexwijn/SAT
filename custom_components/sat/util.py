@@ -42,12 +42,12 @@ def create_pid_controller(config_options) -> PID:
     )
 
 
-def create_dynamic_minimum_setpoint_controller(config_data, _config_options) -> DynamicMinimumSetpoint:
+def create_dynamic_minimum_setpoint_controller(_config_data, config_options) -> DynamicMinimumSetpoint:
     """Create and return a Dynamic Minimum Setpoint controller instance with the given configuration options."""
     # Return a new Minimum Setpoint controller instance with the given configuration options
     return DynamicMinimumSetpoint(config=MinimumSetpointConfig(
-        minimum_setpoint=config_data.get(CONF_MINIMUM_SETPOINT),
-        maximum_setpoint=config_data.get(CONF_MAXIMUM_SETPOINT)
+        minimum_setpoint=config_options.get(CONF_MINIMUM_SETPOINT),
+        maximum_setpoint=config_options.get(CONF_MAXIMUM_SETPOINT)
     ))
 
 
