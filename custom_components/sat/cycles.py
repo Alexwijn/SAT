@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 # Anything shorter than this is basically noise / transient.
-TAIL_WINDOW_SECONDS: float = 90.0  # 1.5 minutes
-TAIL_WINDOW_FALLBACK_SECONDS: float = 120.0  # 2 minutes
+TAIL_WINDOW_SECONDS: float = 180.0  # 3 minutes
+MIN_OBSERVATION_ON_SECONDS: float = 120.0 # 2 minutes
 
 # Below this, if we overshoot / underheat, we call it "too short".
 TARGET_MIN_ON_TIME_SECONDS: float = 600.0  # 10 minutes
@@ -46,8 +46,6 @@ class CycleSample:
 @dataclass(frozen=True, slots=True)
 class CycleTailMetrics:
     """Tail-window percentiles for key signals near the end of a cycle."""
-    window_seconds: float
-    warmup_seconds: float
 
     setpoint: Percentiles
     flow_temperature: Percentiles
@@ -390,7 +388,7 @@ class CycleTracker:
                     value_getter=value_getter,
                     start_time=start_time,
                     end_time=end_time,
-                    warmup_seconds=TAIL_WINDOW_FALLBACK_SECONDS,
+                    warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
                     tail_seconds=TAIL_WINDOW_SECONDS,
                     percentile=0.50,
                 ),
@@ -399,16 +397,13 @@ class CycleTracker:
                     value_getter=value_getter,
                     start_time=start_time,
                     end_time=end_time,
-                    warmup_seconds=TAIL_WINDOW_FALLBACK_SECONDS,
+                    warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
                     tail_seconds=TAIL_WINDOW_SECONDS,
                     percentile=0.90,
                 ),
             )
 
         return CycleTailMetrics(
-            window_seconds=TAIL_WINDOW_SECONDS,
-            warmup_seconds=TAIL_WINDOW_FALLBACK_SECONDS,
-
             setpoint=build_percentiles(
                 lambda sample: sample.boiler_state.setpoint
             ),
@@ -461,21 +456,10 @@ class CycleTracker:
             value_getter=delta_flow_minus_setpoint,
             start_time=start_time,
             end_time=end_time,
-            warmup_seconds=TAIL_WINDOW_FALLBACK_SECONDS,
+            warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
             tail_seconds=TAIL_WINDOW_SECONDS,
             percentile=0.90,
         )
-
-        if tail_p90_delta is None:
-            tail_p90_delta = Percentiles.make_from_cycle_samples(
-                samples=samples,
-                value_getter=delta_flow_minus_setpoint,
-                start_time=start_time,
-                end_time=end_time,
-                warmup_seconds=TAIL_WINDOW_FALLBACK_SECONDS,
-                tail_seconds=180.0,
-                percentile=0.90,
-            )
 
         if tail_p90_delta is None:
             return CycleClassification.UNCERTAIN
