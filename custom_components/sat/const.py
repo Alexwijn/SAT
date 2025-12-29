@@ -195,11 +195,13 @@ class CycleKind(str, Enum):
 class CycleClassification(str, Enum):
     GOOD = "good"
     UNCERTAIN = "uncertain"
+    LONG_OVERSHOOT = "long_overshoot"
     LONG_UNDERHEAT = "long_underheat"
+    FAST_OVERSHOOT = "fast_overshoot"
+    FAST_UNDERHEAT = "fast_underheat"
     INSUFFICIENT_DATA = "insufficient_data"
     TOO_SHORT_UNDERHEAT = "too_short_underheat"
     TOO_SHORT_OVERSHOOT = "too_short_overshoot"
-    SHORT_CYCLING_OVERSHOOT = "short_cycling_overshoot"
 
 
 class BoilerStatus(Enum):
@@ -242,7 +244,7 @@ class RelativeModulationState(str, Enum):
 UNHEALTHY_CYCLES = (
     CycleClassification.TOO_SHORT_UNDERHEAT,
     CycleClassification.TOO_SHORT_OVERSHOOT,
-    CycleClassification.SHORT_CYCLING_OVERSHOOT
+    CycleClassification.LONG_OVERSHOOT
 )
 
 

@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # Anything shorter than this is basically noise / transient.
 TAIL_WINDOW_SECONDS: float = 180.0  # 3 minutes
-MIN_OBSERVATION_ON_SECONDS: float = 120.0 # 2 minutes
+MIN_OBSERVATION_ON_SECONDS: float = 120.0  # 2 minutes
 
 # Below this, if we overshoot / underheat, we call it "too short".
 TARGET_MIN_ON_TIME_SECONDS: float = 600.0  # 10 minutes
@@ -329,9 +329,7 @@ class CycleTracker:
             _LOGGER.debug("Too few samples (%d < %d), ignoring cycle.", sample_count, self._minimum_samples_per_cycle)
             return None
 
-        statistics = self._history.statistics
         samples = list(self._current_samples)
-
         dhw_count = sum(1 for sample in samples if sample.boiler_state.hot_water_active)
         heating_count = sum(1 for sample in samples if (not sample.boiler_state.hot_water_active) and sample.boiler_state.is_active)
 
@@ -353,7 +351,6 @@ class CycleTracker:
 
         classification = self._classify_cycle(
             duration=duration_seconds,
-            statistics=statistics,
             pwm_state=pwm_state,
             samples=samples,
             start_time=start_time,
@@ -438,18 +435,30 @@ class CycleTracker:
         return CycleKind.UNKNOWN
 
     @staticmethod
-    def _classify_cycle(duration: float, statistics: CycleStatistics, pwm_state: PWMState, samples: list[CycleSample], start_time: float, end_time: float) -> CycleClassification:
-        """Decide what the last cycle implies for minimum-setpoint tuning."""
+    def _classify_cycle(duration: float, pwm_state: PWMState, samples: list[CycleSample], start_time: float, end_time: float) -> CycleClassification:
         if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
+
+        def compute_short_threshold_seconds() -> float:
+            if pwm_state.status == PWMStatus.IDLE:
+                return 0.0
+
+            if pwm_state.status == PWMStatus.ON and pwm_state.duty_cycle[0] is not None:
+                return float(min(pwm_state.duty_cycle[0] * 0.9, TARGET_MIN_ON_TIME_SECONDS))
+
+            return TARGET_MIN_ON_TIME_SECONDS
 
         def delta_flow_minus_setpoint(sample: CycleSample) -> Optional[float]:
             flow_temperature = sample.boiler_state.flow_temperature
             setpoint = sample.boiler_state.setpoint
-            if flow_temperature is None or setpoint is None:
-                return None
 
-            return flow_temperature - setpoint
+            if flow_temperature is not None and setpoint is not None:
+                return flow_temperature - setpoint
+
+            return None
+
+        short_threshold_seconds = compute_short_threshold_seconds()
+        is_short = duration < short_threshold_seconds
 
         tail_p90_delta = Percentiles.make_from_cycle_samples(
             samples=samples,
@@ -462,19 +471,42 @@ class CycleTracker:
         )
 
         if tail_p90_delta is None:
+            deltas: list[float] = []
+            for sample in samples:
+                delta = delta_flow_minus_setpoint(sample)
+                if delta is not None:
+                    deltas.append(delta)
+
+            if not deltas:
+                return CycleClassification.INSUFFICIENT_DATA
+
+            max_delta = max(deltas)
+            min_delta = min(deltas)
+
+            overshoot = max_delta >= OVERSHOOT_MARGIN_CELSIUS
+            underheat = min_delta <= -UNDERSHOOT_MARGIN_CELSIUS
+
+            if is_short:
+                if overshoot:
+                    return CycleClassification.FAST_OVERSHOOT
+
+                if underheat:
+                    return CycleClassification.FAST_UNDERHEAT
+
+                return CycleClassification.UNCERTAIN
+
+            if underheat and not overshoot:
+                return CycleClassification.LONG_UNDERHEAT
+
+            if overshoot and not underheat:
+                return CycleClassification.LONG_OVERSHOOT
+
             return CycleClassification.UNCERTAIN
 
         overshoot = tail_p90_delta >= OVERSHOOT_MARGIN_CELSIUS
         underheat = tail_p90_delta <= -UNDERSHOOT_MARGIN_CELSIUS
 
-        if pwm_state.status == PWMStatus.IDLE:
-            short_threshold_seconds = 0
-        elif pwm_state.status == PWMStatus.ON and pwm_state.duty_cycle[0] is not None:
-            short_threshold_seconds = min(pwm_state.duty_cycle[0] * 0.9, TARGET_MIN_ON_TIME_SECONDS)
-        else:
-            short_threshold_seconds = TARGET_MIN_ON_TIME_SECONDS
-
-        if duration < short_threshold_seconds:
+        if is_short:
             if overshoot:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
 
@@ -484,12 +516,7 @@ class CycleTracker:
         if underheat and not overshoot:
             return CycleClassification.LONG_UNDERHEAT
 
-        short_cycling_context = (
-                statistics.last_hour_count > (LOW_LOAD_MIN_CYCLES_PER_HOUR * 2.0)
-                and statistics.duty_ratio_last_15m < LOW_LOAD_MAX_DUTY_RATIO_15_M
-        )
-
-        if short_cycling_context and overshoot and not underheat:
-            return CycleClassification.SHORT_CYCLING_OVERSHOOT
+        if overshoot and not underheat:
+            return CycleClassification.LONG_OVERSHOOT
 
         return CycleClassification.GOOD

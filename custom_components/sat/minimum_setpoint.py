@@ -300,7 +300,7 @@ class DynamicMinimumSetpoint:
             return round(0.7 * self._value + 0.3 * closest_state.minimum_setpoint, 1)
 
     def _maybe_tune_minimum(self, regime_state: "RegimeState", boiler_state_at_end: "BoilerState", statistics: "CycleStatistics", last_cycle: Cycle, requested_setpoint: float) -> None:
-        """Decide whether and how to adjust the learned minimum setpoint for the active regime after a cycle. """
+        """Decide whether and how to adjust the learned minimum setpoint for the active regime after a cycle."""
         if self._active_regime_key is None:
             return
 
@@ -342,44 +342,50 @@ class DynamicMinimumSetpoint:
         if classification == CycleClassification.INSUFFICIENT_DATA:
             return
 
-        # GOOD:
-        #   The boiler produced a long, stable burn without overshoot or underheat.
-        #   This means the current minimum_setpoint is appropriate for this regime.
-        #   But we do try to find a better value.
-        if classification == CycleClassification.GOOD:
-            if regime_state.stable_cycles < 5:
-                return
-
-            regime_state.minimum_setpoint -= self._config.decrease_small_step
-
-        # TOO_SHORT_UNDERHEAT:
-        #   - The cycle ended too quickly (short flame ON time).
-        #   - The boiler NEVER approached the requested flow setpoint.
-        #   - This means the requested flow temperature is *too high*.
-        # LONG_UNDERHEAT:
-        #   - The cycle ended too long (long flame ON time).
-        #   - The boiler did not approach the requested flow setpoint.
-        #   - This means the requested flow temperature is *too high*.
-        if classification in (CycleClassification.TOO_SHORT_UNDERHEAT, CycleClassification.LONG_UNDERHEAT):
-            regime_state.minimum_setpoint -= self._config.decrease_step
-
-        # TOO_SHORT_OVERSHOOT:
-        #   - Short burn AND flow shoots past setpoint.
-        #   - The requested flow temperature is too *low* for stable operation.
-        #
-        # SHORT_CYCLING_OVERSHOOT:
-        #   - Long-ish burns but high cycles/hour and overshoot.
-        #   - Also indicates the requested setpoint is too low for stable operation.
-        elif classification in (CycleClassification.TOO_SHORT_OVERSHOOT, CycleClassification.SHORT_CYCLING_OVERSHOOT):
-            regime_state.minimum_setpoint += self._config.increase_step
-
         # UNCERTAIN:
         #   - Conflicting signals, borderline flows, or sensor noise.
         #   - Neither direction (up or down) is reliable.
         elif classification == CycleClassification.UNCERTAIN:
             return
 
-        _LOGGER.debug("Updated regime %s minimum_setpoint=%.1f after cycle.", self._active_regime_key, regime_state.minimum_setpoint, )
+        # GOOD:
+        #   The boiler produced a long, stable burn without overshoot or underheat.
+        #   This means the current minimum_setpoint is appropriate for this regime.
+        #   But we do try to find a better value.
+        elif classification == CycleClassification.GOOD:
+            if regime_state.stable_cycles < 5:
+                return
+
+            regime_state.minimum_setpoint -= 0.5
+            _LOGGER.debug("Updated regime %s minimum_setpoint=%.1f after cycle (%s).", self._active_regime_key, regime_state.minimum_setpoint, classification.name)
+            return
+
+        # FAST_UNDERHEAT / TOO_SHORT_UNDERHEAT:
+        #   - Very short or clearly insufficient burn.
+        #   - The boiler never approached the requested flow setpoint.
+        #   - The requested flow temperature is *too high*.
+        elif classification in (CycleClassification.FAST_UNDERHEAT, CycleClassification.TOO_SHORT_UNDERHEAT):
+            regime_state.minimum_setpoint -= 1.0
+
+        # FAST_OVERSHOOT / TOO_SHORT_OVERSHOOT:
+        #   - Flow temperature rapidly exceeds the requested setpoint.
+        #   - Indicates the requested flow temperature is *too low* for stable operation.
+        elif classification in (CycleClassification.FAST_OVERSHOOT, CycleClassification.TOO_SHORT_OVERSHOOT):
+            regime_state.minimum_setpoint += 1.0
+
+        # LONG_UNDERHEAT:
+        #   - Long burn, but still insufficient flow temperature.
+        #   - Also indicates the requested flow temperature is *too high*.
+        elif classification == CycleClassification.LONG_UNDERHEAT:
+            regime_state.minimum_setpoint -= 0.5
+
+        # LONG_OVERSHOOT:
+        #   - Sustained overshoot without immediate shutdown.
+        #   - Also indicates the requested flow temperature is *too low*.
+        elif classification == CycleClassification.LONG_OVERSHOOT:
+            regime_state.minimum_setpoint += 0.5
+
+        _LOGGER.debug("Updated regime %s minimum_setpoint=%.1f after cycle (%s).", self._active_regime_key, regime_state.minimum_setpoint, classification.name)
 
     def _is_tunable_regime(self, boiler_state: BoilerState, statistics: CycleStatistics) -> bool:
         """Decide whether the current conditions are suitable for minimum tuning."""

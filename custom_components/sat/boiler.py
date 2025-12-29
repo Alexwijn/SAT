@@ -163,7 +163,7 @@ class Boiler:
         if not state.is_active or state.is_inactive:
             return BoilerStatus.OFF
 
-        if self._last_cycle is not None and self._last_cycle.classification == CycleClassification.SHORT_CYCLING_OVERSHOOT:
+        if self._last_cycle is not None and self._last_cycle.classification == CycleClassification.LONG_OVERSHOOT:
             return BoilerStatus.SHORT_CYCLING
 
         if not state.flame_active:
