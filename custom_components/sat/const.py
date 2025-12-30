@@ -249,7 +249,10 @@ class Percentiles:
 
 # Cycles
 UNHEALTHY_CYCLES = (
+    CycleClassification.LONG_OVERSHOOT,
+    CycleClassification.LONG_UNDERHEAT,
+    CycleClassification.FAST_OVERSHOOT,
+    CycleClassification.FAST_UNDERHEAT,
     CycleClassification.TOO_SHORT_UNDERHEAT,
     CycleClassification.TOO_SHORT_OVERSHOOT,
-    CycleClassification.LONG_OVERSHOOT
 )
