@@ -5,6 +5,7 @@ import asyncio
 import logging
 from datetime import timedelta, datetime
 from time import monotonic, time
+from typing import Callable
 
 from homeassistant.components import notify, sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -234,7 +235,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_STARTED, lambda _: self.minimum_setpoint.on_cycle_start(
             cycles=self._coordinator.cycles,
-            areas_snapshot=self.areas.snapshot,
             requested_setpoint=self.requested_setpoint,
             outside_temperature=self.current_outside_temperature
         )))

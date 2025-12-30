@@ -10,11 +10,10 @@ from homeassistant.helpers.storage import Store
 
 from .boiler import BoilerState
 from .const import CycleClassification
-from .cycles import CycleKind, TARGET_MIN_ON_TIME_SECONDS
+from .cycles import CycleKind, TARGET_MIN_ON_TIME_SECONDS, ULTRA_SHORT_MIN_ON_TIME_SECONDS
 from .helpers import clamp
 
 if TYPE_CHECKING:
-    from .area import AreasSnapshot
     from .cycles import CycleStatistics, Cycle
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,11 +27,6 @@ class MinimumSetpointConfig:
     minimum_setpoint: float
     maximum_setpoint: float
 
-    # How quickly the learned minimum moves when we detect a clear error
-    increase_step: float = 1.0  # when minimum is too low (underheat / too short)
-    decrease_step: float = 1.0  # when minimum is too high (overshoot / short-cycling)
-    decrease_small_step: float = 0.5  # when minimum might be too high (good)
-
     # Low-load detection thresholds (when we care about minimum tuning)
     low_load_minimum_cycles_per_hour: float = 3.0
     low_load_maximum_duty_ratio_15m: float = 0.50
@@ -44,7 +38,7 @@ class MinimumSetpointConfig:
     min_space_heating_fraction_for_tuning: float = 0.6
 
     # When learning, only trust cycles whose setpoint is close to the current learned minimum.
-    minimum_setpoint_learning_band: float = 2.0
+    minimum_setpoint_learning_band: float = 4.0
 
     # Offset decay factors in various cases
     minimum_relax_factor_when_untunable: float = 0.9
@@ -75,8 +69,10 @@ class DynamicMinimumSetpoint:
 
         self._regimes: Dict[str, RegimeState] = {}
         self._active_regime_key: Optional[str] = None
-        self._previous_active_area_bucket: Optional[str] = None
-        self._previous_demand_weight_bucket: Optional[str] = None
+
+        self._previous_delta_bucket: Optional[str] = None
+        self._previous_setpoint_band: Optional[int] = None
+        self._previous_outside_temperature_bucket: Optional[str] = None
 
     @property
     def value(self) -> float:
@@ -87,30 +83,33 @@ class DynamicMinimumSetpoint:
 
     def reset(self) -> None:
         """Reset learned minimums and internal state."""
-        self._active_regime_key = None
-        self._regimes.clear()
         self._value = None
+        self._regimes.clear()
+        self._active_regime_key = None
 
-    def on_cycle_start(self, cycles: CycleStatistics, requested_setpoint: Optional[float], outside_temperature: Optional[float], areas_snapshot: Optional[AreasSnapshot] = None) -> None:
+        self._previous_delta_bucket = None
+        self._previous_setpoint_band = None
+        self._previous_outside_temperature_bucket = None
+
+    def on_cycle_start(self, cycles: CycleStatistics, requested_setpoint: Optional[float], outside_temperature: Optional[float]) -> None:
         if requested_setpoint is None:
             return
 
         self._active_regime_key = self._make_regime_key(
             cycles=cycles,
-            areas_snapshot=areas_snapshot,
             requested_setpoint=requested_setpoint,
             outside_temperature=outside_temperature,
         )
 
         regime_state = self._regimes.get(self._active_regime_key)
         if regime_state is None:
-            seed = requested_setpoint
-            seed = clamp(seed, self._config.minimum_setpoint, self._config.maximum_setpoint)
+            regime_state = RegimeState(minimum_setpoint=self._seed_minimum_for_new_regime(
+                new_regime_key=self._active_regime_key,
+                requested_setpoint=requested_setpoint
+            ))
 
-            regime_state = RegimeState(minimum_setpoint=seed)
             self._regimes[self._active_regime_key] = regime_state
-
-            _LOGGER.debug("Pre-seeded regime %s at cycle start with minimum_setpoint=%.1f (requested_setpoint)", self._active_regime_key, seed)
+            _LOGGER.info("Initialized regime %s at cycle start with minimum_setpoint=%.2f", self._active_regime_key, regime_state.minimum_setpoint)
 
         self._value = regime_state.minimum_setpoint
 
@@ -119,58 +118,33 @@ class DynamicMinimumSetpoint:
             return
 
         regime_state = self._regimes.get(self._active_regime_key)
-
-        if regime_state is None:
-            initial_minimum = self._initial_minimum_for_regime(self._active_regime_key)
-            seed_source = "closest_regime"
-
-            if initial_minimum is None:
-                # Prefer control intent (setpoint) over outcome (flow).
-                initial_minimum = last_cycle.tail.setpoint.p50
-                seed_source = "tail_setpoint_p50"
-
-            if initial_minimum is None:
-                initial_minimum = last_cycle.tail.setpoint.p90
-                seed_source = "tail_setpoint_p90"
-
-            if initial_minimum is None:
-                initial_minimum = boiler_state.setpoint
-                seed_source = "boiler_setpoint"
-
-            if initial_minimum is None:
-                initial_minimum = requested_setpoint
-                seed_source = "requested_setpoint"
-
-            if initial_minimum is None:
-                initial_minimum = self._config.minimum_setpoint
-                seed_source = "config_minimum_setpoint"
-
-            initial_minimum = clamp(initial_minimum, self._config.minimum_setpoint, self._config.maximum_setpoint)
-
-            regime_state = RegimeState(minimum_setpoint=initial_minimum)
-            self._regimes[self._active_regime_key] = regime_state
-
-            _LOGGER.debug("Initialized regime %s with minimum_setpoint=%.1f (seed=%s, requested_setpoint=%.1f)", self._active_regime_key, initial_minimum, seed_source, requested_setpoint)
+        _LOGGER.debug("Cycle ended: regime=%s classification=%s requested_setpoint=%.2f", self._active_regime_key, last_cycle.classification.name, requested_setpoint)
 
         # Mark a cycle as completed.
         regime_state.completed_cycles += 1
+        _LOGGER.debug("Regime %s completed_cycles=%d", self._active_regime_key, regime_state.completed_cycles)
 
         # Mark a cycle as stable when the classification is GOOD.
         if last_cycle.classification == CycleClassification.GOOD:
             regime_state.stable_cycles += 1
+            _LOGGER.debug("Regime %s stable cycle detected (stable_cycles=%d)", self._active_regime_key, regime_state.stable_cycles)
 
-        # Update the learned minimum when a cycle has just completed.
+        # Track before/after for tuning visibility
+        previous_minimum = regime_state.minimum_setpoint
         self._maybe_tune_minimum(regime_state, boiler_state, cycles, last_cycle, requested_setpoint)
 
         # Clamp learned minimum for this regime to absolute range.
         regime_state.minimum_setpoint = clamp(regime_state.minimum_setpoint, self._config.minimum_setpoint, self._config.maximum_setpoint)
 
-        if self._hass is not None:
-            self._hass.create_task(self.async_save_regimes())
+        if regime_state.minimum_setpoint != previous_minimum:
+            _LOGGER.info("Regime %s minimum setpoint adjusted: %.2f → %.2f", self._active_regime_key, previous_minimum, regime_state.minimum_setpoint)
         else:
-            _LOGGER.debug("Cannot save minimum setpoint regimes: hass not set")
+            _LOGGER.debug("Regime %s minimum setpoint unchanged at %.2f", self._active_regime_key, regime_state.minimum_setpoint)
 
         self._value = regime_state.minimum_setpoint
+
+        if self._hass is not None:
+            self._hass.create_task(self.async_save_regimes())
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
         self._hass = hass
@@ -243,6 +217,15 @@ class DynamicMinimumSetpoint:
         await self._store.async_save(data)
         _LOGGER.debug("Saved minimum setpoint state to storage (%d regimes).", len(self._regimes))
 
+    def _seed_minimum_for_new_regime(self, new_regime_key: str, requested_setpoint: float) -> float:
+        if (initial_minimum := self._initial_minimum_for_regime(new_regime_key)) is not None:
+            return clamp(initial_minimum, self._config.minimum_setpoint, self._config.maximum_setpoint)
+
+        if self._value is not None:
+            return clamp(self._value, self._config.minimum_setpoint, self._config.maximum_setpoint)
+
+        return clamp(requested_setpoint, self._config.minimum_setpoint, self._config.maximum_setpoint)
+
     def _initial_minimum_for_regime(self, new_regime_key: str) -> Optional[float]:
         if not self._regimes:
             return None
@@ -258,7 +241,7 @@ class DynamicMinimumSetpoint:
         trusted_regimes = {
             key: state
             for key, state in self._regimes.items()
-            if state.stable_cycles >= self._config.min_stable_cycles_to_trust
+            if (state.stable_cycles >= self._config.min_stable_cycles_to_trust) and (state.completed_cycles >= 3)
         }
 
         if not trusted_regimes:
@@ -337,6 +320,20 @@ class DynamicMinimumSetpoint:
             )
             return
 
+        if classification in (CycleClassification.FAST_OVERSHOOT, CycleClassification.TOO_SHORT_OVERSHOOT):
+            is_ultra_short = last_cycle.duration < ULTRA_SHORT_MIN_ON_TIME_SECONDS
+            is_very_short = last_cycle.duration < (TARGET_MIN_ON_TIME_SECONDS * 0.5)
+            is_low_duty = statistics.duty_ratio_last_15m <= self._config.low_load_maximum_duty_ratio_15m
+            is_frequent_cycles = statistics.last_hour_count >= self._config.low_load_minimum_cycles_per_hour
+
+            if is_very_short and is_low_duty and is_frequent_cycles and (not is_ultra_short):
+                _LOGGER.debug(
+                    "Ignoring %s for minimum tuning under low-load: duration=%.1fs (< %.1fs), duty_15m=%.2f (<= %.2f), cycles_last_hour=%.1f (>= %.1f).",
+                    classification.name, last_cycle.duration, TARGET_MIN_ON_TIME_SECONDS * 0.5, statistics.duty_ratio_last_15m,
+                    self._config.low_load_maximum_duty_ratio_15m, statistics.last_hour_count, self._config.low_load_minimum_cycles_per_hour,
+                )
+                return
+
         # INSUFFICIENT_DATA:
         #   We do not know enough to make a safe decision.
         if classification == CycleClassification.INSUFFICIENT_DATA:
@@ -352,46 +349,35 @@ class DynamicMinimumSetpoint:
         #   The boiler produced a long, stable burn without overshoot or underheat.
         #   This means the current minimum_setpoint is appropriate for this regime.
         #   But we do try to find a better value.
-        elif classification == CycleClassification.GOOD:
-            if regime_state.stable_cycles < 5:
-                return
-
-            regime_state.minimum_setpoint -= 0.5
-            _LOGGER.debug("Updated regime %s minimum_setpoint=%.1f after cycle (%s).", self._active_regime_key, regime_state.minimum_setpoint, classification.name)
-            return
+        elif classification == CycleClassification.GOOD and regime_state.stable_cycles >= 3:
+            regime_state.minimum_setpoint -= 0.3
 
         # FAST_UNDERHEAT / TOO_SHORT_UNDERHEAT:
-        #   - Very short or clearly insufficient burn.
-        #   - The boiler never approached the requested flow setpoint.
-        #   - The requested flow temperature is *too high*.
+        #   - Boiler fails to approach the requested flow temperature.
+        #   - Indicates the requested flow setpoint is too high for the available heat output.
         elif classification in (CycleClassification.FAST_UNDERHEAT, CycleClassification.TOO_SHORT_UNDERHEAT):
             regime_state.minimum_setpoint -= 1.0
 
         # FAST_OVERSHOOT / TOO_SHORT_OVERSHOOT:
-        #   - Flow temperature rapidly exceeds the requested setpoint.
-        #   - Indicates the requested flow temperature is *too low* for stable operation.
+        #   - Boiler fails to stay stable at the requested flow temperature.
+        #   - Indicates the requested flow setpoint is too low for the available heat output.
         elif classification in (CycleClassification.FAST_OVERSHOOT, CycleClassification.TOO_SHORT_OVERSHOOT):
             regime_state.minimum_setpoint += 1.0
 
         # LONG_UNDERHEAT:
-        #   - Long burn, but still insufficient flow temperature.
-        #   - Also indicates the requested flow temperature is *too high*.
+        #   - Long burn, but flow temperature remains below setpoint.
+        #   - Indicates chronic underheating at this setpoint.
         elif classification == CycleClassification.LONG_UNDERHEAT:
             regime_state.minimum_setpoint -= 0.5
 
         # LONG_OVERSHOOT:
-        #   - Sustained overshoot without immediate shutdown.
-        #   - Also indicates the requested flow temperature is *too low*.
+        #   - Sustained overshoot during a longer burn.
+        #   - More likely indicates the requested flow setpoint is genuinely too low for stable operation.
         elif classification == CycleClassification.LONG_OVERSHOOT:
             regime_state.minimum_setpoint += 0.5
 
-        _LOGGER.debug("Updated regime %s minimum_setpoint=%.1f after cycle (%s).", self._active_regime_key, regime_state.minimum_setpoint, classification.name)
-
     def _is_tunable_regime(self, boiler_state: BoilerState, statistics: CycleStatistics) -> bool:
         """Decide whether the current conditions are suitable for minimum tuning."""
-        if boiler_state.hot_water_active:
-            return False
-
         if boiler_state.is_inactive:
             return False
 
@@ -404,161 +390,180 @@ class DynamicMinimumSetpoint:
         return True
 
     def _relax_toward_anchor(self, regime_state: "RegimeState", last_cycle: "Cycle", requested_setpoint: float, factor: float) -> None:
-        """Relax the regime minimum toward the closest anchor."""
+        """Relax the regime minimum toward a stable, outcome-derived anchor."""
         if factor <= 0.0 or factor >= 1.0:
             return
 
-        old = regime_state.minimum_setpoint
-        anchor = requested_setpoint
+        old_minimum_setpoint = regime_state.minimum_setpoint
+        tail_setpoint_p50 = last_cycle.tail.setpoint.p50
+        tail_setpoint_p90 = last_cycle.tail.setpoint.p90
 
-        # Only apply a flow-derived floor when the cycle operated near the current minimum.
-        cycle_setpoint = last_cycle.tail.setpoint.p50
-        if cycle_setpoint is None:
-            cycle_setpoint = last_cycle.tail.setpoint.p90
+        cycle_setpoint_reference = tail_setpoint_p50 if tail_setpoint_p50 is not None else tail_setpoint_p90
 
-        near_minimum = False
-        if cycle_setpoint is not None:
-            near_minimum = abs(cycle_setpoint - old) <= self._config.minimum_setpoint_learning_band
+        ran_near_minimum = False
+        if cycle_setpoint_reference is not None:
+            ran_near_minimum = (abs(cycle_setpoint_reference - old_minimum_setpoint) <= self._config.minimum_setpoint_learning_band)
 
-        if near_minimum:
-            reference_flow = last_cycle.tail.flow_temperature.p50
+        anchor_candidate_from_flow: Optional[float] = None
+        if ran_near_minimum:
+            tail_flow_p50 = last_cycle.tail.flow_temperature.p50
+            tail_flow_p90 = last_cycle.tail.flow_temperature.p90
+            max_flow_temperature = last_cycle.max_flow_temperature
 
-            if reference_flow is None:
-                reference_flow = last_cycle.tail.flow_temperature.p90
-            if reference_flow is None:
-                reference_flow = last_cycle.max_flow_temperature
+            flow_reference = (
+                tail_flow_p50
+                if tail_flow_p50 is not None
+                else (tail_flow_p90 if tail_flow_p90 is not None else max_flow_temperature)
+            )
 
-            if reference_flow is not None:
-                anchor = max(anchor, reference_flow - self._config.floor_margin)
+            if flow_reference is not None:
+                anchor_candidate_from_flow = flow_reference - self._config.floor_margin
 
-        new = round(factor * old + (1.0 - factor) * anchor, 1)
-        new = clamp(new, self._config.minimum_setpoint, self._config.maximum_setpoint)
+        anchor_candidate_from_tail_setpoint: Optional[float] = tail_setpoint_p50 if tail_setpoint_p50 is not None else tail_setpoint_p90
+        anchor_candidate_fallback = requested_setpoint
 
-        regime_state.minimum_setpoint = new
-        _LOGGER.debug("Relaxing regime %s minimum toward anchor=%.1f: %.1f -> %.1f (factor=%.2f, near_minimum=%s)", self._active_regime_key, anchor, old, new, factor, near_minimum)
+        if anchor_candidate_from_flow is not None:
+            anchor = anchor_candidate_from_flow
+            anchor_source = "flow_floor"
+        elif anchor_candidate_from_tail_setpoint is not None:
+            anchor = anchor_candidate_from_tail_setpoint
+            anchor_source = "tail_setpoint"
+        else:
+            anchor = anchor_candidate_fallback
+            anchor_source = "requested_setpoint"
 
-    def _make_regime_key(self, cycles: "CycleStatistics", requested_setpoint: float, outside_temperature: Optional[float], areas_snapshot: Optional["AreasSnapshot"]) -> str:
-        # Use nearest-band bucketing to avoid boundary flip-flops.
-        band_width = self._config.regime_band_width
-        setpoint_band = int((requested_setpoint + (band_width / 2.0)) // band_width)
+        anchor = clamp(anchor, self._config.minimum_setpoint, self._config.maximum_setpoint)
+        new_minimum_setpoint = round(factor * old_minimum_setpoint + (1.0 - factor) * anchor, 1)
+        new_minimum_setpoint = clamp(new_minimum_setpoint, self._config.minimum_setpoint, self._config.maximum_setpoint)
 
-        # Outside temperature band (coarse and human-readable)
+        regime_state.minimum_setpoint = new_minimum_setpoint
+
+        _LOGGER.debug(
+            "Relaxing regime %s minimum toward anchor=%.1f: %.1f -> %.1f (factor=%.2f, ran_near_minimum=%s, anchor_source=%s)",
+            self._active_regime_key, anchor, old_minimum_setpoint, new_minimum_setpoint, factor, ran_near_minimum, anchor_source
+        )
+
+    def _make_regime_key(self, cycles: "CycleStatistics", requested_setpoint: float, outside_temperature: Optional[float]) -> str:
+        setpoint_band = self._bucket_setpoint_band_with_hysteresis(requested_setpoint)
+        temperature_band = self._bucket_outside_temperature_with_hysteresis(outside_temperature)
+        delta_bucket = self._bucket_delta_with_hysteresis(cycles.delta_flow_minus_return_p50_4h)
+
+        return f"{setpoint_band}:{temperature_band}:{delta_bucket}"
+
+    def _bucket_setpoint_band_with_hysteresis(self, requested_setpoint: float) -> int:
+        band_width = float(self._config.regime_band_width)
+        raw_band = int((requested_setpoint + (band_width / 2.0)) // band_width)
+
+        previous_band = self._previous_setpoint_band
+        if previous_band is None:
+            self._previous_setpoint_band = raw_band
+            return raw_band
+
+        # Thresholds
+        margin = band_width * 0.25
+        previous_center = previous_band * band_width
+        upper_boundary = previous_center + (band_width / 2.0) + margin
+        lower_boundary = previous_center - (band_width / 2.0) - margin
+
+        band = previous_band
+        if requested_setpoint >= upper_boundary:
+            band = raw_band
+        elif requested_setpoint <= lower_boundary:
+            band = raw_band
+
+        self._previous_setpoint_band = band
+        return band
+
+    def _bucket_outside_temperature_with_hysteresis(self, outside_temperature: Optional[float]) -> str:
         if outside_temperature is None:
-            temperature_band = "unknown"
-        elif outside_temperature < 0.0:
-            temperature_band = "freezing"
-        elif outside_temperature < 5.0:
-            temperature_band = "cold"
-        elif outside_temperature < 15.0:
-            temperature_band = "mild"
-        else:
-            temperature_band = "warm"
+            self._previous_outside_temperature_bucket = "unknown"
+            return self._previous_outside_temperature_bucket
 
-        # Load band (coarse and stable)
-        if cycles.sample_count_4h < max(6, self._config.minimum_on_samples_for_tuning):
-            load_band = "unknown"
-        else:
-            frequent_cycles = cycles.last_hour_count >= self._config.low_load_minimum_cycles_per_hour
-            short_ons = (cycles.median_on_duration_seconds_4h is None or cycles.median_on_duration_seconds_4h < TARGET_MIN_ON_TIME_SECONDS)
-            load_band = "low" if (frequent_cycles and short_ons) else "normal"
+        previous_bucket = self._previous_outside_temperature_bucket
 
-        # TRV-derived regime dimensions (coarse + hysteresis)
-        active_area_bucket = "sec_unknown"
-        demand_weight_bucket = "w_unknown"
+        # Thresholds
+        margin = 0.5
+        cold_threshold = 5.0
+        mild_threshold = 15.0
+        freezing_threshold = 0.0
 
-        if areas_snapshot is not None:
-            active_area_bucket = self._bucket_active_area_count_with_hysteresis(areas_snapshot.active_area_count)
-            demand_weight_bucket = self._bucket_demand_weight_with_hysteresis(areas_snapshot.demand_weight_sum or 0.0)
+        def initial_bucket(value: float) -> str:
+            if value < freezing_threshold:
+                return "freezing"
+            if value < cold_threshold:
+                return "cold"
+            if value < mild_threshold:
+                return "mild"
 
-        return f"{setpoint_band}:{temperature_band}:{load_band}:{active_area_bucket}:{demand_weight_bucket}"
-
-    def _bucket_active_area_count_with_hysteresis(self, active_area_count: int) -> str:
-        previous_bucket = self._previous_active_area_bucket
+            return "warm"
 
         if previous_bucket is None:
-            if active_area_count <= 0:
-                bucket = "sec0"
-            elif active_area_count == 1:
-                bucket = "sec1"
-            elif active_area_count <= 3:
-                bucket = "sec2-3"
-            else:
-                bucket = "sec4+"
-
-            self._previous_active_area_bucket = bucket
+            bucket = initial_bucket(outside_temperature)
+            self._previous_outside_temperature_bucket = bucket
             return bucket
 
-        # Hysteresis rules: require a full step change to move buckets
-        if previous_bucket == "sec0":
-            if active_area_count >= 2:
-                previous_bucket = "sec2-3"
-            elif active_area_count == 1:
-                previous_bucket = "sec1"
+        if previous_bucket == "freezing":
+            if outside_temperature >= freezing_threshold + margin:
+                previous_bucket = "cold"
 
-        elif previous_bucket == "sec1":
-            if active_area_count <= 0:
-                previous_bucket = "sec0"
-            elif active_area_count >= 3:
-                previous_bucket = "sec2-3"
+        elif previous_bucket == "cold":
+            if outside_temperature < freezing_threshold - margin:
+                previous_bucket = "freezing"
+            elif outside_temperature >= cold_threshold + margin:
+                previous_bucket = "mild"
 
-        elif previous_bucket == "sec2-3":
-            if active_area_count <= 1:
-                previous_bucket = "sec1"
-            elif active_area_count >= 5:
-                previous_bucket = "sec4+"
+        elif previous_bucket == "mild":
+            if outside_temperature < cold_threshold - margin:
+                previous_bucket = "cold"
+            elif outside_temperature >= mild_threshold + margin:
+                previous_bucket = "warm"
 
-        elif previous_bucket == "sec4+":
-            if active_area_count <= 3:
-                previous_bucket = "sec2-3"
+        elif previous_bucket == "warm":
+            if outside_temperature < mild_threshold - margin:
+                previous_bucket = "mild"
 
-        self._previous_active_area_bucket = previous_bucket
+        self._previous_outside_temperature_bucket = previous_bucket
         return previous_bucket
 
-    def _bucket_demand_weight_with_hysteresis(self, demand_weight_sum: float) -> str:
+    def _bucket_delta_with_hysteresis(self, delta: Optional[float]) -> str:
+        if delta is None:
+            self._previous_delta_bucket = "d_unknown"
+            return "d_unknown"
 
-        previous_bucket = self._previous_demand_weight_bucket
+        previous = self._previous_delta_bucket
 
-        # Thresholds (coarse).
-        low_threshold = 0.6
-        medium_threshold = 1.5
-        high_threshold = 3.0
+        # Thresholds
+        margin = 1.0
+        thresholds = [5.0, 10.0, 15.0]
 
-        # Hysteresis margins
-        margin = 0.15
+        def raw_bucket(value: float) -> str:
+            if value < thresholds[0]:
+                return "d_vlow"
+            if value < thresholds[1]:
+                return "d_low"
+            if value < thresholds[2]:
+                return "d_med"
+            return "d_high"
 
-        if previous_bucket is None:
-            if demand_weight_sum < low_threshold:
-                bucket = "w_none"
-            elif demand_weight_sum < medium_threshold:
-                bucket = "w_low"
-            elif demand_weight_sum < high_threshold:
-                bucket = "w_med"
-            else:
-                bucket = "w_high"
-
-            self._previous_demand_weight_bucket = bucket
+        if previous is None:
+            bucket = raw_bucket(delta)
+            self._previous_delta_bucket = bucket
             return bucket
 
-        # Stickiness around thresholds
-        if previous_bucket == "w_none":
-            if demand_weight_sum >= low_threshold + margin:
-                previous_bucket = "w_low"
+        if previous == "d_vlow" and delta >= thresholds[0] + margin:
+            previous = "d_low"
+        elif previous == "d_low":
+            if delta < thresholds[0] - margin:
+                previous = "d_vlow"
+            elif delta >= thresholds[1] + margin:
+                previous = "d_med"
+        elif previous == "d_med":
+            if delta < thresholds[1] - margin:
+                previous = "d_low"
+            elif delta >= thresholds[2] + margin:
+                previous = "d_high"
+        elif previous == "d_high" and delta < thresholds[2] - margin:
+            previous = "d_med"
 
-        elif previous_bucket == "w_low":
-            if demand_weight_sum < low_threshold - margin:
-                previous_bucket = "w_none"
-            elif demand_weight_sum >= medium_threshold + margin:
-                previous_bucket = "w_med"
-
-        elif previous_bucket == "w_med":
-            if demand_weight_sum < medium_threshold - margin:
-                previous_bucket = "w_low"
-            elif demand_weight_sum >= high_threshold + margin:
-                previous_bucket = "w_high"
-
-        elif previous_bucket == "w_high":
-            if demand_weight_sum < high_threshold - margin:
-                previous_bucket = "w_med"
-
-        self._previous_demand_weight_bucket = previous_bucket
-        return previous_bucket
+        self._previous_delta_bucket = previous
+        return previous

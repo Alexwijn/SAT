@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from datetime import timedelta, datetime
 from types import MappingProxyType
 from typing import Any, Optional
@@ -32,14 +31,6 @@ COMFORT_BAND = 0.1
 COOLING_SLOPE = 4.0
 OVERSHOOT_MARGIN = 0.3
 COOLING_HEADROOM = 10.0
-
-
-@dataclass(frozen=True, slots=True)
-class AreasSnapshot:
-    active_area_count: int
-    total_area_count: int
-    demand_weight_mean: Optional[float]
-    demand_weight_sum: Optional[float]
 
 
 class Area:
@@ -245,42 +236,6 @@ class Areas:
     def pids(self) -> "Areas._PIDs":
         """Return an interface to reset PID controllers for all areas."""
         return Areas._PIDs(self._areas)
-
-    @property
-    def snapshot(self) -> AreasSnapshot:
-        """Create a point-in-time snapshot of area demand."""
-        active_areas: list[Area] = []
-        scaled_weights: list[float] = []
-
-        for area in self._areas:
-            if not area.requires_heat:
-                continue
-
-            active_areas.append(area)
-
-            weight = area.demand_weight
-            if weight is None:
-                continue
-
-            scaled_weights.append(float(weight))
-
-        if not scaled_weights:
-            return AreasSnapshot(
-                active_area_count=len(active_areas),
-                total_area_count=len(self._areas),
-                demand_weight_mean=None,
-                demand_weight_sum=None,
-            )
-
-        demand_weight_sum = float(sum(scaled_weights))
-        demand_weight_mean = float(demand_weight_sum / len(scaled_weights))
-
-        return AreasSnapshot(
-            active_area_count=len(active_areas),
-            total_area_count=len(self._areas),
-            demand_weight_mean=round(demand_weight_mean, 3),
-            demand_weight_sum=round(demand_weight_sum, 3),
-        )
 
     def get(self, entity_id: str) -> Optional[Area]:
         """Return the Area instance for a given entity id, if present."""

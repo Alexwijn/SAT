@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Callable, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .cycles import CycleSample
+    pass
 
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
@@ -240,50 +240,16 @@ class RelativeModulationState(str, Enum):
     HOT_WATER = "hot_water"
 
 
-# Cycles
-UNHEALTHY_CYCLES = (
-    CycleClassification.TOO_SHORT_UNDERHEAT,
-    CycleClassification.TOO_SHORT_OVERSHOOT,
-    CycleClassification.LONG_OVERSHOOT
-)
-
-
 # Generic Dataclasses
 @dataclass(frozen=True, slots=True)
 class Percentiles:
     p50: Optional[float] = None
     p90: Optional[float] = None
 
-    @staticmethod
-    def make_from_cycle_samples(
-            samples: list["CycleSample"],
-            value_getter: Callable[["CycleSample"], Optional[float]],
-            start_time: float,
-            end_time: float,
-            warmup_seconds: float,
-            tail_seconds: float,
-            percentile: float
-    ) -> Optional[float]:
-        if end_time <= start_time:
-            return None
 
-        observation_start = start_time + max(0.0, warmup_seconds)
-        tail_start = max(observation_start, end_time - max(0.0, tail_seconds))
-
-        values: list[float] = []
-        for sample in samples:
-            if sample.timestamp < tail_start or sample.timestamp > end_time:
-                continue
-
-            value = value_getter(sample)
-            if value is not None:
-                values.append(value)
-
-        if len(values) < 3:
-            return None
-
-        values.sort()
-        index = int(round((len(values) - 1) * percentile))
-        index = max(0, min(index, len(values) - 1))
-
-        return values[index]
+# Cycles
+UNHEALTHY_CYCLES = (
+    CycleClassification.TOO_SHORT_UNDERHEAT,
+    CycleClassification.TOO_SHORT_OVERSHOOT,
+    CycleClassification.LONG_OVERSHOOT
+)

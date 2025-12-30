@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Callable, Deque, Optional
 from homeassistant.core import HomeAssistant
 
 from .const import CycleClassification, CycleKind, EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED, PWMStatus, Percentiles
-from .helpers import clamp, min_max
+from .helpers import clamp, min_max, percentile_interpolated
 
 if TYPE_CHECKING:
     from .pwm import PWMState
@@ -18,16 +18,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-# Anything shorter than this is basically noise / transient.
-TAIL_WINDOW_SECONDS: float = 180.0  # 3 minutes
-MIN_OBSERVATION_ON_SECONDS: float = 120.0  # 2 minutes
-
 # Below this, if we overshoot / underheat, we call it "too short".
 TARGET_MIN_ON_TIME_SECONDS: float = 600.0  # 10 minutes
-
-# Low-load detection thresholds
-LOW_LOAD_MIN_CYCLES_PER_HOUR: float = 3.0
-LOW_LOAD_MAX_DUTY_RATIO_15_M: float = 0.50
+ULTRA_SHORT_MIN_ON_TIME_SECONDS: float = 90.0  # 1.5 minutes
 
 # Flow vs. setpoint classification margins (remember: many boilers report integer flow temperatures)
 OVERSHOOT_MARGIN_CELSIUS: float = 2.0  # max_flow >= setpoint + margin -> overshoot
@@ -87,6 +80,8 @@ class CycleStatistics:
     duty_ratio_last_15m: float
     off_with_demand_duration: Optional[float]
     median_on_duration_seconds_4h: Optional[float]
+    delta_flow_minus_return_p50_4h: Optional[float]
+    delta_flow_minus_return_p90_4h: Optional[float]
 
 
 class CycleHistory:
@@ -106,11 +101,9 @@ class CycleHistory:
         self._cycles_window_seconds = cycles_window_seconds
         self._median_window_seconds = median_window_seconds
 
-        # (cycle_end_time, duration_seconds)
-        self._cycle_end_times_window: Deque[tuple[float, float]] = deque()
-
-        # (cycle_end_time, duration_seconds) for median on-duration
         self._on_durations_window: Deque[tuple[float, float]] = deque()
+        self._cycle_end_times_window: Deque[tuple[float, float]] = deque()
+        self._delta_flow_minus_return_window: Deque[tuple[float, float]] = deque()
 
         self._last_cycle: Optional[Cycle] = None
         self._off_with_demand_duration: Optional[float] = None
@@ -163,6 +156,24 @@ class CycleHistory:
         return float(median(durations))
 
     @property
+    def delta_flow_minus_return_p50_4h(self) -> Optional[float]:
+        now = self._current_time_hint()
+        if now is not None:
+            self._prune_delta_window(now)
+
+        values = [value for _, value in self._delta_flow_minus_return_window]
+        return percentile_interpolated(values, 0.50)
+
+    @property
+    def delta_flow_minus_return_p90_4h(self) -> Optional[float]:
+        now = self._current_time_hint()
+        if now is not None:
+            self._prune_delta_window(now)
+
+        values = [value for _, value in self._delta_flow_minus_return_window]
+        return percentile_interpolated(values, 0.90)
+
+    @property
     def last_cycle(self) -> Optional[Cycle]:
         """Most recent completed cycle, or None if it is too old."""
         if self._last_cycle is None:
@@ -182,16 +193,23 @@ class CycleHistory:
             duty_ratio_last_15m=self.duty_ratio_last_15m,
             off_with_demand_duration=self._off_with_demand_duration,
             median_on_duration_seconds_4h=self.median_on_duration_seconds_4h,
+            delta_flow_minus_return_p50_4h=self.delta_flow_minus_return_p50_4h,
+            delta_flow_minus_return_p90_4h=self.delta_flow_minus_return_p90_4h,
         )
 
     def record_cycle(self, cycle: Cycle) -> None:
         """Record a completed flame cycle into rolling windows."""
         end_time = cycle.end
         duration_seconds = max(0.0, cycle.duration)
+        delta_flow_minus_return = cycle.tail.delta_flow_minus_return.p50
 
         self._on_durations_window.append((end_time, duration_seconds))
         self._cycle_end_times_window.append((end_time, duration_seconds))
 
+        if delta_flow_minus_return is not None:
+            self._delta_flow_minus_return_window.append((end_time, float(delta_flow_minus_return)))
+
+        self._prune_delta_window(end_time)
         self._prune_cycles_window(end_time)
         self._prune_median_window(end_time)
 
@@ -218,10 +236,10 @@ class CycleHistory:
         if self._on_durations_window:
             latest_times.append(self._on_durations_window[-1][0])
 
-        if not latest_times:
-            return None
+        if self._delta_flow_minus_return_window:
+            latest_times.append(self._delta_flow_minus_return_window[-1][0])
 
-        return max(latest_times)
+        return max(latest_times) if latest_times else None
 
     def _prune_cycles_window(self, now: float) -> None:
         cutoff = now - float(self._cycles_window_seconds)
@@ -232,6 +250,11 @@ class CycleHistory:
         cutoff = now - float(self._median_window_seconds)
         while self._on_durations_window and self._on_durations_window[0][0] < cutoff:
             self._on_durations_window.popleft()
+
+    def _prune_delta_window(self, now: float) -> None:
+        cutoff = now - float(self._median_window_seconds)
+        while self._delta_flow_minus_return_window and self._delta_flow_minus_return_window[0][0] < cutoff:
+            self._delta_flow_minus_return_window.popleft()
 
 
 class CycleTracker:
@@ -335,7 +358,7 @@ class CycleTracker:
 
         fraction_domestic_hot_water = dhw_count / float(sample_count)
         fraction_space_heating = heating_count / float(sample_count)
-        kind = self.determine_cycle_kind(fraction_domestic_hot_water, fraction_space_heating)
+        kind = self._determine_cycle_kind(fraction_domestic_hot_water, fraction_space_heating)
 
         setpoints = [sample.boiler_state.setpoint for sample in samples]
         flow_temperatures = [sample.boiler_state.flow_temperature for sample in samples]
@@ -380,22 +403,18 @@ class CycleTracker:
     def _build_tail_metrics(samples: list[CycleSample], start_time: float, end_time: float) -> CycleTailMetrics:
         def build_percentiles(value_getter: Callable[[CycleSample], Optional[float]]) -> Percentiles:
             return Percentiles(
-                p50=Percentiles.make_from_cycle_samples(
+                p50=CycleTracker._percentile_from_cycle_samples(
                     samples=samples,
                     value_getter=value_getter,
                     start_time=start_time,
                     end_time=end_time,
-                    warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
-                    tail_seconds=TAIL_WINDOW_SECONDS,
                     percentile=0.50,
                 ),
-                p90=Percentiles.make_from_cycle_samples(
+                p90=CycleTracker._percentile_from_cycle_samples(
                     samples=samples,
                     value_getter=value_getter,
                     start_time=start_time,
                     end_time=end_time,
-                    warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
-                    tail_seconds=TAIL_WINDOW_SECONDS,
                     percentile=0.90,
                 ),
             )
@@ -422,7 +441,7 @@ class CycleTracker:
         )
 
     @staticmethod
-    def determine_cycle_kind(fraction_domestic_hot_water: float, fraction_space_heating: float) -> CycleKind:
+    def _determine_cycle_kind(fraction_domestic_hot_water: float, fraction_space_heating: float) -> CycleKind:
         if fraction_domestic_hot_water > 0.8 and fraction_space_heating < 0.2:
             return CycleKind.DOMESTIC_HOT_WATER
 
@@ -457,54 +476,29 @@ class CycleTracker:
 
             return None
 
-        short_threshold_seconds = compute_short_threshold_seconds()
-        is_short = duration < short_threshold_seconds
+        is_short = duration < compute_short_threshold_seconds()
+        is_ultra_short = duration < ULTRA_SHORT_MIN_ON_TIME_SECONDS
 
-        tail_p90_delta = Percentiles.make_from_cycle_samples(
+        tail_p90_delta = CycleTracker._percentile_from_cycle_samples(
             samples=samples,
             value_getter=delta_flow_minus_setpoint,
             start_time=start_time,
             end_time=end_time,
-            warmup_seconds=MIN_OBSERVATION_ON_SECONDS,
-            tail_seconds=TAIL_WINDOW_SECONDS,
             percentile=0.90,
         )
 
         if tail_p90_delta is None:
-            deltas: list[float] = []
-            for sample in samples:
-                delta = delta_flow_minus_setpoint(sample)
-                if delta is not None:
-                    deltas.append(delta)
-
-            if not deltas:
-                return CycleClassification.INSUFFICIENT_DATA
-
-            max_delta = max(deltas)
-            min_delta = min(deltas)
-
-            overshoot = max_delta >= OVERSHOOT_MARGIN_CELSIUS
-            underheat = min_delta <= -UNDERSHOOT_MARGIN_CELSIUS
-
-            if is_short:
-                if overshoot:
-                    return CycleClassification.FAST_OVERSHOOT
-
-                if underheat:
-                    return CycleClassification.FAST_UNDERHEAT
-
-                return CycleClassification.UNCERTAIN
-
-            if underheat and not overshoot:
-                return CycleClassification.LONG_UNDERHEAT
-
-            if overshoot and not underheat:
-                return CycleClassification.LONG_OVERSHOOT
-
             return CycleClassification.UNCERTAIN
 
         overshoot = tail_p90_delta >= OVERSHOOT_MARGIN_CELSIUS
         underheat = tail_p90_delta <= -UNDERSHOOT_MARGIN_CELSIUS
+
+        if is_ultra_short:
+            if overshoot:
+                return CycleClassification.FAST_OVERSHOOT
+
+            if underheat:
+                return CycleClassification.FAST_UNDERHEAT
 
         if is_short:
             if overshoot:
@@ -520,3 +514,27 @@ class CycleTracker:
             return CycleClassification.LONG_OVERSHOOT
 
         return CycleClassification.GOOD
+
+    @staticmethod
+    def _percentile_from_cycle_samples(samples: list[CycleSample], value_getter: Callable[[CycleSample], Optional[float]], start_time: float, end_time: float, percentile: float) -> Optional[float]:
+        duration = max(0.0, end_time - start_time)
+
+        # Adaptive warmup (your current behavior)
+        effective_warmup = min(120.0, duration * 0.25)
+
+        observation_start = start_time + effective_warmup
+        tail_start = max(observation_start, end_time - 180.0)
+
+        values: list[float] = []
+        for sample in samples:
+            if sample.timestamp < tail_start:
+                continue
+
+            value = value_getter(sample)
+            if value is not None:
+                values.append(float(value))
+
+        if len(values) < 2:
+            return None
+
+        return percentile_interpolated(values, percentile)

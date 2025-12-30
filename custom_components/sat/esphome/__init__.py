@@ -162,7 +162,8 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         await super().async_added_to_hass()
 
     async def async_state_change_event(self, _event: Event[EventStateChangedData]):
-        await self.async_notify_listeners()
+        # Notify listeners to ensure the entities are updated
+        self.hass.async_create_task(self.async_notify_listeners)
 
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._send_command_value(DATA_CONTROL_SETPOINT, value)

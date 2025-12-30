@@ -109,7 +109,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
                 self.logger.debug(f"Decreasing boiler temperature with {self._cooling}")
 
         # Notify listeners to ensure the entities are updated
-        self.hass.async_create_task(self.async_notify_listeners())
+        self.hass.async_create_task(self.async_notify_listeners)
 
     @property
     def target(self):

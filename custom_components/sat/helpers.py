@@ -116,3 +116,22 @@ def min_max(values: Iterable[Optional[float]]) -> Tuple[Optional[float], Optiona
         return None, None
 
     return min(filtered), max(filtered)
+
+
+def percentile_interpolated(values: list[float], percentile: float) -> Optional[float]:
+    """Return the percentile value of a list of values, or None if the list is empty."""
+    if not values:
+        return None
+
+    values_sorted = sorted(values)
+    if len(values_sorted) == 1:
+        return float(values_sorted[0])
+
+    position = (len(values_sorted) - 1) * percentile
+    lower_index = int(position)
+    upper_index = min(lower_index + 1, len(values_sorted) - 1)
+
+    fraction = position - lower_index
+    lower_value = values_sorted[lower_index]
+    upper_value = values_sorted[upper_index]
+    return float(lower_value + (upper_value - lower_value) * fraction)

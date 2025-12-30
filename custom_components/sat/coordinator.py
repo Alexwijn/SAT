@@ -384,15 +384,19 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             self._cycle_tracker.update(boiler_state=self.state, pwm_state=self._last_pwm_state)
 
     @callback
-    def async_set_updated_data(self, data: dict) -> None:
-        self.data.update(data)
+    def async_notify_listeners(self, force: bool = True) -> None:
         self.hass.async_add_job(self._control_update_debouncer.async_call())
 
-        if not self.data.is_dirty():
+        if not force and not self.data.is_dirty():
             return
 
         self.data.reset_dirty()
         self.hass.async_add_job(self._hass_notify_debouncer.async_call())
+
+    @callback
+    def async_set_updated_data(self, data: dict) -> None:
+        self.data.update(data)
+        self.async_notify_listeners(False)
 
 
 class SatEntityCoordinator(DataUpdateCoordinator):
