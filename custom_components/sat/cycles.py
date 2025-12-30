@@ -66,6 +66,9 @@ class Cycle:
     max_setpoint: Optional[float]
     max_flow_temperature: Optional[float]
 
+    delta_flow_minus_return_median: Optional[float]
+    delta_flow_minus_setpoint_median: Optional[float]
+
     fraction_domestic_hot_water: float
     fraction_space_heating: float
 
@@ -80,8 +83,12 @@ class CycleStatistics:
     duty_ratio_last_15m: float
     off_with_demand_duration: Optional[float]
     median_on_duration_seconds_4h: Optional[float]
+
     delta_flow_minus_return_p50_4h: Optional[float]
     delta_flow_minus_return_p90_4h: Optional[float]
+
+    delta_flow_minus_setpoint_p50_4h: Optional[float]
+    delta_flow_minus_setpoint_p90_4h: Optional[float]
 
 
 class CycleHistory:
@@ -104,6 +111,7 @@ class CycleHistory:
         self._on_durations_window: Deque[tuple[float, float]] = deque()
         self._cycle_end_times_window: Deque[tuple[float, float]] = deque()
         self._delta_flow_minus_return_window: Deque[tuple[float, float]] = deque()
+        self._delta_flow_minus_setpoint_window: Deque[tuple[float, float]] = deque()
 
         self._last_cycle: Optional[Cycle] = None
         self._off_with_demand_duration: Optional[float] = None
@@ -114,6 +122,7 @@ class CycleHistory:
         now = self._current_time_hint()
         if now is not None:
             self._prune_median_window(now)
+
         return len(self._on_durations_window)
 
     @property
@@ -159,7 +168,7 @@ class CycleHistory:
     def delta_flow_minus_return_p50_4h(self) -> Optional[float]:
         now = self._current_time_hint()
         if now is not None:
-            self._prune_delta_window(now)
+            self._prune_delta_flow_minus_return_window(now)
 
         values = [value for _, value in self._delta_flow_minus_return_window]
         return percentile_interpolated(values, 0.50)
@@ -168,9 +177,27 @@ class CycleHistory:
     def delta_flow_minus_return_p90_4h(self) -> Optional[float]:
         now = self._current_time_hint()
         if now is not None:
-            self._prune_delta_window(now)
+            self._prune_delta_flow_minus_return_window(now)
 
         values = [value for _, value in self._delta_flow_minus_return_window]
+        return percentile_interpolated(values, 0.90)
+
+    @property
+    def delta_flow_minus_setpoint_p50_4h(self) -> Optional[float]:
+        now = self._current_time_hint()
+        if now is not None:
+            self._prune_delta_flow_minus_setpoint_window(now)
+
+        values = [value for _, value in self._delta_flow_minus_setpoint_window]
+        return percentile_interpolated(values, 0.50)
+
+    @property
+    def delta_flow_minus_setpoint_p90_4h(self) -> Optional[float]:
+        now = self._current_time_hint()
+        if now is not None:
+            self._prune_delta_flow_minus_setpoint_window(now)
+
+        values = [value for _, value in self._delta_flow_minus_setpoint_window]
         return percentile_interpolated(values, 0.90)
 
     @property
@@ -193,25 +220,33 @@ class CycleHistory:
             duty_ratio_last_15m=self.duty_ratio_last_15m,
             off_with_demand_duration=self._off_with_demand_duration,
             median_on_duration_seconds_4h=self.median_on_duration_seconds_4h,
+
             delta_flow_minus_return_p50_4h=self.delta_flow_minus_return_p50_4h,
             delta_flow_minus_return_p90_4h=self.delta_flow_minus_return_p90_4h,
+
+            delta_flow_minus_setpoint_p50_4h=self.delta_flow_minus_setpoint_p50_4h,
+            delta_flow_minus_setpoint_p90_4h=self.delta_flow_minus_setpoint_p90_4h,
         )
 
     def record_cycle(self, cycle: Cycle) -> None:
         """Record a completed flame cycle into rolling windows."""
         end_time = cycle.end
         duration_seconds = max(0.0, cycle.duration)
-        delta_flow_minus_return = cycle.tail.delta_flow_minus_return.p50
 
         self._on_durations_window.append((end_time, duration_seconds))
         self._cycle_end_times_window.append((end_time, duration_seconds))
 
-        if delta_flow_minus_return is not None:
-            self._delta_flow_minus_return_window.append((end_time, float(delta_flow_minus_return)))
+        if cycle.delta_flow_minus_setpoint_median is not None:
+            self._delta_flow_minus_setpoint_window.append((end_time, cycle.delta_flow_minus_setpoint_median))
 
-        self._prune_delta_window(end_time)
+        if cycle.delta_flow_minus_return_median is not None:
+            self._delta_flow_minus_return_window.append((end_time, cycle.delta_flow_minus_return_median))
+
         self._prune_cycles_window(end_time)
         self._prune_median_window(end_time)
+
+        self._prune_delta_flow_minus_return_window(end_time)
+        self._prune_delta_flow_minus_setpoint_window(end_time)
 
         self._last_cycle = cycle
 
@@ -239,6 +274,9 @@ class CycleHistory:
         if self._delta_flow_minus_return_window:
             latest_times.append(self._delta_flow_minus_return_window[-1][0])
 
+        if self._delta_flow_minus_setpoint_window:
+            latest_times.append(self._delta_flow_minus_setpoint_window[-1][0])
+
         return max(latest_times) if latest_times else None
 
     def _prune_cycles_window(self, now: float) -> None:
@@ -251,10 +289,15 @@ class CycleHistory:
         while self._on_durations_window and self._on_durations_window[0][0] < cutoff:
             self._on_durations_window.popleft()
 
-    def _prune_delta_window(self, now: float) -> None:
+    def _prune_delta_flow_minus_return_window(self, now: float) -> None:
         cutoff = now - float(self._median_window_seconds)
         while self._delta_flow_minus_return_window and self._delta_flow_minus_return_window[0][0] < cutoff:
             self._delta_flow_minus_return_window.popleft()
+
+    def _prune_delta_flow_minus_setpoint_window(self, now: float) -> None:
+        cutoff = now - float(self._median_window_seconds)
+        while self._delta_flow_minus_setpoint_window and self._delta_flow_minus_setpoint_window[0][0] < cutoff:
+            self._delta_flow_minus_setpoint_window.popleft()
 
 
 class CycleTracker:
@@ -366,6 +409,21 @@ class CycleTracker:
         min_setpoint, max_setpoint = min_max(setpoints)
         _, max_flow_temperature = min_max(flow_temperatures)
 
+        flow_minus_return_deltas = [
+            float(sample.boiler_state.flow_temperature - sample.boiler_state.return_temperature)
+            for sample in samples
+            if sample.boiler_state.flow_temperature is not None and sample.boiler_state.return_temperature is not None
+        ]
+
+        flow_minus_setpoint_deltas = [
+            float(sample.boiler_state.flow_temperature - sample.boiler_state.setpoint)
+            for sample in samples
+            if sample.boiler_state.flow_temperature is not None and sample.boiler_state.setpoint is not None
+        ]
+
+        flow_minus_return_median_delta = percentile_interpolated(flow_minus_return_deltas, 0.50) if flow_minus_return_deltas else None
+        flow_minus_setpoint_median_delta = percentile_interpolated(flow_minus_setpoint_deltas, 0.50) if flow_minus_setpoint_deltas else None
+
         tail_metrics = self._build_tail_metrics(
             samples=samples,
             start_time=start_time,
@@ -392,6 +450,9 @@ class CycleTracker:
             min_setpoint=min_setpoint,
             max_setpoint=max_setpoint,
             max_flow_temperature=max_flow_temperature,
+
+            delta_flow_minus_return_median=flow_minus_return_median_delta,
+            delta_flow_minus_setpoint_median=flow_minus_setpoint_median_delta,
 
             tail=tail_metrics,
 

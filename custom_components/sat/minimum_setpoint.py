@@ -282,13 +282,13 @@ class DynamicMinimumSetpoint:
         else:
             return round(0.7 * self._value + 0.3 * closest_state.minimum_setpoint, 1)
 
-    def _maybe_tune_minimum(self, regime_state: "RegimeState", boiler_state_at_end: "BoilerState", statistics: "CycleStatistics", last_cycle: Cycle, requested_setpoint: float) -> None:
+    def _maybe_tune_minimum(self, regime_state: "RegimeState", boiler_state_at_end: "BoilerState", cycles: "CycleStatistics", last_cycle: Cycle, requested_setpoint: float) -> None:
         """Decide whether and how to adjust the learned minimum setpoint for the active regime after a cycle."""
         if self._active_regime_key is None:
             return
 
         # Check if the current regime is suitable for minimum tuning.
-        if not self._is_tunable_regime(boiler_state_at_end, statistics):
+        if not self._is_tunable_regime(boiler_state_at_end, cycles):
             self._relax_toward_anchor(regime_state, last_cycle, requested_setpoint, self._config.minimum_relax_factor_when_untunable)
             return
 
@@ -323,14 +323,14 @@ class DynamicMinimumSetpoint:
         if classification in (CycleClassification.FAST_OVERSHOOT, CycleClassification.TOO_SHORT_OVERSHOOT):
             is_ultra_short = last_cycle.duration < ULTRA_SHORT_MIN_ON_TIME_SECONDS
             is_very_short = last_cycle.duration < (TARGET_MIN_ON_TIME_SECONDS * 0.5)
-            is_low_duty = statistics.duty_ratio_last_15m <= self._config.low_load_maximum_duty_ratio_15m
-            is_frequent_cycles = statistics.last_hour_count >= self._config.low_load_minimum_cycles_per_hour
+            is_low_duty = cycles.duty_ratio_last_15m <= self._config.low_load_maximum_duty_ratio_15m
+            is_frequent_cycles = cycles.last_hour_count >= self._config.low_load_minimum_cycles_per_hour
 
             if is_very_short and is_low_duty and is_frequent_cycles and (not is_ultra_short):
                 _LOGGER.debug(
                     "Ignoring %s for minimum tuning under low-load: duration=%.1fs (< %.1fs), duty_15m=%.2f (<= %.2f), cycles_last_hour=%.1f (>= %.1f).",
-                    classification.name, last_cycle.duration, TARGET_MIN_ON_TIME_SECONDS * 0.5, statistics.duty_ratio_last_15m,
-                    self._config.low_load_maximum_duty_ratio_15m, statistics.last_hour_count, self._config.low_load_minimum_cycles_per_hour,
+                    classification.name, last_cycle.duration, TARGET_MIN_ON_TIME_SECONDS * 0.5, cycles.duty_ratio_last_15m,
+                    self._config.low_load_maximum_duty_ratio_15m, cycles.last_hour_count, self._config.low_load_minimum_cycles_per_hour,
                 )
                 return
 
@@ -376,15 +376,15 @@ class DynamicMinimumSetpoint:
         elif classification == CycleClassification.LONG_OVERSHOOT:
             regime_state.minimum_setpoint += 0.5
 
-    def _is_tunable_regime(self, boiler_state: BoilerState, statistics: CycleStatistics) -> bool:
+    def _is_tunable_regime(self, boiler_state: BoilerState, cycles: CycleStatistics) -> bool:
         """Decide whether the current conditions are suitable for minimum tuning."""
         if boiler_state.is_inactive:
             return False
 
-        if statistics.sample_count_4h < self._config.minimum_on_samples_for_tuning:
+        if cycles.sample_count_4h < self._config.minimum_on_samples_for_tuning:
             return False
 
-        if statistics.last_hour_count < self._config.low_load_minimum_cycles_per_hour:
+        if cycles.last_hour_count < self._config.low_load_minimum_cycles_per_hour:
             return False
 
         return True
