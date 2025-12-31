@@ -106,9 +106,9 @@ class PWM:
         on_time_seconds, off_time_seconds = self._calculate_duty_cycle(requested_setpoint, boiler_state)
         self._duty_cycle = (on_time_seconds, off_time_seconds)
 
-        if self._first_duty_cycle_start is None or (monotonic() - self._first_duty_cycle_start) > 3600:
+        if self._first_duty_cycle_start is None or (now - self._first_duty_cycle_start) > 3600:
             self._current_cycle = 0
-            self._first_duty_cycle_start = monotonic()
+            self._first_duty_cycle_start = now
             _LOGGER.info("CYCLES count reset for the rolling hour.")
 
         # Update boiler temperature if heater has just started up
@@ -119,39 +119,40 @@ class PWM:
                 self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
         # -------------------------
-        # Start ON phase (OFF -> ON)
+        # Start ON phase (OFF/IDLE -> ON)
         # -------------------------
-        if self._status != PWMStatus.ON and on_time_seconds >= HEATER_STARTUP_TIMEFRAME and (elapsed >= off_time_seconds or self._status == PWMStatus.IDLE):
-            if self._current_cycle >= self._config.maximum_cycles:
-                _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
+        if self._status in (PWMStatus.OFF, PWMStatus.IDLE):
+            if on_time_seconds >= HEATER_STARTUP_TIMEFRAME and (self._status == PWMStatus.IDLE or elapsed >= off_time_seconds):
+                if self._current_cycle >= self._config.maximum_cycles:
+                    _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
+                    return
+
+                self._last_update = now
+                self._current_cycle += 1
+                self._status = PWMStatus.ON
+                self._effective_on_temperature = boiler_state.flow_temperature
+
+                _LOGGER.info(
+                    "Starting PWM Cycle (OFF->ON): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f active_off=%ds",
+                    elapsed, on_time_seconds, boiler_state.flow_temperature, boiler_state.setpoint, off_time_seconds
+                )
                 return
-
-            self._last_update = now
-            self._current_cycle += 1
-            self._status = PWMStatus.ON
-            self._effective_on_temperature = boiler_state.flow_temperature
-
-            _LOGGER.info(
-                "Ending PWM Cycle (ON->OFF): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f  active_off=%ds",
-                elapsed, on_time_seconds, boiler_state.flow_temperature, boiler_state.setpoint, off_time_seconds
-            )
-
-            return
 
         # -------------------------
         # End ON phase (ON -> OFF)
         # -------------------------
-        if self._status != PWMStatus.OFF and (on_time_seconds < HEATER_STARTUP_TIMEFRAME or elapsed >= off_time_seconds or self._status == PWMStatus.IDLE):
-            self._last_update = now
-            self._ended_on_phase = True
-            self._status = PWMStatus.OFF
+        if self._status == PWMStatus.ON:
+            # If we can't sustain heating, or we've reached the ON duration, end ON phase.
+            if on_time_seconds < HEATER_STARTUP_TIMEFRAME or elapsed >= on_time_seconds:
+                self._last_update = now
+                self._ended_on_phase = True
+                self._status = PWMStatus.OFF
 
-            _LOGGER.info(
-                "Ending PWM Cycle (ON->OFF): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f active_off=%ds",
-                elapsed, on_time_seconds, boiler_state.flow_temperature, boiler_state.setpoint, off_time_seconds
-            )
-
-            return
+                _LOGGER.info(
+                    "Ending PWM Cycle (ON->OFF): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f active_off=%ds",
+                    elapsed, on_time_seconds, boiler_state.flow_temperature, boiler_state.setpoint, off_time_seconds
+                )
+                return
 
         _LOGGER.debug("Cycle time elapsed: %.0f seconds in state: %s", elapsed, self._status)
 
