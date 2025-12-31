@@ -568,8 +568,6 @@ class CycleTracker:
             if underheat:
                 return CycleClassification.FAST_UNDERHEAT
 
-            return CycleClassification.UNCERTAIN
-
         if is_short:
             if overshoot:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
