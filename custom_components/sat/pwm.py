@@ -5,7 +5,7 @@ from typing import Optional, Tuple, TYPE_CHECKING
 
 from homeassistant.core import State
 
-from .const import HEATER_STARTUP_TIMEFRAME, PWMStatus
+from .const import HEATER_STARTUP_TIMEFRAME, PWMStatus, FLAME_STARTUP_TIMEFRAME
 from .heating_curve import HeatingCurve
 
 if TYPE_CHECKING:
@@ -120,7 +120,7 @@ class PWM:
         if self._status == PWMStatus.ON:
             if self._effective_on_temperature is None:
                 self._effective_on_temperature = boiler_state.flow_temperature
-            elif flame_on_elapsed >= HEATER_STARTUP_TIMEFRAME:
+            elif flame_on_elapsed >= FLAME_STARTUP_TIMEFRAME:
                 self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
         if self._first_duty_cycle_start is None or (now - self._first_duty_cycle_start) > 3600:

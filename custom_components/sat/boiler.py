@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
-from .const import BoilerStatus, CycleClassification
+from .const import BoilerStatus, UNHEALTHY_CYCLES
 
 if TYPE_CHECKING:
     from .cycles import Cycle
@@ -174,7 +174,7 @@ class Boiler:
         if not state.is_active or state.is_inactive:
             return BoilerStatus.OFF
 
-        if self._last_cycle is not None and self._last_cycle.classification == CycleClassification.LONG_OVERSHOOT:
+        if self._last_cycle is not None and self._last_cycle.classification in UNHEALTHY_CYCLES:
             return BoilerStatus.SHORT_CYCLING
 
         if not state.flame_active:
