@@ -66,6 +66,8 @@ class Cycle:
     max_setpoint: Optional[float]
     max_flow_temperature: Optional[float]
 
+    ended_on_phase: bool
+
     delta_flow_minus_return_median: Optional[float]
     delta_flow_minus_setpoint_median: Optional[float]
 
@@ -451,6 +453,8 @@ class CycleTracker:
             max_setpoint=max_setpoint,
             max_flow_temperature=max_flow_temperature,
 
+            ended_on_phase=pwm_state.ended_on_phase,
+
             delta_flow_minus_return_median=flow_minus_return_median_delta,
             delta_flow_minus_setpoint_median=flow_minus_setpoint_median_delta,
 
@@ -520,13 +524,13 @@ class CycleTracker:
             return CycleClassification.INSUFFICIENT_DATA
 
         def compute_short_threshold_seconds() -> float:
-            if pwm_state.status == PWMStatus.IDLE:
-                return 0.0
+            if pwm_state.status == PWMStatus.IDLE or pwm_state.duty_cycle is None:
+                return TARGET_MIN_ON_TIME_SECONDS
 
-            if pwm_state.status == PWMStatus.ON and pwm_state.duty_cycle[0] is not None:
-                return float(min(pwm_state.duty_cycle[0] * 0.9, TARGET_MIN_ON_TIME_SECONDS))
+            if (on_time_seconds := pwm_state.duty_cycle[0]) is None:
+                return TARGET_MIN_ON_TIME_SECONDS
 
-            return TARGET_MIN_ON_TIME_SECONDS
+            return float(min(on_time_seconds * 0.9, TARGET_MIN_ON_TIME_SECONDS))
 
         def delta_flow_minus_setpoint(sample: CycleSample) -> Optional[float]:
             flow_temperature = sample.boiler_state.flow_temperature
@@ -561,17 +565,22 @@ class CycleTracker:
             if underheat:
                 return CycleClassification.FAST_UNDERHEAT
 
+            return CycleClassification.UNCERTAIN
+
         if is_short:
             if overshoot:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
 
             if underheat:
+                if pwm_state.ended_on_phase:
+                    return CycleClassification.UNCERTAIN
+
                 return CycleClassification.TOO_SHORT_UNDERHEAT
 
-        if underheat and not overshoot:
+        if underheat:
             return CycleClassification.LONG_UNDERHEAT
 
-        if overshoot and not underheat:
+        if overshoot:
             return CycleClassification.LONG_OVERSHOOT
 
         return CycleClassification.GOOD

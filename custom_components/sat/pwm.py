@@ -13,6 +13,15 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# Extension policy
+EXTENSION_STEP_SECONDS = 30
+MAX_EXTENSION_SECONDS = 180
+EXTEND_IF_BELOW_CELSIUS = 2.0
+
+# Stall detection
+STALL_DELTA_CELSIUS = 1.0
+STALL_WINDOW_SECONDS = 120.0
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PWMState:
@@ -21,6 +30,7 @@ class PWMState:
     """
     enabled: bool
     status: PWMStatus
+    ended_on_phase: bool
     duty_cycle: Optional[Tuple[int, int]]
     last_duty_cycle_percentage: Optional[float]
 
@@ -39,9 +49,6 @@ class PWM:
 
     def __init__(self, config: PWMConfig, heating_curve: HeatingCurve, automatic_duty_cycle: bool):
         """Initialize the PWM control."""
-        self._alpha: float = 0.2
-        self._last_boiler_temperature: float | None = None
-
         self._config: PWMConfig = config
         self._heating_curve: HeatingCurve = heating_curve
         self._automatic_duty_cycle: bool = automatic_duty_cycle
@@ -75,6 +82,15 @@ class PWM:
         self._first_duty_cycle_start: float | None = None
         self._last_duty_cycle_percentage: float | None = None
 
+        self._ended_on_phase: bool = False
+        self._active_on_time_seconds: Optional[int] = None
+        self._active_off_time_seconds: Optional[int] = None
+        self._effective_on_temperature: Optional[float] = None
+
+        self._on_extension_used_seconds: int = 0
+        self._last_extension_check_timestamp: Optional[float] = None
+        self._last_extension_check_flow_temperature: Optional[float] = None
+
     def restore(self, state: State) -> None:
         """Restore the PWM controller from a saved state."""
         if enabled := state.attributes.get("pulse_width_modulation_enabled"):
@@ -82,58 +98,134 @@ class PWM:
             _LOGGER.debug("Restored Pulse Width Modulation state: %s", enabled)
 
     def enable(self, boiler_state: "BoilerState", requested_setpoint: Optional[float]) -> None:
-        """Enable and the PWM state based on the output of a PID controller."""
+        """Enable and update the PWM state based on the output of a PID controller."""
         self._enabled = True
+        self._ended_on_phase = False
 
-        if not self._heating_curve.value or requested_setpoint is None or boiler_state.flow_temperature is None:
+        if self._heating_curve.value is None or boiler_state.setpoint is None or boiler_state.flow_temperature is None or requested_setpoint is None:
             self._status = PWMStatus.IDLE
             self._last_update = monotonic()
-            self._last_boiler_temperature = boiler_state.flow_temperature
+            self._active_on_time_seconds = None
+            self._active_off_time_seconds = None
 
             _LOGGER.warning("PWM turned off due missing values.")
-
             return
 
-        if self._last_boiler_temperature is None:
-            self._last_boiler_temperature = boiler_state.flow_temperature
-            _LOGGER.debug("Initialized last boiler temperature to %.1f°C", boiler_state.flow_temperature)
+        now = monotonic()
 
-        if self._first_duty_cycle_start is None or (monotonic() - self._first_duty_cycle_start) > 3600:
-            self._current_cycle = 0
-            self._first_duty_cycle_start = monotonic()
-            _LOGGER.info("CYCLES count reset for the rolling hour.")
-
-        elapsed = monotonic() - self._last_update
-        self._duty_cycle = self._calculate_duty_cycle(requested_setpoint, boiler_state)
-
-        # Update boiler temperature if heater has just started up
         if self._status == PWMStatus.ON:
-            if elapsed <= HEATER_STARTUP_TIMEFRAME:
-                self._last_boiler_temperature = (self._alpha * boiler_state.flow_temperature + (1 - self._alpha) * self._last_boiler_temperature)
+            if self._effective_on_temperature is None:
+                self._effective_on_temperature = boiler_state.flow_temperature
+            elif boiler_state.flame_active:
+                self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
-                _LOGGER.debug("Updated last boiler temperature with weighted average during startup phase to %.1f°C", self._last_boiler_temperature)
-            else:
-                self._last_boiler_temperature = boiler_state.flow_temperature
-                _LOGGER.debug("Updated last boiler temperature to %.1f°C", self._last_boiler_temperature)
+        if self._first_duty_cycle_start is None or (now - self._first_duty_cycle_start) > 3600:
+            self._current_cycle = 0
+            self._first_duty_cycle_start = now
 
-        # State transitions for PWM
-        if self._status != PWMStatus.ON and self._duty_cycle[0] >= HEATER_STARTUP_TIMEFRAME and (elapsed >= self._duty_cycle[1] or self._status == PWMStatus.IDLE):
-            if self._current_cycle >= self._config.maximum_cycles:
-                _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
+        elapsed = now - self._last_update
+        proposed_on_time_seconds, proposed_off_time_seconds = self._calculate_duty_cycle(requested_setpoint, boiler_state)
+        self._duty_cycle = (proposed_on_time_seconds, proposed_off_time_seconds)
+
+        # -------------------------
+        # Start ON phase (OFF -> ON)
+        # -------------------------
+        if self._status != PWMStatus.ON:
+            active_off_time_seconds = (
+                int(self._active_off_time_seconds)
+                if self._active_off_time_seconds is not None
+                else int(proposed_off_time_seconds)
+            )
+
+            should_start_on = (
+                    proposed_on_time_seconds >= HEATER_STARTUP_TIMEFRAME
+                    and (elapsed >= float(active_off_time_seconds) or self._status == PWMStatus.IDLE)
+            )
+
+            if should_start_on:
+                if self._current_cycle >= self._config.maximum_cycles:
+                    _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
+                    return
+
+                self._last_update = now
+                self._current_cycle += 1
+                self._status = PWMStatus.ON
+
+                self._active_off_time_seconds = None
+                self._active_on_time_seconds = int(proposed_on_time_seconds)
+
+                self._on_extension_used_seconds = 0
+                self._last_extension_check_timestamp = now
+                self._last_extension_check_flow_temperature = boiler_state.flow_temperature
+
+                _LOGGER.info(
+                    "Starting new duty cycle (ON state). Current CYCLES count: %d (active_on=%ds)",
+                    self._current_cycle, self._active_on_time_seconds,
+                )
+
                 return
 
-            self._current_cycle += 1
-            self._status = PWMStatus.ON
-            self._last_update = monotonic()
-            self._last_boiler_temperature = boiler_state.flow_temperature
-            _LOGGER.info("Starting new duty cycle (ON state). Current CYCLES count: %d", self._current_cycle)
-            return
+            # If PWM is enabled, and we're not ON, we are effectively in OFF phase.
+            if self._status == PWMStatus.IDLE:
+                self._status = PWMStatus.OFF
 
-        if self._status != PWMStatus.OFF and (self._duty_cycle[0] < HEATER_STARTUP_TIMEFRAME or elapsed >= self._duty_cycle[0] or self._status == PWMStatus.IDLE):
-            self._status = PWMStatus.OFF
-            self._last_update = monotonic()
-            _LOGGER.info("Duty cycle completed. Switching to OFF state.")
-            return
+        # -------------------------
+        # End ON phase (ON -> OFF)
+        # -------------------------
+        if self._status == PWMStatus.ON:
+            active_on_time_seconds = (
+                int(self._active_on_time_seconds)
+                if self._active_on_time_seconds is not None
+                else int(proposed_on_time_seconds)
+            )
+
+            if elapsed >= float(active_on_time_seconds):
+                error_celsius = boiler_state.setpoint - boiler_state.flow_temperature
+
+                # Only extend after we've been ON for a bit (avoid extending during startup transients)
+                commit_seconds = max(float(HEATER_STARTUP_TIMEFRAME), 30.0)
+                is_past_commit = elapsed >= commit_seconds
+
+                # Update stall tracking
+                is_stalled = False
+                if self._last_extension_check_timestamp is None or self._last_extension_check_flow_temperature is None:
+                    self._last_extension_check_timestamp = now
+                    self._last_extension_check_flow_temperature = boiler_state.flow_temperature
+                else:
+                    time_since_check = now - float(self._last_extension_check_timestamp)
+                    if time_since_check >= STALL_WINDOW_SECONDS:
+                        delta = boiler_state.flow_temperature - float(self._last_extension_check_flow_temperature)
+                        if delta < STALL_DELTA_CELSIUS:
+                            is_stalled = True
+
+                        self._last_extension_check_timestamp = now
+                        self._last_extension_check_flow_temperature = boiler_state.flow_temperature
+
+                can_extend_more = self._on_extension_used_seconds < MAX_EXTENSION_SECONDS
+                should_extend = (is_past_commit and (error_celsius > EXTEND_IF_BELOW_CELSIUS) and can_extend_more and (not is_stalled))
+
+                if should_extend:
+                    self._on_extension_used_seconds += EXTENSION_STEP_SECONDS
+                    self._active_on_time_seconds = active_on_time_seconds + EXTENSION_STEP_SECONDS
+
+                    _LOGGER.debug(
+                        "Extending PWM ON: error=%.1fC flow=%.1f setpoint=%.1f elapsed=%.0fs new_active_on=%ds extension_used=%ds",
+                        error_celsius, boiler_state.flow_temperature, boiler_state.setpoint, elapsed, int(self._active_on_time_seconds), self._on_extension_used_seconds
+                    )
+
+                    return
+
+                self._last_update = now
+                self._ended_on_phase = True
+                self._status = PWMStatus.OFF
+                self._active_off_time_seconds = int(proposed_off_time_seconds)
+
+                _LOGGER.info(
+                    "Ending PWM ON (ON->OFF). elapsed=%.0fs active_on=%ds extension_used=%ds flow=%.1f setpoint=%.1f error=%.1fC stalled=%s active_off=%ds",
+                    elapsed, active_on_time_seconds, self._on_extension_used_seconds, boiler_state.flow_temperature, boiler_state.setpoint, error_celsius, is_stalled, int(self._active_off_time_seconds)
+                )
+
+                return
 
         _LOGGER.debug("Cycle time elapsed: %.0f seconds in state: %s", elapsed, self._status)
 
@@ -145,7 +237,7 @@ class PWM:
     def _calculate_duty_cycle(self, requested_setpoint: float, boiler: "BoilerState") -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
-        boiler_temperature = self._last_boiler_temperature
+        boiler_temperature = self._effective_on_temperature or boiler.flow_temperature
 
         # Ensure the boiler temperature is above the base offset
         boiler_temperature = max(boiler_temperature, base_offset + 1)
@@ -155,7 +247,7 @@ class PWM:
         self._last_duty_cycle_percentage = min(max(self._last_duty_cycle_percentage, 0), 1)
 
         _LOGGER.debug(
-            "Duty cycle calculation - Requested setpoint: %.1f°C, Boiler temperature: %.1f°C, Duty cycle percentage: %.2f%%",
+            "Duty cycle calculation - Requested setpoint: %.1f°C, Effective Boiler temperature: %.1f°C, Duty cycle percentage: %.2f%%",
             requested_setpoint, boiler_temperature, self._last_duty_cycle_percentage * 100
         )
 
@@ -242,5 +334,6 @@ class PWM:
             status=self._status,
             enabled=self._enabled,
             duty_cycle=self._duty_cycle,
+            ended_on_phase=self._ended_on_phase,
             last_duty_cycle_percentage=round(self._last_duty_cycle_percentage * 100, 2) if self._last_duty_cycle_percentage is not None else None
         )
