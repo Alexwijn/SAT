@@ -144,6 +144,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             is_inactive=not self.device_active,
             modulation_reliable=self._boiler.modulation_reliable,
 
+            flame_on_since=self._boiler.flame_on_since,
+            flame_off_since=self._boiler.flame_off_since,
+
             setpoint=self.setpoint,
             flow_temperature=self.boiler_temperature,
             return_temperature=self.return_temperature,

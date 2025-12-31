@@ -28,6 +28,9 @@ class BoilerState:
     hot_water_active: bool
     modulation_reliable: bool
 
+    flame_on_since: Optional[float]
+    flame_off_since: Optional[float]
+
     # Hydronic values (flow/return temperatures, setpoint, modulation)
     setpoint: Optional[float]
     flow_temperature: Optional[float]
@@ -113,6 +116,14 @@ class Boiler:
     @property
     def modulation_reliable(self) -> bool:
         return self._modulation_reliable
+
+    @property
+    def flame_on_since(self) -> Optional[int]:
+        return self._last_flame_on_at
+
+    @property
+    def flame_off_since(self) -> Optional[int]:
+        return self._last_flame_off_at
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
         """Called when entity is added to Home Assistant, restore persisted flags."""

@@ -112,20 +112,20 @@ class PWM:
             return
 
         now = monotonic()
+        elapsed = now - self._last_update
+        flame_on_elapsed = now - (boiler_state.flame_on_since or now)
+        proposed_on_time_seconds, proposed_off_time_seconds = self._calculate_duty_cycle(requested_setpoint, boiler_state)
+        self._duty_cycle = (proposed_on_time_seconds, proposed_off_time_seconds)
 
         if self._status == PWMStatus.ON:
             if self._effective_on_temperature is None:
                 self._effective_on_temperature = boiler_state.flow_temperature
-            elif boiler_state.flame_active:
+            elif flame_on_elapsed >= HEATER_STARTUP_TIMEFRAME:
                 self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
         if self._first_duty_cycle_start is None or (now - self._first_duty_cycle_start) > 3600:
             self._current_cycle = 0
             self._first_duty_cycle_start = now
-
-        elapsed = now - self._last_update
-        proposed_on_time_seconds, proposed_off_time_seconds = self._calculate_duty_cycle(requested_setpoint, boiler_state)
-        self._duty_cycle = (proposed_on_time_seconds, proposed_off_time_seconds)
 
         # -------------------------
         # Start ON phase (OFF -> ON)
@@ -136,6 +136,8 @@ class PWM:
                 if self._active_off_time_seconds is not None
                 else int(proposed_off_time_seconds)
             )
+
+            _LOGGER.debug("Cycle in PWM OFF state: elapsed=%.0fs active_for=%ds", elapsed, active_off_time_seconds)
 
             should_start_on = (
                     proposed_on_time_seconds >= HEATER_STARTUP_TIMEFRAME
@@ -179,12 +181,13 @@ class PWM:
                 else int(proposed_on_time_seconds)
             )
 
+            _LOGGER.debug("Cycle in PWM ON state: elapsed=%.0fs active_for=%ds", elapsed, active_on_time_seconds)
+
             if elapsed >= float(active_on_time_seconds):
                 error_celsius = boiler_state.setpoint - boiler_state.flow_temperature
 
                 # Only extend after we've been ON for a bit (avoid extending during startup transients)
-                commit_seconds = max(float(HEATER_STARTUP_TIMEFRAME), 30.0)
-                is_past_commit = elapsed >= commit_seconds
+                is_past_commit = elapsed >= HEATER_STARTUP_TIMEFRAME
 
                 # Update stall tracking
                 is_stalled = False
@@ -226,8 +229,6 @@ class PWM:
                 )
 
                 return
-
-        _LOGGER.debug("Cycle time elapsed: %.0f seconds in state: %s", elapsed, self._status)
 
     def disable(self) -> None:
         """Disable the PWM control."""
