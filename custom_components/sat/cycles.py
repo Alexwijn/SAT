@@ -558,6 +558,9 @@ class CycleTracker:
         overshoot = tail_p90_delta >= OVERSHOOT_MARGIN_CELSIUS
         underheat = tail_p90_delta <= -UNDERSHOOT_MARGIN_CELSIUS
 
+        if underheat and pwm_state.ended_on_phase:
+            return CycleClassification.UNCERTAIN
+
         if is_ultra_short:
             if overshoot:
                 return CycleClassification.FAST_OVERSHOOT
@@ -572,9 +575,6 @@ class CycleTracker:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
 
             if underheat:
-                if pwm_state.ended_on_phase:
-                    return CycleClassification.UNCERTAIN
-
                 return CycleClassification.TOO_SHORT_UNDERHEAT
 
         if underheat:
