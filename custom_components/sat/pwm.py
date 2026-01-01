@@ -135,6 +135,9 @@ class PWM:
                 )
                 return
 
+            if self._status == PWMStatus.IDLE:
+                self._status = PWMStatus.OFF
+
         # -------------------------
         # End ON phase (ON -> OFF)
         # -------------------------

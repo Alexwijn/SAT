@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from time import monotonic
 from typing import Mapping, Any, TYPE_CHECKING, Optional
 
@@ -24,7 +25,6 @@ from .types import BoilerStatus, DeviceState
 
 if TYPE_CHECKING:
     from .pwm import PWMState
-    from .climate import SatClimate
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -111,7 +111,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._cycle_tracker: CycleTracker = CycleTracker(hass, self._cycles)
 
         self._device_on_since: Optional[float] = None
-        self._last_control_sample: Optional[ControlLoopSample] = None
+        self._control_pwm_state: Optional["PWMState"] = None
+        self._control_outside_temperature: Optional[float] = None
+        self._control_intent: Optional[BoilerControlIntent] = None
 
         self._hass_notify_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_listeners)
         self._control_update_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_control)
@@ -375,19 +377,24 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         await self._boiler.async_save_options()
 
-    async def async_control_heating_loop(self, climate: Optional["SatClimate"] = None, control_sample: Optional["ControlLoopSample"] = None, timestamp: float = None) -> None:
+    def set_control_intent(self, intent: BoilerControlIntent) -> None:
+        """Store the latest control intent produced by a climate entity."""
+        self._control_intent = intent
+
+    def set_control_context(self, pwm_state: "PWMState", outside_temperature: Optional[float] = None) -> None:
+        """Store the latest control context produced by a climate entity."""
+        self._control_pwm_state = pwm_state
+        self._control_outside_temperature = outside_temperature
+
+    async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating loop for the device."""
-        timestamp = timestamp or monotonic()
+        timestamp = time.timestamp() or monotonic()
 
         # Track how long the device has been on.
         if not self.device_active:
             self._device_on_since = None
         elif self._device_on_since is None:
             self._device_on_since = timestamp
-
-        # Keep the latest control sample for cycle tracking.
-        if control_sample is not None:
-            self._last_control_sample = control_sample
 
         # Backfill manufacturer from member_id when not set (deprecated path).
         if self._manufacturer is None and self.member_id is not None:
@@ -425,8 +432,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_update_control(self) -> None:
         self._boiler.update(state=self.device_state, last_cycle=self.last_cycle)
 
-        if self._last_control_sample is not None:
-            self._cycle_tracker.update(self._last_control_sample)
+        if self._control_intent is not None and self._control_pwm_state is not None:
+            self._cycle_tracker.update(ControlLoopSample(
+                timestamp=monotonic(),
+                state=self.device_state,
+                intent=self._control_intent,
+                pwm=self._control_pwm_state,
+                outside_temperature=self._control_outside_temperature,
+            ))
 
     @callback
     def async_notify_listeners(self, force: bool = True) -> None:

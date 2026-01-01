@@ -29,7 +29,7 @@ from homeassistant.components.climate import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, HassJob
+from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, callback
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
@@ -38,7 +38,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .area import Areas
 from .boiler import BoilerControlIntent
 from .const import *
-from .coordinator import SatDataUpdateCoordinator, ControlLoopSample
+from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .errors import Error
 from .helpers import convert_time_str_to_seconds, float_value
@@ -838,6 +838,24 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.areas.pids.reset()
         self._last_requested_setpoint = None
 
+    def schedule_control_heating_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
+        """Schedule a debounced execution of the heating control loop."""
+        if force:
+            # Cancel previous scheduled run, if any
+            if self._control_heating_loop_unsub is not None:
+                self._control_heating_loop_unsub()
+                self._control_heating_loop_unsub = None
+
+            self.hass.async_create_task(self.async_control_heating_loop())
+            return
+
+        # If a run is already scheduled, do nothing.
+        if self._control_heating_loop_unsub is not None:
+            return
+
+        self._control_heating_loop_unsub = async_call_later(self.hass, 5, self.async_control_heating_loop)
+
+    @callback
     async def async_control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller."""
         if self.current_outside_temperature is None:
@@ -869,28 +887,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
-    def schedule_control_heating_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
-        """Schedule a debounced execution of the heating control loop."""
-        if force:
-            # Cancel previous scheduled run, if any
-            if self._control_heating_loop_unsub is not None:
-                self._control_heating_loop_unsub()
-                self._control_heating_loop_unsub = None
-
-            self.hass.async_create_task(self.async_control_heating_loop())
-            return
-
-        # If a run is already scheduled, do nothing.
-        if self._control_heating_loop_unsub is not None:
-            return
-
-        self._control_heating_loop_unsub = async_call_later(self.hass, 5, HassJob(self.async_control_heating_loop))
-
-    async def async_control_heating_loop(self, _time: Optional[datetime] = None) -> None:
+    @callback
+    async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         self._control_heating_loop_unsub = None
 
-        # If any required value is missing, do nothing
+        # Abort early if required inputs are missing.
         required_values = (
             self.target_temperature,
             self.heating_curve.value,
@@ -901,38 +903,31 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if any(value is None for value in required_values):
             return
 
-        # No need to do anything if we are not on
+        # Skip control while not in heat mode.
         if self.hvac_mode != HVACMode.HEAT:
             return
 
-        # Pulse Width Modulation
+        # Update PWM state from the latest device state and requested setpoint.
         if self.pulse_width_modulation_enabled:
             self.pwm.enable(self._coordinator.device_state, self.requested_setpoint)
         else:
             self.pwm.disable()
 
-        # Control the integral (if exceeded the time limit)
+        # Maintain the integral term within its time window.
         if self.error is not None and self.heating_curve.value is not None:
             self.pid.update_integral(self.error, self.heating_curve.value)
 
-        # Control our area coordinators
-        await self.areas.async_control_heating_loops()
+        # Update each area's PID before issuing control commands.
+        await self.areas.async_control_heating_loops(time)
 
-        await self._coordinator.async_control_heating_loop(climate=self, control_sample=ControlLoopSample(
-            timestamp=monotonic(),
-            pwm=self.pwm.state,
-            state=self._coordinator.device_state,
-            outside_temperature=self.current_outside_temperature,
-            intent=BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value),
-        ))
+        # Pass the control intent and context to the coordinator for sampling.
+        self._coordinator.set_control_context(pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
+        self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value))
+        await self._coordinator.async_control_heating_loop(time)
 
-        # Set the control setpoint
+        # Apply the computed boiler controls.
         await self._async_control_setpoint()
-
-        # Set the relative modulation
         await self._async_control_relative_modulation()
-
-        # If the setpoint is high, turn on the heater
         await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)
 
         self.async_write_ha_state()
