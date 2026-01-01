@@ -215,6 +215,9 @@ class Boiler:
             if self._is_pump_starting(state):
                 return BoilerStatus.PUMP_STARTING
 
+            if self._last_cycle is not None and self._last_cycle.classification in UNHEALTHY_CYCLES:
+                return BoilerStatus.SHORT_CYCLING
+
             # Waiting for flame: active, demand present, not anti cycling, not stalled.
             if self._demand_present(state):
                 return BoilerStatus.WAITING_FOR_FLAME
@@ -222,9 +225,6 @@ class Boiler:
             # Post-cycle settling: shortly after last off, no demand yet.
             if self._is_post_cycle_settling(state, now):
                 return BoilerStatus.POST_CYCLE_SETTLING
-
-            if self._last_cycle is not None and self._last_cycle.classification in UNHEALTHY_CYCLES:
-                return BoilerStatus.SHORT_CYCLING
 
             # Otherwise, simply idle.
             return BoilerStatus.IDLE
