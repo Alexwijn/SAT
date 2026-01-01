@@ -8,7 +8,7 @@ from time import monotonic
 from types import MappingProxyType
 from typing import Any, Callable, Iterable, Optional, Union
 
-from homeassistant.components import notify, sensor, weather
+from homeassistant.components import sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -43,7 +43,6 @@ from .entity import SatEntity
 from .errors import Error
 from .helpers import convert_time_str_to_seconds, float_value
 from .manufacturers.geminox import Geminox
-from .relative_modulation import RelativeModulation
 from .summer_simmer import SummerSimmer
 from .types import BoilerStatus, RelativeModulationState, PWMStatus, DeviceState
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_dynamic_minimum_setpoint_controller
@@ -64,9 +63,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    _hass: HomeAssistant,
-    _config_entry: ConfigEntry,
-    _async_add_devices: AddEntitiesCallback,
+        _hass: HomeAssistant,
+        _config_entry: ConfigEntry,
+        _async_add_devices: AddEntitiesCallback,
 ) -> None:
     """Set up the SatClimate device."""
     coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
@@ -80,6 +79,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     _enable_turn_on_off_backwards_compatibility: bool = False
 
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str) -> None:
+        """Initialize the climate entity."""
         super().__init__(coordinator, config_entry)
 
         self.thermostat: Optional[str] = config_entry.data.get(CONF_THERMOSTAT)
@@ -90,10 +90,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         config_options = self._build_config_options(config_entry)
         self._presets: dict[str, float] = self._build_presets(config_options)
 
-        self._rooms: Optional[dict[str, float]] = None
         self._sensors: dict[str, str] = {}
-        self._requested_setpoint_down_ticks: int = 0
         self._setpoint: Optional[float] = None
+        self._requested_setpoint_down_ticks: int = 0
+        self._rooms: Optional[dict[str, float]] = None
         self._last_requested_setpoint: Optional[float] = None
 
         self._hvac_mode: Optional[Union[HVACMode, str]] = None
@@ -138,7 +138,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Controllers
         self.pid = create_pid_controller(config_entry.data, config_options)
-        self.relative_modulation = RelativeModulation(coordinator, self._heating_system)
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
         self.minimum_setpoint = create_dynamic_minimum_setpoint_controller(config_entry.data, config_options)
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
@@ -343,6 +342,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def _register_services(self) -> None:
+        """Register SAT services with Home Assistant."""
+
         async def reset_integral(_call: ServiceCall) -> None:
             """Service to reset the integral part of the PID controller."""
             self.pid.reset()
@@ -394,7 +395,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
 
             "relative_modulation_value": self.relative_modulation_value,
-            "relative_modulation_enabled": self.relative_modulation.enabled,
             "relative_modulation_state": self.relative_modulation_state.name,
 
             "pulse_width_modulation_enabled": self.pwm.enabled,
@@ -480,6 +480,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def setpoint(self) -> Optional[float]:
+        """Return the current boiler control setpoint."""
         return self._setpoint
 
     @property
@@ -614,14 +615,25 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def relative_modulation_value(self) -> int:
-        if not self.relative_modulation.enabled and self._coordinator.supports_relative_modulation_management:
-            return MINIMUM_RELATIVE_MODULATION
+        """Return the capped maximum relative modulation value."""
+        if not self._coordinator.supports_relative_modulation_management or self.relative_modulation_state != RelativeModulationState.OFF:
+            return self._maximum_relative_modulation
 
-        return self._maximum_relative_modulation
+        return MINIMUM_RELATIVE_MODULATION
 
     @property
     def relative_modulation_state(self) -> RelativeModulationState:
-        return self.relative_modulation.state
+        """Return the computed relative modulation state."""
+        if self._coordinator.hot_water_active:
+            return RelativeModulationState.HOT_WATER
+
+        if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
+            return RelativeModulationState.COLD
+
+        if self.pwm.status == PWMStatus.IDLE:
+            return RelativeModulationState.PWM_OFF
+
+        return RelativeModulationState.OFF
 
     @property
     def minimum_setpoint_value(self) -> float:
@@ -791,9 +803,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Relative modulation management is not supported. Skipping control.")
             return
 
-        # Update relative modulation state
-        await self.relative_modulation.update(self.pwm.state)
-
         # Retrieve the relative modulation
         relative_modulation_value = self.relative_modulation_value
 
@@ -835,7 +844,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller."""
-        # We can't continue if we don't have a valid outside temperature
         if self.current_outside_temperature is None:
             _LOGGER.warning("Current outside temperature is not available. Skipping PID control.")
             return
@@ -867,7 +875,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def schedule_control_heating_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
         """Schedule a debounced execution of the heating control loop."""
-        # Force immediate execution
         if force:
             # Cancel previous scheduled run, if any
             if self._control_heating_loop_unsub is not None:
@@ -885,7 +892,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_control_heating_loop(self, _time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
-        # Let the sub know we have run
         self._control_heating_loop_unsub = None
 
         # If any required value is missing, do nothing
@@ -916,19 +922,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Control our area coordinators
         await self.areas.async_control_heating_loops()
 
-        # Control the heating through the coordinator
         await self._coordinator.async_control_heating_loop(climate=self, control_sample=ControlLoopSample(
             timestamp=monotonic(),
             pwm=self.pwm.state,
             state=self._coordinator.device_state,
-            intent=BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value),
             outside_temperature=self.current_outside_temperature,
+            intent=BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value),
         ))
 
-        # Set the control setpoint to make sure we always stay in control
+        # Set the control setpoint
         await self._async_control_setpoint()
 
-        # Set the relative modulation value, if supported
+        # Set the relative modulation
         await self._async_control_relative_modulation()
 
         # If the setpoint is high, turn on the heater
@@ -1006,7 +1011,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode for the thermostat."""
-        # Check if the given preset mode is valid
         if preset_mode not in self.preset_modes:
             raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
 
@@ -1068,13 +1072,3 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Control the heating based on the new temperature setpoint
         self.schedule_control_heating_loop(force=True)
-
-    async def async_send_notification(
-        self,
-        title: str,
-        message: str,
-        service: str = notify.SERVICE_PERSISTENT_NOTIFICATION,
-    ) -> None:
-        """Send a notification to the user."""
-        data = {"title": title, "message": message}
-        await self.hass.services.async_call(notify.DOMAIN, service, data)
