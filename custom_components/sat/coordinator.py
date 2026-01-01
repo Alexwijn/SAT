@@ -49,7 +49,7 @@ class SatData(dict):
         super().__setitem__(key, value)
 
     def update(self, other: dict, **kwargs):
-        for key, value in other.items():
+        for key, value in {**other, **kwargs}.items():
             if self.get(key) != value:
                 self._is_dirty = True
 
@@ -129,19 +129,23 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     @abstractmethod
     def device_id(self) -> str:
+        """Expose the unique device identifier."""
         pass
 
     @property
     @abstractmethod
     def device_type(self) -> str:
+        """Expose the device backend type."""
         pass
 
     @property
     def device_status(self) -> BoilerStatus:
+        """Report the current boiler status."""
         return self._boiler.status
 
     @property
     def device_capabilities(self) -> BoilerCapabilities:
+        """Describe setpoint capabilities for this device."""
         return BoilerCapabilities(
             minimum_setpoint=self.minimum_setpoint,
             maximum_setpoint=self.maximum_setpoint_value,
@@ -149,6 +153,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def device_state(self) -> BoilerState:
+        """Snapshot the current boiler state for control logic."""
         return BoilerState(
             flame_active=self.flame_active,
             hot_water_active=self.hot_water_active,
@@ -167,81 +172,100 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def cycles(self) -> CycleStatistics:
+        """Expose aggregated cycle statistics."""
         return self._cycles.statistics
 
     @property
     def last_cycle(self) -> Optional[Cycle]:
+        """Expose the most recent completed cycle."""
         return self._cycles.last_cycle
 
     @property
     def manufacturer(self) -> Optional[Manufacturer]:
+        """Report the detected manufacturer, if any."""
         return self._manufacturer
 
     @property
     @abstractmethod
     def setpoint(self) -> Optional[float]:
+        """Current boiler setpoint reported by the device."""
         pass
 
     @property
     @abstractmethod
     def device_active(self) -> bool:
+        """Whether the device is actively heating."""
         pass
 
     @property
     @abstractmethod
     def member_id(self) -> Optional[int]:
+        """Member id used to infer manufacturer for some devices."""
         pass
 
     @property
     def flame_active(self) -> bool:
+        """Expose flame activity; defaults to device_active."""
         return self.device_active
 
     @property
     def heater_on_since(self) -> Optional[float]:
+        """Timestamp when the heater last turned on."""
         return self._device_on_since
 
     @property
     def hot_water_active(self) -> bool:
+        """Whether domestic hot water is active."""
         return False
 
     @property
     def hot_water_setpoint(self) -> Optional[float]:
+        """Domestic hot water setpoint, if supported."""
         return None
 
     @property
     def boiler_temperature(self) -> Optional[float]:
+        """Current boiler flow temperature."""
         return None
 
     @property
     def return_temperature(self) -> Optional[float]:
+        """Current boiler return temperature."""
         return None
 
     @property
     def minimum_hot_water_setpoint(self) -> float:
+        """Minimum supported hot water setpoint."""
         return 30
 
     @property
     def maximum_hot_water_setpoint(self) -> float:
+        """Maximum supported hot water setpoint."""
         return 60
 
     @property
     def relative_modulation_value(self) -> Optional[float]:
+        """Current relative modulation level."""
         return None
 
     @property
     def minimum_setpoint_value(self) -> Optional[float]:
+        """Expose the effective minimum setpoint value."""
         return self.minimum_setpoint
 
     @property
     def maximum_setpoint_value(self) -> Optional[float]:
+        """Expose the effective maximum setpoint value."""
         return self.maximum_setpoint
 
     @property
     def boiler_capacity(self) -> Optional[float]:
+        """Nominal boiler capacity in kW (if available)."""
         return None
 
     @property
     def minimum_boiler_capacity(self) -> Optional[float]:
+        """Minimum boiler capacity at minimum modulation."""
         if (minimum_relative_modulation_value := self.minimum_relative_modulation_value) is None:
             return None
 
@@ -255,6 +279,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def boiler_power(self) -> Optional[float]:
+        """Estimate current boiler power output."""
         if (boiler_capacity := self.boiler_capacity) is None:
             return None
 
@@ -271,10 +296,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def minimum_relative_modulation_value(self) -> Optional[float]:
+        """Minimum supported relative modulation value."""
         return None
 
     @property
     def maximum_relative_modulation_value(self) -> Optional[float]:
+        """Maximum supported relative modulation value."""
         return None
 
     @property
@@ -350,20 +377,19 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_control_heating_loop(self, climate: Optional["SatClimate"] = None, control_sample: Optional["ControlLoopSample"] = None, timestamp: float = None) -> None:
         """Control the heating loop for the device."""
-        # Use provided timestamp or current monotonic time
         timestamp = timestamp or monotonic()
 
-        # Update Device
+        # Track how long the device has been on.
         if not self.device_active:
             self._device_on_since = None
         elif self._device_on_since is None:
             self._device_on_since = timestamp
 
-        # Update control sample
+        # Keep the latest control sample for cycle tracking.
         if control_sample is not None:
             self._last_control_sample = control_sample
 
-        # See if we can determine the manufacturer (deprecated)
+        # Backfill manufacturer from member_id when not set (deprecated path).
         if self._manufacturer is None and self.member_id is not None:
             manufacturers = ManufacturerFactory.resolve_by_member_id(self.member_id)
             self._manufacturer = manufacturers[0] if len(manufacturers) > 0 else None
@@ -430,7 +456,7 @@ class SatEntityCoordinator(DataUpdateCoordinator):
         if entity_id is None:
             return None
 
-        state = self.hass.states.get(self._get_entity_id(domain, key))
+        state = self.hass.states.get(entity_id)
         if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return None
 
