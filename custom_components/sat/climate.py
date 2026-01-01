@@ -79,9 +79,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         super().__init__(coordinator, config_entry)
 
         self.thermostat = config_entry.data.get(CONF_THERMOSTAT)
-        self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
-        self.humidity_sensor_entity_id = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
-        self.outside_sensor_entities = self._ensure_list(config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID))
+        self.inside_sensor_entity_id: str = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
+        self.humidity_sensor_entity_id: Optional[str] = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
+        self.outside_sensor_entities: list[str] = self._ensure_list(config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID))
 
         config_options = self._build_config_options(config_entry)
         self._presets = self._build_presets(config_options)
@@ -131,9 +131,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
         self._force_pulse_width_modulation = bool(config_entry.data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
-
-        self._current_temperature = self._get_entity_state_float(self.inside_sensor_entity_id)
-        self._current_humidity = self._get_entity_state_float(self.humidity_sensor_entity_id)
 
         # Controllers
         self.pid = create_pid_controller(config_entry.data, config_options)
@@ -258,12 +255,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass, [self.inside_sensor_entity_id], self._async_inside_sensor_changed
-            )
-        )
-
-        self.async_on_remove(
-            async_track_state_change_event(
                 self.hass, self.outside_sensor_entities, self._async_outside_entity_changed
             )
         )
@@ -272,13 +263,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.async_on_remove(
                 async_track_state_change_event(
                     self.hass, self.thermostat, self._async_thermostat_changed
-                )
-            )
-
-        if self.humidity_sensor_entity_id is not None:
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, [self.humidity_sensor_entity_id], self._async_humidity_sensor_changed
                 )
             )
 
@@ -387,10 +371,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "rooms": self._rooms,
             "setpoint": self._setpoint,
-            "current_humidity": self._current_humidity,
+            "current_humidity": self.current_humidity,
 
-            "summer_simmer_index": SummerSimmer.index(self._current_temperature, self._current_humidity),
-            "summer_simmer_perception": SummerSimmer.perception(self._current_temperature, self._current_humidity),
+            "summer_simmer_index": SummerSimmer.index(self.current_temperature, self.current_humidity),
+            "summer_simmer_perception": SummerSimmer.perception(self.current_temperature, self.current_humidity),
 
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
@@ -411,22 +395,28 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         }
 
     @property
-    def current_temperature(self) -> Optional[float]:
-        """Return the sensor temperature."""
-        if self._thermal_comfort and self._current_humidity is not None:
-            return SummerSimmer.index(self._current_temperature, self._current_humidity)
-
-        return self._current_temperature
-
-    @property
     def target_temperature(self) -> Optional[float]:
         """Return the temperature we try to reach."""
         return self._target_temperature
 
     @property
+    def current_temperature(self) -> Optional[float]:
+        """Return the sensor temperature."""
+        if (current_temperature := self._get_entity_state_float(self.inside_sensor_entity_id)) is None:
+            return None
+
+        if self._thermal_comfort:
+            return SummerSimmer.index(current_temperature, self.current_humidity)
+
+        return current_temperature
+
+    @property
     def current_humidity(self) -> Optional[float]:
         """Return the sensor humidity."""
-        return self._current_humidity
+        if self.humidity_sensor_entity_id is None:
+            return None
+
+        return self._get_entity_state_float(self.humidity_sensor_entity_id)
 
     @property
     def error(self) -> Optional[Error]:
@@ -650,24 +640,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         ):
             _LOGGER.debug("Thermostat state changed.")
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
-
-    async def _async_inside_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Handle changes to the inside temperature sensor."""
-        new_state = event.data.get("new_state")
-        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return
-
-        self._current_temperature = float(new_state.state)
-        self.async_write_ha_state()
-
-    async def _async_humidity_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Handle changes to the inside temperature sensor."""
-        new_state = event.data.get("new_state")
-        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return
-
-        self._current_humidity = float(new_state.state)
-        self.async_write_ha_state()
 
     async def _async_outside_entity_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the outside entity."""
