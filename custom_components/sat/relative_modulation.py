@@ -1,8 +1,12 @@
 import logging
+from typing import Optional, TYPE_CHECKING
 
 from .const import MINIMUM_SETPOINT
 from .coordinator import SatDataUpdateCoordinator
-from .types import RelativeModulationState
+from .types import RelativeModulationState, PWMStatus
+
+if TYPE_CHECKING:
+    from .pwm import PWMState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -11,14 +15,14 @@ class RelativeModulation:
     def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize instance variables"""
         self._heating_system: str = heating_system
-        self._pulse_width_modulation_enabled: bool = False
         self._coordinator: SatDataUpdateCoordinator = coordinator
 
+        self._pwm: Optional[PWMState] = None
         _LOGGER.debug("Relative Modulation initialized for heating system: %s", heating_system)
 
-    async def update(self, pulse_width_modulation_enabled: bool) -> None:
+    async def update(self, pwm: PWMState) -> None:
         """Update internal state with new internal data"""
-        self._pulse_width_modulation_enabled = pulse_width_modulation_enabled
+        self._pwm = pwm
 
     @property
     def state(self) -> RelativeModulationState:
@@ -29,10 +33,10 @@ class RelativeModulation:
         if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
             return RelativeModulationState.COLD
 
-        if self._pulse_width_modulation_enabled:
-            return RelativeModulationState.OFF
+        if self._pwm is None or self._pwm.status == PWMStatus.IDLE:
+            return RelativeModulationState.PWM_OFF
 
-        return RelativeModulationState.PWM_OFF
+        return RelativeModulationState.OFF
 
     @property
     def enabled(self) -> bool:
