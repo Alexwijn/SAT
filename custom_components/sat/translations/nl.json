@@ -10,7 +10,7 @@
       "unable_to_calibrate": "Het kalibratieproces is op een probleem gestuit en kon niet succesvol worden voltooid. Zorg ervoor dat uw verwarmingssysteem correct functioneert en dat alle vereiste sensoren zijn aangesloten en correct werken.\n\nAls u problemen blijft ondervinden met de kalibratie, overweeg dan om contact met ons op te nemen voor verdere hulp. Onze excuses voor het ongemak."
     },
     "progress": {
-      "calibration": "Kalibreren en de waarde van de overshootbeveiliging vinden...\n\nEven geduld a.u.b. terwijl wij uw verwarmingssysteem optimaliseren. Dit proces kan ongeveer 20 minuten duren."
+      "calibration": "Kalibreren en de waarde van de overschot beveiliging vinden...\n\nEven geduld a.u.b. terwijl wij uw verwarmingssysteem optimaliseren. Dit proces kan ongeveer 20 minuten duren."
     },
     "step": {
       "areas": {
@@ -89,7 +89,7 @@
           "integral": "Integraal (kI)",
           "proportional": "Proportioneel (kP)"
         },
-        "description": "Configureer de proportionele, integrale en afgeleide versterkingen handmatig om uw verwarmingssysteem fijn te stemmen. Gebruik deze optie als u volledige controle wilt hebben over de PID-regelaarparameters. Stel de versterkingen in op basis van de specifieke kenmerken van uw verwarmingssysteem en voorkeuren.",
+        "description": "Configureer de proportionele, integrale en afgeleide versterkingen handmatig om uw verwarmingssysteem fijn te stemmen. Gebruik deze optie als u volledige controle wilt hebben over de PID-regelaar parameters. Stel de versterkingen in op basis van de specifieke kenmerken van uw verwarmingssysteem en voorkeuren.",
         "title": "Configureer de PID-regelaar handmatig."
       },
       "sensors": {
@@ -106,7 +106,7 @@
           "device": "URL",
           "name": "Naam"
         },
-        "description": "Om een verbinding met de OpenTherm Gateway te maken via een socketverbinding, gelieve de volgende details te verstrekken. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer het netwerkadres van de OpenTherm Gateway in het veld Apparaat. Dit kan in het formaat zijn van \"socket://otgw.local:25238\", waarbij \"otgw.local\" de hostnaam of het IP-adres van de gateway is en \"25238\" het poortnummer.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via de socketverbinding. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
+        "description": "Om een verbinding met de OpenTherm Gateway te maken via een socket-verbinding, gelieve de volgende details te verstrekken. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer het netwerkadres van de OpenTherm Gateway in het veld Apparaat. Dit kan in het formaat zijn van \"socket://otgw.local:25238\", waarbij \"otgw.local\" de hostnaam of het IP-adres van de gateway is en \"25238\" het poortnummer.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via de socket-verbinding. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
         "title": "OpenTherm Gateway ( SERIEEL )"
       },
       "simulator": {
@@ -188,8 +188,8 @@
         },
         "data_description": {
           "automatic_gains_value": "De waarde die wordt gebruikt voor automatische versterkingen in de PID-regelaar.",
-          "derivative": "De afgeleideterm (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
-          "derivative_time_weight": "Een parameter om de invloed van de afgeleideterm over tijd aan te passen, vooral nuttig om undershoot te verminderen tijdens de opwarmfase wanneer de coëfficiënt van de verwarmingscurve correct is ingesteld.",
+          "derivative": "De afgeleide term (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
+          "derivative_time_weight": "Een parameter om de invloed van de afgeleide term over tijd aan te passen, vooral nuttig om undershoot te verminderen tijdens de opwarmfase wanneer de coëfficiënt van de verwarmingscurve correct is ingesteld.",
           "duty_cycle": "De maximale inschakelduur voor Pulsbreedtemodulatie (PWM), die de aan/uit-cycli van de ketel regelt.",
           "heating_curve_coefficient": "De coëfficiënt die wordt gebruikt om de verwarmingscurve aan te passen.",
           "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
