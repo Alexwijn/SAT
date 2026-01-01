@@ -36,10 +36,10 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         await serial_binary_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     if coordinator.supports_setpoint_management:
-        _async_add_entities([SatControlSetpointSynchroSensor(coordinator, _config_entry, climate)])
+        _async_add_entities([SatControlSetpointSyncSensor(coordinator, _config_entry, climate)])
 
     if coordinator.supports_relative_modulation_management:
-        _async_add_entities([SatRelativeModulationSynchroSensor(coordinator, _config_entry, climate)])
+        _async_add_entities([SatRelativeModulationSyncSensor(coordinator, _config_entry, climate)])
 
     if len(_config_entry.options.get(CONF_WINDOW_SENSORS, [])) > 0:
         _async_add_entities([SatWindowSensor(coordinator, _config_entry, climate)])
@@ -47,11 +47,11 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     _async_add_entities([
         SatCycleHealthSensor(coordinator, _config_entry),
         SatBoilerHealthSensor(coordinator, _config_entry),
-        SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)
+        SatCentralHeatingSyncSensor(coordinator, _config_entry, climate)
     ])
 
 
-class SatSynchroSensor:
+class SatSyncSensor:
     """Mixin to add delayed state change for binary sensors."""
 
     def __init__(self, delay: int = 60):
@@ -74,15 +74,15 @@ class SatSynchroSensor:
         return False
 
 
-class SatControlSetpointSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
+class SatControlSetpointSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
     def __init__(self, coordinator, _config_entry, climate):
-        SatSynchroSensor.__init__(self)
+        SatSyncSensor.__init__(self)
         SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
 
     @property
     def name(self):
         """Return the friendly name of the sensor."""
-        return "Control Setpoint Synchro"
+        return "Control Setpoint Synchronization"
 
     @property
     def device_class(self):
@@ -105,15 +105,15 @@ class SatControlSetpointSynchroSensor(SatSynchroSensor, SatClimateEntity, Binary
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-control-setpoint-synchro"
 
 
-class SatRelativeModulationSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
+class SatRelativeModulationSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
     def __init__(self, coordinator, _config_entry, climate):
-        SatSynchroSensor.__init__(self)
+        SatSyncSensor.__init__(self)
         SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
 
     @property
     def name(self):
         """Return the friendly name of the sensor."""
-        return "Relative Modulation Synchro"
+        return "Relative Modulation Synchronization"
 
     @property
     def device_class(self):
@@ -136,15 +136,15 @@ class SatRelativeModulationSynchroSensor(SatSynchroSensor, SatClimateEntity, Bin
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-relative-modulation-synchro"
 
 
-class SatCentralHeatingSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
+class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
     def __init__(self, coordinator, _config_entry, climate):
-        SatSynchroSensor.__init__(self)
+        SatSyncSensor.__init__(self)
         SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
 
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return "Central Heating Synchro"
+        return "Central Heating Synchronization"
 
     @property
     def device_class(self) -> str:
