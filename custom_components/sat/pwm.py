@@ -39,12 +39,11 @@ class PWMConfig:
 class PWM:
     """Implements Pulse Width Modulation (PWM) control for managing boiler operations."""
 
-    def __init__(self, config: PWMConfig, heating_curve: HeatingCurve, automatic_duty_cycle: bool):
+    def __init__(self, config: PWMConfig, heating_curve: HeatingCurve):
         """Initialize the PWM control."""
 
         self._config: PWMConfig = config
         self._heating_curve: HeatingCurve = heating_curve
-        self._automatic_duty_cycle: bool = automatic_duty_cycle
         self._effective_on_temperature: float | None = None
 
         # Timing thresholds for duty cycle management
@@ -174,18 +173,6 @@ class PWM:
             "Duty cycle calculation - Requested setpoint: %.1f°C, Effective Boiler temperature: %.1f°C, Duty cycle percentage: %.2f%%",
             requested_setpoint, boiler_temperature, self._last_duty_cycle_percentage * 100
         )
-
-        # If automatic duty cycle control is disabled
-        if not self._automatic_duty_cycle:
-            on_time = self._last_duty_cycle_percentage * self._config.maximum_cycle_time
-            off_time = (1 - self._last_duty_cycle_percentage) * self._config.maximum_cycle_time
-
-            _LOGGER.debug(
-                "Calculated on_time: %.0f seconds, off_time: %.0f seconds.",
-                on_time, off_time
-            )
-
-            return int(on_time), int(off_time)
 
         # Handle special low-duty cycle cases
         if self._last_duty_cycle_percentage < self._min_duty_cycle_percentage:

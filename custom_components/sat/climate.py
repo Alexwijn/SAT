@@ -792,7 +792,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Update relative modulation state
-        await self.relative_modulation.update(self.pulse_width_modulation_enabled)
+        await self.relative_modulation.update(self.pwm.state)
 
         # Retrieve the relative modulation
         relative_modulation_value = self.relative_modulation_value

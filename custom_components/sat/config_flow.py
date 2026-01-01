@@ -604,9 +604,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 selector.NumberSelectorConfig(min=0.1, max=0.5, step=0.1)
             )
 
-        if not options[CONF_AUTOMATIC_DUTY_CYCLE]:
-            schema[vol.Required(CONF_DUTY_CYCLE, default=options[CONF_DUTY_CYCLE])] = selector.TimeSelector()
-
         entities = entity_registry.async_get(self.hass)
         device_name = self._config_entry.data.get(CONF_NAME)
         window_id = entities.async_get_entity_id(binary_sensor.DOMAIN, DOMAIN, f"{device_name.lower()}-window-sensor")
@@ -695,7 +692,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         options = await self.get_options()
 
         schema: dict[Marker, Any] = {
-            vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
             vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
         }
 

@@ -64,7 +64,6 @@ CONF_DERIVATIVE = "derivative"
 CONF_PROPORTIONAL = "proportional"
 CONF_DUTY_CYCLE = "duty_cycle"
 CONF_AUTOMATIC_GAINS = "automatic_gains"
-CONF_AUTOMATIC_DUTY_CYCLE = "automatic_duty_cycle"
 CONF_AUTOMATIC_GAINS_VALUE = "automatic_gains_value"
 CONF_DERIVATIVE_TIME_WEIGHT = "derivative_time_weight"
 CONF_CLIMATE_VALVE_OFFSET = "climate_valve_offset"
@@ -118,7 +117,6 @@ OPTIONS_DEFAULTS = {
     # Cycle limits and automatic tuning.
     CONF_CYCLES_PER_HOUR: 4,
     CONF_AUTOMATIC_GAINS: True,
-    CONF_AUTOMATIC_DUTY_CYCLE: True,
     CONF_AUTOMATIC_GAINS_VALUE: 2.0,
     CONF_DERIVATIVE_TIME_WEIGHT: 2.5,
     CONF_OVERSHOOT_PROTECTION: False,
