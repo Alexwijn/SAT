@@ -150,11 +150,11 @@ class PWM:
         # End ON phase (ON -> OFF)
         # -------------------------
         if self._status == PWMStatus.ON:
-            # If we can't sustain heating, or we've reached the ON duration, end ON phase.
             if on_time_seconds < HEATER_STARTUP_TIMEFRAME or elapsed >= on_time_seconds:
                 self._last_update = now
                 self._ended_on_phase = True
                 self._status = PWMStatus.OFF
+                self._effective_on_temperature = self._peak_on_temperature
 
                 _LOGGER.info(
                     "Ending PWM Cycle (ON->OFF): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f active_off=%ds",
