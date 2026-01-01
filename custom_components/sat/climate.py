@@ -373,6 +373,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "pre_custom_temperature": self._pre_custom_temperature,
             "pre_activity_temperature": self._pre_activity_temperature,
 
+            "current_kp": self.pid.kp,
+            "current_ki": self.pid.ki,
+            "current_kd": self.pid.kd,
+
             "rooms": self._rooms,
             "setpoint": self._setpoint,
             "current_humidity": self.current_humidity,
