@@ -1,12 +1,10 @@
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from .const import MINIMUM_SETPOINT
 from .coordinator import SatDataUpdateCoordinator
+from .pwm import PWMState
 from .types import RelativeModulationState, PWMStatus
-
-if TYPE_CHECKING:
-    from .pwm import PWMState
 
 _LOGGER = logging.getLogger(__name__)
 
