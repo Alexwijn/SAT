@@ -29,7 +29,7 @@ from homeassistant.components.climate import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, callback
+from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, HassJob
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
@@ -206,10 +206,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self.async_control_pid()
             await self.async_control_heating_loop()
         else:
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._register_event_listeners)
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda: self._register_event_listeners)
 
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.async_control_pid)
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.async_control_heating_loop)
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda: self.async_control_pid)
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda: self.async_control_heating_loop)
 
         await self._register_services()
         await self._coordinator.async_added_to_hass()
@@ -238,7 +238,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await super().async_will_remove_from_hass()
 
-    async def _register_event_listeners(self, _time: Optional[datetime] = None) -> None:
+    async def _register_event_listeners(self) -> None:
         """Register event listeners."""
         self.async_on_remove(
             async_track_time_interval(
@@ -838,24 +838,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.areas.pids.reset()
         self._last_requested_setpoint = None
 
-    def schedule_control_heating_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
-        """Schedule a debounced execution of the heating control loop."""
-        if force:
-            # Cancel previous scheduled run, if any
-            if self._control_heating_loop_unsub is not None:
-                self._control_heating_loop_unsub()
-                self._control_heating_loop_unsub = None
-
-            self.hass.async_create_task(self.async_control_heating_loop())
-            return
-
-        # If a run is already scheduled, do nothing.
-        if self._control_heating_loop_unsub is not None:
-            return
-
-        self._control_heating_loop_unsub = async_call_later(self.hass, 5, self.async_control_heating_loop)
-
-    @callback
     async def async_control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller."""
         if self.current_outside_temperature is None:
@@ -887,7 +869,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
-    @callback
+    def schedule_control_heating_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
+        """Schedule a debounced execution of the heating control loop."""
+        if force:
+            # Cancel previous scheduled run, if any
+            if self._control_heating_loop_unsub is not None:
+                self._control_heating_loop_unsub()
+                self._control_heating_loop_unsub = None
+
+            self.hass.async_create_task(self.async_control_heating_loop())
+            return
+
+        # If a run is already scheduled, do nothing.
+        if self._control_heating_loop_unsub is not None:
+            return
+
+        self._control_heating_loop_unsub = async_call_later(self.hass, 5, HassJob(self.async_control_heating_loop))
+
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         self._control_heating_loop_unsub = None
