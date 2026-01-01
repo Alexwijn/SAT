@@ -206,10 +206,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self.async_control_pid()
             await self.async_control_heating_loop()
         else:
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda: self._register_event_listeners)
-
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda: self.async_control_pid)
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda: self.async_control_heating_loop)
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
 
         await self._register_services()
         await self._coordinator.async_added_to_hass()
