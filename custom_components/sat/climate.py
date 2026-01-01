@@ -201,7 +201,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         if self.hass.state is CoreState.running:
-            await self._register_event_listeners()
+            self._register_event_listeners()
 
             await self.async_control_pid()
             await self.async_control_heating_loop()
@@ -235,7 +235,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await super().async_will_remove_from_hass()
 
-    async def _register_event_listeners(self) -> None:
+    def _register_event_listeners(self) -> None:
         """Register event listeners."""
         self.async_on_remove(
             async_track_time_interval(
