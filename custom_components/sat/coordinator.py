@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
+from dataclasses import dataclass
 from time import monotonic
-from typing import Mapping, Any
+from typing import Mapping, Any, TYPE_CHECKING, Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
@@ -19,6 +20,7 @@ from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
 from .manufacturers.intergas import Intergas
 from .manufacturers.nefit import Nefit
+from .types import BoilerStatus, DeviceState
 
 if TYPE_CHECKING:
     from .pwm import PWMState

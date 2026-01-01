@@ -1,7 +1,8 @@
 import logging
 
-from .const import MINIMUM_SETPOINT, RelativeModulationState
+from .const import MINIMUM_SETPOINT
 from .coordinator import SatDataUpdateCoordinator
+from .types import RelativeModulationState
 
 _LOGGER = logging.getLogger(__name__)
 

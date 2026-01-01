@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .climate import SatClimate
 
 
-def create_pid_controller(config_options) -> PID:
+def create_pid_controller(_config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> PID:
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
     kp = float(config_options.get(CONF_PROPORTIONAL))
@@ -42,7 +42,7 @@ def create_pid_controller(config_options) -> PID:
     )
 
 
-def create_dynamic_minimum_setpoint_controller(_config_data, config_options) -> DynamicMinimumSetpoint:
+def create_dynamic_minimum_setpoint_controller(_config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> DynamicMinimumSetpoint:
     """Create and return a Dynamic Minimum Setpoint controller instance with the given configuration options."""
     # Return a new Minimum Setpoint controller instance with the given configuration options
     return DynamicMinimumSetpoint(
@@ -53,7 +53,7 @@ def create_dynamic_minimum_setpoint_controller(_config_data, config_options) -> 
     )
 
 
-def create_heating_curve_controller(config_data, config_options) -> HeatingCurve:
+def create_heating_curve_controller(config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> HeatingCurve:
     """Create and return a Heating Curve controller instance with the given configuration options."""
     # Extract the configuration options
     heating_system = config_data.get(CONF_HEATING_SYSTEM)

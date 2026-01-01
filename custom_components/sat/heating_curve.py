@@ -1,6 +1,7 @@
 import logging
 from collections import deque
 from statistics import mean
+from typing import Optional
 
 from .const import *
 

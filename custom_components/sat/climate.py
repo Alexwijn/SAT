@@ -5,7 +5,8 @@ import asyncio
 import logging
 from datetime import timedelta, datetime
 from time import monotonic
-from typing import Callable
+from types import MappingProxyType
+from typing import Callable, Iterable, Any, Optional
 
 from homeassistant.components import notify, sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -37,14 +38,14 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .area import Areas
 from .boiler import BoilerControlIntent
 from .const import *
-from .const import PWMStatus, DeviceState
 from .coordinator import SatDataUpdateCoordinator, ControlLoopSample
 from .entity import SatEntity
 from .errors import Error
 from .helpers import convert_time_str_to_seconds, float_value
 from .manufacturers.geminox import Geminox
-from .relative_modulation import RelativeModulation, RelativeModulationState
+from .relative_modulation import RelativeModulation
 from .summer_simmer import SummerSimmer
+from .types import BoilerStatus, RelativeModulationState, PWMStatus, DeviceState
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_dynamic_minimum_setpoint_controller
 
 ATTR_ROOMS = "rooms"
@@ -77,43 +78,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str):
         super().__init__(coordinator, config_entry)
 
-        # Set up some public variables
         self.thermostat = config_entry.data.get(CONF_THERMOSTAT)
-
-        # Get some sensor entity IDs
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
         self.humidity_sensor_entity_id = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
+        self.outside_sensor_entities = self._ensure_list(config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID))
 
-        # Get some sensor entity states
-        inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
-        humidity_sensor_entity = coordinator.hass.states.get(self.humidity_sensor_entity_id) if self.humidity_sensor_entity_id is not None else None
-
-        # Get current temperature
-        self._current_temperature = None
-        if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            self._current_temperature = float(inside_sensor_entity.state)
-
-        # Get current temperature
-        self._current_humidity = None
-        if humidity_sensor_entity is not None and humidity_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            self._current_humidity = float(humidity_sensor_entity.state)
-
-        # Get outside sensor entity IDs
-        self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
-
-        # If outside sensor entity IDs is a string, make it a list
-        if isinstance(self.outside_sensor_entities, str):
-            self.outside_sensor_entities = [self.outside_sensor_entities]
-
-        # Create config options dictionary with defaults
-        config_options = OPTIONS_DEFAULTS.copy()
-        config_options.update(config_entry.options)
-
-        # Create a dictionary mapping preset keys to temperature options
-        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
-
-        # Create a dictionary mapping preset keys to temperature values
-        self._presets = {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
+        config_options = self._build_config_options(config_entry)
+        self._presets = self._build_presets(config_options)
 
         self._rooms = None
         self._sensors: dict[str, str] = {}
@@ -132,17 +103,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_preset_mode = PRESET_NONE
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
         self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
-
-        # Add features based on compatibility
-        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
-
-        # Conditionally add TURN_ON if it exists
-        if hasattr(ClimateEntityFeature, 'TURN_ON'):
-            self._attr_supported_features |= ClimateEntityFeature.TURN_ON
-
-        # Conditionally add TURN_OFF if it exists
-        if hasattr(ClimateEntityFeature, 'TURN_OFF'):
-            self._attr_supported_features |= ClimateEntityFeature.TURN_OFF
+        self._attr_supported_features = self._build_supported_features()
 
         self._control_heating_loop_unsub: Optional[Callable[[], None]] = None
 
@@ -171,26 +132,66 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
         self._force_pulse_width_modulation = bool(config_entry.data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
-        # Create a PID controller with given configuration options
-        self.pid = create_pid_controller(config_options)
+        self._current_temperature = self._get_entity_state_float(self.inside_sensor_entity_id)
+        self._current_humidity = self._get_entity_state_float(self.humidity_sensor_entity_id)
 
-        # Create Relative Modulation controller
+        # Controllers
+        self.pid = create_pid_controller(config_entry.data, config_options)
         self.relative_modulation = RelativeModulation(coordinator, self._heating_system)
-
-        # Create a Heating Curve controller with given configuration options
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
-
-        # Create the Minimum Setpoint controller
         self.minimum_setpoint = create_dynamic_minimum_setpoint_controller(config_entry.data, config_options)
-
-        # Create a PWM controller with given configuration options
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
-
-        # Create Area controllers
         self.areas = Areas(config_entry.data, config_options, self.heating_curve)
 
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
+
+    @staticmethod
+    def _ensure_list(value: Optional[Iterable[str] | str]) -> list[str]:
+        """Normalize a config option to a list of strings."""
+        if value is None:
+            return []
+
+        if isinstance(value, str):
+            return [value]
+
+        return list(value)
+
+    @staticmethod
+    def _build_config_options(config_entry: ConfigEntry) -> MappingProxyType[str, Any]:
+        """Merge default options with config entry overrides."""
+        config_options = OPTIONS_DEFAULTS.copy()
+        config_options.update(config_entry.options)
+        return config_options
+
+    @staticmethod
+    def _build_presets(config_options: MappingProxyType[str, Any]) -> dict:
+        """Build preset temperature mapping from config options."""
+        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
+        return {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
+
+    @staticmethod
+    def _build_supported_features() -> ClimateEntityFeature:
+        """Determine supported features based on Home Assistant version."""
+        supported = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+        if hasattr(ClimateEntityFeature, "TURN_ON"):
+            supported |= ClimateEntityFeature.TURN_ON
+
+        if hasattr(ClimateEntityFeature, "TURN_OFF"):
+            supported |= ClimateEntityFeature.TURN_OFF
+
+        return supported
+
+    def _get_entity_state_float(self, entity_id: Optional[str]) -> Optional[float]:
+        """Return state as float if available and valid."""
+        if entity_id is None:
+            return None
+
+        entity = self._coordinator.hass.states.get(entity_id)
+        if entity is None or entity.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            return None
+
+        return float(entity.state)
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added."""
@@ -902,7 +903,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._control_heating_loop_unsub = async_call_later(self.hass, 5, HassJob(self.async_control_heating_loop))
 
-    async def async_control_heating_loop(self, timestamp: Optional[datetime] = None) -> None:
+    async def async_control_heating_loop(self, _time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         # Let the sub know we have run
         self._control_heating_loop_unsub = None
@@ -940,8 +941,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             timestamp=monotonic(),
             pwm=self.pwm.state,
             state=self._coordinator.device_state,
-            outside_temperature=self.current_outside_temperature,
             intent=BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value),
+            outside_temperature=self.current_outside_temperature,
         ))
 
         # Set the control setpoint to make sure we always stay in control

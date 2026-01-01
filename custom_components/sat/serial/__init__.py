@@ -11,7 +11,7 @@ from pyotgw.vars import *
 from serial import SerialException
 
 from ..coordinator import SatDataUpdateCoordinator
-from ..const import DeviceState
+from ..types import DeviceState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 

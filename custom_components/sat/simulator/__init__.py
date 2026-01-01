@@ -5,9 +5,10 @@ from typing import Optional, TYPE_CHECKING, Mapping, Any
 
 from homeassistant.core import HomeAssistant
 
-from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT, DeviceState
+from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
 from ..coordinator import SatDataUpdateCoordinator, ControlLoopSample
 from ..helpers import convert_time_str_to_seconds
+from ..types import DeviceState
 
 if TYPE_CHECKING:
     from ..climate import SatClimate

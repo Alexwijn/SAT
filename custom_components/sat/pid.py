@@ -1,5 +1,6 @@
 import logging
 from time import monotonic
+from typing import Optional
 
 from homeassistant.core import State
 

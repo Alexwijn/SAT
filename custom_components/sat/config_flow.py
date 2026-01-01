@@ -1,7 +1,7 @@
 """Adds config flow for SAT."""
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import voluptuous as vol
 from homeassistant import config_entries

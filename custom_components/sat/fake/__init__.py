@@ -6,7 +6,7 @@ from typing import Mapping, Any
 from homeassistant.core import HomeAssistant
 
 from ..coordinator import SatDataUpdateCoordinator
-from ..const import DeviceState
+from ..types import DeviceState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 

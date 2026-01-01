@@ -36,7 +36,7 @@ COOLING_HEADROOM = 10.0
 class Area:
     """Represents a single climate-controlled area."""
 
-    def __init__(self, _config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], heating_curve: HeatingCurve, entity_id: str) -> None:
+    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], heating_curve: HeatingCurve, entity_id: str) -> None:
         self._time_interval = None
         self._sensor_handler = None
 
@@ -45,7 +45,7 @@ class Area:
 
         # Controllers and heating curve
         self.heating_curve: HeatingCurve = heating_curve
-        self.pid: PID = create_pid_controller(config_options)
+        self.pid: PID = create_pid_controller(config_data, config_options)
 
         # Per-room influence scaling for demand calculations.
         raw_weights = config_options.get(CONF_ROOM_WEIGHTS, {}) or {}

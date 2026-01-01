@@ -9,7 +9,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
-from .const import BoilerStatus, UNHEALTHY_CYCLES
+from .const import UNHEALTHY_CYCLES
+from .types import BoilerStatus
 
 if TYPE_CHECKING:
     from .cycles import Cycle

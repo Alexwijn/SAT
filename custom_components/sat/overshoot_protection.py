@@ -2,8 +2,9 @@ import asyncio
 import logging
 import time
 
-from .const import OVERSHOOT_PROTECTION_SETPOINT, MINIMUM_SETPOINT, DEADBAND, MAXIMUM_RELATIVE_MODULATION, DeviceState
+from .const import *
 from .coordinator import SatDataUpdateCoordinator
+from .types import DeviceState
 
 _LOGGER = logging.getLogger(__name__)
 

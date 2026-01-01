@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Mapping, Any
+from typing import Mapping, Any, Optional
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
@@ -16,6 +16,7 @@ from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity, SatClimateEntity
 from .serial import sensor as serial_sensor
 from .simulator import sensor as simulator_sensor
+from .types import BoilerStatus
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 

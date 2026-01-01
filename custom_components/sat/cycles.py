@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Callable, Deque, Optional, TypeAlias
 
 from homeassistant.core import HomeAssistant
 
-from .const import CycleClassification, CycleKind, EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED, PWMStatus, Percentiles
+from .const import CycleClassification, EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED
 from .helpers import clamp, min_max, percentile_interpolated
+from .types import Percentiles, CycleKind, PWMStatus
 
 if TYPE_CHECKING:
     from .pwm import PWMState
@@ -30,9 +31,15 @@ UNDERSHOOT_MARGIN_CELSIUS: float = 2.0
 # Timeouts
 LAST_CYCLE_MAX_AGE_SECONDS: float = 6 * 3600
 
+# Cycle history windows
+DEFAULT_DUTY_WINDOW_SECONDS: int = 15 * 60
+DEFAULT_CYCLES_WINDOW_SECONDS: int = 60 * 60
+DEFAULT_MEDIAN_WINDOW_SECONDS: int = 4 * 60 * 60
+
 
 @dataclass(frozen=True, slots=True)
 class CycleMetrics:
+    """Summary percentile statistics for cycle values."""
     setpoint: Percentiles
     intent_setpoint: Percentiles
     flow_temperature: Percentiles
@@ -45,6 +52,7 @@ class CycleMetrics:
 
 @dataclass(frozen=True, slots=True)
 class Cycle:
+    """Completed boiler cycle with classification and metrics."""
     kind: CycleKind
     tail: CycleMetrics
     metrics: CycleMetrics
@@ -52,32 +60,36 @@ class Cycle:
 
     end: float
     start: float
-    duration: float
     sample_count: int
     ended_on_phase: bool
 
-    min_setpoint: Optional[float]
-    max_setpoint: Optional[float]
     max_flow_temperature: Optional[float]
 
     fraction_space_heating: float
     fraction_domestic_hot_water: float
 
+    @property
+    def duration(self) -> float:
+        """Computed cycle duration in seconds."""
+        return max(0.0, self.end - self.start)
+
 
 @dataclass(frozen=True, slots=True)
 class CycleStatistics:
     """Rolling statistics derived from recent completed cycles."""
+    window: "CycleWindowStats"
+    flow_return_delta: Percentiles
+    flow_setpoint_error: Percentiles
+
+
+@dataclass(frozen=True, slots=True)
+class CycleWindowStats:
+    """Grouped cycle-rate and duty metrics over recent windows."""
     sample_count_4h: int
     last_hour_count: float
     duty_ratio_last_15m: float
     off_with_demand_duration: Optional[float]
     median_on_duration_seconds_4h: Optional[float]
-
-    delta_flow_minus_return_p50_4h: Optional[float]
-    delta_flow_minus_return_p90_4h: Optional[float]
-
-    delta_flow_minus_setpoint_p50_4h: Optional[float]
-    delta_flow_minus_setpoint_p90_4h: Optional[float]
 
 
 ControlSampleValueGetter: TypeAlias = Callable[["ControlLoopSample"], Optional[float]]
@@ -86,24 +98,9 @@ ControlSampleValueGetter: TypeAlias = Callable[["ControlLoopSample"], Optional[f
 class CycleHistory:
     """Rolling history of completed flame cycles for statistical analysis."""
 
-    def __init__(self, duty_window_seconds: int = 15 * 60, cycles_window_seconds: int = 60 * 60, median_window_seconds: int = 4 * 60 * 60) -> None:
-        if duty_window_seconds <= 0:
-            raise ValueError("duty_window_seconds must be > 0")
-
-        if cycles_window_seconds <= 0:
-            raise ValueError("cycles_window_seconds must be > 0")
-
-        if median_window_seconds <= 0:
-            raise ValueError("median_window_seconds must be > 0")
-
-        self._duty_window_seconds = duty_window_seconds
-        self._cycles_window_seconds = cycles_window_seconds
-        self._median_window_seconds = median_window_seconds
-
-        self._on_durations_window: Deque[tuple[float, float]] = deque()
-        self._cycle_end_times_window: Deque[tuple[float, float]] = deque()
-        self._delta_flow_minus_return_window: Deque[tuple[float, float]] = deque()
-        self._delta_flow_minus_setpoint_window: Deque[tuple[float, float]] = deque()
+    def __init__(self) -> None:
+        self._cycle_durations_window: Deque[tuple[float, float]] = deque()
+        self._delta_window: Deque[tuple[float, Optional[float], Optional[float]]] = deque()
 
         self._last_cycle: Optional[Cycle] = None
         self._off_with_demand_duration: Optional[float] = None
@@ -111,21 +108,20 @@ class CycleHistory:
     @property
     def sample_count_4h(self) -> int:
         """Number of ON-duration samples in the median window."""
-        now = self._current_time_hint()
-        if now is not None:
-            self._prune_median_window(now)
-
-        return len(self._on_durations_window)
+        return len(self._cycle_durations_window)
 
     @property
     def cycles_last_hour(self) -> float:
         """Cycles per hour, extrapolated from the cycles window."""
         now = self._current_time_hint()
-        if now is not None:
-            self._prune_cycles_window(now)
+        cutoff = now - DEFAULT_CYCLES_WINDOW_SECONDS if now is not None else None
+        cycle_count = (
+            sum(1 for end_time, _ in self._cycle_durations_window if end_time >= cutoff)
+            if cutoff is not None
+            else len(self._cycle_durations_window)
+        )
 
-        cycle_count = len(self._cycle_end_times_window)
-        return cycle_count * 3600.0 / float(self._cycles_window_seconds)
+        return cycle_count * 3600.0 / DEFAULT_CYCLES_WINDOW_SECONDS
 
     @property
     def duty_ratio_last_15m(self) -> float:
@@ -134,62 +130,42 @@ class CycleHistory:
         if now is None:
             return 0.0
 
-        cutoff = now - float(self._duty_window_seconds)
-        on_seconds = sum(duration_seconds for end_time, duration_seconds in self._cycle_end_times_window if end_time >= cutoff)
+        cutoff = now - DEFAULT_DUTY_WINDOW_SECONDS
+        on_seconds = sum(duration_seconds for end_time, duration_seconds in self._cycle_durations_window if end_time >= cutoff)
 
         if on_seconds <= 0.0:
             return 0.0
 
-        ratio = on_seconds / float(self._duty_window_seconds)
+        ratio = on_seconds / DEFAULT_DUTY_WINDOW_SECONDS
         return clamp(ratio, 0.0, 1.0)
 
     @property
     def median_on_duration_seconds_4h(self) -> Optional[float]:
         """Median ON duration of completed cycles in the median window."""
-        now = self._current_time_hint()
-        if now is not None:
-            self._prune_median_window(now)
-
-        if not self._on_durations_window:
+        if not self._cycle_durations_window:
             return None
 
-        durations = [duration_seconds for _, duration_seconds in self._on_durations_window]
+        durations = [duration_seconds for _, duration_seconds in self._cycle_durations_window]
         return float(median(durations))
 
     @property
-    def delta_flow_minus_return_p50_4h(self) -> Optional[float]:
-        now = self._current_time_hint()
-        if now is not None:
-            self._prune_delta_flow_minus_return_window(now)
-
-        values = [value for _, value in self._delta_flow_minus_return_window]
+    def flow_return_delta_p50_4h(self) -> Optional[float]:
+        values = [value for _, value, _ in self._delta_window if value is not None]
         return percentile_interpolated(values, 0.50)
 
     @property
-    def delta_flow_minus_return_p90_4h(self) -> Optional[float]:
-        now = self._current_time_hint()
-        if now is not None:
-            self._prune_delta_flow_minus_return_window(now)
-
-        values = [value for _, value in self._delta_flow_minus_return_window]
+    def flow_return_delta_p90_4h(self) -> Optional[float]:
+        values = [value for _, value, _ in self._delta_window if value is not None]
         return percentile_interpolated(values, 0.90)
 
     @property
-    def delta_flow_minus_setpoint_p50_4h(self) -> Optional[float]:
-        now = self._current_time_hint()
-        if now is not None:
-            self._prune_delta_flow_minus_setpoint_window(now)
-
-        values = [value for _, value in self._delta_flow_minus_setpoint_window]
+    def flow_setpoint_error_p50_4h(self) -> Optional[float]:
+        values = [value for _, _, value in self._delta_window if value is not None]
         return percentile_interpolated(values, 0.50)
 
     @property
-    def delta_flow_minus_setpoint_p90_4h(self) -> Optional[float]:
-        now = self._current_time_hint()
-        if now is not None:
-            self._prune_delta_flow_minus_setpoint_window(now)
-
-        values = [value for _, value in self._delta_flow_minus_setpoint_window]
+    def flow_setpoint_error_p90_4h(self) -> Optional[float]:
+        values = [value for _, _, value in self._delta_window if value is not None]
         return percentile_interpolated(values, 0.90)
 
     @property
@@ -207,17 +183,21 @@ class CycleHistory:
     def statistics(self) -> CycleStatistics:
         """Snapshot of rolling metrics."""
         return CycleStatistics(
-            sample_count_4h=self.sample_count_4h,
-            last_hour_count=self.cycles_last_hour,
-            duty_ratio_last_15m=self.duty_ratio_last_15m,
-            off_with_demand_duration=self._off_with_demand_duration,
-            median_on_duration_seconds_4h=self.median_on_duration_seconds_4h,
-
-            delta_flow_minus_return_p50_4h=self.delta_flow_minus_return_p50_4h,
-            delta_flow_minus_return_p90_4h=self.delta_flow_minus_return_p90_4h,
-
-            delta_flow_minus_setpoint_p50_4h=self.delta_flow_minus_setpoint_p50_4h,
-            delta_flow_minus_setpoint_p90_4h=self.delta_flow_minus_setpoint_p90_4h,
+            window=CycleWindowStats(
+                sample_count_4h=self.sample_count_4h,
+                last_hour_count=self.cycles_last_hour,
+                duty_ratio_last_15m=self.duty_ratio_last_15m,
+                off_with_demand_duration=self._off_with_demand_duration,
+                median_on_duration_seconds_4h=self.median_on_duration_seconds_4h,
+            ),
+            flow_return_delta=Percentiles(
+                p50=self.flow_return_delta_p50_4h,
+                p90=self.flow_return_delta_p90_4h,
+            ),
+            flow_setpoint_error=Percentiles(
+                p50=self.flow_setpoint_error_p50_4h,
+                p90=self.flow_setpoint_error_p90_4h,
+            ),
         )
 
     def record_cycle(self, cycle: Cycle) -> None:
@@ -225,20 +205,11 @@ class CycleHistory:
         end_time = cycle.end
         duration_seconds = max(0.0, cycle.duration)
 
-        self._on_durations_window.append((end_time, duration_seconds))
-        self._cycle_end_times_window.append((end_time, duration_seconds))
+        self._cycle_durations_window.append((end_time, duration_seconds))
+        self._delta_window.append((end_time, cycle.metrics.flow_return_delta.p50, cycle.metrics.flow_setpoint_error.p50))
 
-        if cycle.metrics.flow_return_delta.p50 is not None:
-            self._delta_flow_minus_return_window.append((end_time, cycle.metrics.flow_return_delta.p50))
-
-        if cycle.metrics.flow_setpoint_error.p50 is not None:
-            self._delta_flow_minus_setpoint_window.append((end_time, cycle.metrics.flow_setpoint_error.p50))
-
-        self._prune_cycles_window(end_time)
-        self._prune_median_window(end_time)
-
-        self._prune_delta_flow_minus_return_window(end_time)
-        self._prune_delta_flow_minus_setpoint_window(end_time)
+        self._prune_cycle_window(end_time)
+        self._prune_delta_window(end_time)
 
         self._last_cycle = cycle
 
@@ -256,43 +227,31 @@ class CycleHistory:
         self._off_with_demand_duration = duration_seconds
 
     def _current_time_hint(self) -> Optional[float]:
+        """Return the latest timestamp observed in any rolling window."""
         latest_times: list[float] = []
-        if self._cycle_end_times_window:
-            latest_times.append(self._cycle_end_times_window[-1][0])
+        if self._cycle_durations_window:
+            latest_times.append(self._cycle_durations_window[-1][0])
 
-        if self._on_durations_window:
-            latest_times.append(self._on_durations_window[-1][0])
-
-        if self._delta_flow_minus_return_window:
-            latest_times.append(self._delta_flow_minus_return_window[-1][0])
-
-        if self._delta_flow_minus_setpoint_window:
-            latest_times.append(self._delta_flow_minus_setpoint_window[-1][0])
+        if self._delta_window:
+            latest_times.append(self._delta_window[-1][0])
 
         return max(latest_times) if latest_times else None
 
-    def _prune_cycles_window(self, now: float) -> None:
-        cutoff = now - float(self._cycles_window_seconds)
-        while self._cycle_end_times_window and self._cycle_end_times_window[0][0] < cutoff:
-            self._cycle_end_times_window.popleft()
+    def _prune_cycle_window(self, now: float) -> None:
+        """Drop ON-duration samples older than the median window."""
+        cutoff = now - DEFAULT_MEDIAN_WINDOW_SECONDS
+        while self._cycle_durations_window and self._cycle_durations_window[0][0] < cutoff:
+            self._cycle_durations_window.popleft()
 
-    def _prune_median_window(self, now: float) -> None:
-        cutoff = now - float(self._median_window_seconds)
-        while self._on_durations_window and self._on_durations_window[0][0] < cutoff:
-            self._on_durations_window.popleft()
-
-    def _prune_delta_flow_minus_return_window(self, now: float) -> None:
-        cutoff = now - float(self._median_window_seconds)
-        while self._delta_flow_minus_return_window and self._delta_flow_minus_return_window[0][0] < cutoff:
-            self._delta_flow_minus_return_window.popleft()
-
-    def _prune_delta_flow_minus_setpoint_window(self, now: float) -> None:
-        cutoff = now - float(self._median_window_seconds)
-        while self._delta_flow_minus_setpoint_window and self._delta_flow_minus_setpoint_window[0][0] < cutoff:
-            self._delta_flow_minus_setpoint_window.popleft()
+    def _prune_delta_window(self, now: float) -> None:
+        """Drop delta samples older than the median window."""
+        cutoff = now - DEFAULT_MEDIAN_WINDOW_SECONDS
+        while self._delta_window and self._delta_window[0][0] < cutoff:
+            self._delta_window.popleft()
 
 
 class CycleTracker:
+    """Track ongoing cycles and emit completed Cycle snapshots."""
 
     def __init__(self, hass: HomeAssistant, history: CycleHistory, minimum_samples_per_cycle: int = 3) -> None:
         if minimum_samples_per_cycle < 1:
@@ -319,6 +278,7 @@ class CycleTracker:
         self._last_flame_off_timestamp = None
 
     def update(self, sample: ControlLoopSample) -> None:
+        """Consume a new control-loop sample to update cycle tracking."""
         previously_active = self._last_flame_active
         currently_active = sample.state.flame_active
 
@@ -372,6 +332,7 @@ class CycleTracker:
         return None
 
     def _build_cycle_state(self, pwm: PWMState, end_time: float) -> Optional[Cycle]:
+        """Build a Cycle from the current sample buffer."""
         if self._current_cycle_start is None:
             _LOGGER.debug("No start time, ignoring cycle.")
             return None
@@ -392,10 +353,8 @@ class CycleTracker:
         fraction_space_heating = heating_count / float(sample_count)
         kind = self._determine_cycle_kind(fraction_domestic_hot_water, fraction_space_heating)
 
-        setpoints = [sample.state.setpoint for sample in samples]
         flow_temperatures = [sample.state.flow_temperature for sample in samples]
 
-        min_setpoint, max_setpoint = min_max(setpoints)
         _, max_flow_temperature = min_max(flow_temperatures)
 
         duration = max(0.0, end_time - start_time)
@@ -417,10 +376,7 @@ class CycleTracker:
             end=end_time,
             start=start_time,
             sample_count=sample_count,
-            duration=duration_seconds,
 
-            min_setpoint=min_setpoint,
-            max_setpoint=max_setpoint,
             max_flow_temperature=max_flow_temperature,
 
             fraction_space_heating=fraction_space_heating,
@@ -429,6 +385,7 @@ class CycleTracker:
 
     @staticmethod
     def _build_metrics(samples: list[ControlLoopSample], tail_start: Optional[float] = None) -> CycleMetrics:
+        """Compute percentile metrics for full and tail sections of a cycle."""
 
         def tail_values(value_getter: ControlSampleValueGetter) -> list[float]:
             values: list[float] = []
@@ -463,10 +420,10 @@ class CycleTracker:
         def get_return_temperature(sample: ControlLoopSample) -> Optional[float]:
             return sample.state.return_temperature
 
-        def get_delta_flow_minus_setpoint(sample: ControlLoopSample) -> Optional[float]:
+        def get_flow_setpoint_error(sample: ControlLoopSample) -> Optional[float]:
             return sample.state.flow_setpoint_error
 
-        def get_delta_flow_minus_return(sample: ControlLoopSample) -> Optional[float]:
+        def get_flow_return_delta(sample: ControlLoopSample) -> Optional[float]:
             return sample.state.flow_return_delta
 
         def get_relative_modulation_level(sample: ControlLoopSample) -> Optional[float]:
@@ -478,8 +435,8 @@ class CycleTracker:
             flow_temperature=build_percentiles(get_flow_temperature),
             return_temperature=build_percentiles(get_return_temperature),
             relative_modulation_level=build_percentiles(get_relative_modulation_level),
-            flow_setpoint_error=build_percentiles(get_delta_flow_minus_setpoint),
-            flow_return_delta=build_percentiles(get_delta_flow_minus_return),
+            flow_setpoint_error=build_percentiles(get_flow_setpoint_error),
+            flow_return_delta=build_percentiles(get_flow_return_delta),
         )
 
     @staticmethod
@@ -497,8 +454,13 @@ class CycleTracker:
 
     @staticmethod
     def _classify_cycle(duration: float, pwm: PWMState, tail_metrics: CycleMetrics) -> CycleClassification:
+        """Classify a cycle based on duration, PWM state, and tail error metrics."""
         if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
+
+        # If PWM expects the flame to be ON, but it ended anyway, treat as pre-mature.
+        if pwm.status == PWMStatus.ON and not pwm.ended_on_phase:
+            return CycleClassification.PREMATURE_OFF
 
         def compute_short_threshold_seconds() -> float:
             if pwm.status == PWMStatus.IDLE or pwm.duty_cycle is None:

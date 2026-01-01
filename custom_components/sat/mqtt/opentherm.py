@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 from . import SatMqttCoordinator
-from ..const import DeviceState
+from ..types import DeviceState
 from ..manufacturers.ideal import Ideal
 from ..manufacturers.immergas import Immergas
 from ..manufacturers.intergas import Intergas

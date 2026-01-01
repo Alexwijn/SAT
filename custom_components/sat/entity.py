@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from __future__ import annotations
+
 import logging
 import typing
 
@@ -20,7 +22,7 @@ class SatEntity(CoordinatorEntity):
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
         super().__init__(coordinator)
 
-        self._coordinator = coordinator
+        self._coordinator: SatDataUpdateCoordinator = coordinator
         self._config_entry = config_entry
 
     @property

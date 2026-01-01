@@ -1,12 +1,7 @@
-# Base component constants
+# Core domain identifiers and shared defaults used across the integration.
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
-from typing import Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from .types import CycleClassification
 
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
@@ -15,6 +10,7 @@ SENTRY = "sentry"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 
+# Integration operation modes and backends.
 MODE_FAKE = "fake"
 MODE_MQTT_EMS = "mqtt_ems"
 MODE_MQTT_OPENTHERM = "mqtt_opentherm"
@@ -23,6 +19,7 @@ MODE_SERIAL = "serial"
 MODE_ESPHOME = "esphome"
 MODE_SIMULATOR = "simulator"
 
+# Control loop tolerances and timing thresholds.
 DEADBAND = 0.1
 BOILER_DEADBAND = 2
 FLAME_STARTUP_TIMEFRAME = 30
@@ -30,6 +27,7 @@ HEATER_STARTUP_TIMEFRAME = 180
 PWM_ENABLE_MARGIN_CELSIUS = 0.5
 PWM_DISABLE_MARGIN_CELSIUS = 1.5
 
+# Boiler temperature and modulation bounds.
 COLD_SETPOINT = 28.2
 MINIMUM_SETPOINT = 10.0
 MAXIMUM_SETPOINT = 65.0
@@ -38,7 +36,7 @@ MAXIMUM_RELATIVE_MODULATION = 100
 
 MAX_BOILER_TEMPERATURE_AGE = 60
 
-# Configuration and options
+# Config entry keys and options used by the integration.
 CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
@@ -80,22 +78,27 @@ CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
 
+# Heating system configuration keys.
 CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
+# Dynamic minimum setpoint tuning keys.
 CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
 CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
+# Consumption bounds for energy/cost tracking.
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
 CONF_MAXIMUM_CONSUMPTION = "maximum_consumption"
 
+# Preset temperatures for modes like home/away/sleep.
 CONF_AWAY_TEMPERATURE = "away_temperature"
 CONF_HOME_TEMPERATURE = "home_temperature"
 CONF_SLEEP_TEMPERATURE = "sleep_temperature"
 CONF_COMFORT_TEMPERATURE = "comfort_temperature"
 CONF_ACTIVITY_TEMPERATURE = "activity_temperature"
 
+# Heating system types and comfort modes.
 HEATING_SYSTEM_UNKNOWN = "unknown"
 HEATING_SYSTEM_HEAT_PUMP = "heat_pump"
 HEATING_SYSTEM_RADIATORS = "radiators"
@@ -104,12 +107,15 @@ HEATING_SYSTEM_UNDERFLOOR = "underfloor"
 HEATING_MODE_ECO = "eco"
 HEATING_MODE_COMFORT = "comfort"
 
+# Default values for integration options.
 OPTIONS_DEFAULTS = {
+    # PID tuning and core control behavior.
     CONF_PROPORTIONAL: "45",
     CONF_INTEGRAL: "0",
     CONF_DERIVATIVE: "6000",
     CONF_ERROR_MONITORING: False,
 
+    # Cycle limits and automatic tuning.
     CONF_CYCLES_PER_HOUR: 4,
     CONF_AUTOMATIC_GAINS: True,
     CONF_AUTOMATIC_DUTY_CYCLE: True,
@@ -119,10 +125,12 @@ OPTIONS_DEFAULTS = {
     CONF_DYNAMIC_MINIMUM_SETPOINT: False,
     CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR: 0.2,
 
+    # Linked climates and weighting.
     CONF_RADIATORS: [],
     CONF_ROOMS: [],
     CONF_ROOM_WEIGHTS: {},
 
+    # General behavior flags and sensors.
     CONF_SIMULATION: False,
     CONF_WINDOW_SENSORS: [],
     CONF_THERMAL_COMFORT: False,
@@ -131,16 +139,20 @@ OPTIONS_DEFAULTS = {
     CONF_SYNC_CLIMATES_WITH_MODE: True,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
 
+    # Simulation parameters.
     CONF_SIMULATED_HEATING: 20,
     CONF_SIMULATED_COOLING: 5,
 
+    # Setpoint and modulation limits.
     CONF_MINIMUM_SETPOINT: 10,
     CONF_MAXIMUM_RELATIVE_MODULATION: 100,
     CONF_FORCE_PULSE_WIDTH_MODULATION: False,
 
+    # Consumption bounds.
     CONF_MINIMUM_CONSUMPTION: 0,
     CONF_MAXIMUM_CONSUMPTION: 0,
 
+    # Timing and step configuration.
     CONF_DUTY_CYCLE: "00:13:00",
     CONF_CLIMATE_VALVE_OFFSET: 0,
     CONF_TARGET_TEMPERATURE_STEP: 0.5,
@@ -148,18 +160,20 @@ OPTIONS_DEFAULTS = {
     CONF_SIMULATED_WARMING_UP: "00:00:15",
     CONF_WINDOW_MINIMUM_OPEN_TIME: "00:00:15",
 
+    # Preset temperatures.
     CONF_ACTIVITY_TEMPERATURE: 10,
     CONF_AWAY_TEMPERATURE: 10,
     CONF_HOME_TEMPERATURE: 18,
     CONF_SLEEP_TEMPERATURE: 15,
     CONF_COMFORT_TEMPERATURE: 20,
 
+    # Heating system defaults.
     CONF_HEATING_CURVE_COEFFICIENT: 2.0,
     CONF_HEATING_MODE: HEATING_MODE_COMFORT,
     CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
 }
 
-# Overshoot protection
+# Constants and defaults for overshoot protection logic.
 OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 OVERSHOOT_PROTECTION_SETPOINT = {
     HEATING_SYSTEM_HEAT_PUMP: 40,
@@ -167,93 +181,24 @@ OVERSHOOT_PROTECTION_SETPOINT = {
     HEATING_SYSTEM_UNDERFLOOR: 45,
 }
 
-# Storage
+# Storage keys for persistent values.
 STORAGE_OVERSHOOT_PROTECTION_VALUE = "overshoot_protection_value"
 
-# Services
+# Service names exposed by the integration.
 SERVICE_RESET_INTEGRAL = "reset_integral"
 SERVICE_PULSE_WIDTH_MODULATION = "pulse_width_modulation"
 SERVICE_SET_OVERSHOOT_PROTECTION_VALUE = "set_overshoot_protection_value"
 SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION = "start_overshoot_protection_calculation"
 
-# Config steps
+# Config flow step identifiers.
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"
 
-# Events
+# Event names emitted on cycle lifecycle changes.
 EVENT_SAT_CYCLE_STARTED = "sat_cycle_started"
 EVENT_SAT_CYCLE_ENDED = "sat_cycle_ended"
 
-
-# Enumerations
-class BoilerStatus(Enum):
-    OFF = "off"
-    IDLE = "idle"
-    INSUFFICIENT_DATA = "insufficient_data"
-
-    PREHEATING = "preheating"
-    AT_SETPOINT_BAND = "at_setpoint_band"
-    STALLED_IGNITION = "stalled_ignition"
-
-    MODULATING_UP = "modulating_up"
-    MODULATING_DOWN = "modulating_down"
-    CENTRAL_HEATING = "central_heating"
-    HEATING_HOT_WATER = "heating_hot_water"
-
-    COOLING = "cooling"
-    ANTI_CYCLING = "anti_cycling"
-    PUMP_STARTING = "pump_starting"
-    SHORT_CYCLING = "short_cycling"
-    WAITING_FOR_FLAME = "waiting_for_flame"
-    OVERSHOOT_COOLING = "overshoot_cooling"
-    POST_CYCLE_SETTLING = "post_cycle_settling"
-
-
-class CycleKind(str, Enum):
-    MIXED = "mixed"
-    UNKNOWN = "unknown"
-    CENTRAL_HEATING = "central_heating"
-    DOMESTIC_HOT_WATER = "domestic_hot_water"
-
-
-class CycleClassification(str, Enum):
-    GOOD = "good"
-    UNCERTAIN = "uncertain"
-    LONG_OVERSHOOT = "long_overshoot"
-    LONG_UNDERHEAT = "long_underheat"
-    FAST_OVERSHOOT = "fast_overshoot"
-    FAST_UNDERHEAT = "fast_underheat"
-    INSUFFICIENT_DATA = "insufficient_data"
-    TOO_SHORT_UNDERHEAT = "too_short_underheat"
-    TOO_SHORT_OVERSHOOT = "too_short_overshoot"
-
-
-class DeviceState(str, Enum):
-    ON = "on"
-    OFF = "off"
-
-
-class PWMStatus(str, Enum):
-    ON = "on"
-    OFF = "off"
-    IDLE = "idle"
-
-
-class RelativeModulationState(str, Enum):
-    OFF = "off"
-    COLD = "cold"
-    PWM_OFF = "pwm_off"
-    HOT_WATER = "hot_water"
-
-
-# Generic Dataclasses
-@dataclass(frozen=True, slots=True)
-class Percentiles:
-    p50: Optional[float] = None
-    p90: Optional[float] = None
-
-
-# Cycles
+# Classification thresholds/sets for cycle health.
 UNHEALTHY_CYCLES = (
     CycleClassification.LONG_OVERSHOOT,
     CycleClassification.LONG_UNDERHEAT,
