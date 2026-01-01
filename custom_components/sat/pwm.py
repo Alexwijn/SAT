@@ -46,7 +46,6 @@ class PWM:
         self._heating_curve: HeatingCurve = heating_curve
         self._automatic_duty_cycle: bool = automatic_duty_cycle
         self._effective_on_temperature: float | None = None
-        self._peak_on_temperature: float | None = None
 
         # Timing thresholds for duty cycle management
         self._on_time_lower_threshold: float = 180
@@ -78,7 +77,6 @@ class PWM:
         self._first_duty_cycle_start: float | None = None
         self._last_duty_cycle_percentage: float | None = None
         self._effective_on_temperature: float | None = None
-        self._peak_on_temperature: float | None = None
 
     def restore(self, state: State) -> None:
         """Restore the PWM controller from a saved state."""
@@ -103,9 +101,6 @@ class PWM:
             self._effective_on_temperature = boiler_state.flow_temperature
             _LOGGER.debug("Initialized effective boiler temperature to %.1f°C", boiler_state.flow_temperature)
 
-        if self._peak_on_temperature is None:
-            self._peak_on_temperature = boiler_state.flow_temperature
-
         now = monotonic()
         elapsed = now - self._last_update
         flame_on_elapsed = now - (boiler_state.flame_on_since or now)
@@ -118,9 +113,7 @@ class PWM:
             _LOGGER.info("CYCLES count reset for the rolling hour.")
 
         # Update boiler temperature if heater has just started up
-        if self._status == PWMStatus.ON:
-            self._peak_on_temperature = max(self._peak_on_temperature, boiler_state.flow_temperature)
-
+        if self._status == PWMStatus.ON and boiler_state.flame_active:
             if flame_on_elapsed >= FLAME_STARTUP_TIMEFRAME:
                 self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
@@ -136,9 +129,7 @@ class PWM:
                 self._last_update = now
                 self._current_cycle += 1
                 self._status = PWMStatus.ON
-
-                self._effective_on_temperature = self._peak_on_temperature
-                self._peak_on_temperature = boiler_state.flow_temperature
+                self._effective_on_temperature = boiler_state.flow_temperature
 
                 _LOGGER.info(
                     "Starting PWM Cycle (OFF->ON): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f active_off=%ds",
@@ -154,7 +145,6 @@ class PWM:
                 self._last_update = now
                 self._ended_on_phase = True
                 self._status = PWMStatus.OFF
-                self._effective_on_temperature = self._peak_on_temperature
 
                 _LOGGER.info(
                     "Ending PWM Cycle (ON->OFF): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f active_off=%ds",
@@ -172,7 +162,7 @@ class PWM:
     def _calculate_duty_cycle(self, requested_setpoint: float, boiler: "BoilerState") -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_curve.base_offset
-        boiler_temperature = self._effective_on_temperature or boiler.flow_temperature
+        boiler_temperature = self._effective_on_temperature
 
         # Ensure the boiler temperature is above the base offset
         boiler_temperature = max(boiler_temperature, base_offset + 1)
