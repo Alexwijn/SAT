@@ -62,11 +62,7 @@ DECREASE_STEP_THRESHOLD_CELSIUS = 0.5
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-        _hass: HomeAssistant,
-        _config_entry: ConfigEntry,
-        _async_add_devices: AddEntitiesCallback,
-) -> None:
+async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_devices: AddEntitiesCallback) -> None:
     """Set up the SatClimate device."""
     coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
     climate = SatClimate(coordinator, _config_entry, _hass.config.units.temperature_unit)
