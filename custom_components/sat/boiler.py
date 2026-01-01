@@ -18,24 +18,43 @@ STORAGE_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class BoilerState:
-    # High-level activity flags (from integration / device)
-    is_active: bool
-    is_inactive: bool
+class BoilerControlIntent:
+    setpoint: Optional[float]
+    relative_modulation: Optional[float]
 
-    # Flame and DHW
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BoilerCapabilities:
+    # Setpoint limits
+    minimum_setpoint: float
+    maximum_setpoint: float
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BoilerState:
+    # Activity state
     flame_active: bool
+    central_heating: bool
     hot_water_active: bool
     modulation_reliable: bool
 
+    # Flame timing
     flame_on_since: Optional[float]
     flame_off_since: Optional[float]
 
-    # Hydronic values (flow/return temperatures, setpoint, modulation)
+    # Temperatures / modulation
     setpoint: Optional[float]
     flow_temperature: Optional[float]
     return_temperature: Optional[float]
     relative_modulation_level: Optional[float]
+
+    @property
+    def flow_setpoint_error(self) -> Optional[float]:
+        return self.flow_temperature - self.setpoint if self.flow_temperature is not None and self.setpoint is not None else None
+
+    @property
+    def flow_return_delta(self) -> Optional[float]:
+        return self.flow_temperature - self.return_temperature if self.flow_temperature is not None and self.return_temperature is not None else None
 
 
 class Boiler:
@@ -144,7 +163,7 @@ class Boiler:
 
         await self._store.async_save({"modulation_reliable": self._modulation_reliable})
 
-    def update(self, state: BoilerState, last_cycle: Optional["Cycle"], timestamp: Optional[float] = None) -> None:
+    def update(self, state: "BoilerState", last_cycle: Optional["Cycle"], timestamp: Optional[float] = None) -> None:
         """Update boiler classification with the latest state and last cycle summary."""
         timestamp = timestamp or time.monotonic()
         previous = self._current_state
@@ -171,7 +190,7 @@ class Boiler:
             return BoilerStatus.OFF
 
         # Power / availability
-        if not state.is_active or state.is_inactive:
+        if not state.central_heating:
             return BoilerStatus.OFF
 
         if self._last_cycle is not None and self._last_cycle.classification in UNHEALTHY_CYCLES:

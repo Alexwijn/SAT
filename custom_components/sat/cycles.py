@@ -5,7 +5,7 @@ from collections import deque
 from dataclasses import dataclass
 from statistics import median
 from time import monotonic
-from typing import TYPE_CHECKING, Callable, Deque, Optional
+from typing import TYPE_CHECKING, Callable, Deque, Optional, TypeAlias
 
 from homeassistant.core import HomeAssistant
 
@@ -15,66 +15,53 @@ from .helpers import clamp, min_max, percentile_interpolated
 if TYPE_CHECKING:
     from .pwm import PWMState
     from .boiler import BoilerState
+    from .coordinator import ControlLoopSample
 
 _LOGGER = logging.getLogger(__name__)
 
 # Below this, if we overshoot / underheat, we call it "too short".
-TARGET_MIN_ON_TIME_SECONDS: float = 600.0  # 10 minutes
-ULTRA_SHORT_MIN_ON_TIME_SECONDS: float = 90.0  # 1.5 minutes
+TARGET_MIN_ON_TIME_SECONDS: float = 600.0
+ULTRA_SHORT_MIN_ON_TIME_SECONDS: float = 90.0
 
-# Flow vs. setpoint classification margins (remember: many boilers report integer flow temperatures)
-OVERSHOOT_MARGIN_CELSIUS: float = 2.0  # max_flow >= setpoint + margin -> overshoot
-UNDERSHOOT_MARGIN_CELSIUS: float = 2.0  # max_flow <= setpoint - margin -> underheat
+# Flow vs. setpoint classification margins
+OVERSHOOT_MARGIN_CELSIUS: float = 2.0
+UNDERSHOOT_MARGIN_CELSIUS: float = 2.0
 
+# Timeouts
 LAST_CYCLE_MAX_AGE_SECONDS: float = 6 * 3600
 
 
 @dataclass(frozen=True, slots=True)
-class CycleSample:
-    """A timestamped BoilerState observation."""
-    timestamp: float
-    boiler_state: BoilerState
-
-
-@dataclass(frozen=True, slots=True)
-class CycleTailMetrics:
-    """Tail-window percentiles for key signals near the end of a cycle."""
-
+class CycleMetrics:
     setpoint: Percentiles
+    intent_setpoint: Percentiles
     flow_temperature: Percentiles
     return_temperature: Percentiles
-
-    delta_flow_minus_return: Percentiles
-    delta_flow_minus_setpoint: Percentiles
-
     relative_modulation_level: Percentiles
+
+    flow_return_delta: Percentiles
+    flow_setpoint_error: Percentiles
 
 
 @dataclass(frozen=True, slots=True)
 class Cycle:
-    """Summary of a completed flame cycle."""
     kind: CycleKind
+    tail: CycleMetrics
+    metrics: CycleMetrics
     classification: CycleClassification
 
     end: float
     start: float
     duration: float
     sample_count: int
+    ended_on_phase: bool
 
-    # Whole-cycle context
     min_setpoint: Optional[float]
     max_setpoint: Optional[float]
     max_flow_temperature: Optional[float]
 
-    ended_on_phase: bool
-
-    delta_flow_minus_return_median: Optional[float]
-    delta_flow_minus_setpoint_median: Optional[float]
-
-    fraction_domestic_hot_water: float
     fraction_space_heating: float
-
-    tail: CycleTailMetrics
+    fraction_domestic_hot_water: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +78,9 @@ class CycleStatistics:
 
     delta_flow_minus_setpoint_p50_4h: Optional[float]
     delta_flow_minus_setpoint_p90_4h: Optional[float]
+
+
+ControlSampleValueGetter: TypeAlias = Callable[["ControlLoopSample"], Optional[float]]
 
 
 class CycleHistory:
@@ -238,11 +228,11 @@ class CycleHistory:
         self._on_durations_window.append((end_time, duration_seconds))
         self._cycle_end_times_window.append((end_time, duration_seconds))
 
-        if cycle.delta_flow_minus_setpoint_median is not None:
-            self._delta_flow_minus_setpoint_window.append((end_time, cycle.delta_flow_minus_setpoint_median))
+        if cycle.metrics.flow_return_delta.p50 is not None:
+            self._delta_flow_minus_return_window.append((end_time, cycle.metrics.flow_return_delta.p50))
 
-        if cycle.delta_flow_minus_return_median is not None:
-            self._delta_flow_minus_return_window.append((end_time, cycle.delta_flow_minus_return_median))
+        if cycle.metrics.flow_setpoint_error.p50 is not None:
+            self._delta_flow_minus_setpoint_window.append((end_time, cycle.metrics.flow_setpoint_error.p50))
 
         self._prune_cycles_window(end_time)
         self._prune_median_window(end_time)
@@ -310,7 +300,7 @@ class CycleTracker:
 
         self._hass = hass
         self._history = history
-        self._current_samples: Deque[CycleSample] = deque()
+        self._current_samples: Deque[ControlLoopSample] = deque()
         self._minimum_samples_per_cycle = minimum_samples_per_cycle
 
         self._last_flame_active: Optional[bool] = None
@@ -328,42 +318,39 @@ class CycleTracker:
         self._current_cycle_start = None
         self._last_flame_off_timestamp = None
 
-    def update(self, boiler_state: BoilerState, pwm_state: PWMState, timestamp: Optional[float] = None) -> None:
-        timestamp = monotonic() if timestamp is None else timestamp
-
+    def update(self, sample: ControlLoopSample) -> None:
         previously_active = self._last_flame_active
-        currently_active = boiler_state.flame_active
+        currently_active = sample.state.flame_active
 
         if currently_active and not previously_active:
-            off_with_demand_duration = self._compute_off_with_demand_duration(
-                boiler_state=boiler_state,
-                timestamp=timestamp,
-            )
-            self._history.record_off_with_demand_duration(off_with_demand_duration)
+            self._history.record_off_with_demand_duration(self._compute_off_with_demand_duration(
+                timestamp=sample.timestamp,
+                state=sample.state,
+            ))
 
             _LOGGER.debug("Flame transition OFF->ON, starting new cycle.")
-            self._current_cycle_start = timestamp
+            self._current_cycle_start = sample.timestamp
             self._current_samples.clear()
-            self._hass.bus.fire(EVENT_SAT_CYCLE_STARTED)
+            self._hass.bus.fire(EVENT_SAT_CYCLE_STARTED, {"sample": sample})
 
         if currently_active:
-            self._current_samples.append(CycleSample(timestamp=timestamp, boiler_state=boiler_state))
+            self._current_samples.append(sample)
 
         if (not currently_active) and previously_active:
             _LOGGER.debug("Flame transition ON->OFF, finalizing cycle.")
-            self._last_flame_off_timestamp = timestamp
+            self._last_flame_off_timestamp = sample.timestamp
 
-            cycle = self._build_cycle_state(pwm_state=pwm_state, end_time=timestamp)
+            cycle = self._build_cycle_state(sample.pwm, end_time=sample.timestamp)
             if cycle is not None:
-                self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle})
                 self._history.record_cycle(cycle)
+                self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle, "sample": sample})
 
             self._current_samples.clear()
             self._current_cycle_start = None
 
         self._last_flame_active = currently_active
 
-    def _compute_off_with_demand_duration(self, boiler_state: BoilerState, timestamp: float) -> Optional[float]:
+    def _compute_off_with_demand_duration(self, state: BoilerState, timestamp: float) -> Optional[float]:
         """Compute OFF duration since the last flame OFF, but only if demand was present."""
         if self._last_flame_off_timestamp is None:
             return None
@@ -371,11 +358,11 @@ class CycleTracker:
         off_duration_seconds = max(0.0, timestamp - self._last_flame_off_timestamp)
 
         demand_present = (
-                (not boiler_state.hot_water_active)
-                and boiler_state.is_active
-                and (boiler_state.setpoint is not None)
-                and (boiler_state.flow_temperature is not None)
-                and (boiler_state.setpoint > boiler_state.flow_temperature)
+                (not state.hot_water_active)
+                and state.central_heating
+                and (state.setpoint is not None)
+                and (state.flow_temperature is not None)
+                and (state.setpoint > state.flow_temperature)
         )
 
         if demand_present:
@@ -384,7 +371,7 @@ class CycleTracker:
         self._last_flame_off_timestamp = None
         return None
 
-    def _build_cycle_state(self, pwm_state: PWMState, end_time: float) -> Optional[Cycle]:
+    def _build_cycle_state(self, pwm: PWMState, end_time: float) -> Optional[Cycle]:
         if self._current_cycle_start is None:
             _LOGGER.debug("No start time, ignoring cycle.")
             return None
@@ -398,111 +385,101 @@ class CycleTracker:
             return None
 
         samples = list(self._current_samples)
-        dhw_count = sum(1 for sample in samples if sample.boiler_state.hot_water_active)
-        heating_count = sum(1 for sample in samples if (not sample.boiler_state.hot_water_active) and sample.boiler_state.is_active)
+        dhw_count = sum(1 for sample in samples if sample.state.hot_water_active)
+        heating_count = sum(1 for sample in samples if (not sample.state.hot_water_active) and sample.state.central_heating)
 
         fraction_domestic_hot_water = dhw_count / float(sample_count)
         fraction_space_heating = heating_count / float(sample_count)
         kind = self._determine_cycle_kind(fraction_domestic_hot_water, fraction_space_heating)
 
-        setpoints = [sample.boiler_state.setpoint for sample in samples]
-        flow_temperatures = [sample.boiler_state.flow_temperature for sample in samples]
+        setpoints = [sample.state.setpoint for sample in samples]
+        flow_temperatures = [sample.state.flow_temperature for sample in samples]
 
         min_setpoint, max_setpoint = min_max(setpoints)
         _, max_flow_temperature = min_max(flow_temperatures)
 
-        flow_minus_return_deltas = [
-            float(sample.boiler_state.flow_temperature - sample.boiler_state.return_temperature)
-            for sample in samples
-            if sample.boiler_state.flow_temperature is not None and sample.boiler_state.return_temperature is not None
-        ]
+        duration = max(0.0, end_time - start_time)
+        effective_warmup = min(120.0, duration * 0.25)
+        observation_start = start_time + effective_warmup
+        tail_start = max(observation_start, end_time - 180.0)
 
-        flow_minus_setpoint_deltas = [
-            float(sample.boiler_state.flow_temperature - sample.boiler_state.setpoint)
-            for sample in samples
-            if sample.boiler_state.flow_temperature is not None and sample.boiler_state.setpoint is not None
-        ]
-
-        flow_minus_return_median_delta = percentile_interpolated(flow_minus_return_deltas, 0.50) if flow_minus_return_deltas else None
-        flow_minus_setpoint_median_delta = percentile_interpolated(flow_minus_setpoint_deltas, 0.50) if flow_minus_setpoint_deltas else None
-
-        tail_metrics = self._build_tail_metrics(
-            samples=samples,
-            start_time=start_time,
-            end_time=end_time,
-        )
-
-        classification = self._classify_cycle(
-            duration=duration_seconds,
-            pwm_state=pwm_state,
-            samples=samples,
-            start_time=start_time,
-            end_time=end_time,
-        )
+        base_metrics = self._build_metrics(samples=samples)
+        tail_metrics = self._build_metrics(samples=samples, tail_start=tail_start)
+        classification = self._classify_cycle(pwm=pwm, duration=duration_seconds, tail_metrics=tail_metrics)
 
         return Cycle(
             kind=kind,
+            tail=tail_metrics,
+            metrics=base_metrics,
             classification=classification,
+            ended_on_phase=pwm.ended_on_phase,
 
-            duration=duration_seconds,
-            sample_count=sample_count,
-            start=start_time,
             end=end_time,
+            start=start_time,
+            sample_count=sample_count,
+            duration=duration_seconds,
 
             min_setpoint=min_setpoint,
             max_setpoint=max_setpoint,
             max_flow_temperature=max_flow_temperature,
-
-            ended_on_phase=pwm_state.ended_on_phase,
-
-            delta_flow_minus_return_median=flow_minus_return_median_delta,
-            delta_flow_minus_setpoint_median=flow_minus_setpoint_median_delta,
-
-            tail=tail_metrics,
 
             fraction_space_heating=fraction_space_heating,
             fraction_domestic_hot_water=fraction_domestic_hot_water,
         )
 
     @staticmethod
-    def _build_tail_metrics(samples: list[CycleSample], start_time: float, end_time: float) -> CycleTailMetrics:
-        def build_percentiles(value_getter: Callable[[CycleSample], Optional[float]]) -> Percentiles:
+    def _build_metrics(samples: list[ControlLoopSample], tail_start: Optional[float] = None) -> CycleMetrics:
+
+        def tail_values(value_getter: ControlSampleValueGetter) -> list[float]:
+            values: list[float] = []
+            for sample in samples:
+                if tail_start is not None and sample.timestamp < tail_start:
+                    continue
+
+                value = value_getter(sample)
+                if value is not None:
+                    values.append(float(value))
+
+            return values
+
+        def tail_percentile(value_getter: ControlSampleValueGetter, quantile: float) -> Optional[float]:
+            return percentile_interpolated(tail_values(value_getter), quantile)
+
+        def build_percentiles(value_getter: ControlSampleValueGetter) -> Percentiles:
             return Percentiles(
-                p50=CycleTracker._percentile_from_cycle_samples(
-                    samples=samples,
-                    value_getter=value_getter,
-                    start_time=start_time,
-                    end_time=end_time,
-                    percentile=0.50,
-                ),
-                p90=CycleTracker._percentile_from_cycle_samples(
-                    samples=samples,
-                    value_getter=value_getter,
-                    start_time=start_time,
-                    end_time=end_time,
-                    percentile=0.90,
-                ),
+                p50=tail_percentile(value_getter, 0.50),
+                p90=tail_percentile(value_getter, 0.90)
             )
 
-        return CycleTailMetrics(
-            setpoint=build_percentiles(
-                lambda sample: sample.boiler_state.setpoint
-            ),
-            flow_temperature=build_percentiles(
-                lambda sample: sample.boiler_state.flow_temperature
-            ),
-            return_temperature=build_percentiles(
-                lambda sample: sample.boiler_state.return_temperature
-            ),
-            delta_flow_minus_setpoint=build_percentiles(
-                lambda sample: None if (sample.boiler_state.flow_temperature is None) or (sample.boiler_state.setpoint is None) else sample.boiler_state.flow_temperature - sample.boiler_state.setpoint
-            ),
-            delta_flow_minus_return=build_percentiles(
-                lambda sample: None if (sample.boiler_state.flow_temperature is None) or (sample.boiler_state.return_temperature is None) else sample.boiler_state.flow_temperature - sample.boiler_state.return_temperature
-            ),
-            relative_modulation_level=build_percentiles(
-                lambda sample: sample.boiler_state.relative_modulation_level
-            ),
+        def get_state_setpoint(sample: ControlLoopSample) -> Optional[float]:
+            return sample.state.setpoint
+
+        def get_intent_setpoint(sample: ControlLoopSample) -> Optional[float]:
+            return sample.intent.setpoint
+
+        def get_flow_temperature(sample: ControlLoopSample) -> Optional[float]:
+            return sample.state.flow_temperature
+
+        def get_return_temperature(sample: ControlLoopSample) -> Optional[float]:
+            return sample.state.return_temperature
+
+        def get_delta_flow_minus_setpoint(sample: ControlLoopSample) -> Optional[float]:
+            return sample.state.flow_setpoint_error
+
+        def get_delta_flow_minus_return(sample: ControlLoopSample) -> Optional[float]:
+            return sample.state.flow_return_delta
+
+        def get_relative_modulation_level(sample: ControlLoopSample) -> Optional[float]:
+            return sample.state.relative_modulation_level
+
+        return CycleMetrics(
+            setpoint=build_percentiles(get_state_setpoint),
+            intent_setpoint=build_percentiles(get_intent_setpoint),
+            flow_temperature=build_percentiles(get_flow_temperature),
+            return_temperature=build_percentiles(get_return_temperature),
+            relative_modulation_level=build_percentiles(get_relative_modulation_level),
+            flow_setpoint_error=build_percentiles(get_delta_flow_minus_setpoint),
+            flow_return_delta=build_percentiles(get_delta_flow_minus_return),
         )
 
     @staticmethod
@@ -519,46 +496,29 @@ class CycleTracker:
         return CycleKind.UNKNOWN
 
     @staticmethod
-    def _classify_cycle(duration: float, pwm_state: PWMState, samples: list[CycleSample], start_time: float, end_time: float) -> CycleClassification:
+    def _classify_cycle(duration: float, pwm: PWMState, tail_metrics: CycleMetrics) -> CycleClassification:
         if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
         def compute_short_threshold_seconds() -> float:
-            if pwm_state.status == PWMStatus.IDLE or pwm_state.duty_cycle is None:
+            if pwm.status == PWMStatus.IDLE or pwm.duty_cycle is None:
                 return TARGET_MIN_ON_TIME_SECONDS
 
-            if (on_time_seconds := pwm_state.duty_cycle[0]) is None:
+            if (on_time_seconds := pwm.duty_cycle[0]) is None:
                 return TARGET_MIN_ON_TIME_SECONDS
 
             return float(min(on_time_seconds * 0.9, TARGET_MIN_ON_TIME_SECONDS))
 
-        def delta_flow_minus_setpoint(sample: CycleSample) -> Optional[float]:
-            flow_temperature = sample.boiler_state.flow_temperature
-            setpoint = sample.boiler_state.setpoint
-
-            if flow_temperature is not None and setpoint is not None:
-                return flow_temperature - setpoint
-
-            return None
-
         is_short = duration < compute_short_threshold_seconds()
         is_ultra_short = duration < ULTRA_SHORT_MIN_ON_TIME_SECONDS
 
-        tail_p90_delta = CycleTracker._percentile_from_cycle_samples(
-            samples=samples,
-            value_getter=delta_flow_minus_setpoint,
-            start_time=start_time,
-            end_time=end_time,
-            percentile=0.90,
-        )
-
-        if tail_p90_delta is None:
+        if tail_metrics.flow_setpoint_error.p90 is None:
             return CycleClassification.UNCERTAIN
 
-        overshoot = tail_p90_delta >= OVERSHOOT_MARGIN_CELSIUS
-        underheat = tail_p90_delta <= -UNDERSHOOT_MARGIN_CELSIUS
+        overshoot = tail_metrics.flow_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
+        underheat = tail_metrics.flow_setpoint_error.p90 <= -UNDERSHOOT_MARGIN_CELSIUS
 
-        if underheat and pwm_state.ended_on_phase:
+        if underheat and pwm.ended_on_phase:
             return CycleClassification.UNCERTAIN
 
         if is_ultra_short:
@@ -582,27 +542,3 @@ class CycleTracker:
             return CycleClassification.LONG_OVERSHOOT
 
         return CycleClassification.GOOD
-
-    @staticmethod
-    def _percentile_from_cycle_samples(samples: list[CycleSample], value_getter: Callable[[CycleSample], Optional[float]], start_time: float, end_time: float, percentile: float) -> Optional[float]:
-        duration = max(0.0, end_time - start_time)
-
-        # Adaptive warmup (your current behavior)
-        effective_warmup = min(120.0, duration * 0.25)
-
-        observation_start = start_time + effective_warmup
-        tail_start = max(observation_start, end_time - 180.0)
-
-        values: list[float] = []
-        for sample in samples:
-            if sample.timestamp < tail_start:
-                continue
-
-            value = value_getter(sample)
-            if value is not None:
-                values.append(float(value))
-
-        if len(values) < 2:
-            return None
-
-        return percentile_interpolated(values, percentile)

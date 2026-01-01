@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta, datetime
-from time import monotonic, time
+from time import monotonic
 from typing import Callable
 
 from homeassistant.components import notify, sensor, weather
@@ -35,12 +35,13 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .area import Areas
+from .boiler import BoilerControlIntent
 from .const import *
-from .const import PWMStatus
-from .coordinator import SatDataUpdateCoordinator, DeviceState
+from .const import PWMStatus, DeviceState
+from .coordinator import SatDataUpdateCoordinator, ControlLoopSample
 from .entity import SatEntity
 from .errors import Error
-from .helpers import convert_time_str_to_seconds, clamp, float_value
+from .helpers import convert_time_str_to_seconds, float_value
 from .manufacturers.geminox import Geminox
 from .relative_modulation import RelativeModulation, RelativeModulationState
 from .summer_simmer import SummerSimmer
@@ -53,6 +54,11 @@ ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
 
+DECREASE_PERSISTENCE_TICKS = 3
+NEAR_TARGET_MARGIN_CELSIUS = 2.0
+INCREASE_STEP_THRESHOLD_CELSIUS = 0.5
+DECREASE_STEP_THRESHOLD_CELSIUS = 0.5
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -63,17 +69,6 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
 
     _async_add_devices([climate])
     _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE] = climate
-
-
-class SatWarmingUp:
-    def __init__(self, error: float, boiler_temperature: Optional[float] = None, started: Optional[int] = None):
-        self.error = error
-        self.boiler_temperature = boiler_temperature
-        self.started = started if started is not None else int(time())
-
-    @property
-    def elapsed(self):
-        return int(time()) - self.started
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
@@ -120,12 +115,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Create a dictionary mapping preset keys to temperature values
         self._presets = {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
 
-        self._alpha = 0.4
         self._rooms = None
-        self._setpoint = None
         self._sensors: dict[str, str] = {}
-        self._last_requested_setpoint = None
-        self._last_boiler_temperature = None
+        self._requested_setpoint_down_ticks: int = 0
+        self._setpoint: Optional[float] = None
+        self._last_requested_setpoint: Optional[float] = None
 
         self._hvac_mode = None
         self._target_temperature = None
@@ -198,14 +192,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._simulation:
             _LOGGER.warning("Simulation mode!")
 
-    def async_track_coordinator_data(self):
-        """Track changes in the coordinator's boiler temperature and trigger the heating loop."""
-        if self._coordinator.boiler_temperature is not None and self._last_boiler_temperature == self._coordinator.boiler_temperature:
-            return
-
-        self.schedule_control_heating_loop()
-        self._last_boiler_temperature = self._coordinator.boiler_temperature
-
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added."""
         await super().async_added_to_hass()
@@ -233,18 +219,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.areas.async_added_to_hass(self.hass)
         await self.minimum_setpoint.async_added_to_hass(self.hass, self._coordinator.device_id)
 
-        self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_STARTED, lambda _: self.minimum_setpoint.on_cycle_start(
-            cycles=self._coordinator.cycles,
-            requested_setpoint=self.requested_setpoint,
-            outside_temperature=self.current_outside_temperature
-        )))
+        self.async_on_remove(self.hass.bus.async_listen(
+            EVENT_SAT_CYCLE_STARTED,
+            lambda event: self.minimum_setpoint.on_cycle_start(boiler_capabilities=self._coordinator.device_capabilities, sample=event.data.get("sample"))
+        ))
 
-        self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda event: self.minimum_setpoint.on_cycle_end(
-            cycles=self._coordinator.cycles,
-            boiler_state=self._coordinator.state,
-            last_cycle=event.data.get("cycle"),
-            requested_setpoint=self.requested_setpoint
-        )))
+        self.async_on_remove(self.hass.bus.async_listen(
+            EVENT_SAT_CYCLE_ENDED,
+            lambda event: self.minimum_setpoint.on_cycle_end(boiler_capabilities=self._coordinator.device_capabilities, cycles=self._coordinator.cycles, cycle=event.data.get("cycle"))
+        ))
 
         self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
 
@@ -270,10 +253,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             async_track_time_interval(
                 self.hass, self.async_control_pid, timedelta(seconds=30)
             )
-        )
-
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_track_coordinator_data)
         )
 
         self.async_on_remove(
@@ -575,7 +554,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def pulse_width_modulation_enabled(self) -> bool:
         """Determine if pulse width modulation should be enabled."""
         # If we do not even have a meaningful setpoint, we cannot safely run PWM logic
-        if self._last_requested_setpoint is None:
+        if self._setpoint is None:
             return False
 
         # Check if PWM is forced on (relay-only or explicitly forced)
@@ -604,9 +583,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _should_enable_static_pwm(self) -> bool:
         """Determine if PWM should be enabled based on the static minimum setpoint."""
         if self.pwm.enabled:
-            return self._coordinator.minimum_setpoint > self._last_requested_setpoint - BOILER_DEADBAND
+            return self._coordinator.minimum_setpoint > self._setpoint - BOILER_DEADBAND
 
-        return self._coordinator.minimum_setpoint > self._last_requested_setpoint
+        return self._coordinator.minimum_setpoint > self._setpoint
 
     def _should_enable_dynamic_pwm(self) -> bool:
         """Determine if PWM should be enabled based on the dynamic minimum setpoint."""
@@ -767,26 +746,60 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Check if the system is in HEAT mode
         if self.hvac_mode != HVACMode.HEAT:
             # If not in HEAT mode, set to the minimum setpoint
-            self._last_requested_setpoint = None
             self._setpoint = MINIMUM_SETPOINT
-            _LOGGER.info("HVAC mode is not HEAT. Setting setpoint to minimum: %.1f°C", MINIMUM_SETPOINT)
+            _LOGGER.info("Heating disabled (HVAC mode=%s). Forcing boiler setpoint to minimum: %.1f°C", self.hvac_mode, MINIMUM_SETPOINT)
 
         elif not self.pulse_width_modulation_enabled or self.pwm.status == PWMStatus.IDLE:
             # Normal cycle without PWM
-            self._setpoint = self._last_requested_setpoint
-            _LOGGER.info("Pulse Width Modulation is disabled or in IDLE state. Running normal heating cycle.")
-            _LOGGER.debug("Calculated setpoint for normal cycle: %.1f°C", self._last_requested_setpoint)
+            _LOGGER.info("PWM inactive (enabled=%s, state=%s). Using continuous heating control.", self.pulse_width_modulation_enabled, self.pwm.status.name)
 
+            requested_setpoint = self.requested_setpoint
+            if self._setpoint is None:
+                self._setpoint = requested_setpoint
+
+            requested_setpoint_delta = requested_setpoint - self._setpoint
+
+            # Track persistent decreases
+            if requested_setpoint_delta < -DECREASE_STEP_THRESHOLD_CELSIUS:
+                if self._last_requested_setpoint is not None and requested_setpoint < self._last_requested_setpoint:
+                    self._requested_setpoint_down_ticks += 1
+                else:
+                    self._requested_setpoint_down_ticks = 1
+            else:
+                self._requested_setpoint_down_ticks = 0
+
+            # Near-target downward lock while actively heating
+            is_near_target = self._coordinator.boiler_temperature is not None and self._coordinator.boiler_temperature >= (self._setpoint - NEAR_TARGET_MARGIN_CELSIUS)
+            if self._coordinator.device_active and is_near_target:
+                previous_setpoint = self._setpoint
+                self._setpoint = max(self._setpoint, requested_setpoint)
+
+                _LOGGER.info(
+                    "Holding boiler setpoint near target to avoid premature flame-off (requested=%.1f°C, held=%.1f°C, previous=%.1f°C, boiler=%.1f°C, margin=%.1f°C)",
+                    requested_setpoint, self._setpoint, previous_setpoint, self._coordinator.boiler_temperature, NEAR_TARGET_MARGIN_CELSIUS
+                )
+
+            # Allow meaningful increases immediately
+            elif requested_setpoint_delta > INCREASE_STEP_THRESHOLD_CELSIUS:
+                _LOGGER.info("Increasing boiler setpoint due to rising heat demand (requested=%.1f°C, previous=%.1f°C)", requested_setpoint, self._setpoint)
+                self._setpoint = requested_setpoint
+
+            # Allow meaningful decreases if they persist and we are not near target
+            elif self._requested_setpoint_down_ticks >= DECREASE_PERSISTENCE_TICKS:
+                _LOGGER.info("Lowering boiler setpoint after sustained lower demand (requested=%.1f°C persisted for %d cycles)", requested_setpoint, self._requested_setpoint_down_ticks)
+                self._setpoint = requested_setpoint
+
+            self._last_requested_setpoint = requested_setpoint
         else:
             # PWM is enabled and actively controlling the cycle
-            _LOGGER.info("Running PWM cycle with state: %s", self.pwm.status)
+            _LOGGER.info("PWM active (%s). Boiler setpoint governed by minimum-setpoint strategy.", self.pwm.status.name)
 
             if self.pwm.status == PWMStatus.ON:
                 self._setpoint = self.minimum_setpoint_value
-                _LOGGER.debug("Setting setpoint to minimum: %.1f°C", self._setpoint)
+                _LOGGER.debug("PWM ON: enforcing minimum boiler setpoint %.1f°C to limit output", self._setpoint)
             else:
                 self._setpoint = MINIMUM_SETPOINT
-                _LOGGER.debug("Setting setpoint to absolute minimum: %.1f°C", MINIMUM_SETPOINT)
+                _LOGGER.debug("PWM OFF phase: forcing boiler to absolute minimum %.1f°C", self._setpoint)
 
         # Apply the setpoint using the coordinator
         await self._coordinator.async_set_control_setpoint(self._setpoint if self._setpoint > COLD_SETPOINT else MINIMUM_SETPOINT)
@@ -837,8 +850,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Reset control state when major changes occur."""
         self.pid.reset()
         self.areas.pids.reset()
-        self.minimum_setpoint.reset()
-
         self._last_requested_setpoint = None
 
     async def async_control_pid(self, _time: Optional[datetime] = None) -> None:
@@ -891,7 +902,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._control_heating_loop_unsub = async_call_later(self.hass, 5, HassJob(self.async_control_heating_loop))
 
-    async def async_control_heating_loop(self, _time: Optional[datetime] = None) -> None:
+    async def async_control_heating_loop(self, timestamp: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         # Let the sub know we have run
         self._control_heating_loop_unsub = None
@@ -911,19 +922,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.hvac_mode != HVACMode.HEAT:
             return
 
-        if self._last_requested_setpoint is None:
-            # Default to the calculated setpoint
-            self._last_requested_setpoint = self.requested_setpoint
-        else:
-            # Apply low filter on the requested setpoint
-            self._last_requested_setpoint = round(self._alpha * self.requested_setpoint + (1 - self._alpha) * self._last_requested_setpoint, 1)
-
-        # Clamp the temperature to the minimum and maximum temperatures
-        self._last_requested_setpoint = clamp(self._last_requested_setpoint, MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
-
         # Pulse Width Modulation
         if self.pulse_width_modulation_enabled:
-            self.pwm.enable(self._coordinator.state, self._last_requested_setpoint)
+            self.pwm.enable(self._coordinator.device_state, self.requested_setpoint)
         else:
             self.pwm.disable()
 
@@ -935,7 +936,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.areas.async_control_heating_loops()
 
         # Control the heating through the coordinator
-        await self._coordinator.async_control_heating_loop(climate=self, pwm_state=self.pwm.state)
+        await self._coordinator.async_control_heating_loop(climate=self, control_sample=ControlLoopSample(
+            timestamp=monotonic(),
+            pwm=self.pwm.state,
+            state=self._coordinator.device_state,
+            outside_temperature=self.current_outside_temperature,
+            intent=BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value),
+        ))
 
         # Set the control setpoint to make sure we always stay in control
         await self._async_control_setpoint()

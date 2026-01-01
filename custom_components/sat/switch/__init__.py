@@ -9,7 +9,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_registry import RegistryEntry
 
-from ..coordinator import DeviceState, SatDataUpdateCoordinator
+from ..coordinator import SatDataUpdateCoordinator
+from ..const import DeviceState
 
 DOMAIN_SERVICE = {
     SWITCH_DOMAIN: SWITCH_DOMAIN,

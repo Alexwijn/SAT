@@ -10,7 +10,8 @@ from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
 from homeassistant.helpers.event import async_track_state_change_event
 
-from ..coordinator import DeviceState, SatDataUpdateCoordinator, SatEntityCoordinator
+from ..coordinator import SatDataUpdateCoordinator, SatEntityCoordinator
+from ..const import DeviceState
 from ..helpers import float_value, int_value
 
 # Sensors

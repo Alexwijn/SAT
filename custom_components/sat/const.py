@@ -186,25 +186,6 @@ EVENT_SAT_CYCLE_ENDED = "sat_cycle_ended"
 
 
 # Enumerations
-class CycleKind(str, Enum):
-    MIXED = "mixed"
-    UNKNOWN = "unknown"
-    CENTRAL_HEATING = "central_heating"
-    DOMESTIC_HOT_WATER = "domestic_hot_water"
-
-
-class CycleClassification(str, Enum):
-    GOOD = "good"
-    UNCERTAIN = "uncertain"
-    LONG_OVERSHOOT = "long_overshoot"
-    LONG_UNDERHEAT = "long_underheat"
-    FAST_OVERSHOOT = "fast_overshoot"
-    FAST_UNDERHEAT = "fast_underheat"
-    INSUFFICIENT_DATA = "insufficient_data"
-    TOO_SHORT_UNDERHEAT = "too_short_underheat"
-    TOO_SHORT_OVERSHOOT = "too_short_overshoot"
-
-
 class BoilerStatus(Enum):
     OFF = "off"
     IDLE = "idle"
@@ -226,6 +207,30 @@ class BoilerStatus(Enum):
     WAITING_FOR_FLAME = "waiting_for_flame"
     OVERSHOOT_COOLING = "overshoot_cooling"
     POST_CYCLE_SETTLING = "post_cycle_settling"
+
+
+class CycleKind(str, Enum):
+    MIXED = "mixed"
+    UNKNOWN = "unknown"
+    CENTRAL_HEATING = "central_heating"
+    DOMESTIC_HOT_WATER = "domestic_hot_water"
+
+
+class CycleClassification(str, Enum):
+    GOOD = "good"
+    UNCERTAIN = "uncertain"
+    LONG_OVERSHOOT = "long_overshoot"
+    LONG_UNDERHEAT = "long_underheat"
+    FAST_OVERSHOOT = "fast_overshoot"
+    FAST_UNDERHEAT = "fast_underheat"
+    INSUFFICIENT_DATA = "insufficient_data"
+    TOO_SHORT_UNDERHEAT = "too_short_underheat"
+    TOO_SHORT_OVERSHOOT = "too_short_overshoot"
+
+
+class DeviceState(str, Enum):
+    ON = "on"
+    OFF = "off"
 
 
 class PWMStatus(str, Enum):

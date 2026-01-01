@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .boiler import BoilerState, Boiler
+from .boiler import Boiler, BoilerState, BoilerCapabilities, BoilerControlIntent
 from .const import *
 from .cycles import CycleTracker, CycleHistory, CycleStatistics, Cycle
 from .helpers import calculate_default_maximum_setpoint
@@ -27,9 +27,14 @@ if TYPE_CHECKING:
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-class DeviceState(str, Enum):
-    ON = "on"
-    OFF = "off"
+@dataclass(frozen=True, slots=True)
+class ControlLoopSample:
+    timestamp: float
+
+    pwm: "PWMState"
+    state: "BoilerState"
+    intent: "BoilerControlIntent"
+    outside_temperature: Optional[float] = None
 
 
 class SatData(dict):
@@ -104,7 +109,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._cycle_tracker: CycleTracker = CycleTracker(hass, self._cycles)
 
         self._device_on_since: Optional[float] = None
-        self._last_pwm_state: Optional[PWMState] = None
+        self._last_control_sample: Optional[ControlLoopSample] = None
 
         self._hass_notify_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_listeners)
         self._control_update_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_control)
@@ -131,17 +136,22 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def device_status(self) -> BoilerStatus:
-        """Return the current status of the device."""
         return self._boiler.status
 
     @property
-    def state(self) -> BoilerState:
+    def device_capabilities(self) -> BoilerCapabilities:
+        return BoilerCapabilities(
+            minimum_setpoint=self.minimum_setpoint,
+            maximum_setpoint=self.maximum_setpoint_value,
+        )
+
+    @property
+    def device_state(self) -> BoilerState:
         return BoilerState(
             flame_active=self.flame_active,
             hot_water_active=self.hot_water_active,
 
-            is_active=self.device_active,
-            is_inactive=not self.device_active,
+            central_heating=self.device_active,
             modulation_reliable=self._boiler.modulation_reliable,
 
             flame_on_since=self._boiler.flame_on_since,
@@ -215,6 +225,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def relative_modulation_value(self) -> Optional[float]:
         return None
+
+    @property
+    def minimum_setpoint_value(self) -> Optional[float]:
+        return self.minimum_setpoint
 
     @property
     def maximum_setpoint_value(self) -> Optional[float]:
@@ -326,13 +340,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_added_to_hass(self) -> None:
         """Perform setup when the integration is added to Home Assistant."""
-        await self.async_set_control_max_setpoint(self.maximum_setpoint)
+        pass
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
         await self._boiler.async_save_options()
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None, timestamp: float = None) -> None:
+    async def async_control_heating_loop(self, climate: Optional["SatClimate"] = None, control_sample: Optional["ControlLoopSample"] = None, timestamp: float = None) -> None:
         """Control the heating loop for the device."""
         # Use provided timestamp or current monotonic time
         timestamp = timestamp or monotonic()
@@ -343,9 +357,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         elif self._device_on_since is None:
             self._device_on_since = timestamp
 
-        # Update PWM Status
-        if pwm_state is not None:
-            self._last_pwm_state = pwm_state
+        # Update control sample
+        if control_sample is not None:
+            self._last_control_sample = control_sample
 
         # See if we can determine the manufacturer (deprecated)
         if self._manufacturer is None and self.member_id is not None:
@@ -381,10 +395,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         pass
 
     async def async_update_control(self) -> None:
-        self._boiler.update(state=self.state, last_cycle=self.last_cycle)
+        self._boiler.update(state=self.device_state, last_cycle=self.last_cycle)
 
-        if self._last_pwm_state is not None:
-            self._cycle_tracker.update(boiler_state=self.state, pwm_state=self._last_pwm_state)
+        if self._last_control_sample is not None:
+            self._cycle_tracker.update(self._last_control_sample)
 
     @callback
     def async_notify_listeners(self, force: bool = True) -> None:

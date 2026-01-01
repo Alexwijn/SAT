@@ -10,7 +10,8 @@ from pyotgw import vars as gw_vars, OpenThermGateway
 from pyotgw.vars import *
 from serial import SerialException
 
-from ..coordinator import DeviceState, SatDataUpdateCoordinator
+from ..coordinator import SatDataUpdateCoordinator
+from ..const import DeviceState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 

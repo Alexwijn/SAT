@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 from . import SatMqttCoordinator
-from ..coordinator import DeviceState
+from ..const import DeviceState
 from ..helpers import float_value
 
 DATA_ON = "on"

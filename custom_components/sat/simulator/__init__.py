@@ -5,10 +5,9 @@ from typing import Optional, TYPE_CHECKING, Mapping, Any
 
 from homeassistant.core import HomeAssistant
 
-from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
-from ..coordinator import DeviceState, SatDataUpdateCoordinator
+from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT, DeviceState
+from ..coordinator import SatDataUpdateCoordinator, ControlLoopSample
 from ..helpers import convert_time_str_to_seconds
-from ..pwm import PWMState
 
 if TYPE_CHECKING:
     from ..climate import SatClimate
@@ -85,7 +84,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = value
         await super().async_set_control_max_setpoint(value)
 
-    async def async_control_heating_loop(self, timestamp: float = None, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMState] = None) -> None:
+    async def async_control_heating_loop(self, climate: Optional["SatClimate"] = None, control_sample: Optional["ControlLoopSample"] = None, timestamp: float = None) -> None:
         # Calculate the difference, so we know when to slowdown
         difference = abs(self._boiler_temperature - self.target)
         self.logger.debug(f"Target: {self.target}, Current: {self._boiler_temperature}, Difference: {difference}")
