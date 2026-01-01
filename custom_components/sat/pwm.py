@@ -121,9 +121,7 @@ class PWM:
         if self._status == PWMStatus.ON:
             self._peak_on_temperature = max(self._peak_on_temperature, boiler_state.flow_temperature)
 
-            if self._effective_on_temperature is None:
-                self._effective_on_temperature = self._peak_on_temperature
-            elif flame_on_elapsed >= FLAME_STARTUP_TIMEFRAME:
+            if flame_on_elapsed >= FLAME_STARTUP_TIMEFRAME:
                 self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
         # -------------------------
@@ -139,8 +137,8 @@ class PWM:
                 self._current_cycle += 1
                 self._status = PWMStatus.ON
 
-                self._peak_on_temperature = max(self._peak_on_temperature, boiler_state.flow_temperature)
                 self._effective_on_temperature = self._peak_on_temperature
+                self._peak_on_temperature = boiler_state.flow_temperature
 
                 _LOGGER.info(
                     "Starting PWM Cycle (OFF->ON): elapsed=%.0fs active_on=%ds flow=%.1f setpoint=%.1f active_off=%ds",
