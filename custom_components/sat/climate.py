@@ -29,10 +29,10 @@ from homeassistant.components.climate import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, HassJob, EventStateReportedData
+from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, HassJob
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later, async_track_state_report_event
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .area import Areas
@@ -257,8 +257,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         )
 
         self.async_on_remove(
-            async_track_state_report_event(
-                self.hass, [self.inside_sensor_entity_id], self._async_inside_sensor_reported
+            async_track_state_change_event(
+                self.hass, [self.inside_sensor_entity_id], self._async_inside_sensor_changed
             )
         )
 
@@ -651,7 +651,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Thermostat state changed.")
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
-    async def _async_inside_sensor_reported(self, event: Event[EventStateReportedData]) -> None:
+    async def _async_inside_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the inside temperature sensor."""
         new_state = event.data.get("new_state")
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
