@@ -194,9 +194,6 @@ class Boiler:
         if not state.central_heating:
             return BoilerStatus.OFF
 
-        if self._last_cycle is not None and self._last_cycle.classification in UNHEALTHY_CYCLES:
-            return BoilerStatus.SHORT_CYCLING
-
         if not state.flame_active:
             # Overshoot cooling: flame off due to overshoot, still above setpoint.
             if self._is_in_overshoot_cooling(state):
@@ -225,6 +222,9 @@ class Boiler:
             # Post-cycle settling: shortly after last off, no demand yet.
             if self._is_post_cycle_settling(state, now):
                 return BoilerStatus.POST_CYCLE_SETTLING
+
+            if self._last_cycle is not None and self._last_cycle.classification in UNHEALTHY_CYCLES:
+                return BoilerStatus.SHORT_CYCLING
 
             # Otherwise, simply idle.
             return BoilerStatus.IDLE
