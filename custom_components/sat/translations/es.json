@@ -31,7 +31,7 @@
       "calibrate_system": {
         "description": "Optimice su sistema de calefacción determinando automáticamente los valores PID óptimos para su configuración. Al seleccionar Ganancias Automáticas, tenga en cuenta que el sistema pasará por un proceso de calibración que puede tardar aproximadamente 20 minutos en completarse.\n\nSe recomienda Ganancias Automáticas para la mayoría de los usuarios, ya que simplifica el proceso de configuración y asegura un rendimiento óptimo. Sin embargo, si está familiarizado con el control PID y prefiere configurar los valores manualmente, puede optar por omitir las Ganancias Automáticas.\n\nTenga en cuenta que elegir omitir las Ganancias Automáticas requiere un buen entendimiento del control PID y puede requerir ajustes manuales adicionales para lograr un rendimiento óptimo.",
         "menu_options": {
-          "calibrate": "Calibrar y determinar su valor de protección contra sobrecalentamiento (aprox. 20 min).",
+          "calibrate": "Calibrar y determinar su valor de protección contra sobrecalentamiento (approx. 20 min).",
           "overshoot_protection": "Introducir manualmente el valor de protección contra sobrecalentamiento.",
           "pid_controller": "Introducir manualmente los valores PID (no recomendado)."
         },
@@ -188,8 +188,8 @@
         },
         "data_description": {
           "automatic_gains_value": "El valor utilizado para las ganancias automáticas en el controlador PID.",
-          "derivative": "El término derivativo (kD) en el controlador PID, responsable de mitigar el sobreimpulso.",
-          "derivative_time_weight": "Un parámetro para ajustar la influencia del término derivativo a lo largo del tiempo, especialmente útil para reducir el infraimpulso durante la fase de calentamiento cuando el coeficiente de la curva de calefacción está correctamente ajustado.",
+          "derivative": "El término derivativo (kD) en el controlador PID, responsable de mitigar el sobre impulso.",
+          "derivative_time_weight": "Un parámetro para ajustar la influencia del término derivativo a lo largo del tiempo, especialmente útil para reducir el infra impulso durante la fase de calentamiento cuando el coeficiente de la curva de calefacción está correctamente ajustado.",
           "duty_cycle": "El ciclo de trabajo máximo para la Modulación de Ancho de Pulso (PWM), controlando los ciclos de encendido/apagado de la caldera.",
           "heating_curve_coefficient": "El coeficiente utilizado para ajustar la curva de calefacción.",
           "integral": "El término integral (kI) en el controlador PID, responsable de reducir el error en estado estacionario.",
@@ -204,7 +204,7 @@
         "menu_options": {
           "advanced": "Opciones Avanzadas",
           "general": "General",
-          "presets": "Preajustes",
+          "presets": "Pre ajustes",
           "system_configuration": "Configuración del Sistema"
         }
       },
@@ -216,10 +216,10 @@
           "home_temperature": "Temperatura de Casa",
           "sleep_temperature": "Temperatura de Sueño",
           "push_setpoint_to_thermostat": "Sincronizar punto de ajuste con el termostato",
-          "sync_climates_with_preset": "Sincronizar climas con preajuste (sueño / ausencia / actividad)"
+          "sync_climates_with_preset": "Sincronizar climas con pre ajuste (sueño / ausencia / actividad)"
         },
         "description": "Configuraciones de temperatura predefinidas para diferentes escenarios o actividades.",
-        "title": "Preajustes"
+        "title": "Pre ajustes"
       },
       "system_configuration": {
         "data": {

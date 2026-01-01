@@ -89,7 +89,7 @@
           "integral": "Integral (kI)",
           "proportional": "Proportional (kP)"
         },
-        "description": "Konfigurieren Sie die proportionalen, integralen und derivativen Verstärkungen manuell, um Ihr Heizsystem fein abzustimmen. Verwenden Sie diese Option, wenn Sie die volle Kontrolle über die PID-Reglerparameter haben möchten. Passen Sie die Verstärkungen basierend auf den spezifischen Eigenschaften und Vorlieben Ihres Heizsystems an.",
+        "description": "Konfigurieren Sie die proportionalen, integralen und derivativen Verstärkungen manuell, um Ihr Heizsystem fein abzustimmen. Verwenden Sie diese Option, wenn Sie die volle Kontrolle über die PID-Regler parameter haben möchten. Passen Sie die Verstärkungen basierend auf den spezifischen Eigenschaften und Vorlieben Ihres Heizsystems an.",
         "title": "PID-Regler manuell konfigurieren."
       },
       "sensors": {
@@ -127,7 +127,7 @@
           "minimum_setpoint": "Temperatureinstellung",
           "name": "Name"
         },
-        "description": "Bitte füllen Sie die folgenden Details aus, um den Schalter einzurichten. Geben Sie einen Namen für den Schalter im Feld Name ein, der Ihnen hilft, ihn in Ihrem System zu identifizieren. Wählen Sie die passende Entität für Ihren Schalter aus den angebotenen Optionen aus.\n\nGeben Sie im Feld Temperatureinstellung die gewünschte Zieltemperatur für Ihr Heizsystem an. Wenn Sie einen Warmwasserboiler verwenden, geben Sie die Boilertemperatureinstellung mit dem entsprechenden Wert an. Für elektrische Heizsysteme geben Sie den Wert 100 ein.\n\nDiese Einstellungen sind wesentlich für eine präzise Temperaturregelung und gewährleisten eine optimale Leistung Ihres Heizsystems. Die Angabe der korrekten Temperatureinstellung ermöglicht eine genaue Regelung und hilft dabei, eine komfortable und energieeffiziente Umgebung in Ihrem Zuhause zu erreichen.",
+        "description": "Bitte füllen Sie die folgenden Details aus, um den Schalter einzurichten. Geben Sie einen Namen für den Schalter im Feld Name ein, der Ihnen hilft, ihn in Ihrem System zu identifizieren. Wählen Sie die passende Entität für Ihren Schalter aus den angebotenen Optionen aus.\n\nGeben Sie im Feld Temperatureinstellung die gewünschte Zieltemperatur für Ihr Heizsystem an. Wenn Sie einen Warmwasserboiler verwenden, geben Sie die Boiler temperatureinstellung mit dem entsprechenden Wert an. Für elektrische Heizsysteme geben Sie den Wert 100 ein.\n\nDiese Einstellungen sind wesentlich für eine präzise Temperaturregelung und gewährleisten eine optimale Leistung Ihres Heizsystems. Die Angabe der korrekten Temperatureinstellung ermöglicht eine genaue Regelung und hilft dabei, eine komfortable und energieeffiziente Umgebung in Ihrem Zuhause zu erreichen.",
         "title": "PID-Thermostat mit PWM ( EIN/AUS )"
       },
       "user": {
@@ -181,7 +181,7 @@
           "heating_curve_version": "Version der Heizkurve",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximaler Sollwert",
-          "pid_controller_version": "PID-Reglerversion",
+          "pid_controller_version": "PID-Regler version",
           "proportional": "Proportional (kP)",
           "window_sensors": "Kontaktsensoren",
           "heating_mode": "Heizbetrieb"
@@ -192,7 +192,7 @@
           "derivative_time_weight": "Ein Parameter zur Anpassung des Einflusses des Ableitungsterms über die Zeit, besonders nützlich, um Unterschwingen während der Aufwärmphase zu reduzieren, wenn der Heizkurvenkoeffizient korrekt eingestellt ist.",
           "duty_cycle": "Der maximale Tastgrad für Pulsweitenmodulation (PWM), der die Ein-Aus-Zyklen des Kessels steuert.",
           "heating_curve_coefficient": "Der Koeffizient, der zur Anpassung der Heizkurve verwendet wird.",
-          "integral": "Der Integralterm (kI) im PID-Regler, verantwortlich für die Reduzierung des stationären Fehlers.",
+          "integral": "Der Integral term (kI) im PID-Regler, verantwortlich für die Reduzierung des stationären Fehlers.",
           "maximum_setpoint": "Die optimale Temperatur für einen effizienten Kesselbetrieb.",
           "proportional": "Der proportionale Term (kP) im PID-Regler, verantwortlich für die sofortige Reaktion auf Fehler.",
           "window_sensors": "Kontaktsensoren, die das System auslösen, wenn ein Fenster oder eine Tür für eine bestimmte Zeit geöffnet ist."
