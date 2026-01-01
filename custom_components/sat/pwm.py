@@ -113,9 +113,8 @@ class PWM:
             _LOGGER.info("CYCLES count reset for the rolling hour.")
 
         # Update boiler temperature if heater has just started up
-        if self._status == PWMStatus.ON and boiler_state.flame_active:
-            if flame_on_elapsed >= FLAME_STARTUP_TIMEFRAME:
-                self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
+        if self._status == PWMStatus.ON and boiler_state.flame_active and flame_on_elapsed >= FLAME_STARTUP_TIMEFRAME:
+            self._effective_on_temperature = (0.3 * boiler_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
         # -------------------------
         # Start ON phase (OFF/IDLE -> ON)
