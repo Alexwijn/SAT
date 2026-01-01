@@ -6,7 +6,7 @@ import logging
 from datetime import timedelta, datetime
 from time import monotonic
 from types import MappingProxyType
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, Union
 
 from homeassistant.components import notify, sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -77,7 +77,7 @@ async def async_setup_entry(
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
-    _enable_turn_on_off_backwards_compatibility = False
+    _enable_turn_on_off_backwards_compatibility: bool = False
 
     def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str) -> None:
         super().__init__(coordinator, config_entry)
@@ -96,7 +96,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._setpoint: Optional[float] = None
         self._last_requested_setpoint: Optional[float] = None
 
-        self._hvac_mode: Optional[HVACMode] = None
+        self._hvac_mode: Optional[Union[HVACMode, str]] = None
         self._target_temperature: Optional[float] = None
         self._window_sensor_handle: Optional[asyncio.Task[None]] = None
         self._pre_custom_temperature: Optional[float] = None
@@ -148,7 +148,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.warning("Simulation mode!")
 
     @staticmethod
-    def _ensure_list(value: Optional[Iterable[str] | str]) -> list[str]:
+    def _ensure_list(value: Optional[Union[Iterable[str], str]]) -> list[str]:
         """Normalize a config option to a list of strings."""
         if value is None:
             return []
@@ -475,7 +475,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return HVACAction.HEATING
 
     @property
-    def setpoint(self) -> float | None:
+    def setpoint(self) -> Optional[float]:
         return self._setpoint
 
     @property
