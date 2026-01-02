@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from typing import List, Optional, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .const import UNHEALTHY_CYCLES
@@ -129,9 +127,7 @@ class Boiler:
         if stored_flag is not None:
             self._modulation_reliable = bool(stored_flag)
 
-        async_track_time_interval(hass, self.async_save_options, timedelta(minutes=15))
-
-    async def async_save_options(self, _time: Optional[datetime] = None) -> None:
+    async def async_will_remove_from_hass(self) -> None:
         """Persist modulation reliability in storage."""
         if self._store is None:
             return

@@ -367,13 +367,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Perform setup when the integration is about to be added to Home Assistant."""
         pass
 
-    async def async_added_to_hass(self) -> None:
+    async def async_added_to_hass(self, hass: HomeAssistant) -> None:
         """Perform setup when the integration is added to Home Assistant."""
-        pass
+        await self._boiler.async_added_to_hass(hass, self.device_id)
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
-        await self._boiler.async_save_options()
+        await self._boiler.async_will_remove_from_hass()
 
     def set_control_intent(self, intent: BoilerControlIntent) -> None:
         """Store the latest control intent produced by a climate entity."""
