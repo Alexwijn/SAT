@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Dict, Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -12,6 +13,8 @@ from .types import BoilerStatus
 
 if TYPE_CHECKING:
     from .cycles import Cycle
+
+_LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 
@@ -90,6 +93,7 @@ class Boiler:
 
         # Persistence for modulation reliability
         self._store: Optional[Store] = None
+        self._hass: Optional[HomeAssistant] = None
 
     @property
     def status(self) -> BoilerStatus:
@@ -119,21 +123,31 @@ class Boiler:
         return self._last_flame_off_at
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
-        """Restore persisted modulation reliability and start periodic saves."""
+        """Restore boiler state from storage when the integration loads."""
+        self._hass = hass
+
         if self._store is None:
-            self._store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
+            self._store = Store(hass, STORAGE_VERSION, f"sat.minimum_setpoint.{device_id}")
 
-        data = await self._store.async_load() or {}
-        stored_flag = data.get("modulation_reliable")
-        if stored_flag is not None:
-            self._modulation_reliable = bool(stored_flag)
+        data: Optional[Dict[str, Any]] = await self._store.async_load()
+        if not data:
+            return
 
-    async def async_will_remove_from_hass(self) -> None:
-        """Persist modulation reliability in storage."""
+        try:
+            modulation_reliable = bool(data["modulation_reliable"])
+        except (KeyError, TypeError, ValueError):
+            return
+
+        self._modulation_reliable = modulation_reliable
+
+        _LOGGER.debug("Loaded boiler state from storage (modulation_reliable=%s).", modulation_reliable)
+
+    async def async_save_data(self) -> None:
         if self._store is None:
             return
 
         await self._store.async_save({"modulation_reliable": self._modulation_reliable})
+        _LOGGER.debug("Saved boiler state to storage (modulation_reliable=%s).", self._modulation_reliable)
 
     def update(self, state: "BoilerState", last_cycle: Optional["Cycle"]) -> None:
         """Update the internal state and derive the current boiler status."""
@@ -261,6 +275,9 @@ class Boiler:
             return
 
         self._modulation_reliable = True
+
+        if self._hass is not None:
+            self._hass.create_task(self.async_save_data())
 
     def _determine_modulation_direction(self) -> int:
         """Determine modulation direction."""

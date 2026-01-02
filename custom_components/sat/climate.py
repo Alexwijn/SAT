@@ -215,8 +215,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
 
         await self._register_services()
-        await self._coordinator.async_added_to_hass()
         await self.areas.async_added_to_hass(self.hass)
+        await self._coordinator.async_added_to_hass(self.hass)
         await self.minimum_setpoint.async_added_to_hass(self.hass, self._coordinator.device_id)
 
         self.async_on_remove(self.hass.bus.async_listen(
@@ -774,7 +774,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             # Near-target downward lock while actively heating
             is_near_target = self._coordinator.boiler_temperature is not None and self._coordinator.boiler_temperature >= (self._setpoint - NEAR_TARGET_MARGIN_CELSIUS)
-            if self._coordinator.device_active and is_near_target:
+            if self._coordinator.flame_active and is_near_target:
                 previous_setpoint = self._setpoint
                 self._setpoint = max(self._setpoint, requested_setpoint)
 
@@ -792,6 +792,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             elif self._requested_setpoint_down_ticks >= DECREASE_PERSISTENCE_TICKS:
                 _LOGGER.info("Lowering boiler setpoint after sustained lower demand (requested=%.1f°C persisted for %d cycles)", requested_setpoint, self._requested_setpoint_down_ticks)
                 self._setpoint = requested_setpoint
+
+            # Allow any changes when flame is not turned on
+            elif not self._coordinator.flame_active:
+                _LOGGER.info("Updating boiler setpoint while flame is off (requested=%.1f°)", requested_setpoint)
+                self._setpoint = requested_setpoint
+                self._requested_setpoint_up_ticks = 0
+                self._requested_setpoint_down_ticks = 0
 
             self._last_requested_setpoint = requested_setpoint
         else:

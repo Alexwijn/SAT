@@ -32,8 +32,8 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     async def async_setup(self):
         await self._load_stored_data()
 
-    async def async_added_to_hass(self) -> None:
-        await mqtt.async_wait_for_mqtt_client(self.hass)
+    async def async_added_to_hass(self, hass: HomeAssistant) -> None:
+        await mqtt.async_wait_for_mqtt_client(hass)
 
         for key in self.get_tracked_entities():
             await mqtt.async_subscribe(
@@ -44,7 +44,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         await self.boot()
 
-        await super().async_added_to_hass()
+        await super().async_added_to_hass(hass)
 
     async def async_will_remove_from_hass(self) -> None:
         # Save the updated data to persistent storage

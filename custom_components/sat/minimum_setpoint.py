@@ -61,7 +61,6 @@ DELTA_BAND_THRESHOLDS: tuple[float, float, float] = (5.0, 10.0, 15.0)
 
 STORAGE_KEY_VALUE = "value"
 STORAGE_KEY_REGIMES = "regimes"
-STORAGE_KEY_VERSION = "version"
 STORAGE_KEY_MINIMUM_SETPOINT = "minimum_setpoint"
 STORAGE_KEY_COMPLETED_CYCLES = "completed_cycles"
 STORAGE_KEY_STABLE_CYCLES = "stable_cycles"
@@ -365,10 +364,6 @@ class DynamicMinimumSetpoint:
         if not data:
             return
 
-        version = data.get(STORAGE_KEY_VERSION)
-        if version != STORAGE_VERSION:
-            _LOGGER.debug("Unknown minimum setpoint storage version: %s", version)
-
         regimes_data = data.get(STORAGE_KEY_REGIMES, {})
         self._regimes.clear()
         now = datetime.now(timezone.utc)
@@ -430,7 +425,6 @@ class DynamicMinimumSetpoint:
         data: Dict[str, Any] = {
             STORAGE_KEY_VALUE: self._value,
             STORAGE_KEY_REGIMES: regimes_data,
-            STORAGE_KEY_VERSION: STORAGE_VERSION,
         }
 
         await self._store.async_save(data)

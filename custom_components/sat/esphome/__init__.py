@@ -11,8 +11,8 @@ from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ..coordinator import SatDataUpdateCoordinator, SatEntityCoordinator
-from ..types import DeviceState
 from ..helpers import float_value, int_value
+from ..types import DeviceState
 
 # Sensors
 DATA_FLAME_ACTIVE = "flame_on"
@@ -135,8 +135,8 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     def member_id(self) -> int | None:
         return int_value(self.get(sensor.DOMAIN, DATA_SLAVE_MEMBERID))
 
-    async def async_added_to_hass(self) -> None:
-        await mqtt.async_wait_for_mqtt_client(self.hass)
+    async def async_added_to_hass(self, hass: HomeAssistant) -> None:
+        await mqtt.async_wait_for_mqtt_client(hass)
 
         # Create a list of entities that we track
         entities = list(filter(lambda entity: entity is not None, [
@@ -158,9 +158,9 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         ]))
 
         # Track those entities so the coordinator can be updated when something changes
-        async_track_state_change_event(self.hass, entities, self.async_state_change_event)
+        async_track_state_change_event(hass, entities, self.async_state_change_event)
 
-        await super().async_added_to_hass()
+        await super().async_added_to_hass(hass)
 
     async def async_state_change_event(self, _event: Event[EventStateChangedData]):
         # Notify listeners to ensure the entities are updated
