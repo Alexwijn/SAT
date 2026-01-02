@@ -358,10 +358,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return device state attributes."""
         return {
-            "error": self.error.value,
             "integral": self.pid.integral,
             "derivative": self.pid.derivative,
             "proportional": self.pid.proportional,
+            "error": self.error.value if self.error is not None else None,
 
             "pre_custom_temperature": self._pre_custom_temperature,
             "pre_activity_temperature": self._pre_activity_temperature,
