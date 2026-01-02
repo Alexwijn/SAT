@@ -625,10 +625,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._coordinator.hot_water_active:
             return RelativeModulationState.HOT_WATER
 
-        if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
-            return RelativeModulationState.COLD
-
         if self.pwm.status == PWMStatus.IDLE:
+            if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
+                return RelativeModulationState.COLD
+
             return RelativeModulationState.PWM_OFF
 
         return RelativeModulationState.OFF
