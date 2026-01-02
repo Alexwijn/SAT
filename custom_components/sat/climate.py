@@ -855,7 +855,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self.entity_id)
             return
 
-        self.pid.update(self.error, time, self.heating_curve.value)
+        self.pid.update(self.error, event_timestamp(time), self.heating_curve.value)
         _LOGGER.debug("PID update for %s (error=%s, curve=%s, output=%s)", self.entity_id, self.error.value, self.heating_curve.value, self.pid.output)
 
         self.async_write_ha_state()
