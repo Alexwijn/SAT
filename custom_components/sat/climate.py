@@ -362,7 +362,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "integral": self.pid.integral,
             "derivative": self.pid.derivative,
             "proportional": self.pid.proportional,
-            "integral_enabled": self.pid.integral_enabled,
 
             "pre_custom_temperature": self._pre_custom_temperature,
             "pre_activity_temperature": self._pre_activity_temperature,
