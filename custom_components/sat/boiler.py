@@ -88,7 +88,7 @@ class Boiler:
         self._last_flame_off_was_overshoot: bool = False
 
         # Modulation reliability tracking
-        self._modulation_reliable: bool = True
+        self._modulation_reliable: bool = False
         self._modulation_values_when_flame_on: List[float] = []
 
         # Persistence for modulation reliability
