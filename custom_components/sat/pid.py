@@ -8,7 +8,6 @@ from homeassistant.core import State
 
 from .const import *
 from .errors import Error
-from .helpers import seconds_since
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,16 +114,6 @@ class PID:
 
         return round(self._last_heating_curve_value + self.proportional + self.integral + self.derivative, 1)
 
-    @property
-    def integral_enabled(self) -> bool:
-        """Return whether the updates of the integral are enabled."""
-        return abs(self._last_error) <= DEADBAND if self._last_error is not None else False
-
-    @property
-    def derivative_enabled(self) -> bool:
-        """Return whether the updates of the derivative are enabled."""
-        return abs(self._last_error) > DEADBAND if self._last_error is not None else False
-
     def reset(self) -> None:
         """Reset the PID controller to a clean state."""
         now = monotonic()
@@ -170,7 +159,7 @@ class PID:
         error_changed = self._last_error is None or abs(error.value - self._last_error) >= ERROR_EPSILON
 
         # Update integral and derivative based on the previously stored error.
-        self._update_integral(error, heating_curve_value)
+        self._update_integral(error, now, heating_curve_value)
         self._update_derivative(error, now, error_changed)
 
         self._last_updated = now
@@ -182,12 +171,17 @@ class PID:
             self._last_error_change_time = now
             self._last_error = error.value
 
-    def _update_integral(self, error: Error, heating_curve_value: float) -> None:
+    def update_integral(self, error: Error, heating_curve_value: float) -> None:
+        """Update only the integral term using the current time."""
+        now = monotonic()
+        self._update_integral(error, now, heating_curve_value)
+
+    def _update_integral(self, error: Error, now: float, heating_curve_value: float) -> None:
         """Update the integral value in the PID controller."""
 
         # Reset the time base if we just entered the deadband.
         if self._last_error is not None and abs(self._last_error) > DEADBAND >= abs(error.value):
-            self._last_interval_updated = monotonic()
+            self._last_interval_updated = now
 
         # Ensure the integral term is enabled for the current error.
         if abs(error.value) > DEADBAND:
@@ -199,7 +193,7 @@ class PID:
             return
 
         # Update the integral value.
-        delta_time = seconds_since(self._last_interval_updated)
+        delta_time = now - self._last_interval_updated
         self._integral += self.ki * error.value * delta_time
 
         # Clamp integral to avoid pushing beyond the curve bounds.
@@ -207,7 +201,7 @@ class PID:
         self._integral = max(self._integral, float(-heating_curve_value))
 
         # Record the time of the latest update.
-        self._last_interval_updated = monotonic()
+        self._last_interval_updated = now
 
     def _update_derivative(self, error: Error, now: float, error_changed: bool) -> None:
         """Update the derivative term of the PID controller based on the latest error."""
