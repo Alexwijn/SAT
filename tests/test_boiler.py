@@ -1,6 +1,11 @@
 """Tests for boiler behavior."""
 
-from custom_components.sat.boiler import Boiler, BoilerState
+from custom_components.sat.boiler import (
+    BOILER_MODULATION_DELTA_THRESHOLD,
+    BOILER_MODULATION_RELIABILITY_MIN_SAMPLES,
+    Boiler,
+    BoilerState,
+)
 
 
 def _boiler_state(modulation: float) -> BoilerState:
@@ -19,24 +24,26 @@ def _boiler_state(modulation: float) -> BoilerState:
 
 
 def test_modulation_reliability_recovers():
-    boiler = Boiler(modulation_reliability_min_samples=3)
+    boiler = Boiler()
+    min_samples = BOILER_MODULATION_RELIABILITY_MIN_SAMPLES
+    high = BOILER_MODULATION_DELTA_THRESHOLD + 1.0
 
-    for _ in range(3):
+    for _ in range(min_samples):
         boiler.update(_boiler_state(0.0), None)
 
     assert boiler.modulation_reliable is False
 
-    for value in (0.5, 0.7, 0.4):
+    for _ in range(min_samples):
+        boiler.update(_boiler_state(0.5), None)
+
+    assert boiler.modulation_reliable is False
+
+    for value in (high, 0.0, 0.0, 0.0, 0.0, 0.0, high, 0.0):
         boiler.update(_boiler_state(value), None)
 
     assert boiler.modulation_reliable is False
 
-    for value in (37.0, 0.0, 0.0):
-        boiler.update(_boiler_state(value), None)
-
-    assert boiler.modulation_reliable is False
-
-    for value in (10.0, 15.0, 12.0):
+    for value in (high, 0.0, high, 0.0, high, 0.0, 0.0, 0.0):
         boiler.update(_boiler_state(value), None)
 
     assert boiler.modulation_reliable is True

@@ -17,6 +17,20 @@ if TYPE_CHECKING:
 
 STORAGE_VERSION = 1
 
+# Boiler behavior thresholds.
+BOILER_PREHEAT_DELTA = 6.0
+BOILER_SETPOINT_BAND = 1.5
+BOILER_OVERSHOOT_DELTA = 2.0
+BOILER_DEMAND_HYSTERESIS = 0.7
+BOILER_ANTI_CYCLING_MIN_OFF_SECONDS = 180.0
+BOILER_GRADIENT_THRESHOLD_UP = 0.2
+BOILER_GRADIENT_THRESHOLD_DOWN = -0.1
+BOILER_POST_CYCLE_SETTLING_SECONDS = 60.0
+BOILER_MODULATION_DELTA_THRESHOLD = 3.0
+BOILER_MODULATION_RELIABILITY_MIN_SAMPLES = 8
+BOILER_STALL_IGNITION_OFF_RATIO = 3.0
+BOILER_STALL_IGNITION_MIN_OFF_SECONDS = 600.0
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BoilerControlIntent:
@@ -59,42 +73,13 @@ class BoilerState:
 
 
 class Boiler:
-    def __init__(
-        self,
-        preheat_delta: float = 6.0,
-        setpoint_band: float = 1.5,
-        overshoot_delta: float = 2.0,
-        demand_hysteresis: float = 0.7,
-        anti_cycling_min_off_seconds: float = 180.0,
-        gradient_threshold_up: float = 0.2,
-        gradient_threshold_down: float = -0.1,
-        pump_start_window_seconds: float = 20.0,
-        post_cycle_settling_seconds: float = 60.0,
-        modulation_delta_threshold: float = 3.0,
-        modulation_reliability_min_samples: int = 8,
-        stall_ignition_off_ratio: float = 3.0,
-        stall_ignition_min_off_seconds: float = 600.0,
-    ) -> None:
-        # Configuration
-        self._preheat_delta = preheat_delta
-        self._setpoint_band = setpoint_band
-        self._overshoot_delta = overshoot_delta
-        self._demand_hysteresis = demand_hysteresis
-        self._anti_cycling_min_off_seconds = anti_cycling_min_off_seconds
-        self._gradient_threshold_up = gradient_threshold_up
-        self._gradient_threshold_down = gradient_threshold_down
-        self._pump_start_window_seconds = pump_start_window_seconds
-        self._post_cycle_settling_seconds = post_cycle_settling_seconds
-        self._modulation_delta_threshold = modulation_delta_threshold
-        self._modulation_reliability_min_samples = modulation_reliability_min_samples
-        self._stall_ignition_off_ratio = stall_ignition_off_ratio
-        self._stall_ignition_min_off_seconds = stall_ignition_min_off_seconds
-
+    def __init__(self) -> None:
         # Runtime state
         self._last_cycle: Optional["Cycle"] = None
         self._current_state: Optional[BoilerState] = None
         self._previous_state: Optional[BoilerState] = None
         self._current_status: Optional[BoilerStatus] = None
+
         self._last_update_at: Optional[float] = None
         self._last_flame_on_at: Optional[float] = None
         self._last_flame_off_at: Optional[float] = None
@@ -154,22 +139,22 @@ class Boiler:
         await self._store.async_save({"modulation_reliable": self._modulation_reliable})
 
     def update(self, state: "BoilerState", last_cycle: Optional["Cycle"]) -> None:
-        """Update internal state and derive the current boiler status."""
+        """Update the internal state and derive the current boiler status."""
         previous = self._current_state
         self._current_state = state
         self._last_cycle = last_cycle
         self._previous_state = previous
         self._last_update_at = timestamp()
 
-        if not self._demand_present(state):
+        if not self._has_demand(state):
             self._last_flame_off_at = None
 
-        self._track_flame_transitions(previous, state)
+        self._record_flame_transitions(previous, state)
         self._update_modulation_reliability(state)
 
-        self._current_status = self._derive_status()
+        self._current_status = self._determine_status()
 
-    def _derive_status(self) -> BoilerStatus:
+    def _determine_status(self) -> BoilerStatus:
         state = self._current_state
         previous = self._previous_state
 
@@ -183,15 +168,21 @@ class Boiler:
 
         if not state.flame_active:
             # Overshoot cooling: flame off due to overshoot, still above setpoint.
-            if self._is_in_overshoot_cooling(state):
+            if self._is_overshoot_cooling(state, self._last_flame_off_was_overshoot):
                 return BoilerStatus.OVERSHOOT_COOLING
 
             # Anti-cycling: off despite demand, within minimum off time.
-            if self._is_anti_cycling(state):
+            if self._is_in_anti_cycling(state, self._last_update_at, self._last_flame_off_at):
                 return BoilerStatus.ANTI_CYCLING
 
             # Stalled ignition: OFF for much longer than expected, with demand present.
-            if self._is_stalled_ignition(state):
+            if self._is_ignition_stalled(
+                    state,
+                    self._last_update_at,
+                    self._last_flame_off_at,
+                    self._last_flame_off_was_overshoot,
+                    self._last_cycle,
+            ):
                 return BoilerStatus.STALLED_IGNITION
 
             # Flame just turned off, and we are not overshoot cooling nor anti cycling.
@@ -199,18 +190,18 @@ class Boiler:
                 return BoilerStatus.COOLING
 
             # Just became active → pump starting phase.
-            if self._is_pump_starting(state):
+            if self._is_pump_start_phase(state, self._previous_state, self._last_flame_on_at):
                 return BoilerStatus.PUMP_STARTING
 
             if self._last_cycle is not None and self._last_cycle.classification in UNHEALTHY_CYCLES:
                 return BoilerStatus.SHORT_CYCLING
 
             # Waiting for flame: active, demand present, not anti cycling, not stalled.
-            if self._demand_present(state):
+            if self._has_demand(state):
                 return BoilerStatus.WAITING_FOR_FLAME
 
             # Post-cycle settling: shortly after last off, no demand yet.
-            if self._is_post_cycle_settling(state):
+            if self._is_in_post_cycle_settling(state, self._last_update_at, self._last_flame_off_at):
                 return BoilerStatus.POST_CYCLE_SETTLING
 
             # Otherwise, simply idle.
@@ -227,15 +218,15 @@ class Boiler:
         delta_to_setpoint = state.setpoint - state.flow_temperature
 
         # Preheating: far below the setpoint.
-        if delta_to_setpoint > self._preheat_delta:
+        if delta_to_setpoint > BOILER_PREHEAT_DELTA:
             return BoilerStatus.PREHEATING
 
         # At-setpoint band: very close to setpoint.
-        if abs(delta_to_setpoint) <= self._setpoint_band:
+        if abs(delta_to_setpoint) <= BOILER_SETPOINT_BAND:
             return BoilerStatus.AT_SETPOINT_BAND
 
         # Otherwise: direction of modulation (up/down) based on modulation or gradients.
-        modulation_direction = self._modulation_direction()
+        modulation_direction = self._determine_modulation_direction()
 
         if modulation_direction > 0:
             return BoilerStatus.MODULATING_UP
@@ -245,131 +236,6 @@ class Boiler:
 
         # Fallback: generic heating space.
         return BoilerStatus.CENTRAL_HEATING
-
-    def _demand_present(self, state: BoilerState) -> bool:
-        """Return True if space-heating demand is present."""
-        if state.setpoint is None or state.flow_temperature is None:
-            return False
-
-        return state.setpoint > state.flow_temperature + self._demand_hysteresis
-
-    def _is_pump_starting(self, state: BoilerState) -> bool:
-        """Detect the initial pump-start phase when the system is newly active."""
-        # Once we have had a flame in this active session, we no longer call it pump start.
-        if self._last_flame_on_at is not None:
-            return False
-
-        if state.setpoint is None or state.flow_temperature is None:
-            return False
-
-        previous = self._previous_state
-        if previous is None or previous.flow_temperature is None:
-            return False
-
-        # We only consider pump starting when we are clearly in preheat territory.
-        delta_to_setpoint = state.setpoint - state.flow_temperature
-        if delta_to_setpoint <= self._preheat_delta:
-            return False
-
-        # Pump circulating colder system water: flow temperature falling or flat.
-        return state.flow_temperature - previous.flow_temperature <= 0.0
-
-    def _is_post_cycle_settling(self, state: BoilerState) -> bool:
-        """Return True during a short settling period when there is no demand."""
-        if self._last_flame_off_at is None:
-            return False
-
-        if self._demand_present(state):
-            return False
-
-        time_since_off = self._last_update_at - self._last_flame_off_at
-        return 0.0 <= time_since_off <= self._post_cycle_settling_seconds
-
-    def _is_in_overshoot_cooling(self, state: BoilerState) -> bool:
-        """Return True when overshoot cooling keeps the flame off above setpoint."""
-        if not self._last_flame_off_was_overshoot:
-            return False
-
-        if state.setpoint is None or state.flow_temperature is None:
-            return False
-
-        return (not state.flame_active) and state.flow_temperature > state.setpoint
-
-    def _is_anti_cycling(self, state: BoilerState) -> bool:
-        """Return True when boiler is in enforced anti-cycling off-time with demand."""
-        if self._last_flame_off_at is None:
-            return False
-
-        if state.flame_active:
-            return False
-
-        if not self._demand_present(state):
-            return False
-
-        time_since_off = self._last_update_at - self._last_flame_off_at
-        if time_since_off < 0:
-            return False
-
-        return time_since_off < self._anti_cycling_min_off_seconds
-
-    def _is_stalled_ignition(self, state: BoilerState) -> bool:
-        """Detect stalled ignition when demand persists for too long."""
-        if self._last_flame_off_at is None:
-            return False
-
-        if state.flame_active:
-            return False
-
-        if not self._demand_present(state):
-            return False
-
-        # If we are still in anti-cycling or overshoot cooling, do not call this stalled.
-        if self._is_anti_cycling(state):
-            return False
-
-        if self._is_in_overshoot_cooling(state):
-            return False
-
-        time_since_off = self._last_update_at - self._last_flame_off_at
-        if time_since_off < 0:
-            return False
-
-        # Base threshold on the last cycle duration (if available) plus an absolute floor.
-        threshold = self._stall_ignition_min_off_seconds
-
-        if self._last_cycle is not None:
-            try:
-                last_duration = float(self._last_cycle.duration)
-                threshold = max(threshold, last_duration * self._stall_ignition_off_ratio)
-            except (TypeError, ValueError):
-                # Ignore if duration_seconds is missing or not numeric.
-                pass
-
-        return time_since_off >= threshold
-
-    def _track_flame_transitions(self, previous: Optional[BoilerState], current: BoilerState) -> None:
-        """Track flame ON/OFF timestamps and overshoot at OFF."""
-        if previous is None:
-            if current.flame_active:
-                self._last_flame_on_at = self._last_update_at
-            return
-
-        if previous.flame_active and not current.flame_active:
-            # Flame ON -> OFF
-            self._last_flame_off_at = self._last_update_at
-            self._last_flame_off_was_overshoot = self._is_overshoot_at_flame_off(previous)
-
-        elif not previous.flame_active and current.flame_active:
-            # Flame OFF -> ON
-            self._last_flame_on_at = self._last_update_at
-            self._last_flame_off_was_overshoot = False
-
-    def _is_overshoot_at_flame_off(self, state: BoilerState) -> bool:
-        """Return True if the flame turned off because of overshoot."""
-        if state.setpoint is None or state.flow_temperature is None:
-            return False
-
-        return state.flow_temperature >= state.setpoint + self._overshoot_delta
 
     def _update_modulation_reliability(self, state: BoilerState) -> None:
         """Track whether modulation readings show sustained, meaningful variation."""
@@ -384,11 +250,11 @@ class Boiler:
         if len(self._modulation_values_when_flame_on) > 50:
             self._modulation_values_when_flame_on = self._modulation_values_when_flame_on[-50:]
 
-        if len(self._modulation_values_when_flame_on) < self._modulation_reliability_min_samples:
+        if len(self._modulation_values_when_flame_on) < BOILER_MODULATION_RELIABILITY_MIN_SAMPLES:
             return
 
-        window = self._modulation_values_when_flame_on[-self._modulation_reliability_min_samples:]
-        above_threshold = sum(1 for value in window if value >= self._modulation_delta_threshold)
+        window = self._modulation_values_when_flame_on[-BOILER_MODULATION_RELIABILITY_MIN_SAMPLES:]
+        above_threshold = sum(1 for value in window if value >= BOILER_MODULATION_DELTA_THRESHOLD)
         required_samples = max(2, int(len(window) * 0.4))
 
         if above_threshold < required_samples:
@@ -397,7 +263,7 @@ class Boiler:
 
         self._modulation_reliable = True
 
-    def _modulation_direction(self) -> int:
+    def _determine_modulation_direction(self) -> int:
         """Determine modulation direction."""
         current = self._current_state
         previous = self._previous_state
@@ -411,10 +277,10 @@ class Boiler:
             prev_mod = previous.relative_modulation_level
             if cur_mod is not None and prev_mod is not None:
                 delta_mod = cur_mod - prev_mod
-                if delta_mod > self._modulation_delta_threshold:
+                if delta_mod > BOILER_MODULATION_DELTA_THRESHOLD:
                     return 1
 
-                if delta_mod < -self._modulation_delta_threshold:
+                if delta_mod < -BOILER_MODULATION_DELTA_THRESHOLD:
                     return -1
 
         # Fallback: temperature gradient.
@@ -423,10 +289,141 @@ class Boiler:
 
         delta_flow = current.flow_temperature - previous.flow_temperature
 
-        if delta_flow > self._gradient_threshold_up:
+        if delta_flow > BOILER_GRADIENT_THRESHOLD_UP:
             return 1
 
-        if delta_flow < self._gradient_threshold_down:
+        if delta_flow < BOILER_GRADIENT_THRESHOLD_DOWN:
             return -1
 
         return 0
+
+    def _record_flame_transitions(self, previous: Optional[BoilerState], current: BoilerState) -> None:
+        """Track flame ON/OFF timestamps and overshoot at OFF."""
+        if previous is None:
+            if current.flame_active:
+                self._last_flame_on_at = self._last_update_at
+            return
+
+        if previous.flame_active and not current.flame_active:
+            # Flame ON -> OFF
+            self._last_flame_off_at = self._last_update_at
+            self._last_flame_off_was_overshoot = self._did_overshoot_at_flame_off(previous)
+
+        elif not previous.flame_active and current.flame_active:
+            # Flame OFF -> ON
+            self._last_flame_on_at = self._last_update_at
+            self._last_flame_off_was_overshoot = False
+
+    @staticmethod
+    def _is_pump_start_phase(state: BoilerState, previous: Optional[BoilerState], last_flame_on_at: Optional[float]) -> bool:
+        """Detect the initial pump-start phase when the system is newly active."""
+        # Once we have had a flame in this active session, we no longer call it pump start.
+        if last_flame_on_at is not None:
+            return False
+
+        if state.setpoint is None or state.flow_temperature is None:
+            return False
+
+        if previous is None or previous.flow_temperature is None:
+            return False
+
+        # We only consider pump starting when we are clearly in preheat territory.
+        delta_to_setpoint = state.setpoint - state.flow_temperature
+        if delta_to_setpoint <= BOILER_PREHEAT_DELTA:
+            return False
+
+        # Pump circulating colder system water: flow temperature falling or flat.
+        return state.flow_temperature - previous.flow_temperature <= 0.0
+
+    @staticmethod
+    def _is_in_post_cycle_settling(state: BoilerState, last_update_at: Optional[float], last_flame_off_at: Optional[float]) -> bool:
+        """Return True during a short settling period when there is no demand."""
+        if last_flame_off_at is None or last_update_at is None:
+            return False
+
+        if Boiler._has_demand(state):
+            return False
+
+        time_since_off = last_update_at - last_flame_off_at
+        return 0.0 <= time_since_off <= BOILER_POST_CYCLE_SETTLING_SECONDS
+
+    @staticmethod
+    def _is_overshoot_cooling(state: BoilerState, last_flame_off_was_overshoot: bool) -> bool:
+        """Return True when overshoot cooling keeps the flame off above setpoint."""
+        if not last_flame_off_was_overshoot:
+            return False
+
+        if state.setpoint is None or state.flow_temperature is None:
+            return False
+
+        return (not state.flame_active) and state.flow_temperature > state.setpoint
+
+    @staticmethod
+    def _is_in_anti_cycling(state: BoilerState, last_update_at: Optional[float], last_flame_off_at: Optional[float]) -> bool:
+        """Return True when boiler is in enforced anti-cycling off-time with demand."""
+        if last_flame_off_at is None or last_update_at is None:
+            return False
+
+        if state.flame_active:
+            return False
+
+        if not Boiler._has_demand(state):
+            return False
+
+        time_since_off = last_update_at - last_flame_off_at
+        if time_since_off < 0:
+            return False
+
+        return time_since_off < BOILER_ANTI_CYCLING_MIN_OFF_SECONDS
+
+    @staticmethod
+    def _is_ignition_stalled(state: BoilerState, last_update_at: Optional[float], last_flame_off_at: Optional[float], last_flame_off_was_overshoot: bool, last_cycle: Optional["Cycle"]) -> bool:
+        """Detect stalled ignition when demand persists for too long."""
+        if last_flame_off_at is None or last_update_at is None:
+            return False
+
+        if state.flame_active:
+            return False
+
+        if not Boiler._has_demand(state):
+            return False
+
+        # If we are still in anti-cycling or overshoot cooling, do not call this stalled.
+        if Boiler._is_in_anti_cycling(state, last_update_at, last_flame_off_at):
+            return False
+
+        if Boiler._is_overshoot_cooling(state, last_flame_off_was_overshoot):
+            return False
+
+        time_since_off = last_update_at - last_flame_off_at
+        if time_since_off < 0:
+            return False
+
+        # Base threshold on the last cycle duration (if available) plus an absolute floor.
+        threshold = BOILER_STALL_IGNITION_MIN_OFF_SECONDS
+
+        if last_cycle is not None:
+            try:
+                last_duration = float(last_cycle.duration)
+                threshold = max(threshold, last_duration * BOILER_STALL_IGNITION_OFF_RATIO)
+            except (TypeError, ValueError):
+                # Ignore if duration_seconds is missing or not numeric.
+                pass
+
+        return time_since_off >= threshold
+
+    @staticmethod
+    def _has_demand(state: BoilerState) -> bool:
+        """Return True if space-heating demand is present."""
+        if state.setpoint is None or state.flow_temperature is None:
+            return False
+
+        return state.setpoint > state.flow_temperature + BOILER_DEMAND_HYSTERESIS
+
+    @staticmethod
+    def _did_overshoot_at_flame_off(state: BoilerState) -> bool:
+        """Return True if the flame turned off because of overshoot."""
+        if state.setpoint is None or state.flow_temperature is None:
+            return False
+
+        return state.flow_temperature >= state.setpoint + BOILER_OVERSHOOT_DELTA
