@@ -272,9 +272,8 @@ class Boiler:
 
         if above_threshold < required_samples:
             self._modulation_reliable = False
-            return
-
-        self._modulation_reliable = True
+        else:
+            self._modulation_reliable = True
 
         if self._hass is not None:
             self._hass.create_task(self.async_save_data())
