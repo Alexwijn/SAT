@@ -333,14 +333,3 @@ class Areas:
                 if entity_id is None or entity_id == area.id:
                     _LOGGER.info("Reset PID controller for %s", area.id)
                     area.pid.reset()
-
-        def update(self, entity_id: str) -> None:
-            """Update the PID controller for a specific area."""
-            if (area := self._areas.get(entity_id)) is None:
-                return
-
-            if area.error is None or area.heating_curve.value is None:
-                return
-
-            _LOGGER.info("Updating PID for %s with error=%s", area.id, area.error.value)
-            area.pid.update(area.error, heating_curve_value=area.heating_curve.value)

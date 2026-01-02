@@ -153,26 +153,22 @@ class PID:
         self._last_interval_updated = now
         self._last_error_change_time = now if self._last_error is not None else None
 
-    def update(self, error: Error, now: Optional[float] = None, heating_curve_value: Optional[float] = None) -> None:
+    def update(self, error: Error, time: float, heating_curve_value: float) -> None:
         """Update PID state with the latest error and heating curve value."""
-        if heating_curve_value is None:
-            raise ValueError("heating_curve_value is required")
-
-        now = now if now is not None else timestamp()
-        time_elapsed = now - self._last_updated
+        time_elapsed = time - self._last_updated
         error_changed = self._last_error is None or abs(error.value - self._last_error) >= ERROR_EPSILON
 
         # Update integral and derivative based on the previously stored error.
-        self._update_integral(error, now, heating_curve_value)
-        self._update_derivative(error, now, error_changed)
+        self._update_integral(error, time, heating_curve_value)
+        self._update_derivative(error, time, error_changed)
 
-        self._last_updated = now
+        self._last_updated = time
         self._time_elapsed = time_elapsed
         self._last_heating_curve_value = heating_curve_value
 
         if error_changed:
             self._previous_error = self._last_error
-            self._last_error_change_time = now
+            self._last_error_change_time = time
             self._last_error = error.value
 
     def _update_integral(self, error: Error, now: float, heating_curve_value: float) -> None:
@@ -209,7 +205,6 @@ class PID:
 
         # If the derivative is disabled for the current error, freeze it.
         if abs(error.value) <= DEADBAND:
-            self._raw_derivative *= DERIVATIVE_DECAY
             return
 
         if not error_changed:
