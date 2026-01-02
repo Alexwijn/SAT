@@ -563,8 +563,8 @@ class DynamicMinimumSetpoint:
 
         return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
-    def _prune_regimes(self, now: datetime) -> None:
-        cutoff = now - timedelta(days=REGIME_RETENTION_DAYS)
+    def _prune_regimes(self, time: datetime) -> None:
+        cutoff = time - timedelta(days=REGIME_RETENTION_DAYS)
         stale_keys = [key for key, state in self._regimes.items() if state.last_seen is not None and state.last_seen < cutoff]
 
         if not stale_keys:

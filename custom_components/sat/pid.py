@@ -15,6 +15,8 @@ DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
 DERIVATIVE_DECAY = 0.9
 DERIVATIVE_RAW_CAP = 5.0
+DERIVATIVE_MIN_INTERVAL = 30.0
+DERIVATIVE_ERROR_ALPHA = 0.2
 
 ERROR_EPSILON = 0.01
 MAX_BOILER_TEMPERATURE_AGE = 300
@@ -122,11 +124,10 @@ class PID:
         self._time_elapsed: float = 0.0
         self._last_updated: float = now
         self._last_interval_updated: float = now
-        self._last_error_change_time: Optional[float] = None
-
         self._last_error: Optional[float] = None
         self._previous_error: Optional[float] = None
         self._last_heating_curve_value: Optional[float] = None
+        self._filtered_error: Optional[float] = None
 
         # Reset integral and derivative accumulators.
         self._integral: float = 0.0
@@ -151,24 +152,25 @@ class PID:
         now = timestamp()
         self._last_updated = now
         self._last_interval_updated = now
-        self._last_error_change_time = now if self._last_error is not None else None
+        self._filtered_error = self._last_error
 
-    def update(self, error: Error, time: float, heating_curve_value: float) -> None:
+    def update(self, error: Error, now: float, heating_curve_value: float) -> None:
         """Update PID state with the latest error and heating curve value."""
-        time_elapsed = time - self._last_updated
+        time_elapsed = now - self._last_updated
         error_changed = self._last_error is None or abs(error.value - self._last_error) >= ERROR_EPSILON
 
-        # Update integral and derivative based on the previously stored error.
-        self._update_integral(error, time, heating_curve_value)
-        self._update_derivative(error, time, error_changed)
+        # Update integral based on error and derivative based on the filtered error slope.
+        self._update_integral(error, now, heating_curve_value)
+        self._update_derivative(error, time_elapsed)
 
-        self._last_updated = time
+        self._last_updated = now
         self._time_elapsed = time_elapsed
         self._last_heating_curve_value = heating_curve_value
 
         if error_changed:
-            self._previous_error = self._last_error
-            self._last_error_change_time = time
+            if self._last_error is not None:
+                self._previous_error = self._last_error
+
             self._last_error = error.value
 
     def _update_integral(self, error: Error, now: float, heating_curve_value: float) -> None:
@@ -198,28 +200,26 @@ class PID:
         # Record the time of the latest update.
         self._last_interval_updated = now
 
-    def _update_derivative(self, error: Error, now: float, error_changed: bool) -> None:
-        """Update the derivative term of the PID controller based on the latest error."""
-        if self._last_error is None:
+    def _update_derivative(self, error: Error, time_elapsed: float) -> None:
+        """Update the derivative term of the PID controller based on filtered error."""
+        if self._filtered_error is None:
+            self._filtered_error = error.value
             return
 
-        # If the derivative is disabled for the current error, freeze it.
+        filtered_error = DERIVATIVE_ERROR_ALPHA * error.value + (1 - DERIVATIVE_ERROR_ALPHA) * self._filtered_error
+
+        # If the derivative is disabled for the current error, decay it toward zero.
         if abs(error.value) <= DEADBAND:
-            return
-
-        if not error_changed:
             self._raw_derivative *= DERIVATIVE_DECAY
+            self._filtered_error = filtered_error
             return
 
-        if self._last_error_change_time is None:
+        if time_elapsed <= 0:
+            self._filtered_error = filtered_error
             return
 
-        time_diff = now - self._last_error_change_time
-        if time_diff <= 0:
-            return
-
-        # Basic derivative: slope between current and last error.
-        derivative = (error.value - self._last_error) / time_diff
+        # Basic derivative: slope between current and last filtered error.
+        derivative = (filtered_error - self._filtered_error) / time_elapsed
 
         # First low-pass filter.
         filtered_derivative = DERIVATIVE_ALPHA1 * derivative + (1 - DERIVATIVE_ALPHA1) * self._raw_derivative
@@ -227,3 +227,4 @@ class PID:
         # Second low-pass filter.
         self._raw_derivative = DERIVATIVE_ALPHA2 * filtered_derivative + (1 - DERIVATIVE_ALPHA2) * self._raw_derivative
         self._raw_derivative = max(-DERIVATIVE_RAW_CAP, min(self._raw_derivative, DERIVATIVE_RAW_CAP))
+        self._filtered_error = filtered_error
