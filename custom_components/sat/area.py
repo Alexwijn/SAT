@@ -210,7 +210,6 @@ class Area:
             return
 
         self.pid.update(self.error, event_timestamp(now), self.heating_curve.value)
-
         _LOGGER.debug("PID update for %s (error=%s, curve=%s, output=%s)", self._entity_id, self.error.value, self.heating_curve.value, self.pid.output)
 
 

@@ -563,10 +563,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._overshoot_protection:
             return False
 
-        # Check if the boiler is at its lowest
-        if self._coordinator.relative_modulation_value > 0:
-            return False
-
         # Handle static minimum setpoint logic
         if not self._dynamic_minimum_setpoint:
             return self._should_enable_static_pwm()
