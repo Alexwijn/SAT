@@ -270,10 +270,7 @@ class Boiler:
         above_threshold = sum(1 for value in window if value >= BOILER_MODULATION_DELTA_THRESHOLD)
         required_samples = max(2, int(len(window) * 0.4))
 
-        if above_threshold < required_samples:
-            self._modulation_reliable = False
-        else:
-            self._modulation_reliable = True
+        self._modulation_reliable = above_threshold >= required_samples
 
         if self._hass is not None:
             self._hass.create_task(self.async_save_data())
