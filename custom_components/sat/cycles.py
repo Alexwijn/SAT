@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Callable, Deque, Optional, TypeAlias
 
 from homeassistant.core import HomeAssistant
 
-from .const import CycleClassification, EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED
+from .const import CycleClassification, EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED, COLD_SETPOINT
 from .helpers import clamp, min_max, percentile_interpolated, seconds_since
 from .types import Percentiles, CycleKind, PWMStatus
 
@@ -60,7 +60,6 @@ class Cycle:
     end: float
     start: float
     sample_count: int
-    ended_on_phase: bool
 
     max_flow_temperature: Optional[float]
 
@@ -299,7 +298,7 @@ class CycleTracker:
             _LOGGER.debug("Flame transition ON->OFF, finalizing cycle.")
             self._last_flame_off_timestamp = sample.timestamp
 
-            cycle = self._build_cycle_state(sample.pwm, end_time=sample.timestamp)
+            cycle = self._build_cycle_state(sample.state, sample.pwm, end_time=sample.timestamp)
             if cycle is not None:
                 self._history.record_cycle(cycle)
                 self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle, "sample": sample})
@@ -330,7 +329,7 @@ class CycleTracker:
         self._last_flame_off_timestamp = None
         return None
 
-    def _build_cycle_state(self, pwm: PWMState, end_time: float) -> Optional[Cycle]:
+    def _build_cycle_state(self, boiler_state: BoilerState, pwm: PWMState, end_time: float) -> Optional[Cycle]:
         """Build a Cycle from the current sample buffer."""
         if self._current_cycle_start is None:
             _LOGGER.debug("No start time, ignoring cycle.")
@@ -363,14 +362,13 @@ class CycleTracker:
 
         base_metrics = self._build_metrics(samples=samples)
         tail_metrics = self._build_metrics(samples=samples, tail_start=tail_start)
-        classification = self._classify_cycle(pwm=pwm, duration=duration_seconds, tail_metrics=tail_metrics)
+        classification = self._classify_cycle(duration=duration_seconds, pwm=pwm, boiler_state=boiler_state, tail_metrics=tail_metrics)
 
         return Cycle(
             kind=kind,
             tail=tail_metrics,
             metrics=base_metrics,
             classification=classification,
-            ended_on_phase=pwm.ended_on_phase,
 
             end=end_time,
             start=start_time,
@@ -452,13 +450,13 @@ class CycleTracker:
         return CycleKind.UNKNOWN
 
     @staticmethod
-    def _classify_cycle(duration: float, pwm: PWMState, tail_metrics: CycleMetrics) -> CycleClassification:
+    def _classify_cycle(duration: float, boiler_state: BoilerState, pwm: PWMState, tail_metrics: CycleMetrics) -> CycleClassification:
         """Classify a cycle based on duration, PWM state, and tail error metrics."""
         if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
         # If PWM expects the flame to be ON, but it ended anyway, treat as pre-mature.
-        if pwm.status == PWMStatus.ON and not pwm.ended_on_phase:
+        if pwm.status == PWMStatus.ON:
             return CycleClassification.PREMATURE_OFF
 
         def compute_short_threshold_seconds() -> float:
@@ -479,7 +477,7 @@ class CycleTracker:
         overshoot = tail_metrics.flow_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
         underheat = tail_metrics.flow_setpoint_error.p90 <= -UNDERSHOOT_MARGIN_CELSIUS
 
-        if underheat and pwm.ended_on_phase:
+        if underheat and boiler_state.setpoint < COLD_SETPOINT:
             return CycleClassification.UNCERTAIN
 
         if is_ultra_short:

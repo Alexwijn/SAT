@@ -22,7 +22,6 @@ class PWMState:
     """
     enabled: bool
     status: PWMStatus
-    ended_on_phase: bool
     duty_cycle: Optional[Tuple[int, int]]
     last_duty_cycle_percentage: Optional[float]
 
@@ -72,7 +71,6 @@ class PWM:
         self._status: PWMStatus = PWMStatus.IDLE
         self._duty_cycle: Tuple[int, int] | None = None
 
-        self._ended_on_phase: bool = False
         self._first_duty_cycle_start: float | None = None
         self._last_duty_cycle_percentage: float | None = None
         self._effective_on_temperature: float | None = None
@@ -86,7 +84,6 @@ class PWM:
     def update(self, boiler_state: "BoilerState", control_intent: "BoilerControlIntent", timestamp: float) -> None:
         """Enable and update the PWM state based on the output of a PID controller."""
         self._enabled = True
-        self._ended_on_phase = False
 
         if self._heating_curve.value is None or boiler_state.setpoint is None or boiler_state.flow_temperature is None or control_intent.setpoint is None:
             self._status = PWMStatus.IDLE
@@ -143,7 +140,6 @@ class PWM:
         if self._status == PWMStatus.ON:
             if on_time_seconds < HEATER_STARTUP_TIMEFRAME or elapsed >= on_time_seconds:
                 self._last_update = timestamp
-                self._ended_on_phase = True
                 self._status = PWMStatus.OFF
 
                 _LOGGER.info(
@@ -247,6 +243,5 @@ class PWM:
             status=self._status,
             enabled=self._enabled,
             duty_cycle=self._duty_cycle,
-            ended_on_phase=self._ended_on_phase,
             last_duty_cycle_percentage=round(self._last_duty_cycle_percentage * 100, 2) if self._last_duty_cycle_percentage is not None else None
         )
