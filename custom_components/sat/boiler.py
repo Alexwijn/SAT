@@ -60,52 +60,41 @@ class BoilerState:
 
 class Boiler:
     def __init__(
-            self,
-            preheat_delta: float = 6.0,
-            setpoint_band: float = 1.5,
-            overshoot_delta: float = 2.0,
-
-            demand_hysteresis: float = 0.7,
-            anti_cycling_min_off_seconds: float = 180.0,
-
-            gradient_threshold_up: float = 0.2,
-            gradient_threshold_down: float = -0.1,
-
-            pump_start_window_seconds: float = 20.0,
-            post_cycle_settling_seconds: float = 60.0,
-
-            modulation_delta_threshold: float = 3.0,
-            modulation_reliability_min_samples: int = 8,
-
-            stall_ignition_off_ratio: float = 3.0,
-            stall_ignition_min_off_seconds: float = 600.0,
+        self,
+        preheat_delta: float = 6.0,
+        setpoint_band: float = 1.5,
+        overshoot_delta: float = 2.0,
+        demand_hysteresis: float = 0.7,
+        anti_cycling_min_off_seconds: float = 180.0,
+        gradient_threshold_up: float = 0.2,
+        gradient_threshold_down: float = -0.1,
+        pump_start_window_seconds: float = 20.0,
+        post_cycle_settling_seconds: float = 60.0,
+        modulation_delta_threshold: float = 3.0,
+        modulation_reliability_min_samples: int = 8,
+        stall_ignition_off_ratio: float = 3.0,
+        stall_ignition_min_off_seconds: float = 600.0,
     ) -> None:
         # Configuration
         self._preheat_delta = preheat_delta
         self._setpoint_band = setpoint_band
         self._overshoot_delta = overshoot_delta
-
         self._demand_hysteresis = demand_hysteresis
         self._anti_cycling_min_off_seconds = anti_cycling_min_off_seconds
-
         self._gradient_threshold_up = gradient_threshold_up
         self._gradient_threshold_down = gradient_threshold_down
-
         self._pump_start_window_seconds = pump_start_window_seconds
         self._post_cycle_settling_seconds = post_cycle_settling_seconds
-
         self._modulation_delta_threshold = modulation_delta_threshold
         self._modulation_reliability_min_samples = modulation_reliability_min_samples
-
         self._stall_ignition_off_ratio = stall_ignition_off_ratio
         self._stall_ignition_min_off_seconds = stall_ignition_min_off_seconds
 
-        # State
+        # Runtime state
         self._last_cycle: Optional["Cycle"] = None
         self._current_state: Optional[BoilerState] = None
         self._previous_state: Optional[BoilerState] = None
         self._current_status: Optional[BoilerStatus] = None
-
         self._last_update_at: Optional[float] = None
         self._last_flame_on_at: Optional[float] = None
         self._last_flame_off_at: Optional[float] = None
@@ -146,7 +135,7 @@ class Boiler:
         return self._last_flame_off_at
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
-        """Called when entity is added to Home Assistant, restore persisted flags."""
+        """Restore persisted modulation reliability and start periodic saves."""
         if self._store is None:
             self._store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
 
@@ -158,16 +147,15 @@ class Boiler:
         async_track_time_interval(hass, self.async_save_options, timedelta(minutes=15))
 
     async def async_save_options(self, _time: Optional[datetime] = None) -> None:
-        """Persist modulation reliability on removal."""
+        """Persist modulation reliability in storage."""
         if self._store is None:
             return
 
         await self._store.async_save({"modulation_reliable": self._modulation_reliable})
 
     def update(self, state: "BoilerState", last_cycle: Optional["Cycle"]) -> None:
-        """Update boiler classification with the latest state and last cycle summary."""
+        """Update internal state and derive the current boiler status."""
         previous = self._current_state
-
         self._current_state = state
         self._last_cycle = last_cycle
         self._previous_state = previous
@@ -287,7 +275,7 @@ class Boiler:
         return state.flow_temperature - previous.flow_temperature <= 0.0
 
     def _is_post_cycle_settling(self, state: BoilerState) -> bool:
-        """Short settling period after a cycle when there is no demand."""
+        """Return True during a short settling period when there is no demand."""
         if self._last_flame_off_at is None:
             return False
 
@@ -298,7 +286,7 @@ class Boiler:
         return 0.0 <= time_since_off <= self._post_cycle_settling_seconds
 
     def _is_in_overshoot_cooling(self, state: BoilerState) -> bool:
-        """True when we turned off due to overshoot and are still above setpoint."""
+        """Return True when overshoot cooling keeps the flame off above setpoint."""
         if not self._last_flame_off_was_overshoot:
             return False
 
@@ -308,7 +296,7 @@ class Boiler:
         return (not state.flame_active) and state.flow_temperature > state.setpoint
 
     def _is_anti_cycling(self, state: BoilerState) -> bool:
-        """True when boiler is in enforced anti-cycling off-time with demand."""
+        """Return True when boiler is in enforced anti-cycling off-time with demand."""
         if self._last_flame_off_at is None:
             return False
 
@@ -325,7 +313,7 @@ class Boiler:
         return time_since_off < self._anti_cycling_min_off_seconds
 
     def _is_stalled_ignition(self, state: BoilerState) -> bool:
-        """Detect "stalled ignition": flame has stayed OFF much longer than expected while there is clear heating demand."""
+        """Detect stalled ignition when demand persists for too long."""
         if self._last_flame_off_at is None:
             return False
 
@@ -377,41 +365,40 @@ class Boiler:
             self._last_flame_off_was_overshoot = False
 
     def _is_overshoot_at_flame_off(self, state: BoilerState) -> bool:
-        """Use the state at the moment of flame-off to decide if we shut down because of an overshoot."""
+        """Return True if the flame turned off because of overshoot."""
         if state.setpoint is None or state.flow_temperature is None:
             return False
 
         return state.flow_temperature >= state.setpoint + self._overshoot_delta
 
     def _update_modulation_reliability(self, state: BoilerState) -> None:
-        """Detect boilers that always report relative_modulation_level as zero (or effectively constant) while the flame is on."""
+        """Track whether modulation readings show sustained, meaningful variation."""
         if not state.flame_active:
             return
 
-        value = state.relative_modulation_level
-        if value is None:
+        modulation = state.relative_modulation_level
+        if modulation is None:
             return
 
-        self._modulation_values_when_flame_on.append(value)
+        self._modulation_values_when_flame_on.append(modulation)
         if len(self._modulation_values_when_flame_on) > 50:
             self._modulation_values_when_flame_on = self._modulation_values_when_flame_on[-50:]
-
-        if not self._modulation_reliable:
-            return
 
         if len(self._modulation_values_when_flame_on) < self._modulation_reliability_min_samples:
             return
 
-        values = self._modulation_values_when_flame_on
-        max_value = max(values)
-        min_value = min(values)
+        window = self._modulation_values_when_flame_on[-self._modulation_reliability_min_samples:]
+        above_threshold = sum(1 for value in window if value >= self._modulation_delta_threshold)
+        required_samples = max(2, int(len(window) * 0.4))
 
-        if max_value - min_value < 1e-3 and abs(max_value) < 1e-3:
-            # Modulation is effectively stuck at ~0 while the flame is on.
+        if above_threshold < required_samples:
             self._modulation_reliable = False
+            return
+
+        self._modulation_reliable = True
 
     def _modulation_direction(self) -> int:
-        """Determine modulation direction"""
+        """Determine modulation direction."""
         current = self._current_state
         previous = self._previous_state
 
