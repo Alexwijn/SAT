@@ -171,11 +171,6 @@ class PID:
             self._last_error_change_time = now
             self._last_error = error.value
 
-    def update_integral(self, error: Error, heating_curve_value: float) -> None:
-        """Update only the integral term using the current time."""
-        now = monotonic()
-        self._update_integral(error, now, heating_curve_value)
-
     def _update_integral(self, error: Error, now: float, heating_curve_value: float) -> None:
         """Update the integral value in the PID controller."""
 

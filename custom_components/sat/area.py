@@ -192,24 +192,14 @@ class Area:
             self._time_interval()
             self._time_interval = None
 
-    async def async_control_heating_loop(self, _time: datetime | None = None) -> None:
-        """Asynchronously control the heating loop."""
+    def update(self, _now: datetime | None = None) -> None:
+        """Update the PID controller with the current error and heating curve."""
         if self.error is None:
             _LOGGER.debug("Skipping control loop for %s because error could not be computed", self._entity_id)
             return
 
         if self.heating_curve.value is None:
             _LOGGER.debug("Skipping control loop for %s because heating curve has no value", self._entity_id)
-            return
-
-        self.pid.update_integral(self.error, self.heating_curve.value)
-
-    def update(self, _now: datetime | None = None) -> None:
-        """Update the PID controller with the current error and heating curve."""
-        if self.error is None:
-            return
-
-        if self.heating_curve.value is None:
             return
 
         self.pid.update(self.error, self.heating_curve.value)
@@ -257,11 +247,6 @@ class Areas:
         """Call async_added_to_hass for all areas."""
         for area in self._areas:
             await area.async_added_to_hass(hass)
-
-    async def async_control_heating_loops(self, _time: datetime | None = None) -> None:
-        """Asynchronously control heating loop for all areas."""
-        for area in self._areas:
-            await area.async_control_heating_loop(_time)
 
     class _PIDs:
         """Helper for interacting with PID controllers of all areas."""

@@ -907,13 +907,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             self.pwm.disable()
 
-        # Maintain the integral term within its time window.
-        if self.error is not None and self.heating_curve.value is not None:
-            self.pid.update_integral(self.error, self.heating_curve.value)
-
-        # Update each area's PID before issuing control commands.
-        await self.areas.async_control_heating_loops(time)
-
         # Pass the control intent and context to the coordinator for sampling.
         self._coordinator.set_control_context(pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
         self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value))
