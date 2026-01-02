@@ -367,9 +367,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Perform setup when the integration is about to be added to Home Assistant."""
         pass
 
-    async def async_added_to_hass(self, hass: HomeAssistant) -> None:
+    async def async_added_to_hass(self) -> None:
         """Perform setup when the integration is added to Home Assistant."""
-        await self._boiler.async_added_to_hass(hass, self.device_id)
+        await self._boiler.async_added_to_hass(self.hass, self.device_id)
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
