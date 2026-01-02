@@ -19,6 +19,7 @@ def _boiler_state(modulation: float) -> BoilerState:
         setpoint=50.0,
         flow_temperature=40.0,
         return_temperature=35.0,
+        max_modulation_level=100,
         relative_modulation_level=modulation,
     )
 

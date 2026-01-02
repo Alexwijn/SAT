@@ -148,6 +148,7 @@ async def test_async_control_setpoint_decrease_requires_persistence(monkeypatch,
     climate._hvac_mode = HVACMode.HEAT
     climate._setpoint = 50.0
     climate._overshoot_protection = False
+    await climate._coordinator.async_set_heater_state(DeviceState.ON)
 
     requested_values = iter([45.0, 44.0, 43.0])
 

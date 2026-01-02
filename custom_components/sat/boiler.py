@@ -127,7 +127,7 @@ class Boiler:
         self._hass = hass
 
         if self._store is None:
-            self._store = Store(hass, STORAGE_VERSION, f"sat.minimum_setpoint.{device_id}")
+            self._store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
 
         data: Optional[Dict[str, Any]] = await self._store.async_load()
         if not data:
