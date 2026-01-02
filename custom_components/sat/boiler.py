@@ -134,7 +134,7 @@ class Boiler:
             return
 
         try:
-            modulation_reliable = bool(data["modulation_reliable"])
+            modulation_reliable = data["modulation_reliable"]
         except (KeyError, TypeError, ValueError):
             return
 
