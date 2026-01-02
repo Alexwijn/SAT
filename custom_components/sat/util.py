@@ -27,14 +27,12 @@ def create_pid_controller(_config_data: MappingProxyType[str, Any], config_optio
     heating_system = config_options.get(CONF_HEATING_SYSTEM)
     automatic_gains = bool(config_options.get(CONF_AUTOMATIC_GAINS))
     automatic_gains_value = float(config_options.get(CONF_AUTOMATIC_GAINS_VALUE))
-    derivative_time_weight = float(config_options.get(CONF_DERIVATIVE_TIME_WEIGHT))
     heating_curve_coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
 
     # Return a new PID controller instance with the given configuration options
     return PID(
         heating_system=heating_system,
         automatic_gain_value=automatic_gains_value,
-        derivative_time_weight=derivative_time_weight,
         heating_curve_coefficient=heating_curve_coefficient,
 
         kp=kp, ki=ki, kd=kd,

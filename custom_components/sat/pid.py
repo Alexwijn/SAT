@@ -1,3 +1,5 @@
+"""PID controller logic for supply-air temperature tuning."""
+
 import logging
 from time import monotonic
 from typing import Optional
@@ -10,20 +12,24 @@ from .helpers import seconds_since
 
 _LOGGER = logging.getLogger(__name__)
 
+DERIVATIVE_ALPHA1 = 0.8
+DERIVATIVE_ALPHA2 = 0.6
+ERROR_EPSILON = 0.01
+DERIVATIVE_RAW_CAP = 5.0
+DERIVATIVE_DECAY = 0.9
 MAX_BOILER_TEMPERATURE_AGE = 300
 
 
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, heating_system: str, automatic_gain_value: float, heating_curve_coefficient: float, derivative_time_weight: float, kp: float, ki: float, kd: float, automatic_gains: bool = False) -> None:
+    def __init__(self, heating_system: str, automatic_gain_value: float, heating_curve_coefficient: float, kp: float, ki: float, kd: float, automatic_gains: bool = False) -> None:
         self._kp: float = kp
         self._ki: float = ki
         self._kd: float = kd
         self._heating_system: str = heating_system
         self._automatic_gains: bool = automatic_gains
         self._automatic_gains_value: float = automatic_gain_value
-        self._derivative_time_weight: float = derivative_time_weight
         self._heating_curve_coefficient: float = heating_curve_coefficient
 
         self._last_interval_updated: float = monotonic()
@@ -44,6 +50,11 @@ class PID:
     def last_updated(self) -> float:
         """Return the timestamp of the last update to the PID controller."""
         return self._last_updated
+
+    @property
+    def available(self):
+        """Return whether the PID controller is available."""
+        return self._last_error is not None and self._last_heating_curve_value is not None
 
     @property
     def kp(self) -> Optional[float]:
@@ -114,109 +125,22 @@ class PID:
         """Return whether the updates of the derivative are enabled."""
         return abs(self._last_error) > DEADBAND if self._last_error is not None else False
 
-    @property
-    def available(self):
-        """Return whether the PID controller is available."""
-        return self._last_error is not None and self._last_heating_curve_value is not None
-
     def reset(self) -> None:
-        """Reset the PID controller."""
+        """Reset the PID controller to a clean state."""
         now = monotonic()
 
         self._time_elapsed: float = 0.0
         self._last_updated: float = now
-        self._last_derivative_time: float = now
         self._last_interval_updated: float = now
 
         self._last_error: Optional[float] = None
         self._previous_error: Optional[float] = None
         self._last_heating_curve_value: Optional[float] = None
+        self._last_error_change_time: Optional[float] = None
 
-        # Reset integral and derivative
+        # Reset integral and derivative accumulators.
         self._integral: float = 0.0
         self._raw_derivative: float = 0.0
-
-    def update(self, error: Error, heating_curve_value: float) -> None:
-        time_elapsed = seconds_since(self._last_updated)
-
-        # Update integral and derivative based on the previously stored error
-        self.update_integral(error, heating_curve_value)
-        self.update_derivative(error)
-
-        self._time_elapsed = time_elapsed
-        self._last_updated = monotonic()
-
-        self._previous_error = self._last_error
-        self._last_error = error.value
-
-        self._last_heating_curve_value = heating_curve_value
-
-    def update_integral(self, error: Error, heating_curve_value: float) -> None:
-        """
-        Update the integral value in the PID controller.
-
-        :param error: The error value for the current iteration.
-        :param heating_curve_value: The current value of the heating curve.
-        """
-        # Reset the time if we just entered deadband
-        if self._last_error is not None and abs(self._last_error) > DEADBAND >= abs(error.value):
-            self._last_interval_updated = monotonic()
-
-        # Ensure the integral term is enabled
-        if not self.integral_enabled:
-            self._integral = 0.0
-            return
-
-        # Check if integral gain is set
-        if self.ki is None:
-            return
-
-        # Update the integral value
-        delta_time = seconds_since(self._last_interval_updated)
-        self._integral += self.ki * error.value * delta_time
-
-        # Clamp the integral value within the limit
-        self._integral = min(self._integral, float(+heating_curve_value))
-        self._integral = max(self._integral, float(-heating_curve_value))
-
-        # Record the time of the latest update
-        self._last_interval_updated = monotonic()
-
-    def update_derivative(self, error: Error, alpha1: float = 0.8, alpha2: float = 0.6) -> None:
-        """
-        Update the derivative term of the PID controller based on the latest error.
-
-        The derivative term is calculated as the slope between the previous and current
-        error values over time, then filtered twice using low-pass filters with
-        parameters `alpha1` and `alpha2`.
-
-        :param error:  The error value for the current iteration.
-        :param alpha1: First low-pass filter parameter (0..1).
-        :param alpha2: Second low-pass filter parameter (0..1).
-        """
-        if self._last_error is None:
-            return
-
-        # If the derivative is disabled, freeze it
-        if not self.derivative_enabled:
-            return
-
-        now = monotonic()
-        time_diff = now - self._last_derivative_time
-        if time_diff <= 0:
-            return
-
-        # Basic derivative: slope between current and last error
-        derivative = (error.value - self._last_error) / time_diff
-
-        # First low-pass filter
-        filtered_derivative = alpha1 * derivative + (1 - alpha1) * self._raw_derivative
-
-        # Second low-pass filter
-        self._raw_derivative = alpha2 * filtered_derivative + (1 - alpha2) * self._raw_derivative
-
-        # Update derivative timestamp
-        self._last_derivative_time = now
 
     def restore(self, state: State) -> None:
         """Restore the PID controller from a saved state."""
@@ -236,5 +160,82 @@ class PID:
         # After restore, reset timing anchors "now"
         now = monotonic()
         self._last_updated = now
-        self._last_derivative_time = now
         self._last_interval_updated = now
+        self._last_error_change_time = now if self._last_error is not None else None
+
+    def update(self, error: Error, heating_curve_value: float) -> None:
+        """Update PID state with the latest error and heating curve value."""
+        now = monotonic()
+        time_elapsed = now - self._last_updated
+        error_changed = self._last_error is None or abs(error.value - self._last_error) >= ERROR_EPSILON
+
+        # Update integral and derivative based on the previously stored error.
+        self._update_integral(error, heating_curve_value)
+        self._update_derivative(error, now, error_changed)
+
+        self._last_updated = now
+        self._time_elapsed = time_elapsed
+        self._last_heating_curve_value = heating_curve_value
+
+        if error_changed:
+            self._previous_error = self._last_error
+            self._last_error_change_time = now
+            self._last_error = error.value
+
+    def _update_integral(self, error: Error, heating_curve_value: float) -> None:
+        """Update the integral value in the PID controller."""
+
+        # Reset the time base if we just entered the deadband.
+        if self._last_error is not None and abs(self._last_error) > DEADBAND >= abs(error.value):
+            self._last_interval_updated = monotonic()
+
+        # Ensure the integral term is enabled for the current error.
+        if abs(error.value) > DEADBAND:
+            self._integral = 0.0
+            return
+
+        # Check if integral gain is set.
+        if self.ki is None:
+            return
+
+        # Update the integral value.
+        delta_time = seconds_since(self._last_interval_updated)
+        self._integral += self.ki * error.value * delta_time
+
+        # Clamp integral to avoid pushing beyond the curve bounds.
+        self._integral = min(self._integral, float(+heating_curve_value))
+        self._integral = max(self._integral, float(-heating_curve_value))
+
+        # Record the time of the latest update.
+        self._last_interval_updated = monotonic()
+
+    def _update_derivative(self, error: Error, now: float, error_changed: bool) -> None:
+        """Update the derivative term of the PID controller based on the latest error."""
+        if self._last_error is None:
+            return
+
+        # If the derivative is disabled for the current error, freeze it.
+        if abs(error.value) <= DEADBAND:
+            self._raw_derivative *= DERIVATIVE_DECAY
+            return
+
+        if not error_changed:
+            self._raw_derivative *= DERIVATIVE_DECAY
+            return
+
+        if self._last_error_change_time is None:
+            return
+
+        time_diff = now - self._last_error_change_time
+        if time_diff <= 0:
+            return
+
+        # Basic derivative: slope between current and last error.
+        derivative = (error.value - self._last_error) / time_diff
+
+        # First low-pass filter.
+        filtered_derivative = DERIVATIVE_ALPHA1 * derivative + (1 - DERIVATIVE_ALPHA1) * self._raw_derivative
+
+        # Second low-pass filter.
+        self._raw_derivative = DERIVATIVE_ALPHA2 * filtered_derivative + (1 - DERIVATIVE_ALPHA2) * self._raw_derivative
+        self._raw_derivative = max(-DERIVATIVE_RAW_CAP, min(self._raw_derivative, DERIVATIVE_RAW_CAP))
