@@ -13,12 +13,15 @@ from custom_components.sat.climate import (
 )
 from custom_components.sat.const import (
     CONF_HEATING_CURVE_COEFFICIENT,
+    CONF_MINIMUM_SETPOINT,
     CONF_HEATING_SYSTEM,
     HEATING_MODE_COMFORT,
     HEATING_MODE_ECO,
     HEATING_SYSTEM_RADIATORS,
     MINIMUM_SETPOINT,
     OPTIONS_DEFAULTS,
+    PWM_DISABLE_MARGIN_CELSIUS,
+    PWM_ENABLE_MARGIN_CELSIUS,
 )
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pid import PID
@@ -159,3 +162,78 @@ async def test_async_control_setpoint_decrease_requires_persistence(monkeypatch,
     await climate._async_control_setpoint()
     assert climate.setpoint == 43.0
     assert climate._coordinator.setpoint == 43.0
+
+
+def test_pwm_disabled_without_setpoint(climate):
+    climate._setpoint = None
+    climate._coordinator.config.supports_setpoint_management = False
+
+    assert climate.pulse_width_modulation_enabled is False
+
+
+def test_pwm_forced_without_setpoint_management(climate):
+    climate._setpoint = 45.0
+    climate._overshoot_protection = False
+    climate._coordinator.config.supports_setpoint_management = False
+
+    assert climate.pulse_width_modulation_enabled is True
+
+
+def test_pwm_static_minimum_setpoint_deadband(climate):
+    climate._setpoint = 41.0
+    climate._overshoot_protection = True
+    climate._dynamic_minimum_setpoint = False
+    climate._coordinator._config_data = {**climate._coordinator._config_data, CONF_MINIMUM_SETPOINT: 40.0}
+
+    climate.pwm._enabled = False
+    assert climate.pulse_width_modulation_enabled is False
+
+    climate.pwm._enabled = True
+    assert climate.pulse_width_modulation_enabled is True
+
+
+@pytest.mark.parametrize(
+    ("delta", "pwm_enabled", "expected"),
+    [
+        (PWM_ENABLE_MARGIN_CELSIUS - 0.1, False, True),
+        (PWM_DISABLE_MARGIN_CELSIUS + 0.1, True, False),
+        ((PWM_ENABLE_MARGIN_CELSIUS + PWM_DISABLE_MARGIN_CELSIUS) / 2, True, True),
+        ((PWM_ENABLE_MARGIN_CELSIUS + PWM_DISABLE_MARGIN_CELSIUS) / 2, False, False),
+    ],
+)
+def test_pwm_dynamic_minimum_setpoint_hysteresis(monkeypatch, climate, delta, pwm_enabled, expected):
+    climate._setpoint = 45.0
+    climate._overshoot_protection = True
+    climate._dynamic_minimum_setpoint = True
+    climate.minimum_setpoint._value = 40.0
+    climate._coordinator.config.supports_setpoint_management = True
+    climate._coordinator.config.supports_relative_modulation_management = True
+    climate._coordinator._boiler._modulation_reliable = True
+    climate._coordinator._device_state = DeviceState.ON
+
+    monkeypatch.setattr(
+        SatClimate,
+        "requested_setpoint",
+        property(lambda self: self.minimum_setpoint.value + delta),
+    )
+
+    climate.pwm._enabled = pwm_enabled
+    assert climate.pulse_width_modulation_enabled is expected
+
+
+def test_pwm_dynamic_minimum_setpoint_disables_without_modulation_support(monkeypatch, climate):
+    climate._setpoint = 45.0
+    climate._overshoot_protection = True
+    climate._dynamic_minimum_setpoint = True
+    climate.minimum_setpoint._value = 40.0
+    climate._coordinator.config.supports_setpoint_management = True
+    climate._coordinator.config.supports_relative_modulation_management = False
+
+    monkeypatch.setattr(
+        SatClimate,
+        "requested_setpoint",
+        property(lambda self: self.minimum_setpoint.value + PWM_ENABLE_MARGIN_CELSIUS - 0.1),
+    )
+
+    climate.pwm._enabled = True
+    assert climate.pulse_width_modulation_enabled is False

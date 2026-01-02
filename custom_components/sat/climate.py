@@ -88,6 +88,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors: dict[str, str] = {}
         self._setpoint: Optional[float] = None
         self._requested_setpoint_down_ticks: int = 0
+        self._low_modulation_ticks: int = 0
         self._rooms: Optional[dict[str, float]] = None
         self._last_requested_setpoint: Optional[float] = None
 
@@ -551,28 +552,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def pulse_width_modulation_enabled(self) -> bool:
         """Determine if pulse width modulation should be enabled."""
-        # If we do not even have a meaningful setpoint, we cannot safely run PWM logic
+        # No setpoint means no safe PWM decision.
         if self._setpoint is None:
             return False
 
-        # Check if PWM is forced on (relay-only or explicitly forced)
-        if self._is_pwm_forced():
+        # Forced on (relay-only or explicit override).
+        if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
             return True
 
-        # Check if PWM is disabled by configuration
+        # Disabled by config.
         if not self._overshoot_protection:
             return False
 
-        # Handle static minimum setpoint logic
+        # Static vs dynamic minimum-setpoint logic.
         if not self._dynamic_minimum_setpoint:
             return self._should_enable_static_pwm()
 
-        # Handle dynamic minimum setpoint logic
         return self._should_enable_dynamic_pwm()
-
-    def _is_pwm_forced(self) -> bool:
-        """Check if PWM should be forced on."""
-        return not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation
 
     def _should_enable_static_pwm(self) -> bool:
         """Determine if PWM should be enabled based on the static minimum setpoint."""
@@ -586,26 +582,61 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         last_cycle = self._coordinator.last_cycle
         boiler_status = self._coordinator.device_status
 
-        # If the last cycle was unhealthy (short cycling, overshoot, etc.), enable PWM.
-        if last_cycle is not None and last_cycle.classification in UNHEALTHY_CYCLES:
-            return True
-
-        # If the boiler is stalled, enable PWM.
         if boiler_status == BoilerStatus.STALLED_IGNITION:
             return True
 
+        if last_cycle is not None and last_cycle.classification in UNHEALTHY_CYCLES:
+            return True
+
+        if (enabled := self._should_enable_low_modulation_pwm()) is not None:
+            return enabled
+
+        if (enabled := self._should_enable_pwm_from_setpoint_delta()) is not None:
+            return enabled
+
+        return self.pwm.enabled
+
+    def _should_enable_low_modulation_pwm(self) -> Optional[bool]:
+        """Enable PWM if the boiler stays at low relative modulation for a while."""
+
+        def _reset_low_modulation_ticks() -> bool:
+            self._low_modulation_ticks = 0
+            return False
+
+        if not self._coordinator.supports_relative_modulation:
+            return _reset_low_modulation_ticks()
+
+        if self._coordinator.hot_water_active:
+            return _reset_low_modulation_ticks()
+
+        state = self._coordinator.device_state
+        if not state.modulation_reliable or not state.flame_active:
+            return _reset_low_modulation_ticks()
+
+        if state.relative_modulation_level is None:
+            return None
+
+        if state.relative_modulation_level <= PWM_ENABLE_LOW_MODULATION_PERCENT:
+            self._low_modulation_ticks += 1
+
+        if state.relative_modulation_level >= PWM_DISABLE_LOW_MODULATION_PERCENT:
+            self._low_modulation_ticks = 0
+
+        return self._low_modulation_ticks >= PWM_LOW_MODULATION_PERSISTENCE_TICKS
+
+    def _should_enable_pwm_from_setpoint_delta(self) -> Optional[bool]:
+        """Return PWM decision based on requested/minimum delta, or None to keep state."""
         delta = self.requested_setpoint - self.minimum_setpoint.value
 
-        # Near or below the dynamic minimum -> low load -> we want PWM.
+        # Near/below dynamic minimum -> PWM.
         if delta <= PWM_ENABLE_MARGIN_CELSIUS:
             return True
 
-        # Clearly above the minimum + hysteresis margin -> PWM not needed.
+        # When above the hysteresis band -> no PWM.
         if delta >= PWM_DISABLE_MARGIN_CELSIUS:
             return False
 
-        # In between: keep the previous state to avoid flapping.
-        return self.pwm.enabled
+        return None
 
     @property
     def relative_modulation_value(self) -> int:
@@ -821,6 +852,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pid.reset()
         self.areas.pids.reset()
         self._last_requested_setpoint = None
+        self._low_modulation_ticks = 0
 
     async def async_control_pid(self, time: Optional[datetime] = None) -> None:
         """Control the PID controller."""
