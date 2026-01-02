@@ -4,13 +4,12 @@ import logging
 from collections import deque
 from dataclasses import dataclass
 from statistics import median
-from time import monotonic
 from typing import TYPE_CHECKING, Callable, Deque, Optional, TypeAlias
 
 from homeassistant.core import HomeAssistant
 
 from .const import CycleClassification, EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED
-from .helpers import clamp, min_max, percentile_interpolated
+from .helpers import clamp, min_max, percentile_interpolated, seconds_since
 from .types import Percentiles, CycleKind, PWMStatus
 
 if TYPE_CHECKING:
@@ -174,7 +173,7 @@ class CycleHistory:
         if self._last_cycle is None:
             return None
 
-        if (monotonic() - self._last_cycle.end) > LAST_CYCLE_MAX_AGE_SECONDS:
+        if seconds_since(self._last_cycle.end) > LAST_CYCLE_MAX_AGE_SECONDS:
             return None
 
         return self._last_cycle

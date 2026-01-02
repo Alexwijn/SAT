@@ -12,10 +12,10 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State, CoreState
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_ROOMS, COLD_SETPOINT, CONF_ROOM_WEIGHTS, MINIMUM_SETPOINT
+from .const import CONF_ROOMS, COLD_SETPOINT, CONF_ROOM_WEIGHTS, MINIMUM_SETPOINT, CONF_SENSOR_MAX_VALUE_AGE
 from .errors import Errors, Error
 from .heating_curve import HeatingCurve
-from .helpers import float_value
+from .helpers import float_value, convert_time_str_to_seconds, is_state_stale, state_age_seconds, event_timestamp
 from .pid import PID
 from .util import create_pid_controller
 
@@ -42,6 +42,7 @@ class Area:
 
         self._entity_id: str = entity_id
         self._hass: HomeAssistant | None = None
+        self._sensor_max_value_age: float = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
         # Controllers and heating curve
         self.heating_curve: HeatingCurve = heating_curve
@@ -97,7 +98,15 @@ class Area:
         if (sensor_temperature_id := state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
             sensor_state = self._hass.states.get(sensor_temperature_id)
             if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
+                if is_state_stale(sensor_state, self._sensor_max_value_age):
+                    _LOGGER.debug("Area sensor %s stale for %s (age=%.1fs > %.1fs)", sensor_temperature_id, self._entity_id, state_age_seconds(sensor_state), self._sensor_max_value_age)
+                    return None
+
                 return float_value(sensor_state.state)
+
+        if is_state_stale(state, self._sensor_max_value_age):
+            _LOGGER.debug("Area climate %s stale for %s (age=%.1fs > %.1fs)", self._entity_id, self._entity_id, state_age_seconds(state), self._sensor_max_value_age)
+            return None
 
         return float_value(state.attributes.get("current_temperature") or self.target_temperature)
 
@@ -161,12 +170,10 @@ class Area:
     @property
     def requires_heat(self) -> bool:
         """Determine if this area should influence heating arbitration."""
-        # Prefer real valve signal if available
         valve_position = self.valve_position
         if valve_position is not None:
             return valve_position >= 10.0
 
-        # Otherwise, use PID output relative to boiler cold setpoint
         if not self.pid.available:
             return False
 
@@ -192,7 +199,7 @@ class Area:
             self._time_interval()
             self._time_interval = None
 
-    def update(self, _now: datetime | None = None) -> None:
+    def update(self, now: Optional[datetime] = None) -> None:
         """Update the PID controller with the current error and heating curve."""
         if self.error is None:
             _LOGGER.debug("Skipping control loop for %s because error could not be computed", self._entity_id)
@@ -202,7 +209,8 @@ class Area:
             _LOGGER.debug("Skipping control loop for %s because heating curve has no value", self._entity_id)
             return
 
-        self.pid.update(self.error, self.heating_curve.value)
+        self.pid.update(self.error, event_timestamp(now), self.heating_curve.value)
+
         _LOGGER.debug("PID update for %s (error=%s, curve=%s, output=%s)", self._entity_id, self.error.value, self.heating_curve.value, self.pid.output)
 
 
@@ -335,4 +343,4 @@ class Areas:
                 return
 
             _LOGGER.info("Updating PID for %s with error=%s", area.id, area.error.value)
-            area.pid.update(area.error, area.heating_curve.value)
+            area.pid.update(area.error, heating_curve_value=area.heating_curve.value)

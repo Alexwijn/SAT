@@ -1,19 +1,40 @@
 import math
+from datetime import datetime
 from re import sub
-from time import monotonic
 from typing import Optional, Union, Iterable, Tuple
 
+from homeassistant.core import State
 from homeassistant.util import dt
 
 from .const import HEATING_SYSTEM_UNDERFLOOR
 
 
-def seconds_since(start_time: float | None) -> float:
-    """Calculate the elapsed time in seconds since a given start time, returns zero if time is not valid."""
-    if start_time is None:
-        return 0.0
+def timestamp() -> float:
+    """Return the current wall-clock timestamp in seconds."""
+    return dt.utcnow().timestamp()
 
-    return monotonic() - start_time
+
+def event_timestamp(time: Optional[datetime]) -> float:
+    """Return a timestamp from an event time, falling back to now."""
+    return time.timestamp() if time is not None else timestamp()
+
+
+def seconds_since(start_time: Optional[float]) -> float:
+    """Calculate the elapsed time in seconds since a given start time, returns zero if time is not valid."""
+    return timestamp() - start_time if start_time is not None else 0.0
+
+
+def state_age_seconds(state: State) -> float:
+    """Return the age of a HA state in seconds."""
+    return (dt.utcnow() - state.last_updated).total_seconds()
+
+
+def is_state_stale(state: Optional[State], max_age_seconds: float) -> bool:
+    """Return True when the state is older than max_age_seconds."""
+    if state is None or max_age_seconds <= 0:
+        return False
+
+    return state_age_seconds(state) > max_age_seconds
 
 
 def convert_time_str_to_seconds(time_str: str) -> int:
@@ -43,10 +64,7 @@ def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: 
 
 def calculate_default_maximum_setpoint(heating_system: str) -> int:
     """Determine the default maximum temperature for a given heating system."""
-    if heating_system == HEATING_SYSTEM_UNDERFLOOR:
-        return 50
-
-    return 55
+    return 50 if heating_system == HEATING_SYSTEM_UNDERFLOOR else 55
 
 
 def snake_case(value: str) -> str:

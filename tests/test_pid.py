@@ -14,8 +14,8 @@ from custom_components.sat.pid import (
 )
 
 
-class MonotonicSequence:
-    """Return deterministic monotonic values, repeating the last one."""
+class TimestampSequence:
+    """Return deterministic timestamp values, repeating the last one."""
 
     def __init__(self, values):
         self._values = iter(values)
@@ -30,14 +30,14 @@ class MonotonicSequence:
         return self._last
 
 
-def _patch_monotonic(monkeypatch, values):
-    monotonic = MonotonicSequence(values)
-    monkeypatch.setattr("custom_components.sat.pid.monotonic", monotonic)
-    return monotonic
+def _patch_timestamp(monkeypatch, values):
+    timestamp = TimestampSequence(values)
+    monkeypatch.setattr("custom_components.sat.pid.timestamp", timestamp)
+    return timestamp
 
 
 def test_initial_state_and_availability(monkeypatch):
-    _patch_monotonic(monkeypatch, [100.0])
+    _patch_timestamp(monkeypatch, [100.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_RADIATORS,
@@ -58,7 +58,7 @@ def test_initial_state_and_availability(monkeypatch):
 
 
 def test_manual_gains_output_and_availability(monkeypatch):
-    _patch_monotonic(monkeypatch, [0.0, 0.0, 10.0])
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_RADIATORS,
@@ -83,7 +83,7 @@ def test_manual_gains_output_and_availability(monkeypatch):
 
 
 def test_automatic_gains_calculation(monkeypatch):
-    _patch_monotonic(monkeypatch, [0.0, 0.0, 5.0])
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 5.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_UNDERFLOOR,
@@ -105,7 +105,7 @@ def test_automatic_gains_calculation(monkeypatch):
 
 
 def test_integral_timebase_reset_and_accumulation(monkeypatch):
-    _patch_monotonic(monkeypatch, [0.0, 0.0, 10.0, 20.0, 30.0])
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0, 30.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_RADIATORS,
@@ -127,7 +127,7 @@ def test_integral_timebase_reset_and_accumulation(monkeypatch):
 
 
 def test_integral_clamped_to_heating_curve(monkeypatch):
-    _patch_monotonic(monkeypatch, [0.0, 0.0, 10.0])
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_RADIATORS,
@@ -144,7 +144,7 @@ def test_integral_clamped_to_heating_curve(monkeypatch):
 
 
 def test_derivative_filtering_and_cap(monkeypatch):
-    _patch_monotonic(monkeypatch, [0.0, 0.0, 10.0, 11.0, 12.0])
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 11.0, 12.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_RADIATORS,
@@ -169,7 +169,7 @@ def test_derivative_filtering_and_cap(monkeypatch):
 
 
 def test_derivative_decay_when_error_unchanged(monkeypatch):
-    _patch_monotonic(monkeypatch, [0.0, 0.0, 10.0, 20.0])
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_RADIATORS,
@@ -189,7 +189,7 @@ def test_derivative_decay_when_error_unchanged(monkeypatch):
 
 
 def test_restore_state(monkeypatch):
-    _patch_monotonic(monkeypatch, [100.0])
+    _patch_timestamp(monkeypatch, [100.0])
 
     pid = PID(
         heating_system=HEATING_SYSTEM_RADIATORS,

@@ -1,7 +1,10 @@
 """Tests focused on SAT climate setpoint and heating curve behavior."""
 
+from datetime import timedelta
+
 import pytest
 from homeassistant.components.climate import HVACMode
+from homeassistant.util import dt as dt_util
 
 from custom_components.sat.climate import (
     INCREASE_STEP_THRESHOLD_CELSIUS,
@@ -75,6 +78,30 @@ async def test_async_control_pid_updates_heating_curve_value(climate):
     expected_value = round(climate.heating_curve.base_offset + ((coefficient / 4) * expected_curve), 1)
 
     assert climate.heating_curve.value == expected_value
+
+
+async def test_async_control_pid_resets_on_stale_inside_sensor(monkeypatch, climate):
+    climate._sensor_max_value_age = 60
+    climate._target_temperature = 21.0
+
+    now = dt_util.utcnow()
+    monkeypatch.setattr(dt_util, "utcnow", lambda: now)
+    climate.hass.states.async_set("sensor.test_inside_sensor", "20")
+    climate.hass.states.async_set("sensor.test_outside_sensor", "5")
+
+    monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
+
+    reset_called = {"value": False}
+
+    def _reset(self):
+        reset_called["value"] = True
+
+    monkeypatch.setattr(PID, "reset", _reset)
+
+    await climate.async_control_pid()
+
+    assert reset_called["value"] is True
+    assert climate.heating_curve.value is None
 
 
 async def test_async_control_setpoint_hvac_off_forces_minimum(climate):

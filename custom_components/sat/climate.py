@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta, datetime
-from time import monotonic
 from types import MappingProxyType
 from typing import Any, Callable, Iterable, Optional, Union
 
@@ -41,7 +40,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .errors import Error
-from .helpers import convert_time_str_to_seconds, float_value
+from .helpers import convert_time_str_to_seconds, float_value, is_state_stale, state_age_seconds, event_timestamp
 from .manufacturers.geminox import Geminox
 from .summer_simmer import SummerSimmer
 from .types import BoilerStatus, RelativeModulationState, PWMStatus, DeviceState
@@ -183,8 +182,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if entity_id is None:
             return None
 
-        entity = self._coordinator.hass.states.get(entity_id)
-        if entity is None or entity.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+        if (entity := self._coordinator.hass.states.get(entity_id)) is None:
+            return None
+
+        if is_state_stale(entity, self._sensor_max_value_age):
+            _LOGGER.debug("Sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self.entity_id, state_age_seconds(entity), self._sensor_max_value_age)
+            return None
+
+        if entity.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             return None
 
         return float(entity.state)
@@ -246,12 +251,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_on_remove(
             async_track_time_interval(
                 self.hass, self.async_control_pid, timedelta(seconds=30)
-            )
-        )
-
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, self.outside_sensor_entities, self._async_outside_entity_changed
             )
         )
 
@@ -435,7 +434,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.outside_sensor_entities.sort(key=lambda x: "sensor" not in x)
         for entity_id in self.outside_sensor_entities:
             state = self.hass.states.get(entity_id)
-            if state is None or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            if state is None:
+                continue
+
+            if is_state_stale(state, self._sensor_max_value_age):
+                _LOGGER.debug("Outside sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self.entity_id, state_age_seconds(state), self._sensor_max_value_age)
+                continue
+
+            if state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
                 continue
 
             if sensor.DOMAIN in entity_id:
@@ -653,20 +659,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Thermostat state changed.")
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
-    async def _async_outside_entity_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Handle changes to the outside entity."""
-        new_state = event.data.get("new_state")
-        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return
-
-        _LOGGER.debug(f"Outside sensor changed (%.2f°C).", self.current_outside_temperature)
-
-        if self.target_temperature is None:
-            return
-
-        self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
-        self.async_write_ha_state()
-
     async def _async_climate_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to a climate entity."""
         new_state = event.data.get("new_state")
@@ -834,19 +826,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.areas.pids.reset()
         self._last_requested_setpoint = None
 
-    async def async_control_pid(self, _time: Optional[datetime] = None) -> None:
+    async def async_control_pid(self, time: Optional[datetime] = None) -> None:
         """Control the PID controller."""
-        if self.current_outside_temperature is None:
-            _LOGGER.warning("Current outside temperature is not available. Skipping PID control.")
-            return
+        if self._sensor_max_value_age > 0:
+            state = self.hass.states.get(self.inside_sensor_entity_id)
+            if is_state_stale(state, self._sensor_max_value_age):
+                _LOGGER.debug("Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)", self.entity_id, self.inside_sensor_entity_id, state_age_seconds(state), self._sensor_max_value_age)
+                self.pid.reset()
+                return
 
         if self.error is None:
             _LOGGER.debug("Skipping control loop for %s because error could not be computed", self.entity_id)
             return
 
-        # Reset the PID controller if the sensor data is too old
-        if self._sensor_max_value_age != 0 and monotonic() - self.pid.last_updated > self._sensor_max_value_age:
-            self.pid.reset()
+        if self.current_outside_temperature is None:
+            _LOGGER.warning("Current outside temperature is not available. Skipping PID control.")
+            return
 
         # Make sure we use the latest heating curve value
         if self.target_temperature is not None:
@@ -860,7 +855,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self.entity_id)
             return
 
-        self.pid.update(self.error, self.heating_curve.value)
+        self.pid.update(self.error, time, self.heating_curve.value)
         _LOGGER.debug("PID update for %s (error=%s, curve=%s, output=%s)", self.entity_id, self.error.value, self.heating_curve.value, self.pid.output)
 
         self.async_write_ha_state()
@@ -885,6 +880,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         self._control_heating_loop_unsub = None
+        timestamp = event_timestamp(time)
 
         # Abort early if required inputs are missing.
         required_values = (
@@ -901,9 +897,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.hvac_mode != HVACMode.HEAT:
             return
 
+        control_intent = BoilerControlIntent(
+            setpoint=self.requested_setpoint,
+            relative_modulation=self.relative_modulation_value
+        )
+
         # Update PWM state from the latest device state and requested setpoint.
         if self.pulse_width_modulation_enabled:
-            self.pwm.enable(self._coordinator.device_state, self.requested_setpoint)
+            self.pwm.update(self._coordinator.device_state, control_intent, timestamp)
         else:
             self.pwm.disable()
 

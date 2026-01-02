@@ -1,0 +1,45 @@
+from datetime import timedelta
+
+from homeassistant.util import dt as dt_util
+
+from custom_components.sat.area import Area, ATTR_SENSOR_TEMPERATURE_ID
+from custom_components.sat.const import CONF_SENSOR_MAX_VALUE_AGE, HEATING_SYSTEM_RADIATORS, OPTIONS_DEFAULTS
+from custom_components.sat.heating_curve import HeatingCurve
+
+
+async def test_area_current_temperature_stale_climate_state(hass, monkeypatch):
+    now = dt_util.utcnow()
+    monkeypatch.setattr(dt_util, "utcnow", lambda: now)
+    hass.states.async_set("climate.room1", "heat", {"current_temperature": 21.0})
+
+    config_options = dict(OPTIONS_DEFAULTS)
+    config_options[CONF_SENSOR_MAX_VALUE_AGE] = "00:01:00"
+    area = Area({}, config_options, HeatingCurve(HEATING_SYSTEM_RADIATORS, 1.0), "climate.room1")
+    await area.async_added_to_hass(hass)
+
+    monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
+
+    assert area.current_temperature is None
+
+
+async def test_area_current_temperature_stale_override_sensor(hass, monkeypatch):
+    now = dt_util.utcnow()
+    monkeypatch.setattr(dt_util, "utcnow", lambda: now)
+    hass.states.async_set(
+        "climate.room1",
+        "heat",
+        {
+            "current_temperature": 21.0,
+            ATTR_SENSOR_TEMPERATURE_ID: "sensor.room1_temp",
+        },
+    )
+    hass.states.async_set("sensor.room1_temp", "20.5")
+
+    config_options = dict(OPTIONS_DEFAULTS)
+    config_options[CONF_SENSOR_MAX_VALUE_AGE] = "00:01:00"
+    area = Area({}, config_options, HeatingCurve(HEATING_SYSTEM_RADIATORS, 1.0), "climate.room1")
+    await area.async_added_to_hass(hass)
+
+    monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
+
+    assert area.current_temperature is None

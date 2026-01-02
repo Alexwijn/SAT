@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from time import monotonic
 
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.components.climate import HVACAction
@@ -14,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .climate import SatClimate
 from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS, CycleClassification
 from .entity import SatClimateEntity, SatEntity
-from .helpers import seconds_since
+from .helpers import seconds_since, timestamp
 from .serial import binary_sensor as serial_binary_sensor
 from .types import BoilerStatus
 
@@ -67,7 +66,7 @@ class SatSyncSensor:
             return False
 
         if self._last_mismatch is None:
-            self._last_mismatch = monotonic()
+            self._last_mismatch = timestamp()
 
         if seconds_since(self._last_mismatch) >= self._delay:
             return True

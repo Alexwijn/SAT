@@ -1,21 +1,22 @@
 """PID controller logic for supply-air temperature tuning."""
 
 import logging
-from time import monotonic
 from typing import Optional
 
 from homeassistant.core import State
 
 from .const import *
 from .errors import Error
+from .helpers import timestamp
 
 _LOGGER = logging.getLogger(__name__)
 
 DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
-ERROR_EPSILON = 0.01
-DERIVATIVE_RAW_CAP = 5.0
 DERIVATIVE_DECAY = 0.9
+DERIVATIVE_RAW_CAP = 5.0
+
+ERROR_EPSILON = 0.01
 MAX_BOILER_TEMPERATURE_AGE = 300
 
 
@@ -31,7 +32,7 @@ class PID:
         self._automatic_gains_value: float = automatic_gain_value
         self._heating_curve_coefficient: float = heating_curve_coefficient
 
-        self._last_interval_updated: float = monotonic()
+        self._last_interval_updated: float = timestamp()
 
         self.reset()
 
@@ -116,16 +117,16 @@ class PID:
 
     def reset(self) -> None:
         """Reset the PID controller to a clean state."""
-        now = monotonic()
+        now = timestamp()
 
         self._time_elapsed: float = 0.0
         self._last_updated: float = now
         self._last_interval_updated: float = now
+        self._last_error_change_time: Optional[float] = None
 
         self._last_error: Optional[float] = None
         self._previous_error: Optional[float] = None
         self._last_heating_curve_value: Optional[float] = None
-        self._last_error_change_time: Optional[float] = None
 
         # Reset integral and derivative accumulators.
         self._integral: float = 0.0
@@ -147,14 +148,17 @@ class PID:
             self._last_heating_curve_value = float(last_heating_curve)
 
         # After restore, reset timing anchors "now"
-        now = monotonic()
+        now = timestamp()
         self._last_updated = now
         self._last_interval_updated = now
         self._last_error_change_time = now if self._last_error is not None else None
 
-    def update(self, error: Error, heating_curve_value: float) -> None:
+    def update(self, error: Error, now: Optional[float] = None, heating_curve_value: Optional[float] = None) -> None:
         """Update PID state with the latest error and heating curve value."""
-        now = monotonic()
+        if heating_curve_value is None:
+            raise ValueError("heating_curve_value is required")
+
+        now = now if now is not None else timestamp()
         time_elapsed = now - self._last_updated
         error_changed = self._last_error is None or abs(error.value - self._last_error) >= ERROR_EPSILON
 

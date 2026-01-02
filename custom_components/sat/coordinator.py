@@ -4,7 +4,6 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from time import monotonic
 from typing import Mapping, Any, TYPE_CHECKING, Optional
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -15,7 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .boiler import Boiler, BoilerState, BoilerCapabilities, BoilerControlIntent
 from .const import *
 from .cycles import CycleTracker, CycleHistory, CycleStatistics, Cycle
-from .helpers import calculate_default_maximum_setpoint
+from .helpers import calculate_default_maximum_setpoint, event_timestamp, timestamp
 from .manufacturer import Manufacturer, ManufacturerFactory
 from .manufacturers.geminox import Geminox
 from .manufacturers.ideal import Ideal
@@ -114,7 +113,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._control_pwm_state: Optional["PWMState"] = None
         self._control_outside_temperature: Optional[float] = None
         self._control_intent: Optional[BoilerControlIntent] = None
-
         self._hass_notify_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_listeners)
         self._control_update_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_control)
 
@@ -388,7 +386,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating loop for the device."""
-        timestamp = time.timestamp() or monotonic()
+        timestamp = event_timestamp(time)
 
         # Track how long the device has been on.
         if not self.device_active:
@@ -434,7 +432,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         if self._control_intent is not None and self._control_pwm_state is not None:
             self._cycle_tracker.update(ControlLoopSample(
-                timestamp=monotonic(),
+                timestamp=timestamp(),
                 state=self.device_state,
                 intent=self._control_intent,
                 pwm=self._control_pwm_state,

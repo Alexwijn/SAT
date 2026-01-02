@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Optional, TYPE_CHECKING
@@ -10,6 +9,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .const import UNHEALTHY_CYCLES
+from .helpers import timestamp
 from .types import BoilerStatus
 
 if TYPE_CHECKING:
@@ -164,25 +164,24 @@ class Boiler:
 
         await self._store.async_save({"modulation_reliable": self._modulation_reliable})
 
-    def update(self, state: "BoilerState", last_cycle: Optional["Cycle"], timestamp: Optional[float] = None) -> None:
+    def update(self, state: "BoilerState", last_cycle: Optional["Cycle"]) -> None:
         """Update boiler classification with the latest state and last cycle summary."""
-        timestamp = timestamp or time.monotonic()
         previous = self._current_state
 
         self._current_state = state
         self._last_cycle = last_cycle
         self._previous_state = previous
-        self._last_update_at = timestamp
+        self._last_update_at = timestamp()
 
         if not self._demand_present(state):
             self._last_flame_off_at = None
 
-        self._track_flame_transitions(previous, state, timestamp)
+        self._track_flame_transitions(previous, state)
         self._update_modulation_reliability(state)
 
-        self._current_status = self._derive_status(timestamp)
+        self._current_status = self._derive_status()
 
-    def _derive_status(self, now: float) -> BoilerStatus:
+    def _derive_status(self) -> BoilerStatus:
         state = self._current_state
         previous = self._previous_state
 
@@ -200,11 +199,11 @@ class Boiler:
                 return BoilerStatus.OVERSHOOT_COOLING
 
             # Anti-cycling: off despite demand, within minimum off time.
-            if self._is_anti_cycling(state, now):
+            if self._is_anti_cycling(state):
                 return BoilerStatus.ANTI_CYCLING
 
             # Stalled ignition: OFF for much longer than expected, with demand present.
-            if self._is_stalled_ignition(state, now):
+            if self._is_stalled_ignition(state):
                 return BoilerStatus.STALLED_IGNITION
 
             # Flame just turned off, and we are not overshoot cooling nor anti cycling.
@@ -223,7 +222,7 @@ class Boiler:
                 return BoilerStatus.WAITING_FOR_FLAME
 
             # Post-cycle settling: shortly after last off, no demand yet.
-            if self._is_post_cycle_settling(state, now):
+            if self._is_post_cycle_settling(state):
                 return BoilerStatus.POST_CYCLE_SETTLING
 
             # Otherwise, simply idle.
@@ -287,7 +286,7 @@ class Boiler:
         # Pump circulating colder system water: flow temperature falling or flat.
         return state.flow_temperature - previous.flow_temperature <= 0.0
 
-    def _is_post_cycle_settling(self, state: BoilerState, now: float) -> bool:
+    def _is_post_cycle_settling(self, state: BoilerState) -> bool:
         """Short settling period after a cycle when there is no demand."""
         if self._last_flame_off_at is None:
             return False
@@ -295,7 +294,7 @@ class Boiler:
         if self._demand_present(state):
             return False
 
-        time_since_off = now - self._last_flame_off_at
+        time_since_off = self._last_update_at - self._last_flame_off_at
         return 0.0 <= time_since_off <= self._post_cycle_settling_seconds
 
     def _is_in_overshoot_cooling(self, state: BoilerState) -> bool:
@@ -308,7 +307,7 @@ class Boiler:
 
         return (not state.flame_active) and state.flow_temperature > state.setpoint
 
-    def _is_anti_cycling(self, state: BoilerState, now: float) -> bool:
+    def _is_anti_cycling(self, state: BoilerState) -> bool:
         """True when boiler is in enforced anti-cycling off-time with demand."""
         if self._last_flame_off_at is None:
             return False
@@ -319,13 +318,13 @@ class Boiler:
         if not self._demand_present(state):
             return False
 
-        time_since_off = now - self._last_flame_off_at
+        time_since_off = self._last_update_at - self._last_flame_off_at
         if time_since_off < 0:
             return False
 
         return time_since_off < self._anti_cycling_min_off_seconds
 
-    def _is_stalled_ignition(self, state: BoilerState, now: float) -> bool:
+    def _is_stalled_ignition(self, state: BoilerState) -> bool:
         """Detect "stalled ignition": flame has stayed OFF much longer than expected while there is clear heating demand."""
         if self._last_flame_off_at is None:
             return False
@@ -337,13 +336,13 @@ class Boiler:
             return False
 
         # If we are still in anti-cycling or overshoot cooling, do not call this stalled.
-        if self._is_anti_cycling(state, now):
+        if self._is_anti_cycling(state):
             return False
 
         if self._is_in_overshoot_cooling(state):
             return False
 
-        time_since_off = now - self._last_flame_off_at
+        time_since_off = self._last_update_at - self._last_flame_off_at
         if time_since_off < 0:
             return False
 
@@ -360,21 +359,21 @@ class Boiler:
 
         return time_since_off >= threshold
 
-    def _track_flame_transitions(self, previous: Optional[BoilerState], current: BoilerState, now: float, ) -> None:
+    def _track_flame_transitions(self, previous: Optional[BoilerState], current: BoilerState) -> None:
         """Track flame ON/OFF timestamps and overshoot at OFF."""
         if previous is None:
             if current.flame_active:
-                self._last_flame_on_at = now
+                self._last_flame_on_at = self._last_update_at
             return
 
         if previous.flame_active and not current.flame_active:
             # Flame ON -> OFF
-            self._last_flame_off_at = now
+            self._last_flame_off_at = self._last_update_at
             self._last_flame_off_was_overshoot = self._is_overshoot_at_flame_off(previous)
 
         elif not previous.flame_active and current.flame_active:
             # Flame OFF -> ON
-            self._last_flame_on_at = now
+            self._last_flame_on_at = self._last_update_at
             self._last_flame_off_was_overshoot = False
 
     def _is_overshoot_at_flame_off(self, state: BoilerState) -> bool:

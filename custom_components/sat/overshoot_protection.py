@@ -1,9 +1,9 @@
 import asyncio
 import logging
-import time
 
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
+from .helpers import timestamp, seconds_since
 from .types import DeviceState
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,8 +59,8 @@ class OvershootProtection:
     async def _wait_a_moment(self, wait_time: int) -> None:
         """Wait until the relative modulation stabilizes."""
 
-        start_time = time.time()
-        while time.time() - start_time < wait_time:
+        start_time = timestamp()
+        while seconds_since(start_time) < wait_time:
             await self._trigger_heating_cycle(True)
             await asyncio.sleep(SLEEP_INTERVAL)
 

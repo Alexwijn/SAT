@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from time import monotonic
 from typing import Mapping, Any, Optional
 
 from homeassistant.core import HomeAssistant
 
 from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
 from ..coordinator import SatDataUpdateCoordinator
-from ..helpers import convert_time_str_to_seconds
+from ..helpers import convert_time_str_to_seconds, seconds_since
 from ..types import DeviceState
 
 
@@ -118,7 +117,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
             return self.minimum_setpoint
 
         # State check
-        if not self._device_on_since or (monotonic() - self._device_on_since) < self._warming_up:
+        if not self._device_on_since or seconds_since(self._device_on_since) < self._warming_up:
             return MINIMUM_SETPOINT
 
         return self.setpoint
