@@ -59,6 +59,7 @@ class BoilerState:
     setpoint: Optional[float]
     flow_temperature: Optional[float]
     return_temperature: Optional[float]
+    max_modulation_level: Optional[float]
     relative_modulation_level: Optional[float]
 
     @property
@@ -238,11 +239,13 @@ class Boiler:
         if not state.flame_active:
             return
 
-        modulation = state.relative_modulation_level
-        if modulation is None:
+        max_modulation = state.max_modulation_level
+        current_modulation = state.relative_modulation_level
+        if current_modulation is None or max_modulation < BOILER_MODULATION_DELTA_THRESHOLD:
             return
 
-        self._modulation_values_when_flame_on.append(modulation)
+        self._modulation_values_when_flame_on.append(current_modulation)
+
         if len(self._modulation_values_when_flame_on) > 50:
             self._modulation_values_when_flame_on = self._modulation_values_when_flame_on[-50:]
 

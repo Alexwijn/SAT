@@ -168,6 +168,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             flow_temperature=self.boiler_temperature,
             return_temperature=self.return_temperature,
             relative_modulation_level=self.relative_modulation_value,
+            max_modulation_level=self.maximum_relative_modulation_value,
         )
 
     @property
