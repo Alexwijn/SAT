@@ -52,7 +52,7 @@ class BoilerState:
     flame_active: bool
     central_heating: bool
     hot_water_active: bool
-    modulation_reliable: bool
+    modulation_reliable: Optional[bool]
 
     # Flame timing
     flame_on_since: Optional[float]
@@ -88,7 +88,7 @@ class Boiler:
         self._last_flame_off_was_overshoot: bool = False
 
         # Modulation reliability tracking
-        self._modulation_reliable: bool = False
+        self._modulation_reliable: Optional[bool] = None
         self._modulation_values_when_flame_on: List[float] = []
 
         # Persistence for modulation reliability
@@ -111,7 +111,7 @@ class Boiler:
         return self._previous_state
 
     @property
-    def modulation_reliable(self) -> bool:
+    def modulation_reliable(self) -> Optional[bool]:
         return self._modulation_reliable
 
     @property

@@ -262,7 +262,7 @@ class SatBoilerModulationReliable(SatEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        return not self._coordinator.device_state.modulation_reliable
+        return self._coordinator.device_state.modulation_reliable == False
 
     @property
     def unique_id(self) -> str:

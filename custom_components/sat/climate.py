@@ -610,10 +610,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return _reset_low_modulation_ticks()
 
         state = self._coordinator.device_state
-        if not state.modulation_reliable or not state.flame_active:
-            return _reset_low_modulation_ticks()
-
-        if state.relative_modulation_level is None:
+        if state.modulation_reliable == False or state.relative_modulation_level is None or not state.flame_active:
             return None
 
         if state.relative_modulation_level <= PWM_ENABLE_LOW_MODULATION_PERCENT:
