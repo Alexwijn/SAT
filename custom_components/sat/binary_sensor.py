@@ -257,12 +257,12 @@ class SatBoilerModulationReliable(SatEntity, BinarySensorEntity):
     @property
     def device_class(self) -> str:
         """Return the device class."""
-        return BinarySensorDeviceClass.PRESENCE
+        return BinarySensorDeviceClass.PROBLEM
 
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        return self._coordinator.device_state.modulation_reliable
+        return not self._coordinator.device_state.modulation_reliable
 
     @property
     def unique_id(self) -> str:
