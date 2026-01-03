@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Any, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
@@ -61,7 +61,7 @@ def create_heating_curve_controller(config_data: MappingProxyType[str, Any], con
     return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
 
 
-def create_pwm_controller(heating_curve: HeatingCurve, _config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> PWM | None:
+def create_pwm_controller(heating_curve: HeatingCurve, _config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> Optional[PWM]:
     """Create and return a PWM controller instance with the given configuration options."""
     # Extract the configuration options
     max_duty_cycles = int(config_options.get(CONF_CYCLES_PER_HOUR))

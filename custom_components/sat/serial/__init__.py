@@ -26,7 +26,7 @@ TRANSLATE_SOURCE = {
 class SatSerialCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using pyotgw."""
 
-    def __init__(self, hass: HomeAssistant, port: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, port: str, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
         """Initialize."""
         super().__init__(hass, config_data, options)
         self.async_set_updated_data(DEFAULT_STATUS)
@@ -138,7 +138,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().maximum_relative_modulation_value
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         if (value := self.get(DATA_SLAVE_MEMBERID)) is not None:
             return int(value)
 

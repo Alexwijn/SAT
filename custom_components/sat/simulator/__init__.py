@@ -12,7 +12,7 @@ from ..types import DeviceState
 
 
 class SatSimulatorCoordinator(SatDataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
         """Initialize."""
         super().__init__(hass, config_data, options)
 
@@ -42,7 +42,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return True
 
     @property
-    def supports_relative_modulation(self) -> float | None:
+    def supports_relative_modulation(self) -> Optional[float]:
         return True
 
     @property
@@ -50,7 +50,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return self._setpoint
 
     @property
-    def boiler_temperature(self) -> float | None:
+    def boiler_temperature(self) -> Optional[float]:
         return self._boiler_temperature
 
     @property
@@ -62,11 +62,11 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return self.device_active and self.target > self._boiler_temperature
 
     @property
-    def relative_modulation_value(self) -> float | None:
+    def relative_modulation_value(self) -> Optional[float]:
         return 100 if self.flame_active else 0
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:

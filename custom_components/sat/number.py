@@ -1,3 +1,5 @@
+from typing import Optional
+
 from homeassistant.components.number import NumberEntity, NumberDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -23,7 +25,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
         self._name = self._config_entry.data.get(CONF_NAME)
 
     @property
-    def name(self) -> str | None:
+    def name(self) -> Optional[str]:
         return f"Hot Water Setpoint {self._name} (Boiler)"
 
     @property
@@ -37,7 +39,7 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
         return f"{self._name.lower()}-boiler-dhw-setpoint"
 
     @property
-    def icon(self) -> str | None:
+    def icon(self) -> Optional[str]:
         return "mdi:thermometer"
 
     @property
@@ -76,7 +78,7 @@ class SatMaximumSetpointEntity(SatEntity, NumberEntity):
         self._name = self._config_entry.data.get(CONF_NAME)
 
     @property
-    def name(self) -> str | None:
+    def name(self) -> Optional[str]:
         return f"Maximum Setpoint {self._name} (Boiler)"
 
     @property
@@ -90,7 +92,7 @@ class SatMaximumSetpointEntity(SatEntity, NumberEntity):
         return f"{self._name.lower()}-boiler-maximum-setpoint"
 
     @property
-    def icon(self) -> str | None:
+    def icon(self) -> Optional[str]:
         return "mdi:thermometer"
 
     @property

@@ -67,7 +67,7 @@ class SatData(dict):
 
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    def resolve(hass: HomeAssistant, mode: str, device: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> SatDataUpdateCoordinator:
+    def resolve(hass: HomeAssistant, mode: str, device: str, data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> SatDataUpdateCoordinator:
         if mode == MODE_FAKE:
             from .fake import SatFakeCoordinator
             return SatFakeCoordinator(hass=hass, config_data=data, options=options)
@@ -100,7 +100,7 @@ class SatDataUpdateCoordinatorFactory:
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
         """Initialize."""
         super().__init__(hass, _LOGGER, name=DOMAIN)
         self.data: SatData = SatData()

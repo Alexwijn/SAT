@@ -41,7 +41,7 @@ class Area:
         self._sensor_handler = None
 
         self._entity_id: str = entity_id
-        self._hass: HomeAssistant | None = None
+        self._hass: Optional[HomeAssistant] = None
         self._sensor_max_value_age: float = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
 
         # Controllers and heating curve
@@ -295,7 +295,7 @@ class Areas:
             return round(chosen, 1)
 
         @property
-        def overshoot_cap(self) -> float | None:
+        def overshoot_cap(self) -> Optional[float]:
             """Compute a cooling-driven cap based on overshooting rooms."""
             caps: list[float] = []
 

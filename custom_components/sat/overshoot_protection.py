@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Optional
 
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
@@ -19,14 +20,14 @@ class OvershootProtection:
     def __init__(self, coordinator: SatDataUpdateCoordinator, heating_system: str):
         """Initialize OvershootProtection with a coordinator and heating system configuration."""
         self._alpha: float = 0.5
-        self._stable_temperature: float | None = None
+        self._stable_temperature: Optional[float] = None
         self._coordinator: SatDataUpdateCoordinator = coordinator
         self._setpoint: int = min(OVERSHOOT_PROTECTION_SETPOINT.get(heating_system), coordinator.maximum_setpoint_value)
 
         if self._setpoint is None:
             raise ValueError(f"Invalid heating system: {heating_system}")
 
-    async def calculate(self) -> float | None:
+    async def calculate(self) -> Optional[float]:
         """Calculate the overshoot protection value."""
         try:
             _LOGGER.info("Starting overshoot protection calculation")

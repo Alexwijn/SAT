@@ -1,7 +1,7 @@
 from __future__ import annotations, annotations
 
 import logging
-from typing import Mapping, Any
+from typing import Mapping, Any, Optional
 
 from homeassistant.components import mqtt, binary_sensor, esphome, number, sensor, switch
 from homeassistant.core import HomeAssistant, Event, EventStateChangedData
@@ -42,7 +42,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using esphome."""
 
-    def __init__(self, hass: HomeAssistant, device_id: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, device_id: str, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
         super().__init__(hass, config_data, options)
 
         self._device: DeviceEntry = device_registry.async_get(hass).async_get(device_id)
@@ -88,15 +88,15 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return self.get(binary_sensor.DOMAIN, DATA_DHW_ENABLE) == DeviceState.ON
 
     @property
-    def setpoint(self) -> float | None:
+    def setpoint(self) -> Optional[float]:
         return float_value(self.get(number.DOMAIN, DATA_CONTROL_SETPOINT))
 
     @property
-    def maximum_setpoint_value(self) -> float | None:
+    def maximum_setpoint_value(self) -> Optional[float]:
         return float_value(self.get(number.DOMAIN, DATA_MAX_CH_SETPOINT))
 
     @property
-    def hot_water_setpoint(self) -> float | None:
+    def hot_water_setpoint(self) -> Optional[float]:
         return float_value(self.get(number.DOMAIN, DATA_DHW_SETPOINT))
 
     @property
@@ -108,31 +108,31 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return float_value(self.get(sensor.DOMAIN, DATA_DHW_SETPOINT_MAXIMUM)) or super().maximum_hot_water_setpoint
 
     @property
-    def boiler_temperature(self) -> float | None:
+    def boiler_temperature(self) -> Optional[float]:
         return float_value(self.get(sensor.DOMAIN, DATA_BOILER_TEMPERATURE))
 
     @property
-    def return_temperature(self) -> float | None:
+    def return_temperature(self) -> Optional[float]:
         return float_value(self.get(sensor.DOMAIN, DATA_RETURN_TEMPERATURE))
 
     @property
-    def relative_modulation_value(self) -> float | None:
+    def relative_modulation_value(self) -> Optional[float]:
         return float_value(self.get(sensor.DOMAIN, DATA_REL_MOD_LEVEL))
 
     @property
-    def boiler_capacity(self) -> float | None:
+    def boiler_capacity(self) -> Optional[float]:
         return float_value(self.get(sensor.DOMAIN, DATA_BOILER_CAPACITY))
 
     @property
-    def minimum_relative_modulation_value(self) -> float | None:
+    def minimum_relative_modulation_value(self) -> Optional[float]:
         return float_value(self.get(sensor.DOMAIN, DATA_REL_MIN_MOD_LEVEL))
 
     @property
-    def maximum_relative_modulation_value(self) -> float | None:
+    def maximum_relative_modulation_value(self) -> Optional[float]:
         return float_value(self.get(number.DOMAIN, DATA_MAX_REL_MOD_LEVEL_SETTING))
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         return int_value(self.get(sensor.DOMAIN, DATA_SLAVE_MEMBERID))
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:

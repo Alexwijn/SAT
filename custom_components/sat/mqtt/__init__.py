@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from abc import abstractmethod
-from typing import Mapping, Any
+from typing import Mapping, Any, Optional
 
 from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
@@ -18,7 +18,7 @@ STORAGE_VERSION = 1
 class SatMqttCoordinator(SatDataUpdateCoordinator):
     """Base class to manage fetching data using MQTT."""
 
-    def __init__(self, hass: HomeAssistant, device_id: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, device_id: str, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
         super().__init__(hass, config_data, options)
 
         self._device_id: str = device_id

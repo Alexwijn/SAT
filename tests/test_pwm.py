@@ -1,6 +1,6 @@
 """Tests for the PWM controller."""
 
-from __future__ import annotations
+from typing import Optional
 
 import pytest
 from homeassistant.core import State
@@ -16,9 +16,9 @@ def _make_boiler_state(
     *,
     flame_active: bool = False,
     hot_water_active: bool = False,
-    flame_on_since: float | None = None,
-    setpoint: float | None = 40.0,
-    flow_temperature: float | None = 50.0,
+    flame_on_since: Optional[float] = None,
+    setpoint: Optional[float] = 40.0,
+    flow_temperature: Optional[float] = 50.0,
 ) -> BoilerState:
     return BoilerState(
         flame_active=flame_active,
@@ -30,6 +30,8 @@ def _make_boiler_state(
         flow_temperature=flow_temperature,
         return_temperature=40.0,
         relative_modulation_level=None,
+        max_modulation_level=100,
+        modulation_reliable=True
     )
 
 

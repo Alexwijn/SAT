@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Mapping, Any
+from typing import Mapping, Any, Optional
 
 from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
@@ -19,7 +19,7 @@ DOMAIN_SERVICE = {
 
 
 class SatSwitchCoordinator(SatDataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, entity_id: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, entity_id: str, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
         """Initialize."""
         super().__init__(hass, config_data, options)
 
@@ -49,7 +49,7 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         return state.state == STATE_ON
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:

@@ -1,7 +1,7 @@
 from __future__ import annotations, annotations
 
 import logging
-from typing import Mapping, Any
+from typing import Mapping, Any, Optional
 
 from homeassistant.core import HomeAssistant
 
@@ -35,10 +35,10 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         return "Fake"
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         return -1
 
-    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
         self.config = SatFakeConfig(True)
 
         self._setpoint = None
@@ -51,11 +51,11 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         super().__init__(hass, config_data, options)
 
     @property
-    def setpoint(self) -> float | None:
+    def setpoint(self) -> Optional[float]:
         return self._setpoint
 
     @property
-    def boiler_temperature(self) -> float | None:
+    def boiler_temperature(self) -> Optional[float]:
         return self._boiler_temperature
 
     @property

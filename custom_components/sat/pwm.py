@@ -43,7 +43,7 @@ class PWM:
 
         self._config: PWMConfig = config
         self._heating_curve: HeatingCurve = heating_curve
-        self._effective_on_temperature: float | None = None
+        self._effective_on_temperature: Optional[float] = None
 
         # Timing thresholds for duty cycle management
         self._on_time_lower_threshold: float = 180
@@ -69,11 +69,11 @@ class PWM:
         self._current_cycle: int = 0
         self._last_update: float = timestamp()
         self._status: PWMStatus = PWMStatus.IDLE
-        self._duty_cycle: Tuple[int, int] | None = None
+        self._duty_cycle: Optional[Tuple[int, int]] = None
 
-        self._first_duty_cycle_start: float | None = None
-        self._last_duty_cycle_percentage: float | None = None
-        self._effective_on_temperature: float | None = None
+        self._first_duty_cycle_start: Optional[float] = None
+        self._last_duty_cycle_percentage: Optional[float] = None
+        self._effective_on_temperature: Optional[float] = None
 
     def restore(self, state: State) -> None:
         """Restore the PWM controller from a saved state."""

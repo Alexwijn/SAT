@@ -132,7 +132,7 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-{self._area_id}-pid"
 
     @property
-    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+    def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
         return {
             "proportional": self._pid.proportional,
             "integral": self._pid.integral,
