@@ -230,6 +230,6 @@ class PID:
         self._last_derivative_updated = now
 
         _LOGGER.debug(
-            "Derivative update: entity=%s error=%.3f filtered=%.3f raw=%.3f dt=%.3f changed=%s",
+            "Derivative update: entity=%s error=%.3f filtered=%.3f raw=%.6f dt=%.3f changed=%s",
             error.entity_id, error.value, filtered_error, self._raw_derivative, time_elapsed, error_changed
         )
