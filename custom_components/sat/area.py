@@ -3,6 +3,7 @@ from datetime import timedelta, datetime
 from types import MappingProxyType
 from typing import Any, Optional
 
+from homeassistant.components import sensor, climate
 from homeassistant.components.climate import HVACMode
 from homeassistant.const import (
     STATE_UNKNOWN,
@@ -73,53 +74,66 @@ class Area:
         return self._room_weight
 
     @property
-    def state(self) -> Optional[State]:
+    def climate_state(self) -> Optional[State]:
         """Retrieve the current state of the climate entity."""
         if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
             return None
 
         return state if state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE] else None
 
-    @property
-    def target_temperature(self) -> Optional[float]:
-        """Retrieve the target temperature from the climate entity."""
-        if (self._hass is None) or (state := self.state) is None:
-            return None
-
-        return float_value(state.attributes.get("temperature"))
-
-    @property
-    def current_temperature(self) -> Optional[float]:
-        """Retrieve the current temperature, overridden by a sensor if set."""
-        if (self._hass is None) or (state := self.state) is None:
+    def temperature_state(self) -> Optional[State]:
+        """Return the source state used to calculate the current temperature."""
+        if (self._hass is None) or (climate_state := self.climate_state) is None:
             return None
 
         # Check if there is an overridden sensor temperature
-        if (sensor_temperature_id := state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
+        if (sensor_temperature_id := climate_state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
             sensor_state = self._hass.states.get(sensor_temperature_id)
             if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
                 if is_state_stale(sensor_state, self._sensor_max_value_age):
                     _LOGGER.debug("Area sensor %s stale for %s (age=%.1fs > %.1fs)", sensor_temperature_id, self._entity_id, state_age_seconds(sensor_state), self._sensor_max_value_age)
                     return None
 
-                return float_value(sensor_state.state)
+                return sensor_state
 
-        if is_state_stale(state, self._sensor_max_value_age):
-            _LOGGER.debug("Area climate %s stale for %s (age=%.1fs > %.1fs)", self._entity_id, self._entity_id, state_age_seconds(state), self._sensor_max_value_age)
+        if is_state_stale(climate_state, self._sensor_max_value_age):
+            _LOGGER.debug("Area climate %s stale for %s (age=%.1fs > %.1fs)", self._entity_id, self._entity_id, state_age_seconds(climate_state), self._sensor_max_value_age)
             return None
 
-        return float_value(state.attributes.get("current_temperature") or self.target_temperature)
+        return climate_state
+
+    @property
+    def current_temperature(self) -> Optional[float]:
+        """Retrieve the current temperature, overridden by a sensor if set."""
+        if (state := self.temperature_state()) is None:
+            return None
+
+        if sensor.DOMAIN in state.entity_id:
+            return float_value(state.state)
+
+        if climate.DOMAIN in state.entity_id:
+            return float_value(state.attributes.get("current_temperature"))
+
+        return None
+
+    @property
+    def target_temperature(self) -> Optional[float]:
+        """Retrieve the target temperature from the climate entity."""
+        if (self._hass is None) or (state := self.climate_state) is None:
+            return None
+
+        return float_value(state.attributes.get("temperature"))
 
     @property
     def valve_position(self) -> Optional[float]:
         """Retrieve the valve position from the climate entity."""
-        if (self._hass is None) or (state := self.state) is None:
+        if (self._hass is None) or (climate_state := self.climate_state) is None:
             return None
 
-        if ATTR_CURRENT_VALVE_POSITION not in state.attributes:
+        if ATTR_CURRENT_VALVE_POSITION not in climate_state.attributes:
             return None
 
-        raw_value = state.attributes.get(ATTR_CURRENT_VALVE_POSITION)
+        raw_value = climate_state.attributes.get(ATTR_CURRENT_VALVE_POSITION)
 
         try:
             return float_value(raw_value)
