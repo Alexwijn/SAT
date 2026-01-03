@@ -330,16 +330,17 @@ class DynamicMinimumSetpoint:
         if (regime_state := self._active_regime) is None:
             return
 
-        _LOGGER.debug("Cycle ended: regime=%s classification=%s", regime_state.key.to_storage(), cycle.classification.name)
-
         # Mark a cycle as completed.
         regime_state.completed_cycles += 1
-        _LOGGER.debug("Regime %s completed_cycles=%d", regime_state.key.to_storage(), regime_state.completed_cycles)
 
         # Mark a cycle as stable when the classification is GOOD.
         if cycle.classification == CycleClassification.GOOD:
             regime_state.stable_cycles += 1
-            _LOGGER.debug("Regime %s stable cycle detected (stable_cycles=%d)", regime_state.key.to_storage(), regime_state.stable_cycles)
+
+        _LOGGER.debug(
+            "Cycle ended with %s (regime=%s, completed_cycles=%d, stable_cycles=%d)",
+            cycle.classification.name, regime_state.key.to_storage(), regime_state.completed_cycles, regime_state.stable_cycles
+        )
 
         # Track before/after for tuning visibility
         previous_minimum = regime_state.minimum_setpoint
