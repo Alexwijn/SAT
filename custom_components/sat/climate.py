@@ -40,7 +40,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .errors import Error
-from .helpers import convert_time_str_to_seconds, float_value, is_state_stale, state_age_seconds, event_timestamp
+from .helpers import convert_time_str_to_seconds, float_value, is_state_stale, state_age_seconds, event_timestamp, clamp
 from .manufacturers.geminox import Geminox
 from .summer_simmer import SummerSimmer
 from .types import BoilerStatus, RelativeModulationState, PWMStatus, DeviceState
@@ -754,10 +754,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Normal cycle without PWM
             _LOGGER.info("PWM inactive (enabled=%s, state=%s). Using continuous heating control.", self.pulse_width_modulation_enabled, self.pwm.status.name)
 
-            requested_setpoint = self.requested_setpoint
-            if self._setpoint is None:
-                self._setpoint = requested_setpoint
-
+            requested_setpoint = clamp(self.requested_setpoint, MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
             requested_setpoint_delta = requested_setpoint - self._setpoint
 
             # Track persistent decreases
@@ -937,13 +934,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pass the control intent and context to the coordinator for sampling.
         self._coordinator.set_control_context(pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
-        self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self._last_requested_setpoint, relative_modulation=self.relative_modulation_value))
+        self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value))
+        await self._coordinator.async_control_heating_loop(time)
 
         # Apply the computed boiler controls.
         await self._async_control_setpoint()
         await self._async_control_relative_modulation()
         await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)
-        await self._coordinator.async_control_heating_loop(time)
 
         self.async_write_ha_state()
 
