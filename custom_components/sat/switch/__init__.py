@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Mapping, Any
 
 from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN

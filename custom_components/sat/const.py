@@ -1,4 +1,5 @@
 # Core domain identifiers and shared defaults used across the integration.
+from __future__ import annotations
 
 from .types import CycleClassification
 

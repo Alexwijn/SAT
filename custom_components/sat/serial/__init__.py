@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Optional, Any, Mapping
@@ -154,7 +156,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         """
         return self.data[BOILER].get(key)
 
-    async def async_connect(self) -> "SatSerialCoordinator":
+    async def async_connect(self) -> SatSerialCoordinator:
         try:
             await self._api.connect(port=self._port, timeout=5)
         except (asyncio.TimeoutError, ConnectionError, SerialException) as exception:
