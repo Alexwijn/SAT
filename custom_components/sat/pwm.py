@@ -10,7 +10,7 @@ from .helpers import timestamp
 from .types import PWMStatus
 
 if TYPE_CHECKING:
-    from .boiler import BoilerState, BoilerControlIntent
+    from .boiler import BoilerState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,11 +81,11 @@ class PWM:
             self._enabled = bool(enabled)
             _LOGGER.debug("Restored Pulse Width Modulation state: %s", enabled)
 
-    def update(self, boiler_state: "BoilerState", control_intent: "BoilerControlIntent", timestamp: float) -> None:
+    def update(self, boiler_state: "BoilerState", requested_setpoint: float, timestamp: float) -> None:
         """Enable and update the PWM state based on the output of a PID controller."""
         self._enabled = True
 
-        if self._heating_curve.value is None or boiler_state.setpoint is None or boiler_state.flow_temperature is None or control_intent.setpoint is None:
+        if self._heating_curve.value is None or boiler_state.setpoint is None or boiler_state.flow_temperature is None:
             self._status = PWMStatus.IDLE
             self._last_update = timestamp
 
@@ -99,7 +99,7 @@ class PWM:
 
         elapsed = timestamp - self._last_update
         flame_on_elapsed = timestamp - (boiler_state.flame_on_since or timestamp)
-        on_time_seconds, off_time_seconds = self._calculate_duty_cycle(control_intent.setpoint, boiler_state)
+        on_time_seconds, off_time_seconds = self._calculate_duty_cycle(requested_setpoint, boiler_state)
         self._duty_cycle = (on_time_seconds, off_time_seconds)
 
         if self._first_duty_cycle_start is None or (timestamp - self._first_duty_cycle_start) > 3600:

@@ -929,26 +929,21 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.hvac_mode != HVACMode.HEAT:
             return
 
-        control_intent = BoilerControlIntent(
-            setpoint=self.requested_setpoint,
-            relative_modulation=self.relative_modulation_value
-        )
-
         # Update PWM state from the latest device state and requested setpoint.
         if self.pulse_width_modulation_enabled:
-            self.pwm.update(self._coordinator.device_state, control_intent, timestamp)
+            self.pwm.update(self._coordinator.device_state, self.requested_setpoint, timestamp)
         else:
             self.pwm.disable()
 
         # Pass the control intent and context to the coordinator for sampling.
         self._coordinator.set_control_context(pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
-        self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value))
-        await self._coordinator.async_control_heating_loop(time)
+        self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self._last_requested_setpoint, relative_modulation=self.relative_modulation_value))
 
         # Apply the computed boiler controls.
         await self._async_control_setpoint()
         await self._async_control_relative_modulation()
         await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)
+        await self._coordinator.async_control_heating_loop(time)
 
         self.async_write_ha_state()
 
