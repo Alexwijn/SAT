@@ -71,11 +71,21 @@ ANCHOR_SOURCE_TAIL_SETPOINT = "tail_setpoint"
 ANCHOR_SOURCE_INTENT_SETPOINT = "intent_setpoint"
 
 FLOOR_MARGIN: float = 3.0
+REGIME_RETENTION_DAYS: int = 90
 MIN_STABLE_CYCLES_TO_TRUST: float = 2
 
 MINIMUM_SETPOINT_STEP_MIN: float = 0.3
 MINIMUM_SETPOINT_STEP_MAX: float = 1.5
-REGIME_RETENTION_DAYS: int = 90
+MAX_MINIMUM_SETPOINT_INCREASE_PER_DAY: float = 2.0
+MINIMUM_SETPOINT_INCREASE_COOLDOWN = timedelta(hours=2)
+
+LOAD_DROP_FLOW_RETURN_DELTA_THRESHOLD: float = 20.0
+LOAD_DROP_FLOW_RETURN_DELTA_FRACTION: float = 0.35
+
+CONDENSING_STEP_BASE: float = 0.2
+CONDENSING_STEP_SCALE: float = 0.02
+CONDENSING_STEP_FALLBACK: float = 0.2
+CONDENSING_RETURN_TEMP_TARGET: float = 55.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +102,10 @@ class RegimeState:
     stable_cycles: int = 0
     completed_cycles: int = 0
     last_seen: Optional[datetime] = None
+    last_increase_at: Optional[datetime] = None
+
+    increase_window_total: float = 0.0
+    increase_window_start: Optional[datetime] = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -508,54 +522,55 @@ class DynamicMinimumSetpoint:
         #   The boiler produced a long, stable burn without overshoot or underheat.
         #   This means the current minimum_setpoint is appropriate for this regime.
         #   But we do try to find a better value.
-        elif classification == CycleClassification.GOOD and regime_state.stable_cycles >= 2:
-            regime_state.minimum_setpoint -= 0.3
+        elif classification == CycleClassification.GOOD:
+            if regime_state.stable_cycles >= 2:
+                regime_state.minimum_setpoint -= 0.3
+                _LOGGER.debug("GOOD stable cycle; decreasing minimum setpoint by 0.3.")
+
+            self._apply_condensing_bias(cycle, regime_state)
 
         # FAST_UNDERHEAT / TOO_SHORT_UNDERHEAT:
         #   - Boiler fails to approach the requested flow temperature.
         #   - Indicates the requested flow setpoint is too high for the available heat output.
         elif classification in (CycleClassification.FAST_UNDERHEAT, CycleClassification.TOO_SHORT_UNDERHEAT):
             regime_state.minimum_setpoint -= 1.0
+            _LOGGER.debug("Underheat cycle; decreasing minimum setpoint by 1.0.")
 
         # FAST_OVERSHOOT / TOO_SHORT_OVERSHOOT:
         #   - Boiler fails to stay stable at the requested flow temperature.
         #   - Indicates the requested flow setpoint is too low for the available heat output.
         elif classification in (CycleClassification.FAST_OVERSHOOT, CycleClassification.TOO_SHORT_OVERSHOOT):
-            regime_state.minimum_setpoint += 1.0
+            if self._is_load_drop_overshoot(cycle):
+                _LOGGER.debug("Overshoot likely due to load drop; skipping minimum setpoint increase.")
+                return
+
+            if (applied_step := self._apply_increase_with_limits(regime_state, step=1.0)) > 0.0:
+                _LOGGER.debug("Overshoot cycle; increasing minimum setpoint by %.2f.", applied_step)
 
         # LONG_UNDERHEAT:
         #   - Long burn, but flow temperature remains below setpoint.
         #   - Indicates chronic underheating at this setpoint.
         elif classification == CycleClassification.LONG_UNDERHEAT:
             error = cycle.tail.flow_setpoint_error.p90
-            regime_state.minimum_setpoint -= self._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
+            step = self._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
+            regime_state.minimum_setpoint -= step
+
+            _LOGGER.debug("Long underheat; decreasing minimum setpoint by %.2f.", step)
+            self._apply_condensing_bias(cycle, regime_state)
 
         # LONG_OVERSHOOT:
         #   - Sustained overshoot during a longer burn.
         #   - More likely indicates the requested flow setpoint is genuinely too low for stable operation.
         elif classification == CycleClassification.LONG_OVERSHOOT:
+            if self._is_load_drop_overshoot(cycle):
+                _LOGGER.debug("Overshoot likely due to load drop; skipping minimum setpoint increase.")
+                return
+
             error = cycle.tail.flow_setpoint_error.p90
-            regime_state.minimum_setpoint += self._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
+            step = self._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
 
-    @staticmethod
-    def _compute_scaled_step(base: float, scale: float, value: Optional[float], fallback: float) -> float:
-        """Compute a clamped step size from a linear scale."""
-        if value is None:
-            return fallback
-
-        return clamp(base + (scale * value), MINIMUM_SETPOINT_STEP_MIN, MINIMUM_SETPOINT_STEP_MAX)
-
-    @staticmethod
-    def _parse_last_seen(value: Optional[str]) -> Optional[datetime]:
-        if not value:
-            return None
-
-        try:
-            parsed = datetime.fromisoformat(value)
-        except (TypeError, ValueError):
-            return None
-
-        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+            if (applied_step := self._apply_increase_with_limits(regime_state, step=step)) > 0.0:
+                _LOGGER.debug("Long overshoot; increasing minimum setpoint by %.2f.", applied_step)
 
     def _prune_regimes(self, time: datetime) -> None:
         cutoff = time - timedelta(days=REGIME_RETENTION_DAYS)
@@ -625,17 +640,6 @@ class DynamicMinimumSetpoint:
             anchor_source,
         )
 
-    @staticmethod
-    def _is_tunable_regime(cycles: CycleStatistics) -> bool:
-        """Decide whether the current conditions are suitable for minimum tuning."""
-        if cycles.window.sample_count_4h < MINIMUM_ON_SAMPLES_FOR_TUNING:
-            return False
-
-        if cycles.window.last_hour_count < LOW_LOAD_MINIMUM_CYCLES_PER_HOUR:
-            return False
-
-        return True
-
     def _seed_minimum_for_new_regime(self, active_key: RegimeKey, boiler_control_intent: BoilerControlIntent, boiler_capabilities: BoilerCapabilities) -> float:
         if (initial_minimum := self._initial_minimum_for_regime(active_key)) is not None:
             return clamp(initial_minimum, boiler_capabilities.minimum_setpoint, boiler_capabilities.maximum_setpoint)
@@ -666,9 +670,7 @@ class DynamicMinimumSetpoint:
         if not trusted_regimes:
             return None
 
-        parsed_regimes = list(trusted_regimes.items())
-
-        if not parsed_regimes:
+        if not (parsed_regimes := list(trusted_regimes.items())):
             return None
 
         def regime_distance(parsed: RegimeKey) -> tuple[int, int]:
@@ -688,3 +690,104 @@ class DynamicMinimumSetpoint:
         )
 
         return key
+
+    @staticmethod
+    def _is_load_drop_overshoot(cycle: Cycle) -> bool:
+        if (delta := cycle.tail.flow_return_delta.p90) is None:
+            return False
+
+        flow_temp = cycle.tail.flow_temperature.p90
+        dynamic_threshold = LOAD_DROP_FLOW_RETURN_DELTA_THRESHOLD
+
+        # Scale threshold by flow temp to avoid treating high-ΔT systems as load-drop overshoot.
+        if flow_temp is not None:
+            dynamic_threshold = max(dynamic_threshold, flow_temp * LOAD_DROP_FLOW_RETURN_DELTA_FRACTION)
+
+        return delta >= dynamic_threshold
+
+    @staticmethod
+    def _apply_condensing_bias(cycle: Cycle, regime_state: RegimeState) -> None:
+        # Only bias downward when return temps are high, to encourage condensing efficiency.
+        if cycle.tail.return_temperature.p90 is None or cycle.tail.return_temperature.p90 <= CONDENSING_RETURN_TEMP_TARGET:
+            return
+
+        overshoot = cycle.tail.return_temperature.p90 - CONDENSING_RETURN_TEMP_TARGET
+        step = DynamicMinimumSetpoint._compute_scaled_step(
+            base=CONDENSING_STEP_BASE,
+            scale=CONDENSING_STEP_SCALE,
+            value=overshoot,
+            fallback=CONDENSING_STEP_FALLBACK,
+        )
+
+        regime_state.minimum_setpoint -= step
+
+        _LOGGER.debug(
+            "Condensing bias applied: return_temp=%.1f°C target=%.1f°C step=%.2f.",
+            cycle.tail.return_temperature.p90, CONDENSING_RETURN_TEMP_TARGET, step,
+        )
+
+    @staticmethod
+    def _apply_increase_with_limits(regime_state: RegimeState, step: float) -> float:
+        if step <= 0.0:
+            return 0.0
+
+        now = datetime.now(timezone.utc)
+
+        # Cooldown prevents rapid increases from a single noisy regime.
+        if regime_state.last_increase_at is not None and (now - regime_state.last_increase_at) < MINIMUM_SETPOINT_INCREASE_COOLDOWN:
+            _LOGGER.debug("Skipping minimum setpoint increase due to cooldown.")
+            return 0.0
+
+        window_start = regime_state.increase_window_start
+        if window_start is None or (now - window_start) >= timedelta(days=1):
+            regime_state.increase_window_start = now
+            regime_state.increase_window_total = 0.0
+
+        remaining = MAX_MINIMUM_SETPOINT_INCREASE_PER_DAY - regime_state.increase_window_total
+        # Daily cap stops slow drift upward due to persistent but non-actionable overshoot.
+        if remaining <= 0.0:
+            _LOGGER.debug("Daily minimum setpoint increase limit reached; skipping increase.")
+            return 0.0
+
+        applied_step = min(step, remaining)
+        regime_state.minimum_setpoint += applied_step
+        regime_state.increase_window_total += applied_step
+        regime_state.last_increase_at = now
+
+        _LOGGER.debug(
+            "Applied minimum setpoint increase: step=%.2f remaining_today=%.2f.",
+            applied_step, MAX_MINIMUM_SETPOINT_INCREASE_PER_DAY - regime_state.increase_window_total,
+        )
+
+        return applied_step
+
+    @staticmethod
+    def _compute_scaled_step(base: float, scale: float, value: Optional[float], fallback: float) -> float:
+        """Compute a clamped step size from a linear scale."""
+        if value is None:
+            return fallback
+
+        return clamp(base + (scale * value), MINIMUM_SETPOINT_STEP_MIN, MINIMUM_SETPOINT_STEP_MAX)
+
+    @staticmethod
+    def _parse_last_seen(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+
+        try:
+            parsed = datetime.fromisoformat(value)
+        except (TypeError, ValueError):
+            return None
+
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+    @staticmethod
+    def _is_tunable_regime(cycles: CycleStatistics) -> bool:
+        """Decide whether the current conditions are suitable for minimum tuning."""
+        if cycles.window.sample_count_4h < MINIMUM_ON_SAMPLES_FOR_TUNING:
+            return False
+
+        if cycles.window.last_hour_count < LOW_LOAD_MINIMUM_CYCLES_PER_HOUR:
+            return False
+
+        return True

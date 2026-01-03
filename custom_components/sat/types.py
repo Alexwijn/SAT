@@ -83,6 +83,28 @@ class PWMStatus(str, Enum):
     IDLE = "idle"
 
 
+class PWMDecision(str, Enum):
+    """Describe PWM decision with built-in enabled/disabled meaning."""
+    FORCED_ON = "enabled_forced_on"
+    NO_SETPOINT = "disabled_no_setpoint"
+    OVERSHOOT_PROTECTION_DISABLED = "disabled_overshoot_protection_disabled"
+
+    STATIC_MINIMUM_WITH_DEADBAND = "enabled_static_minimum_with_deadband"
+    STATIC_ABOVE_DEADBAND = "disabled_static_above_deadband"
+    STATIC_MINIMUM_ABOVE_SETPOINT = "enabled_static_minimum_above_setpoint"
+    STATIC_MINIMUM_BELOW_SETPOINT = "disabled_static_minimum_below_setpoint"
+
+    RETAIN_PWM_STATE = "retain_pwm_state"
+    STALLED_IGNITION = "enabled_stalled_ignition"
+    LAST_CYCLE_UNHEALTHY = "enabled_last_cycle_unhealthy"
+    BELOW_DYNAMIC_MINIMUM = "enabled_below_dynamic_minimum"
+    ABOVE_DYNAMIC_HYSTERESIS = "disabled_above_dynamic_hysteresis"
+
+    @property
+    def enabled(self) -> bool:
+        return self.value.startswith("enabled_")
+
+
 class RelativeModulationState(str, Enum):
     """Relative modulation mode/state used for control decisions."""
     OFF = "off"

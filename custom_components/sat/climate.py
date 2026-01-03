@@ -43,7 +43,7 @@ from .errors import Error
 from .helpers import convert_time_str_to_seconds, float_value, is_state_stale, state_age_seconds, event_timestamp, clamp
 from .manufacturers.geminox import Geminox
 from .summer_simmer import SummerSimmer
-from .types import BoilerStatus, RelativeModulationState, PWMStatus, DeviceState
+from .types import BoilerStatus, RelativeModulationState, PWMStatus, PWMDecision, DeviceState
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_dynamic_minimum_setpoint_controller
 
 ATTR_ROOMS = "rooms"
@@ -88,7 +88,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors: dict[str, str] = {}
         self._setpoint: Optional[float] = None
         self._requested_setpoint_down_ticks: int = 0
-        self._low_modulation_ticks: int = 0
         self._rooms: Optional[dict[str, float]] = None
         self._last_requested_setpoint: Optional[float] = None
 
@@ -105,6 +104,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
         self._attr_supported_features = self._build_supported_features()
 
+        self._last_pwm_enabled: Optional[bool] = None
+        self._last_pwm_enable_decision: Optional[PWMDecision] = None
         self._control_heating_loop_unsub: Optional[Callable[[], None]] = None
 
         # System Configuration
@@ -221,12 +222,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(self.hass.bus.async_listen(
             EVENT_SAT_CYCLE_STARTED,
-            lambda event: self.minimum_setpoint.on_cycle_start(boiler_capabilities=self._coordinator.device_capabilities, sample=event.data.get("sample"))
+            lambda event: self.minimum_setpoint.on_cycle_start(
+                sample=event.data.get("sample"),
+                boiler_capabilities=self._coordinator.device_capabilities,
+            )
         ))
 
         self.async_on_remove(self.hass.bus.async_listen(
             EVENT_SAT_CYCLE_ENDED,
-            lambda event: self.minimum_setpoint.on_cycle_end(boiler_capabilities=self._coordinator.device_capabilities, cycles=self._coordinator.cycles, cycle=event.data.get("cycle"))
+            lambda event: self.minimum_setpoint.on_cycle_end(
+                cycle=event.data.get("cycle"),
+                cycles=self._coordinator.cycles,
+                boiler_capabilities=self._coordinator.device_capabilities,
+            )
         ))
 
         self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
@@ -552,53 +560,75 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def pulse_width_modulation_enabled(self) -> bool:
         """Determine if pulse width modulation should be enabled."""
+        decision = self._pwm_decision()
+
+        enabled = decision.enabled
+        if decision == PWMDecision.RETAIN_PWM_STATE:
+            self._last_pwm_enable_decision = decision
+            enabled = self.pwm.enabled
+
+        if enabled != self._last_pwm_enabled or decision != self._last_pwm_enable_decision:
+            _LOGGER.debug("PWM decision: enabled=%s reason=%s", enabled, decision.value)
+            self._last_pwm_enabled = enabled
+            self._last_pwm_enable_decision = decision
+
+        return enabled
+
+    def _pwm_decision(self) -> PWMDecision:
+        """Return PWM decision for logging."""
         # No setpoint means no safe PWM decision.
         if self._setpoint is None:
-            return False
+            return PWMDecision.NO_SETPOINT
 
         # Forced on (relay-only or explicit override).
         if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
-            return True
+            return PWMDecision.FORCED_ON
 
         # Disabled by config.
         if not self._overshoot_protection:
-            return False
+            return PWMDecision.OVERSHOOT_PROTECTION_DISABLED
 
         # Static vs dynamic minimum-setpoint logic.
         if not self._dynamic_minimum_setpoint:
-            return self._should_enable_static_pwm()
+            return self._pwm_static_decision()
 
-        return self._should_enable_dynamic_pwm()
+        return self._pwm_dynamic_decision()
 
-    def _should_enable_static_pwm(self) -> bool:
+    def _pwm_static_decision(self) -> PWMDecision:
         """Determine if PWM should be enabled based on the static minimum setpoint."""
         if self.pwm.enabled:
-            return self._coordinator.minimum_setpoint > self._setpoint - BOILER_DEADBAND
+            if self._coordinator.minimum_setpoint > self._setpoint - BOILER_DEADBAND:
+                return PWMDecision.STATIC_MINIMUM_WITH_DEADBAND
 
-        return self._coordinator.minimum_setpoint > self._setpoint
+            return PWMDecision.STATIC_ABOVE_DEADBAND
 
-    def _should_enable_dynamic_pwm(self) -> bool:
+        if self._coordinator.minimum_setpoint > self._setpoint:
+            return PWMDecision.STATIC_MINIMUM_ABOVE_SETPOINT
+
+        return PWMDecision.STATIC_MINIMUM_BELOW_SETPOINT
+
+    def _pwm_dynamic_decision(self) -> PWMDecision:
         """Determine if PWM should be enabled based on the dynamic minimum setpoint."""
         last_cycle = self._coordinator.last_cycle
         boiler_status = self._coordinator.device_status
 
         if boiler_status == BoilerStatus.STALLED_IGNITION:
-            return True
+            return PWMDecision.STALLED_IGNITION
 
         if last_cycle is not None and last_cycle.classification in UNHEALTHY_CYCLES:
-            return True
+            return PWMDecision.LAST_CYCLE_UNHEALTHY
 
         delta = self.requested_setpoint - self.minimum_setpoint.value
 
         # Near/below dynamic minimum -> PWM.
         if delta <= PWM_ENABLE_MARGIN_CELSIUS:
-            return True
+            return PWMDecision.BELOW_DYNAMIC_MINIMUM
 
         # When above the hysteresis band -> no PWM.
         if delta >= PWM_DISABLE_MARGIN_CELSIUS:
-            return False
+            return PWMDecision.ABOVE_DYNAMIC_HYSTERESIS
 
-        return self.pwm.enabled
+        return PWMDecision.RETAIN_PWM_STATE
 
     @property
     def relative_modulation_value(self) -> int:
@@ -818,7 +848,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pid.reset()
         self.areas.pids.reset()
         self._last_requested_setpoint = None
-        self._low_modulation_ticks = 0
 
     async def async_control_pid(self, time: Optional[datetime] = None) -> None:
         """Control the PID controller."""

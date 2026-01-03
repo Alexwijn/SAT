@@ -24,13 +24,11 @@ def _make_boiler_state(
         flame_active=flame_active,
         central_heating=True,
         hot_water_active=hot_water_active,
-        modulation_reliable=True,
         flame_on_since=flame_on_since,
         flame_off_since=None,
         setpoint=setpoint,
         flow_temperature=flow_temperature,
         return_temperature=40.0,
-        max_modulation_level=None,
         relative_modulation_level=None,
     )
 
