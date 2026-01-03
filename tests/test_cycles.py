@@ -1,8 +1,7 @@
 """Tests for cycle tracking and classification."""
 
-from __future__ import annotations
-
 import pytest
+from typing import Optional
 
 from custom_components.sat.boiler import BoilerState, BoilerControlIntent
 from custom_components.sat.coordinator import ControlLoopSample
@@ -75,7 +74,7 @@ def _make_sample(
     )
 
 
-def _tail_metrics_for_error(error: float | None) -> CycleMetrics:
+def _tail_metrics_for_error(error: Optional[float]) -> CycleMetrics:
     return CycleMetrics(
         setpoint=Percentiles(p50=40.0, p90=40.0),
         intent_setpoint=Percentiles(p50=40.0, p90=40.0),
