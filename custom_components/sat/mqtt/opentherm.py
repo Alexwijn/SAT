@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 import logging
 from typing import Optional
 
 from . import SatMqttCoordinator
-from ..types import DeviceState
 from ..manufacturers.ideal import Ideal
 from ..manufacturers.immergas import Immergas
 from ..manufacturers.intergas import Intergas
 from ..manufacturers.nefit import Nefit
+from ..types import DeviceState
 
 STATE_ON = "ON"
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -94,20 +92,6 @@ class MinimumSetpointConfig:
     maximum_setpoint: float
 
 
-@dataclass(slots=True)
-class RegimeState:
-    key: RegimeKey
-    minimum_setpoint: float
-
-    stable_cycles: int = 0
-    completed_cycles: int = 0
-    last_seen: Optional[datetime] = None
-    last_increase_at: Optional[datetime] = None
-
-    increase_window_total: float = 0.0
-    increase_window_start: Optional[datetime] = None
-
-
 @dataclass(frozen=True, slots=True)
 class RegimeKey:
     """Value object for regime bucketing."""
@@ -137,6 +121,20 @@ class RegimeKey:
         delta_band = parts[2]
 
         return RegimeKey(setpoint_band=setpoint_band, outside_band=outside_band, delta_band=delta_band)
+
+
+@dataclass(slots=True)
+class RegimeState:
+    key: RegimeKey
+    minimum_setpoint: float
+
+    stable_cycles: int = 0
+    completed_cycles: int = 0
+    last_seen: Optional[datetime] = None
+    last_increase_at: Optional[datetime] = None
+
+    increase_window_total: float = 0.0
+    increase_window_start: Optional[datetime] = None
 
 
 @dataclass(slots=True)

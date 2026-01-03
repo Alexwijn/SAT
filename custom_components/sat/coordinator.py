@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -63,40 +61,6 @@ class SatData(dict):
 
     def is_dirty(self) -> bool:
         return self._is_dirty
-
-
-class SatDataUpdateCoordinatorFactory:
-    @staticmethod
-    def resolve(hass: HomeAssistant, mode: str, device: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> SatDataUpdateCoordinator:
-        if mode == MODE_FAKE:
-            from .fake import SatFakeCoordinator
-            return SatFakeCoordinator(hass=hass, config_data=data, options=options)
-
-        if mode == MODE_SIMULATOR:
-            from .simulator import SatSimulatorCoordinator
-            return SatSimulatorCoordinator(hass=hass, config_data=data, options=options)
-
-        if mode == MODE_SWITCH:
-            from .switch import SatSwitchCoordinator
-            return SatSwitchCoordinator(hass=hass, entity_id=device, config_data=data, options=options)
-
-        if mode == MODE_ESPHOME:
-            from .esphome import SatEspHomeCoordinator
-            return SatEspHomeCoordinator(hass=hass, device_id=device, config_data=data, options=options)
-
-        if mode == MODE_MQTT_EMS:
-            from .mqtt.ems import SatEmsMqttCoordinator
-            return SatEmsMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
-
-        if mode == MODE_MQTT_OPENTHERM:
-            from .mqtt.opentherm import SatOpenThermMqttCoordinator
-            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
-
-        if mode == MODE_SERIAL:
-            from .serial import SatSerialCoordinator
-            return SatSerialCoordinator(hass=hass, port=device, config_data=data, options=options)
-
-        raise Exception(f'Invalid mode[{mode}]')
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
@@ -476,3 +440,37 @@ class SatEntityCoordinator(DataUpdateCoordinator):
     @abstractmethod
     def _get_entity_id(self, domain: str, key: str):
         pass
+
+
+class SatDataUpdateCoordinatorFactory:
+    @staticmethod
+    def resolve(hass: HomeAssistant, mode: str, device: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> SatDataUpdateCoordinator:
+        if mode == MODE_FAKE:
+            from .fake import SatFakeCoordinator
+            return SatFakeCoordinator(hass=hass, config_data=data, options=options)
+
+        if mode == MODE_SIMULATOR:
+            from .simulator import SatSimulatorCoordinator
+            return SatSimulatorCoordinator(hass=hass, config_data=data, options=options)
+
+        if mode == MODE_SWITCH:
+            from .switch import SatSwitchCoordinator
+            return SatSwitchCoordinator(hass=hass, entity_id=device, config_data=data, options=options)
+
+        if mode == MODE_ESPHOME:
+            from .esphome import SatEspHomeCoordinator
+            return SatEspHomeCoordinator(hass=hass, device_id=device, config_data=data, options=options)
+
+        if mode == MODE_MQTT_EMS:
+            from .mqtt.ems import SatEmsMqttCoordinator
+            return SatEmsMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
+
+        if mode == MODE_MQTT_OPENTHERM:
+            from .mqtt.opentherm import SatOpenThermMqttCoordinator
+            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
+
+        if mode == MODE_SERIAL:
+            from .serial import SatSerialCoordinator
+            return SatSerialCoordinator(hass=hass, port=device, config_data=data, options=options)
+
+        raise Exception(f'Invalid mode[{mode}]')

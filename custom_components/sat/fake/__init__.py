@@ -1,5 +1,3 @@
-from __future__ import annotations, annotations
-
 import logging
 from typing import Mapping, Any
 

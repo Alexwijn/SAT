@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from types import MappingProxyType
 from typing import Any, TYPE_CHECKING
 
