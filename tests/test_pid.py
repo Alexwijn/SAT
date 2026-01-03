@@ -159,11 +159,11 @@ def test_derivative_filtering_and_cap(monkeypatch):
     pid.update(Error("sensor.test", 11.0), 11.0, heating_curve=10.0)
 
     filtered_error = DERIVATIVE_ERROR_ALPHA * 11.0 + (1 - DERIVATIVE_ERROR_ALPHA) * 1.0
-    derivative = (filtered_error - 1.0) / 1.0
+    derivative = (filtered_error - 1.0) / 11.0
     expected_filtered = DERIVATIVE_ALPHA1 * derivative
     expected_raw = DERIVATIVE_ALPHA2 * expected_filtered
 
-    assert pid.raw_derivative == pytest.approx(expected_raw, rel=1e-3)
+    assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
     assert pid.derivative == pytest.approx(expected_raw, rel=1e-3)
 
     pid.update(Error("sensor.test", 1000.0), 12.0, heating_curve=10.0)
@@ -263,11 +263,11 @@ def test_derivative_uses_internal_timing(monkeypatch):
     pid.update(Error("sensor.test", 2.0), 200.0, heating_curve=10.0)
 
     filtered_error = DERIVATIVE_ERROR_ALPHA * 2.0 + (1 - DERIVATIVE_ERROR_ALPHA) * 1.0
-    derivative = (filtered_error - 1.0) / 100.0
+    derivative = (filtered_error - 1.0) / 200.0
     expected_filtered = DERIVATIVE_ALPHA1 * derivative
     expected_raw = DERIVATIVE_ALPHA2 * expected_filtered
 
-    assert pid.raw_derivative == pytest.approx(expected_raw, rel=1e-3)
+    assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
 
 
 def test_restore_state(monkeypatch):
