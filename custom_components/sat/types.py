@@ -89,16 +89,15 @@ class PWMDecision(str, Enum):
     NO_SETPOINT = "disabled_no_setpoint"
     OVERSHOOT_PROTECTION_DISABLED = "disabled_overshoot_protection_disabled"
 
-    STATIC_MINIMUM_WITH_DEADBAND = "enabled_static_minimum_with_deadband"
-    STATIC_ABOVE_DEADBAND = "disabled_static_above_deadband"
-    STATIC_MINIMUM_ABOVE_SETPOINT = "enabled_static_minimum_above_setpoint"
-    STATIC_MINIMUM_BELOW_SETPOINT = "disabled_static_minimum_below_setpoint"
+    BELOW_STATIC_MINIMUM = "enabled_below_static_minimum"
+    ABOVE_STATIC_HYSTERESIS = "disabled_above_static_hysteresis"
+
+    BELOW_DYNAMIC_MINIMUM = "enabled_below_dynamic_minimum"
+    ABOVE_DYNAMIC_HYSTERESIS = "disabled_above_dynamic_hysteresis"
 
     RETAIN_PWM_STATE = "retain_pwm_state"
     STALLED_IGNITION = "enabled_stalled_ignition"
     LAST_CYCLE_UNHEALTHY = "enabled_last_cycle_unhealthy"
-    BELOW_DYNAMIC_MINIMUM = "enabled_below_dynamic_minimum"
-    ABOVE_DYNAMIC_HYSTERESIS = "disabled_above_dynamic_hysteresis"
 
     @property
     def enabled(self) -> bool:

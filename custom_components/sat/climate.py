@@ -596,16 +596,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _pwm_static_decision(self) -> PWMDecision:
         """Determine if PWM should be enabled based on the static minimum setpoint."""
-        if self.pwm.enabled:
-            if self._coordinator.minimum_setpoint > self._setpoint - BOILER_DEADBAND:
-                return PWMDecision.STATIC_MINIMUM_WITH_DEADBAND
+        delta = self.requested_setpoint - self._coordinator.minimum_setpoint
 
-            return PWMDecision.STATIC_ABOVE_DEADBAND
+        # Near/below static minimum -> PWM.
+        if delta <= PWM_ENABLE_MARGIN_CELSIUS:
+            return PWMDecision.BELOW_STATIC_MINIMUM
 
-        if self._coordinator.minimum_setpoint > self._setpoint:
-            return PWMDecision.STATIC_MINIMUM_ABOVE_SETPOINT
+        # When above the hysteresis band -> no PWM.
+        if delta >= PWM_DISABLE_MARGIN_CELSIUS:
+            return PWMDecision.ABOVE_STATIC_HYSTERESIS
 
-        return PWMDecision.STATIC_MINIMUM_BELOW_SETPOINT
+        return PWMDecision.RETAIN_PWM_STATE
 
     def _pwm_dynamic_decision(self) -> PWMDecision:
         """Determine if PWM should be enabled based on the dynamic minimum setpoint."""
