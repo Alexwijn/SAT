@@ -134,7 +134,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._force_pulse_width_modulation: bool = bool(config_entry.data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
         # Controllers
-        self.pid = create_pid_controller(config_entry.data, config_options, self.entity_id)
+        self.pid = create_pid_controller(config_entry.data, config_options)
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
         self.minimum_setpoint = create_dynamic_minimum_setpoint_controller(config_entry.data, config_options)
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)

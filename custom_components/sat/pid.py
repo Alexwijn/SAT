@@ -32,7 +32,7 @@ STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, entity_id: str, heating_system: str, automatic_gain_value: float, heating_curve_coefficient: float, kp: float, ki: float, kd: float, automatic_gains: bool = False) -> None:
+    def __init__(self, heating_system: str, automatic_gain_value: float, heating_curve_coefficient: float, kp: float, ki: float, kd: float, entity_id: Optional[str], automatic_gains: bool = False) -> None:
         self._kp: float = kp
         self._ki: float = ki
         self._kd: float = kd
@@ -41,9 +41,9 @@ class PID:
         self._automatic_gains_value: float = automatic_gain_value
         self._heating_curve_coefficient: float = heating_curve_coefficient
 
-        self._entity_id: str = entity_id
         self._store: Optional[Store] = None
         self._hass: Optional[HomeAssistant] = None
+        self._entity_id: Optional[str] = entity_id
 
         self.reset()
 
@@ -135,7 +135,13 @@ class PID:
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
         self._hass = hass
-        self._store = Store(hass, STORAGE_VERSION, f"sat.pid.{self._entity_id}.{device_id}")
+
+        if self._entity_id is None:
+            storage_key = f"sat.pid.{device_id}"
+        else:
+            storage_key = f"sat.pid.{self._entity_id}.{device_id}"
+
+        self._store = Store(hass, STORAGE_VERSION, storage_key)
 
         data: Optional[dict[str, Any]] = await self._store.async_load()
         if not data:
@@ -265,4 +271,3 @@ class PID:
         }
 
         await self._store.async_save(data)
-        _LOGGER.debug("Saved PID state to storage for entity=%s", self._entity_id)
