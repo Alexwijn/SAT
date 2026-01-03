@@ -49,6 +49,8 @@ def _make_boiler_state(
         flow_temperature=flow_temperature,
         return_temperature=flow_temperature - 10.0,
         relative_modulation_level=None,
+        max_modulation_level=100,
+        modulation_reliable=True
     )
 
 
