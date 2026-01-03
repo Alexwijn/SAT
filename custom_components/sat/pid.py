@@ -18,7 +18,7 @@ DERIVATIVE_RAW_CAP = 5.0
 DERIVATIVE_MIN_INTERVAL = 30.0
 DERIVATIVE_ERROR_ALPHA = 0.2
 
-ERROR_EPSILON = 0.01
+ERROR_EPSILON = 0.05
 MAX_BOILER_TEMPERATURE_AGE = 300
 
 
@@ -161,7 +161,7 @@ class PID:
 
         # Update integral based on error and derivative based on the filtered error slope.
         self._update_integral(error, now, heating_curve_value)
-        self._update_derivative(error, time_elapsed)
+        self._update_derivative(error, time_elapsed, error_changed)
 
         self._last_updated = now
         self._time_elapsed = time_elapsed
@@ -200,7 +200,7 @@ class PID:
         # Record the time of the latest update.
         self._last_interval_updated = now
 
-    def _update_derivative(self, error: Error, time_elapsed: float) -> None:
+    def _update_derivative(self, error: Error, time_elapsed: float, error_changed: bool) -> None:
         """Update the derivative term of the PID controller based on filtered error."""
         if self._filtered_error is None:
             self._filtered_error = error.value
@@ -210,11 +210,15 @@ class PID:
 
         # If the derivative is disabled for the current error, decay it toward zero.
         if abs(error.value) <= DEADBAND:
-            self._raw_derivative *= DERIVATIVE_DECAY
             self._filtered_error = filtered_error
             return
 
         if time_elapsed <= 0:
+            self._filtered_error = filtered_error
+            return
+
+        if not error_changed:
+            self._raw_derivative *= DERIVATIVE_DECAY
             self._filtered_error = filtered_error
             return
 

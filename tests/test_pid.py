@@ -8,8 +8,10 @@ from custom_components.sat.errors import Error
 from custom_components.sat.pid import (
     DERIVATIVE_ALPHA1,
     DERIVATIVE_ALPHA2,
+    DERIVATIVE_DECAY,
     DERIVATIVE_ERROR_ALPHA,
     DERIVATIVE_RAW_CAP,
+    ERROR_EPSILON,
     PID,
 )
 
@@ -187,9 +189,64 @@ def test_derivative_decay_when_error_unchanged(monkeypatch):
 
     pid.update(Error("sensor.test", 1.0), 20.0, heating_curve_value=10.0)
 
-    expected_filtered = (1 - DERIVATIVE_ALPHA1) * 4.0
-    expected_raw = DERIVATIVE_ALPHA2 * expected_filtered + (1 - DERIVATIVE_ALPHA2) * 4.0
+    assert pid.raw_derivative == pytest.approx(4.0 * DERIVATIVE_DECAY, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    ("delta", "should_update"),
+    [
+        (ERROR_EPSILON / 2, False),
+        (ERROR_EPSILON, True),
+        (0.1, True),
+    ],
+)
+def test_derivative_update_thresholds(monkeypatch, delta, should_update):
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0])
+
+    pid = PID(
+        heating_system=HEATING_SYSTEM_RADIATORS,
+        automatic_gain_value=2.0,
+        heating_curve_coefficient=2.0,
+        kp=0.0,
+        ki=0.0,
+        kd=1.0,
+    )
+
+    pid.update(Error("sensor.test", 1.0), 10.0, heating_curve_value=10.0)
+    pid._raw_derivative = 2.0
+
+    pid.update(Error("sensor.test", 1.0 + delta), 20.0, heating_curve_value=10.0)
+
+    if not should_update:
+        assert pid.raw_derivative == pytest.approx(2.0 * DERIVATIVE_DECAY, rel=1e-3)
+        return
+
+    filtered_error = DERIVATIVE_ERROR_ALPHA * (1.0 + delta) + (1 - DERIVATIVE_ERROR_ALPHA) * 1.0
+    derivative = (filtered_error - 1.0) / 10.0
+    expected_filtered = DERIVATIVE_ALPHA1 * derivative + (1 - DERIVATIVE_ALPHA1) * 2.0
+    expected_raw = DERIVATIVE_ALPHA2 * expected_filtered + (1 - DERIVATIVE_ALPHA2) * 2.0
+
     assert pid.raw_derivative == pytest.approx(expected_raw, rel=1e-3)
+
+
+def test_derivative_freeze_in_deadband(monkeypatch):
+    _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0])
+
+    pid = PID(
+        heating_system=HEATING_SYSTEM_RADIATORS,
+        automatic_gain_value=2.0,
+        heating_curve_coefficient=2.0,
+        kp=0.0,
+        ki=0.0,
+        kd=1.0,
+    )
+
+    pid.update(Error("sensor.test", 1.0), 10.0, heating_curve_value=10.0)
+    pid._raw_derivative = 3.0
+
+    pid.update(Error("sensor.test", DEADBAND / 2), 20.0, heating_curve_value=10.0)
+
+    assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)
 
 
 def test_restore_state(monkeypatch):
