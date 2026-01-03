@@ -441,13 +441,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @callback
     def async_notify_listeners(self, force: bool = True) -> None:
-        self.hass.async_add_job(self._control_update_debouncer.async_call())
+        self.hass.async_create_task(self._control_update_debouncer.async_call())
 
         if not force and not self.data.is_dirty():
             return
 
         self.data.reset_dirty()
-        self.hass.async_add_job(self._hass_notify_debouncer.async_call())
+        self.hass.async_create_task(self._hass_notify_debouncer.async_call())
 
     @callback
     def async_set_updated_data(self, data: dict) -> None:
