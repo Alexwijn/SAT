@@ -63,6 +63,10 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         return self._device_state == DeviceState.ON
 
     @property
+    def relative_modulation_value(self):
+        return self._relative_modulation_value
+
+    @property
     def supports_setpoint_management(self):
         if self.config is None:
             return super().supports_setpoint_management
