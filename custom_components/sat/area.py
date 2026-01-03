@@ -47,7 +47,7 @@ class Area:
 
         # Controllers and heating curve
         self.heating_curve: HeatingCurve = heating_curve
-        self.pid: PID = create_pid_controller(config_data, config_options)
+        self.pid: PID = create_pid_controller(config_data, config_options, self._entity_id)
 
         # Per-room influence scaling for demand calculations.
         raw_weights = config_options.get(CONF_ROOM_WEIGHTS, {}) or {}
@@ -193,19 +193,18 @@ class Area:
 
         return self.pid.output > COLD_SETPOINT
 
-    async def async_added_to_hass(self, hass: HomeAssistant) -> None:
+    async def async_added_to_hass(self, hass: HomeAssistant, device_id) -> None:
         """Run when the area is added to Home Assistant."""
         self._hass = hass
+
+        await self.pid.async_added_to_hass(hass, device_id)
 
         if hass.state is CoreState.running:
             self.update()
         else:
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.update)
 
-        # Periodic update as a fallback when we do not have a dedicated sensor listener
-        self._time_interval = async_track_time_interval(
-            self._hass, self.update, timedelta(seconds=30)
-        )
+        self._time_interval = async_track_time_interval(self._hass, self.update, timedelta(seconds=30))
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when the area is about to be removed."""
@@ -223,7 +222,7 @@ class Area:
             _LOGGER.debug("Skipping control loop for %s because heating curve has no value", self._entity_id)
             return
 
-        self.pid.update(self.error, event_timestamp(time), self.heating_curve.value)
+        self.pid.update(self.error.value, event_timestamp(time), self.heating_curve.value)
 
 
 class Areas:
@@ -263,10 +262,10 @@ class Areas:
         """Return all Area instances."""
         return list(self._areas)
 
-    async def async_added_to_hass(self, hass: HomeAssistant) -> None:
+    async def async_added_to_hass(self, hass: HomeAssistant, device_id: Optional[str]) -> None:
         """Call async_added_to_hass for all areas."""
         for area in self._areas:
-            await area.async_added_to_hass(hass)
+            await area.async_added_to_hass(hass, device_id)
 
     class _PIDs:
         """Helper for interacting with PID controllers of all areas."""

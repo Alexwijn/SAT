@@ -17,14 +17,14 @@ if TYPE_CHECKING:
     from .climate import SatClimate
 
 
-def create_pid_controller(_config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> PID:
+def create_pid_controller(config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_id: Optional[str]) -> PID:
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
     kp = float(config_options.get(CONF_PROPORTIONAL))
     ki = float(config_options.get(CONF_INTEGRAL))
     kd = float(config_options.get(CONF_DERIVATIVE))
 
-    heating_system = config_options.get(CONF_HEATING_SYSTEM)
+    heating_system = config_data.get(CONF_HEATING_SYSTEM)
     automatic_gains = bool(config_options.get(CONF_AUTOMATIC_GAINS))
     automatic_gains_value = float(config_options.get(CONF_AUTOMATIC_GAINS_VALUE))
     heating_curve_coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
@@ -36,7 +36,8 @@ def create_pid_controller(_config_data: MappingProxyType[str, Any], config_optio
         heating_curve_coefficient=heating_curve_coefficient,
 
         kp=kp, ki=ki, kd=kd,
-        automatic_gains=automatic_gains
+        entity_id=entity_id,
+        automatic_gains=automatic_gains,
     )
 
 

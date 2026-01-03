@@ -371,9 +371,7 @@ class DynamicMinimumSetpoint:
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
         """Restore learned regimes from storage when the integration loads."""
         self._hass = hass
-
-        if self._store is None:
-            self._store = Store(hass, STORAGE_VERSION, f"sat.minimum_setpoint.{device_id}")
+        self._store = Store(hass, STORAGE_VERSION, f"sat.minimum_setpoint.{device_id}")
 
         data: Optional[Dict[str, Any]] = await self._store.async_load()
         if not data:

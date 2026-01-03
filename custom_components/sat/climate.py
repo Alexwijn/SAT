@@ -134,7 +134,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._force_pulse_width_modulation: bool = bool(config_entry.data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
 
         # Controllers
-        self.pid = create_pid_controller(config_entry.data, config_options)
+        self.pid = create_pid_controller(config_entry.data, config_options, self.entity_id)
         self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
         self.minimum_setpoint = create_dynamic_minimum_setpoint_controller(config_entry.data, config_options)
         self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
@@ -202,6 +202,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Restore the previous state if available, or set default values
         await self._restore_previous_state_or_set_defaults()
+        await self.pid.async_added_to_hass(self.hass, self._coordinator.device_id)
 
         # Update a heating curve if outside temperature is available
         if self.current_outside_temperature is not None:
@@ -216,8 +217,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
 
         await self._register_services()
-        await self.areas.async_added_to_hass(self.hass)
         await self._coordinator.async_added_to_hass(self.hass)
+        await self.areas.async_added_to_hass(self.hass, self._coordinator.device_id)
         await self.minimum_setpoint.async_added_to_hass(self.hass, self._coordinator.device_id)
 
         self.async_on_remove(self.hass.bus.async_listen(
@@ -293,7 +294,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if old_state is not None:
             self.pwm.restore(old_state)
-            self.pid.restore(old_state)
 
             if self._target_temperature is None:
                 if old_state.attributes.get(ATTR_TEMPERATURE) is None:
@@ -366,17 +366,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return device state attributes."""
         return {
-            "integral": self.pid.integral,
-            "derivative": self.pid.derivative,
-            "proportional": self.pid.proportional,
-            "error": self.error.value if self.error is not None else None,
-
             "pre_custom_temperature": self._pre_custom_temperature,
             "pre_activity_temperature": self._pre_activity_temperature,
-
-            "current_kp": self.pid.kp,
-            "current_ki": self.pid.ki,
-            "current_kd": self.pid.kd,
 
             "rooms": self._rooms,
             "setpoint": self._setpoint,
@@ -879,7 +870,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self.entity_id)
             return
 
-        self.pid.update(self.error, event_timestamp(time), self.heating_curve.value)
+        self.pid.update(self.error.value, event_timestamp(time), self.heating_curve.value)
 
         self.async_write_ha_state()
 

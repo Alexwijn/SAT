@@ -15,7 +15,7 @@ async def test_area_current_temperature_stale_climate_state(hass, monkeypatch):
     config_options = dict(OPTIONS_DEFAULTS)
     config_options[CONF_SENSOR_MAX_VALUE_AGE] = "00:01:00"
     area = Area({}, config_options, HeatingCurve(HEATING_SYSTEM_RADIATORS, 1.0), "climate.room1")
-    await area.async_added_to_hass(hass)
+    await area.async_added_to_hass(hass, "device.test")
 
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
 
@@ -38,7 +38,7 @@ async def test_area_current_temperature_stale_override_sensor(hass, monkeypatch)
     config_options = dict(OPTIONS_DEFAULTS)
     config_options[CONF_SENSOR_MAX_VALUE_AGE] = "00:01:00"
     area = Area({}, config_options, HeatingCurve(HEATING_SYSTEM_RADIATORS, 1.0), "climate.room1")
-    await area.async_added_to_hass(hass)
+    await area.async_added_to_hass(hass, "device.test")
 
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
 
