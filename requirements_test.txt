@@ -1,4 +1,4 @@
-pytest
+pytest==9.02
 pytest-cov
 pytest-asyncio
 pytest-homeassistant-custom-component
