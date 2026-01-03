@@ -40,7 +40,6 @@ def test_initial_state_and_availability(monkeypatch):
     _patch_timestamp(monkeypatch, [100.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -60,7 +59,6 @@ def test_manual_gains_output_and_availability(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -86,7 +84,6 @@ def test_automatic_gains_calculation(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 5.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_UNDERFLOOR,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -109,7 +106,6 @@ def test_integral_timebase_reset_and_accumulation(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0, 30.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -132,7 +128,6 @@ def test_integral_clamped_to_heating_curve(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -150,7 +145,6 @@ def test_derivative_filtering_and_cap(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 11.0, 12.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -178,7 +172,6 @@ def test_derivative_decay_when_error_unchanged(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -207,7 +200,6 @@ def test_derivative_update_thresholds(monkeypatch, delta, should_update):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -237,7 +229,6 @@ def test_derivative_freeze_in_deadband(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 10.0, 20.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
@@ -258,7 +249,6 @@ def test_derivative_uses_internal_timing(monkeypatch):
     _patch_timestamp(monkeypatch, [0.0, 0.0, 100.0, 200.0])
 
     pid = PID(
-        entity_id="climate.test",
         heating_system=HEATING_SYSTEM_RADIATORS,
         automatic_gain_value=2.0,
         heating_curve_coefficient=2.0,
