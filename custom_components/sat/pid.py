@@ -17,7 +17,7 @@ DERIVATIVE_DECAY = 0.9
 DERIVATIVE_RAW_CAP = 5.0
 DERIVATIVE_MIN_INTERVAL = 30.0
 DERIVATIVE_ERROR_ALPHA = 0.3
-ERROR_EPSILON = 0.05
+ERROR_EPSILON = 0.01
 
 
 class PID:
@@ -178,23 +178,37 @@ class PID:
         """Update the derivative term of the PID controller based on filtered error."""
         if self._filtered_error is None:
             self._filtered_error = error.value
+            _LOGGER.debug("Derivative init: error=%.3f", error.value)
             return
 
         error_changed = self._last_error is None or abs(error.value - self._last_error) >= ERROR_EPSILON
         filtered_error = DERIVATIVE_ERROR_ALPHA * error.value + (1 - DERIVATIVE_ERROR_ALPHA) * self._filtered_error
 
         if abs(error.value) <= DEADBAND:
-            self._raw_derivative *= DERIVATIVE_DECAY
             self._filtered_error = filtered_error
+            self._raw_derivative *= DERIVATIVE_DECAY
+            _LOGGER.debug(
+                "Derivative decay (deadband): error=%.3f filtered=%.3f raw=%.3f",
+                error.value, filtered_error, self._raw_derivative
+            )
             return
 
         if not error_changed:
             self._filtered_error = filtered_error
+            _LOGGER.debug(
+                "Derivative skip (no change): error=%.3f filtered=%.3f raw=%.3f",
+                error.value, filtered_error, self._raw_derivative
+            )
             return
 
         time_elapsed = now - self._last_derivative_updated
         if time_elapsed <= 0:
             self._filtered_error = filtered_error
+
+            _LOGGER.debug(
+                "Derivative skip (time_elapsed<=0): error=%.3f filtered=%.3f raw=%.3f dt=%.3f",
+                error.value, filtered_error, self._raw_derivative, time_elapsed
+            )
             return
 
         # Basic derivative: slope between current and last filtered error.
@@ -209,3 +223,8 @@ class PID:
 
         self._filtered_error = filtered_error
         self._last_derivative_updated = now
+
+        _LOGGER.debug(
+            "Derivative update: error=%.3f filtered=%.3f raw=%.3f dt=%.3f changed=%s",
+            error.value, filtered_error, self._raw_derivative, time_elapsed, error_changed
+        )
