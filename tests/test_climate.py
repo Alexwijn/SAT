@@ -180,11 +180,18 @@ def test_pwm_forced_without_setpoint_management(climate):
     assert climate.pulse_width_modulation_enabled is True
 
 
-def test_pwm_static_minimum_setpoint_deadband(climate):
+def test_pwm_static_minimum_setpoint_deadband(monkeypatch, climate):
     climate._setpoint = 41.0
     climate._overshoot_protection = True
     climate._dynamic_minimum_setpoint = False
     climate._coordinator._config_data = {**climate._coordinator._config_data, CONF_MINIMUM_SETPOINT: 40.0}
+    delta = (PWM_ENABLE_MARGIN_CELSIUS + PWM_DISABLE_MARGIN_CELSIUS) / 2
+
+    monkeypatch.setattr(
+        SatClimate,
+        "requested_setpoint",
+        property(lambda self: self._coordinator.minimum_setpoint + delta),
+    )
 
     climate.pwm._enabled = False
     assert climate.pulse_width_modulation_enabled is False
@@ -220,5 +227,4 @@ def test_pwm_dynamic_minimum_setpoint_hysteresis(monkeypatch, climate, delta, pw
 
     climate.pwm._enabled = pwm_enabled
     assert climate.pulse_width_modulation_enabled is expected
-
 
