@@ -178,7 +178,7 @@ class PID:
         """Update the derivative term of the PID controller based on filtered error."""
         if self._filtered_error is None:
             self._filtered_error = error.value
-            _LOGGER.debug("Derivative init: error=%.3f", error.value)
+            _LOGGER.debug("Derivative init: entity=%s error=%.3f", error.entity_id, error.value)
             return
 
         error_changed = self._last_error is None or abs(error.value - self._last_error) >= ERROR_EPSILON
@@ -188,16 +188,16 @@ class PID:
             self._filtered_error = filtered_error
             self._raw_derivative *= DERIVATIVE_DECAY
             _LOGGER.debug(
-                "Derivative decay (deadband): error=%.3f filtered=%.3f raw=%.3f",
-                error.value, filtered_error, self._raw_derivative
+                "Derivative decay (deadband): entity=%s error=%.3f filtered=%.3f raw=%.3f",
+                error.entity_id, error.value, filtered_error, self._raw_derivative
             )
             return
 
         if not error_changed:
             self._filtered_error = filtered_error
             _LOGGER.debug(
-                "Derivative skip (no change): error=%.3f filtered=%.3f raw=%.3f",
-                error.value, filtered_error, self._raw_derivative
+                "Derivative skip (no change): entity=%s error=%.3f filtered=%.3f raw=%.3f",
+                error.entity_id, error.value, filtered_error, self._raw_derivative
             )
             return
 
@@ -206,8 +206,8 @@ class PID:
             self._filtered_error = filtered_error
 
             _LOGGER.debug(
-                "Derivative skip (time_elapsed<=0): error=%.3f filtered=%.3f raw=%.3f dt=%.3f",
-                error.value, filtered_error, self._raw_derivative, time_elapsed
+                "Derivative skip (time_elapsed<=0): entity=%s error=%.3f filtered=%.3f raw=%.3f dt=%.3f",
+                error.entity_id, error.value, filtered_error, self._raw_derivative, time_elapsed
             )
             return
 
@@ -225,6 +225,6 @@ class PID:
         self._last_derivative_updated = now
 
         _LOGGER.debug(
-            "Derivative update: error=%.3f filtered=%.3f raw=%.3f dt=%.3f changed=%s",
-            error.value, filtered_error, self._raw_derivative, time_elapsed, error_changed
+            "Derivative update: entity=%s error=%.3f filtered=%.3f raw=%.3f dt=%.3f changed=%s",
+            error.entity_id, error.value, filtered_error, self._raw_derivative, time_elapsed, error_changed
         )
