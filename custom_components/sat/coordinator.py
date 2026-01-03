@@ -158,6 +158,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             flame_active=self.flame_active,
             central_heating=self.device_active,
             hot_water_active=self.hot_water_active,
+            modulation_reliable=self._boiler.modulation_reliable,
 
             flame_on_since=self._boiler.flame_on_since,
             flame_off_since=self._boiler.flame_off_since,
@@ -166,6 +167,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             flow_temperature=self.boiler_temperature,
             return_temperature=self.return_temperature,
             relative_modulation_level=self.relative_modulation_value,
+            max_modulation_level=self.maximum_relative_modulation_value,
         )
 
     @property
