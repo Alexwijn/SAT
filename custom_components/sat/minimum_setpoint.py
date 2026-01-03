@@ -553,8 +553,8 @@ class DynamicMinimumSetpoint:
         elif classification == CycleClassification.LONG_UNDERHEAT:
             error = cycle.tail.flow_setpoint_error.p90
             step = self._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
-            regime_state.minimum_setpoint -= step
 
+            regime_state.minimum_setpoint -= step
             _LOGGER.debug("Long underheat; decreasing minimum setpoint by %.2f.", step)
             self._apply_condensing_bias(cycle, regime_state)
 
@@ -722,7 +722,7 @@ class DynamicMinimumSetpoint:
         regime_state.minimum_setpoint -= step
 
         _LOGGER.debug(
-            "Condensing bias applied: return_temp=%.1f°C target=%.1f°C step=%.2f.",
+            "Condensing bias applied: return_temperature=%.1f°C target=%.1f°C step=%.2f.",
             cycle.tail.return_temperature.p90, CONDENSING_RETURN_TEMP_TARGET, step,
         )
 
