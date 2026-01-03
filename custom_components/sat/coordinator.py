@@ -156,10 +156,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Snapshot the current boiler state for control logic."""
         return BoilerState(
             flame_active=self.flame_active,
-            hot_water_active=self.hot_water_active,
-
             central_heating=self.device_active,
-            modulation_reliable=self._boiler.modulation_reliable,
+            hot_water_active=self.hot_water_active,
 
             flame_on_since=self._boiler.flame_on_since,
             flame_off_since=self._boiler.flame_off_since,
@@ -168,7 +166,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             flow_temperature=self.boiler_temperature,
             return_temperature=self.return_temperature,
             relative_modulation_level=self.relative_modulation_value,
-            max_modulation_level=self.maximum_relative_modulation_value,
         )
 
     @property
@@ -370,11 +367,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:
         """Perform setup when the integration is added to Home Assistant."""
-        await self._boiler.async_added_to_hass(hass, self.device_id)
+        pass
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
-        await self._boiler.async_save_data()
+        pass
 
     def set_control_intent(self, intent: BoilerControlIntent) -> None:
         """Store the latest control intent produced by a climate entity."""

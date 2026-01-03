@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, TYPE_CHECKING, Dict, Any
+from typing import List, Optional, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -52,7 +52,6 @@ class BoilerState:
     flame_active: bool
     central_heating: bool
     hot_water_active: bool
-    modulation_reliable: Optional[bool]
 
     # Flame timing
     flame_on_since: Optional[float]
@@ -62,7 +61,6 @@ class BoilerState:
     setpoint: Optional[float]
     flow_temperature: Optional[float]
     return_temperature: Optional[float]
-    max_modulation_level: Optional[float]
     relative_modulation_level: Optional[float]
 
     @property
@@ -122,33 +120,6 @@ class Boiler:
     def flame_off_since(self) -> Optional[int]:
         return self._last_flame_off_at
 
-    async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
-        """Restore boiler state from storage when the integration loads."""
-        self._hass = hass
-
-        if self._store is None:
-            self._store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
-
-        data: Optional[Dict[str, Any]] = await self._store.async_load()
-        if not data:
-            return
-
-        try:
-            modulation_reliable = data["modulation_reliable"]
-        except (KeyError, TypeError, ValueError):
-            return
-
-        self._modulation_reliable = modulation_reliable
-
-        _LOGGER.debug("Loaded boiler state from storage (modulation_reliable=%s).", modulation_reliable)
-
-    async def async_save_data(self) -> None:
-        if self._store is None:
-            return
-
-        await self._store.async_save({"modulation_reliable": self._modulation_reliable})
-        _LOGGER.debug("Saved boiler state to storage (modulation_reliable=%s).", self._modulation_reliable)
-
     def update(self, state: "BoilerState", last_cycle: Optional["Cycle"]) -> None:
         """Update the internal state and derive the current boiler status."""
         previous = self._current_state
@@ -161,8 +132,6 @@ class Boiler:
             self._last_flame_off_at = None
 
         self._record_flame_transitions(previous, state)
-        self._update_modulation_reliability(state)
-
         self._current_status = self._determine_status()
 
     def _determine_status(self) -> BoilerStatus:
@@ -247,33 +216,6 @@ class Boiler:
 
         # Fallback: generic heating space.
         return BoilerStatus.CENTRAL_HEATING
-
-    def _update_modulation_reliability(self, state: BoilerState) -> None:
-        """Track whether modulation readings show sustained, meaningful variation."""
-        if not state.flame_active:
-            return
-
-        max_modulation = state.max_modulation_level
-        current_modulation = state.relative_modulation_level
-        if current_modulation is None or max_modulation < BOILER_MODULATION_DELTA_THRESHOLD:
-            return
-
-        self._modulation_values_when_flame_on.append(current_modulation)
-
-        if len(self._modulation_values_when_flame_on) > 50:
-            self._modulation_values_when_flame_on = self._modulation_values_when_flame_on[-50:]
-
-        if len(self._modulation_values_when_flame_on) < BOILER_MODULATION_RELIABILITY_MIN_SAMPLES:
-            return
-
-        window = self._modulation_values_when_flame_on[-BOILER_MODULATION_RELIABILITY_MIN_SAMPLES:]
-        above_threshold = sum(1 for value in window if value >= BOILER_MODULATION_DELTA_THRESHOLD)
-        required_samples = max(2, int(len(window) * 0.4))
-
-        self._modulation_reliable = above_threshold >= required_samples
-
-        if self._hass is not None:
-            self._hass.create_task(self.async_save_data())
 
     def _determine_modulation_direction(self) -> int:
         """Determine modulation direction."""

@@ -47,7 +47,6 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
     _async_add_entities([
         SatCycleHealthSensor(coordinator, _config_entry),
         SatBoilerHealthSensor(coordinator, _config_entry),
-        SatBoilerModulationReliable(coordinator, _config_entry),
         SatCentralHeatingSyncSensor(coordinator, _config_entry, climate)
     ])
 
@@ -246,25 +245,3 @@ class SatWindowSensor(SatClimateEntity, BinarySensorGroup):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-window-sensor"
-
-
-class SatBoilerModulationReliable(SatEntity, BinarySensorEntity):
-    @property
-    def name(self) -> str:
-        """Return the friendly name of the sensor."""
-        return "Boiler Modulation Reliable"
-
-    @property
-    def device_class(self) -> str:
-        """Return the device class."""
-        return BinarySensorDeviceClass.PROBLEM
-
-    @property
-    def is_on(self) -> bool:
-        """Return the state of the sensor."""
-        return self._coordinator.device_state.modulation_reliable == False
-
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-modulation-reliable"

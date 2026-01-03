@@ -504,7 +504,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if overshoot_cap is not None:
             setpoint = min(setpoint, overshoot_cap)
 
-        return round(max(MINIMUM_SETPOINT, setpoint), 1)
+        return clamp(round(max(MINIMUM_SETPOINT, setpoint), 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
     @property
     def valves_open(self) -> bool:
@@ -588,41 +588,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if last_cycle is not None and last_cycle.classification in UNHEALTHY_CYCLES:
             return True
 
-        if (enabled := self._should_enable_low_modulation_pwm()) is not None:
-            return enabled
-
-        if (enabled := self._should_enable_pwm_from_setpoint_delta()) is not None:
-            return enabled
-
-        return self.pwm.enabled
-
-    def _should_enable_low_modulation_pwm(self) -> Optional[bool]:
-        """Enable PWM if the boiler stays at low relative modulation for a while."""
-
-        def _reset_low_modulation_ticks() -> bool:
-            self._low_modulation_ticks = 0
-            return False
-
-        if not self._coordinator.supports_relative_modulation:
-            return _reset_low_modulation_ticks()
-
-        if self._coordinator.hot_water_active:
-            return _reset_low_modulation_ticks()
-
-        state = self._coordinator.device_state
-        if state.modulation_reliable == False or state.relative_modulation_level is None or not state.flame_active:
-            return None
-
-        if state.relative_modulation_level <= PWM_ENABLE_LOW_MODULATION_PERCENT:
-            self._low_modulation_ticks += 1
-
-        if state.relative_modulation_level >= PWM_DISABLE_LOW_MODULATION_PERCENT:
-            self._low_modulation_ticks = 0
-
-        return self._low_modulation_ticks >= PWM_LOW_MODULATION_PERSISTENCE_TICKS
-
-    def _should_enable_pwm_from_setpoint_delta(self) -> Optional[bool]:
-        """Return PWM decision based on requested/minimum delta, or None to keep state."""
         delta = self.requested_setpoint - self.minimum_setpoint.value
 
         # Near/below dynamic minimum -> PWM.
@@ -633,7 +598,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if delta >= PWM_DISABLE_MARGIN_CELSIUS:
             return False
 
-        return None
+        return self.pwm.enabled
 
     @property
     def relative_modulation_value(self) -> int:
@@ -754,7 +719,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Normal cycle without PWM
             _LOGGER.info("PWM inactive (enabled=%s, state=%s). Using continuous heating control.", self.pulse_width_modulation_enabled, self.pwm.status.name)
 
-            requested_setpoint = clamp(self.requested_setpoint, MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
+            requested_setpoint = self.requested_setpoint
             requested_setpoint_delta = requested_setpoint - self._setpoint
 
             # Track persistent decreases

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from homeassistant.core import State
 
-from custom_components.sat.boiler import BoilerControlIntent, BoilerState
+from custom_components.sat.boiler import BoilerState
 from custom_components.sat.const import HEATING_SYSTEM_RADIATORS
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pwm import PWM, PWMConfig
@@ -35,10 +35,6 @@ def _make_boiler_state(
     )
 
 
-def _make_control_intent(setpoint: float) -> BoilerControlIntent:
-    return BoilerControlIntent(setpoint=setpoint, relative_modulation=None)
-
-
 @pytest.fixture
 def heating_curve() -> HeatingCurve:
     curve = HeatingCurve(HEATING_SYSTEM_RADIATORS, coefficient=1.0)
@@ -64,10 +60,9 @@ def test_initial_state_and_restore(pwm: PWM):
 
 def test_update_missing_values_sets_idle(pwm: PWM, caplog):
     boiler_state = _make_boiler_state()
-    control_intent = _make_control_intent(40.0)
 
     pwm._heating_curve._last_heating_curve_value = None
-    pwm.update(boiler_state, control_intent, 123.0)
+    pwm.update(boiler_state, 40.0, 123.0)
 
     assert pwm.enabled is True
     assert pwm.status is PWMStatus.IDLE
@@ -106,18 +101,17 @@ def test_update_transitions_and_cycle_limit(pwm: PWM):
     base_offset = pwm._heating_curve.base_offset
     setpoint = base_offset + 0.5 * (50.0 - base_offset)
     boiler_state = _make_boiler_state(flow_temperature=50.0)
-    control_intent = _make_control_intent(setpoint)
 
     pwm._last_update = 0.0
-    pwm.update(boiler_state, control_intent, 0.0)
+    pwm.update(boiler_state, setpoint, 0.0)
     assert pwm.status is PWMStatus.ON
     assert pwm._current_cycle == 1
 
-    pwm.update(boiler_state, control_intent, 450.0)
+    pwm.update(boiler_state, setpoint, 450.0)
     assert pwm.status is PWMStatus.OFF
 
     pwm._current_cycle = pwm._config.maximum_cycles
-    pwm.update(boiler_state, control_intent, 900.0)
+    pwm.update(boiler_state, setpoint, 900.0)
     assert pwm.status is PWMStatus.OFF
     assert pwm._current_cycle == pwm._config.maximum_cycles
 
@@ -131,9 +125,8 @@ def test_cycle_count_resets_after_rolling_hour(pwm: PWM):
     base_offset = pwm._heating_curve.base_offset
     setpoint = base_offset + 0.05 * (50.0 - base_offset)
     boiler_state = _make_boiler_state(flow_temperature=50.0)
-    control_intent = _make_control_intent(setpoint)
 
-    pwm.update(boiler_state, control_intent, 3701.0)
+    pwm.update(boiler_state, setpoint, 3701.0)
 
     assert pwm._current_cycle == 0
     assert pwm._first_duty_cycle_start == 3701.0
@@ -143,7 +136,6 @@ def test_cycle_count_resets_after_rolling_hour(pwm: PWM):
 def test_effective_temperature_updates_when_flame_stable(pwm: PWM):
     base_offset = pwm._heating_curve.base_offset
     setpoint = base_offset + 0.5 * (50.0 - base_offset)
-    control_intent = _make_control_intent(setpoint)
 
     pwm._status = PWMStatus.ON
     pwm._last_update = 100.0
@@ -156,7 +148,7 @@ def test_effective_temperature_updates_when_flame_stable(pwm: PWM):
         flow_temperature=50.0,
     )
 
-    pwm.update(boiler_state, control_intent, 110.0)
+    pwm.update(boiler_state, setpoint, 110.0)
 
     assert pwm.status is PWMStatus.ON
     assert pwm._effective_on_temperature == pytest.approx(43.0)
