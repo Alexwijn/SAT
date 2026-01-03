@@ -134,12 +134,10 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
         return {
+            "error": self._pid.last_error,
             "proportional": self._pid.proportional,
             "integral": self._pid.integral,
             "derivative": self._pid.derivative,
-
-            "error": self._pid.last_error,
-            "output": self._pid.output,
         }
 
 
