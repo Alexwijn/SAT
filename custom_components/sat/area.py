@@ -47,7 +47,7 @@ class Area:
 
         # Controllers and heating curve
         self.heating_curve: HeatingCurve = heating_curve
-        self.pid: PID = create_pid_controller(config_data, config_options, self._entity_id)
+        self.pid: PID = create_pid_controller(config_data, config_options)
 
         # Per-room influence scaling for demand calculations.
         raw_weights = config_options.get(CONF_ROOM_WEIGHTS, {}) or {}
@@ -197,7 +197,7 @@ class Area:
         """Run when the area is added to Home Assistant."""
         self._hass = hass
 
-        await self.pid.async_added_to_hass(hass, device_id)
+        await self.pid.async_added_to_hass(hass, self._entity_id, device_id)
 
         if hass.state is CoreState.running:
             self.update()

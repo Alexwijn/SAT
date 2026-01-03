@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .climate import SatClimate
 
 
-def create_pid_controller(config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_id: Optional[str] = None) -> PID:
+def create_pid_controller(config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> PID:
     """Create and return a PID controller instance with the given configuration options."""
     # Extract the configuration options
     kp = float(config_options.get(CONF_PROPORTIONAL))
@@ -36,7 +36,6 @@ def create_pid_controller(config_data: MappingProxyType[str, Any], config_option
         heating_curve_coefficient=heating_curve_coefficient,
 
         kp=kp, ki=ki, kd=kd,
-        entity_id=entity_id,
         automatic_gains=automatic_gains,
     )
 

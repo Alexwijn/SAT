@@ -32,7 +32,7 @@ STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, heating_system: str, automatic_gain_value: float, heating_curve_coefficient: float, kp: float, ki: float, kd: float, entity_id: Optional[str], automatic_gains: bool = False) -> None:
+    def __init__(self, heating_system: str, automatic_gain_value: float, heating_curve_coefficient: float, kp: float, ki: float, kd: float, automatic_gains: bool = False) -> None:
         self._kp: float = kp
         self._ki: float = ki
         self._kd: float = kd
@@ -42,8 +42,8 @@ class PID:
         self._heating_curve_coefficient: float = heating_curve_coefficient
 
         self._store: Optional[Store] = None
+        self._entity_id: Optional[str] = None
         self._hass: Optional[HomeAssistant] = None
-        self._entity_id: Optional[str] = entity_id
 
         self.reset()
 
@@ -132,16 +132,11 @@ class PID:
         self._integral: float = 0.0
         self._raw_derivative: float = 0.0
 
-    async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
+    async def async_added_to_hass(self, hass: HomeAssistant, entity_id: str, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
         self._hass = hass
-
-        if self._entity_id is None:
-            storage_key = f"sat.pid.{device_id}"
-        else:
-            storage_key = f"sat.pid.{self._entity_id}.{device_id}"
-
-        self._store = Store(hass, STORAGE_VERSION, storage_key)
+        self._entity_id = entity_id
+        self._store = Store(hass, STORAGE_VERSION, f"sat.pid.{entity_id}.{device_id}")
 
         data: Optional[dict[str, Any]] = await self._store.async_load()
         if not data:
@@ -170,12 +165,12 @@ class PID:
 
         self._last_error = error
 
-        _LOGGER.debug(
-            "PID update for %s (error=%.3f curve=%.3f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f)",
-            self._entity_id, error, heating_curve, self.proportional, self.integral, self.derivative, self.output
-        )
-
         if self._hass is not None and self._store is not None:
+            _LOGGER.debug(
+                "PID update for %s (error=%.3f curve=%.3f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f)",
+                self._entity_id, error, heating_curve, self.proportional, self.integral, self.derivative, self.output
+            )
+
             self._hass.create_task(self._async_save_state())
 
     def _update_integral(self, error: float, now: float, heating_curve_value: float) -> None:

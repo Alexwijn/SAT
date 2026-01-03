@@ -202,7 +202,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Restore the previous state if available, or set default values
         await self._restore_previous_state_or_set_defaults()
-        await self.pid.async_added_to_hass(self.hass, self._coordinator.device_id)
+        await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.device_id)
 
         # Update a heating curve if outside temperature is available
         if self.current_outside_temperature is not None:
