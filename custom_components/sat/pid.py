@@ -147,6 +147,11 @@ class PID:
 
         self._last_error = error.value
 
+        _LOGGER.debug(
+            "PID update result: entity=%s error=%.3f curve=%.3f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
+            error.entity_id, error.value, heating_curve, self.proportional, self.integral, self.derivative, self.output
+        )
+
     def _update_integral(self, error: Error, now: float, heating_curve_value: float) -> None:
         """Update the integral value in the PID controller."""
 
