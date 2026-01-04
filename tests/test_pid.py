@@ -15,28 +15,6 @@ from custom_components.sat.pid import (
 from custom_components.sat.temperature_state import TemperatureState
 
 
-class TimestampSequence:
-    """Return deterministic timestamp values, repeating the last one."""
-
-    def __init__(self, values):
-        self._values = iter(values)
-        self._last = None
-
-    def __call__(self):
-        try:
-            self._last = next(self._values)
-        except StopIteration:
-            if self._last is None:
-                raise
-        return self._last
-
-
-def _patch_timestamp(monkeypatch, values):
-    timestamp = TimestampSequence(values)
-    monkeypatch.setattr("custom_components.sat.pid.timestamp", timestamp)
-    return timestamp
-
-
 def _state_for_error(error, timestamp_value, current=20.0):
     setpoint = current + error
     timestamp_dt = datetime.fromtimestamp(timestamp_value)
@@ -49,8 +27,7 @@ def _state_for_error(error, timestamp_value, current=20.0):
     )
 
 
-def test_initial_state_and_availability(monkeypatch):
-    _patch_timestamp(monkeypatch, [100.0])
+def test_initial_state_and_availability():
 
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
@@ -68,9 +45,7 @@ def test_initial_state_and_availability(monkeypatch):
     assert pid.output == 0.0
 
 
-def test_manual_gains_output_and_availability(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_manual_gains_output_and_availability():
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
         automatic_gain_value=2.0,
@@ -81,6 +56,7 @@ def test_manual_gains_output_and_availability(monkeypatch):
         automatic_gains=False,
     )
 
+    pid.update(_state_for_error(0.05, 0.0), heating_curve=30.0)
     state = _state_for_error(0.05, 10.0)
     pid.update(state, heating_curve=30.0)
 
@@ -94,9 +70,7 @@ def test_manual_gains_output_and_availability(monkeypatch):
     assert pid.output == 30.6
 
 
-def test_automatic_gains_calculation(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_automatic_gains_calculation():
     pid = PID(
         heating_system=HeatingSystem.UNDERFLOOR,
         automatic_gain_value=2.0,
@@ -117,9 +91,7 @@ def test_automatic_gains_calculation(monkeypatch):
     assert pid.kd == round(0.07 * 8400 * 20.0, 6)
 
 
-def test_integral_timebase_reset_and_accumulation(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_integral_timebase_reset_and_accumulation():
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
         automatic_gain_value=2.0,
@@ -139,9 +111,7 @@ def test_integral_timebase_reset_and_accumulation(monkeypatch):
     assert pid.integral == 0.5
 
 
-def test_integral_clamped_to_heating_curve(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_integral_clamped_to_heating_curve():
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
         automatic_gain_value=2.0,
@@ -151,14 +121,13 @@ def test_integral_clamped_to_heating_curve(monkeypatch):
         kd=0.0,
     )
 
+    pid.update(_state_for_error(DEADBAND, 0.0), heating_curve=0.5)
     pid.update(_state_for_error(DEADBAND, 10.0), heating_curve=0.5)
 
     assert pid.integral == 0.5
 
 
-def test_integral_clamps_large_interval(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_integral_clamps_large_interval():
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
         automatic_gain_value=2.0,
@@ -168,6 +137,7 @@ def test_integral_clamps_large_interval(monkeypatch):
         kd=0.0,
     )
 
+    pid.update(_state_for_error(0.05, 0.0), heating_curve=100.0)
     state = _state_for_error(0.05, SENSOR_MAX_INTERVAL + 600.0)
     pid.update(state, heating_curve=100.0)
 
@@ -175,9 +145,7 @@ def test_integral_clamps_large_interval(monkeypatch):
     assert pid.integral == pytest.approx(expected, rel=1e-3)
 
 
-def test_derivative_filtering_and_cap(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_derivative_filtering_and_cap():
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
         automatic_gain_value=2.0,
@@ -200,9 +168,7 @@ def test_derivative_filtering_and_cap(monkeypatch):
     assert pid.raw_derivative == DERIVATIVE_RAW_CAP
 
 
-def test_derivative_freeze_in_deadband(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_derivative_freeze_in_deadband():
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
         automatic_gain_value=2.0,
@@ -220,9 +186,7 @@ def test_derivative_freeze_in_deadband(monkeypatch):
     assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)
 
 
-def test_derivative_uses_sensor_timing(monkeypatch):
-    _patch_timestamp(monkeypatch, [0.0])
-
+def test_derivative_uses_sensor_timing():
     pid = PID(
         heating_system=HeatingSystem.RADIATORS,
         automatic_gain_value=2.0,

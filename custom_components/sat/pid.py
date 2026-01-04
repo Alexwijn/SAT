@@ -8,10 +8,11 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 
 from .const import *
-from .helpers import clamp, timestamp, float_value
+from .helpers import clamp, float_value, timestamp as _timestamp
 from .temperature_state import TemperatureState
 
 _LOGGER = logging.getLogger(__name__)
+timestamp = _timestamp  # keep public name for tests
 
 DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
@@ -120,18 +121,15 @@ class PID:
 
     def reset(self) -> None:
         """Reset the PID controller to a clean state."""
-        now = timestamp()
-
-        self._last_interval_updated: float = now
-        self._last_derivative_updated: float = now
+        self._integral: float = 0.0
+        self._raw_derivative: float = 0.0
 
         self._last_error: Optional[float] = None
         self._heating_curve: Optional[float] = None
         self._last_temperature: Optional[float] = None
 
-        # Clear the accumulated integral and raw derivative terms.
-        self._integral: float = 0.0
-        self._raw_derivative: float = 0.0
+        self._last_interval_updated: Optional[float] = None
+        self._last_derivative_updated: Optional[float] = None
 
     async def async_added_to_hass(self, hass: HomeAssistant, entity_id: str, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
@@ -147,8 +145,13 @@ class PID:
         self._last_temperature = float_value(data.get(STORAGE_KEY_LAST_TEMPERATURE))
         self._raw_derivative = float(data.get(STORAGE_KEY_RAW_DERIVATIVE, self._raw_derivative))
 
-        self._last_interval_updated = float(data.get(STORAGE_KEY_LAST_INTERVAL_UPDATED, self._last_interval_updated))
-        self._last_derivative_updated = float(data.get(STORAGE_KEY_LAST_DERIVATIVE_UPDATED, self._last_derivative_updated))
+        if STORAGE_KEY_LAST_INTERVAL_UPDATED in data:
+            value = data[STORAGE_KEY_LAST_INTERVAL_UPDATED]
+            self._last_interval_updated = float(value) if value is not None else None
+
+        if STORAGE_KEY_LAST_DERIVATIVE_UPDATED in data:
+            value = data[STORAGE_KEY_LAST_DERIVATIVE_UPDATED]
+            self._last_derivative_updated = float(value) if value is not None else None
 
         _LOGGER.debug("Loaded PID state from storage for entity=%s", self._entity_id)
 
@@ -193,6 +196,10 @@ class PID:
             return
 
         # Ignore non-forward timestamps.
+        if self._last_interval_updated is None:
+            self._last_interval_updated = state_timestamp
+            return
+
         if (delta_time := state_timestamp - self._last_interval_updated) <= 0:
             self._last_interval_updated = state_timestamp
             return
@@ -213,8 +220,9 @@ class PID:
         state_timestamp = state.last_updated.timestamp()
 
         in_deadband = error_abs <= DEADBAND
+        last_derivative_updated = self._last_derivative_updated
         has_last_temperature = self._last_temperature is not None
-        is_forward = state_timestamp > self._last_derivative_updated
+        is_forward = last_derivative_updated is not None and state_timestamp > last_derivative_updated
 
         # Bail out when we are in the deadband or lack valid forward temperature data.
         if in_deadband or not has_last_temperature or not is_forward:
@@ -222,7 +230,7 @@ class PID:
             return
 
         # Ignore updates when the sensor gap is too large.
-        if (delta_time := state_timestamp - self._last_derivative_updated) > SENSOR_MAX_INTERVAL:
+        if (delta_time := state_timestamp - last_derivative_updated) > SENSOR_MAX_INTERVAL:
             self._last_derivative_updated = state_timestamp
             return
 
