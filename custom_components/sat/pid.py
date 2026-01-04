@@ -41,6 +41,11 @@ class PID:
         self._automatic_gains_value: float = automatic_gain_value
         self._heating_curve_coefficient: float = heating_curve_coefficient
 
+        self._raw_derivative: float = 0.0
+        self._heating_curve: Optional[float] = None
+        self._last_temperature: Optional[float] = None
+        self._last_derivative_updated: Optional[float] = None
+
         self._store: Optional[Store] = None
         self._entity_id: Optional[str] = None
         self._hass: Optional[HomeAssistant] = None
@@ -122,14 +127,8 @@ class PID:
     def reset(self) -> None:
         """Reset the PID controller to a clean state."""
         self._integral: float = 0.0
-        self._raw_derivative: float = 0.0
-
         self._last_error: Optional[float] = None
-        self._heating_curve: Optional[float] = None
-        self._last_temperature: Optional[float] = None
-
         self._last_interval_updated: Optional[float] = None
-        self._last_derivative_updated: Optional[float] = None
 
     async def async_added_to_hass(self, hass: HomeAssistant, entity_id: str, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
