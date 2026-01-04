@@ -19,6 +19,7 @@ from voluptuous import Marker
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
+from .entry_data import SatConfig, SatMode
 from .helpers import calculate_default_maximum_setpoint, snake_case
 from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .overshoot_protection import OvershootProtection
@@ -86,8 +87,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Mapping topic prefixes to handler methods and device IDs
         topic_mapping = {
-            "ems-esp/": (MODE_MQTT_EMS, "ems-esp", self.async_step_mosquitto_ems),
-            "OTGW/": (MODE_MQTT_OPENTHERM, discovery_info.topic[11:], self.async_step_mosquitto_opentherm),
+            "ems-esp/": (SatMode.MQTT_EMS, "ems-esp", self.async_step_mosquitto_ems),
+            "OTGW/": (SatMode.MQTT_OPENTHERM, discovery_info.topic[11:], self.async_step_mosquitto_opentherm),
         }
 
         # Check for matching prefix and handle appropriately
@@ -113,10 +114,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             self.errors = {}
             self.data.update(_user_input)
 
-            if self.data[CONF_MODE] == MODE_MQTT_OPENTHERM:
+            if self.data[CONF_MODE] == SatMode.MQTT_OPENTHERM:
                 return await self.async_step_mosquitto_opentherm()
 
-            if self.data[CONF_MODE] == MODE_MQTT_EMS:
+            if self.data[CONF_MODE] == SatMode.MQTT_EMS:
                 return await self.async_step_mosquitto_ems()
 
         return self.async_show_form(
@@ -128,8 +129,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.SelectSelectorConfig(
                         mode=SelectSelectorMode.DROPDOWN,
                         options=[
-                            selector.SelectOptionDict(value=MODE_MQTT_OPENTHERM, label="OpenTherm Gateway (For advanced boiler control)"),
-                            selector.SelectOptionDict(value=MODE_MQTT_EMS, label="EMS-ESP (For Bosch, Junkers, Buderus systems)"),
+                            selector.SelectOptionDict(value=SatMode.MQTT_OPENTHERM, label="OpenTherm Gateway (For advanced boiler control)"),
+                            selector.SelectOptionDict(value=SatMode.MQTT_EMS, label="EMS-ESP (For Bosch, Junkers, Buderus systems)"),
                         ]
                     )
                 ),
@@ -158,7 +159,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_esphome(self, _user_input: Optional[dict[str, Any]] = None):
         if _user_input is not None:
             self.data.update(_user_input)
-            self.data[CONF_MODE] = MODE_ESPHOME
+            self.data[CONF_MODE] = SatMode.ESPHOME
 
             return await self.async_step_sensors()
 
@@ -177,7 +178,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.errors = {}
             self.data.update(_user_input)
-            self.data[CONF_MODE] = MODE_SERIAL
+            self.data[CONF_MODE] = SatMode.SERIAL
 
             if not valid_serial_device(self.data[CONF_DEVICE]):
                 self.errors["base"] = "invalid_device"
@@ -210,7 +211,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_switch(self, _user_input: Optional[dict[str, Any]] = None):
         if _user_input is not None:
             self.data.update(_user_input)
-            self.data[CONF_MODE] = MODE_SWITCH
+            self.data[CONF_MODE] = SatMode.SWITCH
 
             return await self.async_step_sensors()
 
@@ -232,8 +233,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_simulator(self, _user_input: Optional[dict[str, Any]] = None):
         if _user_input is not None:
             self.data.update(_user_input)
-            self.data[CONF_MODE] = MODE_SIMULATOR
-            self.data[CONF_DEVICE] = f"%s_%s".format(MODE_SIMULATOR, snake_case(_user_input.get(CONF_NAME)))
+            self.data[CONF_MODE] = SatMode.SIMULATOR
+            self.data[CONF_DEVICE] = f"%s_%s".format(SatMode.SIMULATOR, snake_case(_user_input.get(CONF_NAME)))
 
             return await self.async_step_sensors()
 
@@ -273,7 +274,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if _user_input.get(CONF_HUMIDITY_SENSOR_ENTITY_ID) is None:
                 self.data[CONF_HUMIDITY_SENSOR_ENTITY_ID] = None
 
-            if self.data[CONF_MODE] in [MODE_ESPHOME, MODE_MQTT_OPENTHERM, MODE_MQTT_EMS, MODE_SERIAL, MODE_SIMULATOR]:
+            if self.data[CONF_MODE] in [SatMode.ESPHOME, SatMode.MQTT_OPENTHERM, SatMode.MQTT_EMS, SatMode.SERIAL, SatMode.SIMULATOR]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()
@@ -306,9 +307,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_HEATING_SYSTEM, default=self.data.get(CONF_HEATING_SYSTEM, OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM])): selector.SelectSelector(
                     selector.SelectSelectorConfig(options=[
-                        SelectOptionDict(value=HEATING_SYSTEM_RADIATORS, label="Radiators"),
-                        SelectOptionDict(value=HEATING_SYSTEM_HEAT_PUMP, label="Heat Pump"),
-                        SelectOptionDict(value=HEATING_SYSTEM_UNDERFLOOR, label="Underfloor"),
+                        SelectOptionDict(value=HeatingSystem.RADIATORS, label="Radiators"),
+                        SelectOptionDict(value=HeatingSystem.HEAT_PUMP, label="Heat Pump"),
+                        SelectOptionDict(value=HeatingSystem.UNDERFLOOR, label="Underfloor"),
                     ])
                 )
             })
@@ -349,7 +350,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not self.data[CONF_AUTOMATIC_GAINS]:
                 return await self.async_step_pid_controller()
 
-            if self.data[CONF_MODE] == MODE_SIMULATOR:
+            if self.data[CONF_MODE] == SatMode.SIMULATOR:
                 return await self.async_step_finish()
 
             return await self.async_step_manufacturer()
@@ -438,7 +439,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
 
-            if self.data[CONF_MODE] == MODE_SIMULATOR:
+            if self.data[CONF_MODE] == SatMode.SIMULATOR:
                 return await self.async_step_finish()
 
             return await self.async_step_manufacturer()
@@ -459,7 +460,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
-            if self.data[CONF_MODE] == MODE_SIMULATOR:
+            if self.data[CONF_MODE] == SatMode.SIMULATOR:
                 return await self.async_step_finish()
 
             return await self.async_step_manufacturer()
@@ -519,8 +520,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_create_coordinator(self) -> SatDataUpdateCoordinator:
         """Resolve the coordinator by using the factory according to the mode"""
+        config = SatConfig(entry_id="config_flow", data=self.data, options=OPTIONS_DEFAULTS)
         return SatDataUpdateCoordinatorFactory().resolve(
-            hass=self.hass, data=self.data, mode=self.data[CONF_MODE], device=self.data[CONF_DEVICE]
+            hass=self.hass, config=config
         )
 
     def _create_mqtt_form(self, step_id: str, default_topic: Optional[str] = None, default_device: Optional[str] = None):
@@ -581,8 +583,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0:
             schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
-                    selector.SelectOptionDict(value=HEATING_MODE_COMFORT, label="Comfort"),
-                    selector.SelectOptionDict(value=HEATING_MODE_ECO, label="Eco"),
+                    selector.SelectOptionDict(value=HeatingMode.COMFORT, label="Comfort"),
+                    selector.SelectOptionDict(value=HeatingMode.ECO, label="Eco"),
                 ])
             )
 
@@ -695,7 +697,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
         }
 
-        if options.get(CONF_HEATING_SYSTEM) == HEATING_SYSTEM_HEAT_PUMP:
+        if options.get(CONF_HEATING_SYSTEM) == HeatingSystem.HEAT_PUMP:
             schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                     selector.SelectOptionDict(value="2", label="Normal (2x per hour)"),
@@ -703,7 +705,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 ])
             )
 
-        if options.get(CONF_HEATING_SYSTEM) == HEATING_SYSTEM_RADIATORS:
+        if options.get(CONF_HEATING_SYSTEM) == HeatingSystem.RADIATORS:
             schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                     selector.SelectOptionDict(value="3", label="Normal (3x per hour)"),
@@ -732,7 +734,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool,
         }
 
-        if self._config_entry.data.get(CONF_MODE) in [MODE_MQTT_OPENTHERM, MODE_SERIAL, MODE_SIMULATOR]:
+        if self._config_entry.data.get(CONF_MODE) in [SatMode.MQTT_OPENTHERM, SatMode.SERIAL, SatMode.SIMULATOR]:
             schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
 
             schema[vol.Required(CONF_MINIMUM_CONSUMPTION, default=options[CONF_MINIMUM_CONSUMPTION])] = selector.NumberSelector(

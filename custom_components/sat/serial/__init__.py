@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, Any, Mapping
+from typing import Optional, Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -11,6 +11,7 @@ from pyotgw.vars import *
 from serial import SerialException
 
 from ..coordinator import SatDataUpdateCoordinator
+from ..entry_data import SatConfig
 from ..types import DeviceState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -26,12 +27,12 @@ TRANSLATE_SOURCE = {
 class SatSerialCoordinator(SatDataUpdateCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using pyotgw."""
 
-    def __init__(self, hass: HomeAssistant, port: str, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
+    def __init__(self, hass: HomeAssistant, config: SatConfig) -> None:
         """Initialize."""
-        super().__init__(hass, config_data, options)
+        super().__init__(hass, config)
         self.async_set_updated_data(DEFAULT_STATUS)
 
-        self._port: str = port
+        self._port: str = str(self._config.device)
         self._api: OpenThermGateway = OpenThermGateway()
         self._api.subscribe(lambda data: self.async_set_updated_data(data))
 
@@ -149,11 +150,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return bool(self.get(DATA_SLAVE_FLAME_ON))
 
     def get(self, key: str) -> Optional[Any]:
-        """Get the value for the given `key` from the boiler data.
-
-        :param key: Key of the value to retrieve from the boiler data.
-        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
-        """
+        """Get the value for the given `key` from the boiler data."""
         return self.data[BOILER].get(key)
 
     async def async_connect(self) -> SatSerialCoordinator:

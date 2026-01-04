@@ -4,7 +4,7 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Mapping, Any, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .boiler import Boiler, BoilerState, BoilerCapabilities, BoilerControlIntent
 from .const import *
 from .cycles import CycleTracker, CycleHistory, CycleStatistics, Cycle
+from .entry_data import SatConfig, SatMode
 from .helpers import calculate_default_maximum_setpoint, event_timestamp, timestamp
 from .manufacturer import Manufacturer, ManufacturerFactory
 from .manufacturers.geminox import Geminox
@@ -67,40 +68,40 @@ class SatData(dict):
 
 class SatDataUpdateCoordinatorFactory:
     @staticmethod
-    def resolve(hass: HomeAssistant, mode: str, device: str, data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> SatDataUpdateCoordinator:
-        if mode == MODE_FAKE:
+    def resolve(hass: HomeAssistant, config: SatConfig) -> SatDataUpdateCoordinator:
+        if config.mode == SatMode.FAKE:
             from .fake import SatFakeCoordinator
-            return SatFakeCoordinator(hass=hass, config_data=data, options=options)
+            return SatFakeCoordinator(hass=hass, config=config)
 
-        if mode == MODE_SIMULATOR:
+        if config.mode == SatMode.SIMULATOR:
             from .simulator import SatSimulatorCoordinator
-            return SatSimulatorCoordinator(hass=hass, config_data=data, options=options)
+            return SatSimulatorCoordinator(hass=hass, config=config)
 
-        if mode == MODE_SWITCH:
+        if config.mode == SatMode.SWITCH:
             from .switch import SatSwitchCoordinator
-            return SatSwitchCoordinator(hass=hass, entity_id=device, config_data=data, options=options)
+            return SatSwitchCoordinator(hass=hass, config=config)
 
-        if mode == MODE_ESPHOME:
+        if config.mode == SatMode.ESPHOME:
             from .esphome import SatEspHomeCoordinator
-            return SatEspHomeCoordinator(hass=hass, device_id=device, config_data=data, options=options)
+            return SatEspHomeCoordinator(hass=hass, config=config)
 
-        if mode == MODE_MQTT_EMS:
+        if config.mode == SatMode.MQTT_EMS:
             from .mqtt.ems import SatEmsMqttCoordinator
-            return SatEmsMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
+            return SatEmsMqttCoordinator(hass=hass, config=config)
 
-        if mode == MODE_MQTT_OPENTHERM:
+        if config.mode == SatMode.MQTT_OPENTHERM:
             from .mqtt.opentherm import SatOpenThermMqttCoordinator
-            return SatOpenThermMqttCoordinator(hass=hass, device_id=device, config_data=data, options=options)
+            return SatOpenThermMqttCoordinator(hass=hass, config=config)
 
-        if mode == MODE_SERIAL:
+        if config.mode == SatMode.SERIAL:
             from .serial import SatSerialCoordinator
-            return SatSerialCoordinator(hass=hass, port=device, config_data=data, options=options)
+            return SatSerialCoordinator(hass=hass, config=config)
 
-        raise Exception(f'Invalid mode[{mode}]')
+        raise Exception(f'Invalid mode[{config.mode}]')
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
+    def __init__(self, hass: HomeAssistant, config: SatConfig) -> None:
         """Initialize."""
         super().__init__(hass, _LOGGER, name=DOMAIN)
         self.data: SatData = SatData()
@@ -116,15 +117,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._hass_notify_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_listeners)
         self._control_update_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_control)
 
-        self._options: Mapping[str, Any] = options or {}
-        self._config_data: Mapping[str, Any] = config_data
+        self._config: SatConfig = config
 
         self._manufacturer: Optional[Manufacturer] = None
-        self._simulation: bool = bool(self._options.get(CONF_SIMULATION))
-        self._heating_system: str = str(config_data.get(CONF_HEATING_SYSTEM, HEATING_SYSTEM_UNKNOWN))
+        self._heating_system: str = self._config.heating_system
+        self._simulation: bool = self._config.simulation_enabled
 
-        if config_data.get(CONF_MANUFACTURER) is not None:
-            self._manufacturer = ManufacturerFactory.resolve_by_name(config_data.get(CONF_MANUFACTURER))
+        if self._config.manufacturer is not None:
+            self._manufacturer = ManufacturerFactory.resolve_by_name(self._config.manufacturer)
 
     @property
     @abstractmethod
@@ -307,13 +307,18 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def minimum_setpoint(self) -> float:
         """Return the minimum setpoint temperature before the device starts to overshoot."""
-        return max(float(self._config_data.get(CONF_MINIMUM_SETPOINT)), MINIMUM_SETPOINT)
+        return max(self._config.limits.minimum_setpoint, MINIMUM_SETPOINT)
 
     @property
     def maximum_setpoint(self) -> float:
         """Return the maximum setpoint temperature that the device can support."""
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)
-        return float(self._options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
+        maximum_setpoint = self._config.limits.maximum_setpoint
+
+        if maximum_setpoint is None:
+            return float(default_maximum_setpoint)
+
+        return float(maximum_setpoint)
 
     @property
     def supports_setpoint_management(self):
@@ -457,12 +462,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
 class SatEntityCoordinator(DataUpdateCoordinator):
     def get(self, domain: str, key: str) -> Optional[Any]:
-        """Get the value for the given `key` from the boiler data.
-
-        :param domain: Domain of where this value is located.
-        :param key: Key of the value to retrieve from the boiler data.
-        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
-        """
+        """Get the value for the given `key` from the boiler data."""
         entity_id = self._get_entity_id(domain, key)
         if entity_id is None:
             return None

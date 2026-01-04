@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 import logging
 import typing
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, CONF_NAME
+from .const import DOMAIN, NAME
+from .entry_data import SatConfig
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -19,11 +18,11 @@ if typing.TYPE_CHECKING:
 
 
 class SatEntity(CoordinatorEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig):
         super().__init__(coordinator)
 
         self._coordinator: SatDataUpdateCoordinator = coordinator
-        self._config_entry = config_entry
+        self._config = config
 
     @property
     def device_info(self):
@@ -36,12 +35,22 @@ class SatEntity(CoordinatorEntity):
             manufacturer=manufacturer,
             suggested_area="Living Room",
             model=self._coordinator.device_type,
-            identifiers={(DOMAIN, self._config_entry.data.get(CONF_NAME))}
+            identifiers={(DOMAIN, self._config.name)}
         )
 
 
 class SatClimateEntity(SatEntity):
-    def __init__(self, coordinator, config_entry: ConfigEntry, climate: SatClimate):
-        super().__init__(coordinator, config_entry)
+    def __init__(self, coordinator, config: SatConfig, climate: SatClimate):
+        super().__init__(coordinator, config)
 
         self._climate = climate
+
+    async def async_added_to_hass(self) -> None:
+        def on_state_change(_event):
+            self.hass.async_add_job(self.async_write_ha_state)
+
+        await super().async_added_to_hass()
+
+        self.async_on_remove(
+            async_track_state_change_event(self.hass, [self._climate.entity_id], on_state_change)
+        )

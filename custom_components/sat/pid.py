@@ -1,30 +1,29 @@
 """PID controller logic for supply-air temperature tuning."""
 
 import logging
-from typing import Optional, Any
+from typing import Any, Optional
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 
 from .const import *
-from .helpers import timestamp
+from .helpers import clamp, timestamp, float_value
+from .temperature_state import TemperatureState
 
 _LOGGER = logging.getLogger(__name__)
 
 DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
-DERIVATIVE_DECAY = 0.9
 DERIVATIVE_RAW_CAP = 5.0
-DERIVATIVE_MIN_INTERVAL = 30.0
-DERIVATIVE_ERROR_ALPHA = 0.3
-ERROR_EPSILON = 0.01
+
+SENSOR_MAX_INTERVAL = 900.0
 
 STORAGE_VERSION = 1
 STORAGE_KEY_INTEGRAL = "integral"
 STORAGE_KEY_LAST_ERROR = "last_error"
-STORAGE_KEY_PREVIOUS_ERROR = "previous_error"
-STORAGE_KEY_FILTERED_ERROR = "filtered_error"
 STORAGE_KEY_RAW_DERIVATIVE = "raw_derivative"
+STORAGE_KEY_LAST_TEMPERATURE = "last_temperature"
 STORAGE_KEY_LAST_INTERVAL_UPDATED = "last_interval_updated"
 STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
 
@@ -61,7 +60,7 @@ class PID:
         if self._heating_curve is None:
             return 0.0
 
-        automatic_gain_value = 4 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 3
+        automatic_gain_value = 4 if self._heating_system == HeatingSystem.UNDERFLOOR else 3
         return round((self._heating_curve_coefficient * self._heating_curve) / automatic_gain_value, 6)
 
     @property
@@ -83,7 +82,10 @@ class PID:
     @property
     def proportional(self) -> float:
         """Return the proportional value."""
-        return round(self.kp * self._last_error, 3) if self.kp is not None and self._last_error is not None else 0.0
+        if self.kp is None or self._last_error is None:
+            return 0.0
+
+        return round(self.kp * self._last_error, 3)
 
     @property
     def integral(self) -> float:
@@ -111,10 +113,10 @@ class PID:
     @property
     def output(self) -> float:
         """Return the control output value."""
-        if self._heating_curve is None:
+        if (heating_curve := self._heating_curve) is None:
             return 0.0
 
-        return round(self._heating_curve + self.proportional + self.integral + self.derivative, 1)
+        return round(heating_curve + self.proportional + self.integral + self.derivative, 1)
 
     def reset(self) -> None:
         """Reset the PID controller to a clean state."""
@@ -124,11 +126,10 @@ class PID:
         self._last_derivative_updated: float = now
 
         self._last_error: Optional[float] = None
-        self._previous_error: Optional[float] = None
-        self._filtered_error: Optional[float] = None
         self._heating_curve: Optional[float] = None
+        self._last_temperature: Optional[float] = None
 
-        # Reset integral and derivative accumulators.
+        # Clear the accumulated integral and raw derivative terms.
         self._integral: float = 0.0
         self._raw_derivative: float = 0.0
 
@@ -138,14 +139,12 @@ class PID:
         self._entity_id = entity_id
         self._store = Store(hass, STORAGE_VERSION, f"sat.pid.{entity_id}.{device_id}")
 
-        data: Optional[dict[str, Any]] = await self._store.async_load()
-        if not data:
+        if not (data := await self._store.async_load()):
             return
 
+        self._last_error = float_value(data.get(STORAGE_KEY_LAST_ERROR))
         self._integral = float(data.get(STORAGE_KEY_INTEGRAL, self._integral))
-        self._last_error = self._maybe_float(data.get(STORAGE_KEY_LAST_ERROR))
-        self._previous_error = self._maybe_float(data.get(STORAGE_KEY_PREVIOUS_ERROR))
-        self._filtered_error = self._maybe_float(data.get(STORAGE_KEY_FILTERED_ERROR))
+        self._last_temperature = float_value(data.get(STORAGE_KEY_LAST_TEMPERATURE))
         self._raw_derivative = float(data.get(STORAGE_KEY_RAW_DERIVATIVE, self._raw_derivative))
 
         self._last_interval_updated = float(data.get(STORAGE_KEY_LAST_INTERVAL_UPDATED, self._last_interval_updated))
@@ -153,103 +152,96 @@ class PID:
 
         _LOGGER.debug("Loaded PID state from storage for entity=%s", self._entity_id)
 
-    def update(self, error: float, now: float, heating_curve: float) -> None:
+    def update(self, state: TemperatureState, heating_curve: float) -> None:
         """Update PID state with the latest error and heating curve value."""
         self._heating_curve = heating_curve
 
-        self._update_derivative(error, now)
-        self._update_integral(error, now, heating_curve)
+        self._update_derivative(state)
+        self._update_integral(state, heating_curve)
 
-        if self._last_error is not None:
-            self._previous_error = self._last_error
+        self._last_error = state.error
+        self._last_temperature = state.current
 
-        self._last_error = error
-
-        if self._hass is not None and self._store is not None:
+        if self._hass is not None:
             _LOGGER.debug(
-                "PID update for %s (error=%.3f curve=%.3f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f)",
-                self._entity_id, error, heating_curve, self.proportional, self.integral, self.derivative, self.output
+                "PID update: entity=%s error=%.3f heating_curve=%.3f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
+                self._entity_id, state.error, heating_curve, self.proportional, self.integral, self.derivative, self.output
             )
 
-            self._hass.create_task(self._async_save_state())
+            if self._store is not None:
+                self._hass.create_task(self._async_save_state())
 
-    def _update_integral(self, error: float, now: float, heating_curve_value: float) -> None:
+            self._hass.loop.call_soon_threadsafe(async_dispatcher_send, self._hass, SIGNAL_PID_UPDATED, self._entity_id)
+
+    def _update_integral(self, state: TemperatureState, heating_curve_value: float) -> None:
         """Update the integral value in the PID controller."""
+        error_abs = abs(state.error)
+        state_timestamp = state.last_updated.timestamp()
 
-        # Reset the time base if we just entered the deadband.
-        if self._last_error is not None and abs(self._last_error) > DEADBAND >= abs(error):
-            self._last_interval_updated = now
+        # Start a fresh time base when we enter the deadband.
+        if self._last_error is not None and abs(self._last_error) > DEADBAND >= error_abs:
+            self._last_interval_updated = state_timestamp
 
-        # Ensure the integral term is enabled for the current error.
-        if abs(error) > DEADBAND:
+        # Reset integral outside the deadband so it only accumulates inside.
+        if error_abs > DEADBAND:
             self._integral = 0.0
+            self._last_interval_updated = state_timestamp
             return
 
-        # Check if integral gain is set.
+        # Skip integration when integral gain is disabled.
         if self.ki is None:
             return
 
-        # Update the integral value.
-        delta_time = now - self._last_interval_updated
-        self._integral += self.ki * error * delta_time
-
-        # Clamp integral to avoid pushing beyond the curve bounds.
-        self._integral = min(self._integral, float(+heating_curve_value))
-        self._integral = max(self._integral, float(-heating_curve_value))
-
-        # Record the time of the latest update.
-        self._last_interval_updated = now
-
-    def _update_derivative(self, error: float, now: float) -> None:
-        """Update the derivative term of the PID controller based on filtered error."""
-        if self._filtered_error is None:
-            self._filtered_error = error
+        # Ignore non-forward timestamps.
+        if (delta_time := state_timestamp - self._last_interval_updated) <= 0:
+            self._last_interval_updated = state_timestamp
             return
 
-        error_changed = self._last_error is None or abs(error - self._last_error) >= ERROR_EPSILON
-        filtered_error = DERIVATIVE_ERROR_ALPHA * error + (1 - DERIVATIVE_ERROR_ALPHA) * self._filtered_error
+        # Cap the integration interval so long gaps don't over-accumulate.
+        delta_time = min(delta_time, SENSOR_MAX_INTERVAL)
+        self._integral += self.ki * state.error * delta_time
 
-        if abs(error) <= DEADBAND:
-            self._filtered_error = filtered_error
-            self._raw_derivative *= DERIVATIVE_DECAY
+        # Clamp integral to the heating curve bounds.
+        self._integral = clamp(self._integral, -heating_curve_value, +heating_curve_value)
+
+        # Record the timestamp used for this integration step.
+        self._last_interval_updated = state_timestamp
+
+    def _update_derivative(self, state: TemperatureState) -> None:
+        """Update the derivative term of the PID controller based on temperature slope."""
+        error_abs = abs(state.error)
+        state_timestamp = state.last_updated.timestamp()
+
+        in_deadband = error_abs <= DEADBAND
+        has_last_temperature = self._last_temperature is not None
+        is_forward = state_timestamp > self._last_derivative_updated
+
+        # Bail out when we are in the deadband or lack valid forward temperature data.
+        if in_deadband or not has_last_temperature or not is_forward:
+            self._last_derivative_updated = state_timestamp
             return
 
-        if not error_changed:
-            self._filtered_error = filtered_error
+        # Ignore updates when the sensor gap is too large.
+        if (delta_time := state_timestamp - self._last_derivative_updated) > SENSOR_MAX_INTERVAL:
+            self._last_derivative_updated = state_timestamp
             return
 
-        time_elapsed = now - self._last_derivative_updated
-        if time_elapsed <= 0:
-            self._filtered_error = filtered_error
-            return
+        # Convert the temperature delta into a time-based derivative.
+        derivative = (state.current - self._last_temperature) / delta_time
 
-        # Basic derivative: slope between current and last filtered error.
-        derivative = (filtered_error - self._filtered_error) / time_elapsed
-
-        # First low-pass filter.
+        # Apply the first low-pass filter.
         filtered_derivative = DERIVATIVE_ALPHA1 * derivative + (1 - DERIVATIVE_ALPHA1) * self._raw_derivative
 
-        # Second low-pass filter.
+        # Apply the second low-pass filter and clamp the magnitude.
         self._raw_derivative = DERIVATIVE_ALPHA2 * filtered_derivative + (1 - DERIVATIVE_ALPHA2) * self._raw_derivative
         self._raw_derivative = max(-DERIVATIVE_RAW_CAP, min(self._raw_derivative, DERIVATIVE_RAW_CAP))
 
-        self._filtered_error = filtered_error
-        self._last_derivative_updated = now
+        self._last_derivative_updated = state_timestamp
 
         _LOGGER.debug(
-            "Derivative update: entity=%s error=%.3f filtered=%.3f raw=%.6f dt=%.3f changed=%s",
-            self._entity_id, error, filtered_error, self._raw_derivative, time_elapsed, error_changed
+            "Derivative update: entity=%s temperature=%.3f previous_temperature=%.3f raw_derivative=%.6f delta_time=%.3f",
+            self._entity_id, state.current, self._last_temperature, self._raw_derivative, delta_time
         )
-
-    @staticmethod
-    def _maybe_float(value: Any) -> Optional[float]:
-        if value is None:
-            return None
-
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return None
 
     async def _async_save_state(self) -> None:
         if self._store is None:
@@ -258,9 +250,8 @@ class PID:
         data: dict[str, Any] = {
             STORAGE_KEY_INTEGRAL: self._integral,
             STORAGE_KEY_LAST_ERROR: self._last_error,
-            STORAGE_KEY_PREVIOUS_ERROR: self._previous_error,
-            STORAGE_KEY_FILTERED_ERROR: self._filtered_error,
             STORAGE_KEY_RAW_DERIVATIVE: self._raw_derivative,
+            STORAGE_KEY_LAST_TEMPERATURE: self._last_temperature,
             STORAGE_KEY_LAST_INTERVAL_UPDATED: self._last_interval_updated,
             STORAGE_KEY_LAST_DERIVATIVE_UPDATED: self._last_derivative_updated,
         }

@@ -1,70 +1,76 @@
 from __future__ import annotations
 
-import logging
-from typing import Mapping, Any, Optional
+import asyncio
+from typing import Optional, Mapping, Any
 
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume
-from homeassistant.core import HomeAssistant, Event, EventStateChangedData
+from homeassistant.core import Event, HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event
 
 from .climate import SatClimate
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
-from .entity import SatEntity, SatClimateEntity
+from .entity import SatClimateEntity, SatEntity
+from .entry_data import SatConfig, SatMode, get_entry_data
 from .serial import sensor as serial_sensor
 from .simulator import sensor as simulator_sensor
 from .types import BoilerStatus
 
-_LOGGER: logging.Logger = logging.getLogger(__name__)
 
-
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_entities: AddEntitiesCallback):
-    """
-    Add sensors for the serial protocol if the integration is set to use it.
-    """
-    # Some sanity checks before we continue
-    if any(key not in _hass.data[DOMAIN][_config_entry.entry_id] for key in (CLIMATE, COORDINATOR)):
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    """Add SAT sensors based on the configured integration mode."""
+    if config_entry.entry_id not in hass.data.get(DOMAIN, {}):
         return
 
-    climate = _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE]
-    coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
+    entry_data = get_entry_data(hass, config_entry.entry_id)
+    if entry_data.climate is None:
+        try:
+            await asyncio.wait_for(entry_data.climate_ready.wait(), timeout=10)
+        except asyncio.TimeoutError:
+            return
 
-    # Check if integration is set to use the serial protocol
-    if _config_entry.data.get(CONF_MODE) == MODE_SERIAL:
-        await serial_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
+        if entry_data.climate is None:
+            return
 
-    # Check if integration is set to use the simulator
-    if _config_entry.data.get(CONF_MODE) == MODE_SIMULATOR:
-        await simulator_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
+    if entry_data.config.mode == SatMode.SERIAL:
+        await serial_sensor.async_setup_entry(hass, config_entry, async_add_entities)
 
-    _async_add_entities([
-        SatCycleSensor(coordinator, _config_entry),
-        SatBoilerSensor(coordinator, _config_entry),
-        SatManufacturerSensor(coordinator, _config_entry),
-        SatPidSensor(coordinator, _config_entry, climate),
-        SatErrorValueSensor(coordinator, _config_entry, climate),
-        SatRequestedSetpoint(coordinator, _config_entry, climate),
-        SatHeatingCurveSensor(coordinator, _config_entry, climate),
-    ])
+    if entry_data.config.mode == SatMode.SIMULATOR:
+        await simulator_sensor.async_setup_entry(hass, config_entry, async_add_entities)
 
-    for entity_id in _config_entry.data.get(CONF_ROOMS) or []:
-        _async_add_entities([SatPidSensor(coordinator, _config_entry, climate, entity_id)])
+    sensors: list[SensorEntity] = [
+        SatCycleSensor(entry_data.coordinator, entry_data.config),
+        SatBoilerSensor(entry_data.coordinator, entry_data.config),
+        SatManufacturerSensor(entry_data.coordinator, entry_data.config),
+        SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
+        SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
+        SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.climate),
+        SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
+    ]
 
-    if coordinator.supports_relative_modulation_management:
-        _async_add_entities([SatCurrentPowerSensor(coordinator, _config_entry)])
+    for entity_id in entry_data.config.rooms:
+        sensors.append(SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.climate, entity_id))
 
-        if float(_config_entry.options.get(CONF_MINIMUM_CONSUMPTION) or 0) > 0 and float(_config_entry.options.get(CONF_MAXIMUM_CONSUMPTION) or 0) > 0:
-            _async_add_entities([SatCurrentConsumptionSensor(coordinator, _config_entry)])
+    if entry_data.coordinator.supports_relative_modulation_management:
+        sensors.append(SatCurrentPowerSensor(entry_data.coordinator, entry_data.config))
+
+        minimum_consumption = entry_data.config.limits.minimum_consumption
+        maximum_consumption = entry_data.config.limits.maximum_consumption
+
+        if minimum_consumption > 0 and maximum_consumption > 0:
+            sensors.append(SatCurrentConsumptionSensor(entry_data.coordinator, entry_data.config))
+
+    async_add_entities(sensors)
 
 
 class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Requested Setpoint {self._config_entry.data.get(CONF_NAME)}"
+        return f"Requested Setpoint {self._config.name}"
 
     @property
     def device_class(self) -> SensorDeviceClass:
@@ -76,19 +82,35 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
         return UnitOfTemperature.CELSIUS
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> Optional[float]:
         return self._climate.requested_setpoint
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-requested-setpoint"
+        return f"{self._config.name_lower}-requested-setpoint"
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
-    def __init__(self, coordinator, config_entry: ConfigEntry, climate: SatClimate, area_id: str = None):
-        super().__init__(coordinator, config_entry, climate)
-
+    def __init__(
+        self,
+        coordinator: SatDataUpdateCoordinator,
+        config: SatConfig,
+        climate: SatClimate,
+        area_id: Optional[str] = None,
+    ):
+        super().__init__(coordinator, config, climate)
         self._area_id: Optional[str] = area_id
+
+    async def async_added_to_hass(self) -> None:
+        def on_pid_updated(entity_id: str) -> None:
+            if entity_id != self._signal_entity_id:
+                return
+
+            self.hass.async_add_job(self.async_write_ha_state)
+
+        await super().async_added_to_hass()
+        self._signal_entity_id = self._area_id or self._climate.entity_id
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
 
     @property
     def _pid(self):
@@ -103,9 +125,9 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
     @property
     def name(self) -> str:
         if self._area_id is None:
-            return f"PID {self._config_entry.data.get(CONF_NAME)}"
+            return f"PID {self._config.name}"
 
-        return f"PID {self._config_entry.data.get(CONF_NAME)} ({self._area_id})"
+        return f"PID {self._config.name} ({self._area_id})"
 
     @property
     def device_class(self) -> SensorDeviceClass:
@@ -118,26 +140,35 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
 
     @property
     def available(self):
-        return self._pid.available if self._pid is not None else False
+        if (pid := self._pid) is None:
+            return False
+
+        return pid.available
 
     @property
-    def native_value(self) -> float:
-        return self._pid.output
+    def native_value(self) -> Optional[float]:
+        if (pid := self._pid) is None:
+            return None
+
+        return pid.output
 
     @property
     def unique_id(self) -> str:
         if self._area_id is None:
-            return f"{self._config_entry.data.get(CONF_NAME).lower()}-pid"
+            return f"{self._config.name_lower}-pid"
 
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-{self._area_id}-pid"
+        return f"{self._config.name_lower}-{self._area_id}-pid"
 
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
+        if (pid := self._pid) is None:
+            return None
+
         return {
-            "error": self._pid.last_error,
-            "proportional": self._pid.proportional,
-            "integral": self._pid.integral,
-            "derivative": self._pid.derivative,
+            "error": pid.last_error,
+            "proportional": pid.proportional,
+            "integral": pid.integral,
+            "derivative": pid.derivative,
         }
 
 
@@ -145,7 +176,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Current Power {self._config_entry.data.get(CONF_NAME)} (Boiler)"
+        return f"Current Power {self._config.name} (Boiler)"
 
     @property
     def device_class(self):
@@ -173,20 +204,20 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-power"
+        return f"{self._config.name_lower}-boiler-current-power"
 
 
 class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
-        super().__init__(coordinator, config_entry)
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig):
+        super().__init__(coordinator, config)
 
-        self._minimum_consumption = self._config_entry.options.get(CONF_MINIMUM_CONSUMPTION)
-        self._maximum_consumption = self._config_entry.options.get(CONF_MAXIMUM_CONSUMPTION)
+        self._minimum_consumption = self._config.limits.minimum_consumption
+        self._maximum_consumption = self._config.limits.maximum_consumption
 
     @property
     def name(self) -> str:
-        return f"Current Consumption {self._config_entry.data.get(CONF_NAME)} (Boiler)"
+        return f"Current Consumption {self._config.name} (Boiler)"
 
     @property
     def device_class(self):
@@ -209,39 +240,26 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 
         In this case, the state represents the current consumption of the boiler in m³/h.
         """
-
-        if not self._coordinator.device_active:
-            return 0
-
-        if not self._coordinator.flame_active:
-            return 0
+        if not self._coordinator.device_active or not self._coordinator.flame_active:
+            return 0.0
 
         differential_gas_consumption = self._maximum_consumption - self._minimum_consumption
         relative_modulation_value = self._coordinator.relative_modulation_value
 
-        return round(self._minimum_consumption + ((relative_modulation_value / 100) * differential_gas_consumption), 3)
+        modulation_fraction = relative_modulation_value / 100
+        return round(self._minimum_consumption + (modulation_fraction * differential_gas_consumption), 3)
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-current-consumption"
+        return f"{self._config.name_lower}-boiler-current-consumption"
 
 
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
-    async def async_added_to_hass(self) -> None:
-        async def on_state_change(_event: Event[EventStateChangedData]):
-            self.async_write_ha_state()
-
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, [self._climate.entity_id], on_state_change
-            )
-        )
-
     @property
     def name(self) -> str:
-        return f"Heating Curve {self._config_entry.data.get(CONF_NAME)}"
+        return f"Heating Curve {self._config.name}"
 
     @property
     def device_class(self):
@@ -259,31 +277,21 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
         return self._climate.heating_curve.value is not None
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> Optional[float]:
         """Return the state of the device in native units."""
         return self._climate.heating_curve.value
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-heating-curve"
+        return f"{self._config.name_lower}-heating-curve"
 
 
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 
-    async def async_added_to_hass(self) -> None:
-        async def on_state_change(_event: Event[EventStateChangedData]):
-            self.async_write_ha_state()
-
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, [self._climate.entity_id], on_state_change
-            )
-        )
-
     @property
     def name(self) -> str:
-        return f"Error Value {self._config_entry.data.get(CONF_NAME)}"
+        return f"Error Value {self._config.name}"
 
     @property
     def device_class(self):
@@ -296,9 +304,12 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
         return UnitOfTemperature.CELSIUS
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> Optional[float]:
         """Return the state of the device in native units."""
-        return self._climate.error.value
+        if (error := self._climate.error) is None:
+            return None
+
+        return error.error
 
     @property
     def available(self):
@@ -308,16 +319,16 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-error-value"
+        return f"{self._config.name_lower}-error-value"
 
 
 class SatManufacturerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return f"Boiler Manufacturer {self._config_entry.data.get(CONF_NAME)}"
+        return f"Boiler Manufacturer {self._config.name}"
 
     @property
-    def native_value(self) -> str:
+    def native_value(self) -> Optional[str]:
         manufacturer = self._coordinator.manufacturer
         return manufacturer.friendly_name if manufacturer is not None else None
 
@@ -327,13 +338,21 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-manufacturer"
+        return f"{self._config.name_lower}-manufacturer"
 
 
 class SatCycleSensor(SatEntity, SensorEntity):
+    async def async_added_to_hass(self) -> None:
+        def on_cycle_event(_event: Event) -> None:
+            self.async_write_ha_state()
+
+        await super().async_added_to_hass()
+
+        self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, on_cycle_event))
+
     @property
     def name(self) -> str:
-        return f"Cycle Status {self._config_entry.data.get(CONF_NAME)}"
+        return f"Cycle Status {self._config.name}"
 
     @property
     def native_value(self) -> str:
@@ -344,13 +363,13 @@ class SatCycleSensor(SatEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-cycle-status"
+        return f"{self._config.name_lower}-cycle-status"
 
 
 class SatBoilerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return f"Boiler Status {self._config_entry.data.get(CONF_NAME)}"
+        return f"Boiler Status {self._config.name}"
 
     @property
     def native_value(self) -> str:
@@ -362,4 +381,4 @@ class SatBoilerSensor(SatEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-status"
+        return f"{self._config.name_lower}-boiler-status"

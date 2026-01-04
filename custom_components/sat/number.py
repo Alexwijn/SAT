@@ -1,28 +1,29 @@
 from typing import Optional
 
-from homeassistant.components.number import NumberEntity, NumberDeviceClass
+from homeassistant.components.number import NumberDeviceClass, NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
+from .entry_data import SatConfig, get_entry_data
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
-    coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
+    entry_data = get_entry_data(hass, config_entry.entry_id)
+    coordinator = entry_data.coordinator
 
     if coordinator.supports_maximum_setpoint_management:
-        async_add_entities([SatMaximumSetpointEntity(coordinator, config_entry)])
+        async_add_entities([SatMaximumSetpointEntity(coordinator, entry_data.config)])
 
     if coordinator.supports_hot_water_setpoint_management:
-        async_add_entities([SatHotWaterSetpointEntity(coordinator, config_entry)])
+        async_add_entities([SatHotWaterSetpointEntity(coordinator, entry_data.config)])
 
 
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
-        super().__init__(coordinator, config_entry)
-        self._name = self._config_entry.data.get(CONF_NAME)
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig):
+        super().__init__(coordinator, config)
+        self._name = self._config.name
 
     @property
     def name(self) -> Optional[str]:
@@ -73,9 +74,9 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
 
 
 class SatMaximumSetpointEntity(SatEntity, NumberEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
-        super().__init__(coordinator, config_entry)
-        self._name = self._config_entry.data.get(CONF_NAME)
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig):
+        super().__init__(coordinator, config)
+        self._name = self._config.name
 
     @property
     def name(self) -> Optional[str]:

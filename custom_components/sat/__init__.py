@@ -2,62 +2,44 @@ import logging
 import traceback
 
 from homeassistant.components import binary_sensor, climate, number, sensor
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry
 from homeassistant.helpers.storage import Store
 from sentry_sdk import Client, Hub
 
-from .const import (
-    DOMAIN,
-    CLIMATE,
-    SENTRY,
-    COORDINATOR,
-    OPTIONS_DEFAULTS,
-    CONF_MODE,
-    CONF_DEVICE,
-    CONF_ERROR_MONITORING,
-    SERVICE_RESET_INTEGRAL,
-    SERVICE_PULSE_WIDTH_MODULATION,
-)
+from .const import DOMAIN, OPTIONS_DEFAULTS
 from .coordinator import SatDataUpdateCoordinatorFactory
+from .entry_data import SatConfig, SatEntryData
 from .services import async_register_services
-from .util import get_climate_entities
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 PLATFORMS = [climate.DOMAIN, sensor.DOMAIN, number.DOMAIN, binary_sensor.DOMAIN]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a config entry."""
-    # Make sure we have our default domain property
     hass.data.setdefault(DOMAIN, {})
 
-    # Create a new dictionary for this entry
-    hass.data[DOMAIN][entry.entry_id] = {}
-
-    try:
-        # Setup error monitoring (if enabled)
-        if entry.options.get(CONF_ERROR_MONITORING, OPTIONS_DEFAULTS[CONF_ERROR_MONITORING]):
-            await hass.async_add_executor_job(initialize_sentry, hass)
-    except Exception as ex:
-        _LOGGER.error("Error during Sentry initialization: %s", str(ex))
-
-    # Resolve the coordinator by using the factory according to the mode
-    hass.data[DOMAIN][entry.entry_id][COORDINATOR] = SatDataUpdateCoordinatorFactory().resolve(
-        hass=hass, data=entry.data, options=entry.options, mode=entry.data.get(CONF_MODE), device=entry.data.get(CONF_DEVICE)
+    config = SatConfig(entry.entry_id, entry.data, {**OPTIONS_DEFAULTS, **entry.options})
+    hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(
+        coordinator=SatDataUpdateCoordinatorFactory().resolve(
+            hass=hass,
+            config=config,
+        ),
+        config=config,
     )
 
-    # Making sure everything is loaded
-    await hass.data[DOMAIN][entry.entry_id][COORDINATOR].async_setup()
+    try:
+        if entry_data.config.error_monitoring_enabled:
+            entry_data.sentry = initialize_sentry()
+    except Exception as error:
+        _LOGGER.error("Error during Sentry initialization: %s", error)
 
-    # Forward entry setup for used platforms
+    await entry_data.coordinator.async_setup()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # Register the services
     await async_register_services(hass)
 
-    # Add an update listener for this entry
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True
@@ -65,22 +47,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    if DOMAIN not in hass.data or entry.entry_id not in hass.data[DOMAIN]:
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if entry_data is None:
         return True
 
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if entry.state is ConfigEntryState.LOADED:
+        unload_successful = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        if not unload_successful:
+            return False
 
     try:
-        if SENTRY in hass.data[DOMAIN]:
-            hass.data[DOMAIN][SENTRY].flush()
-            hass.data[DOMAIN][SENTRY].close()
-            hass.data[DOMAIN].pop(SENTRY, None)
-    except Exception as ex:
-        _LOGGER.error("Error during Sentry cleanup: %s", str(ex))
+        if entry_data.sentry is not None:
+            entry_data.sentry.flush()
+            entry_data.sentry.close()
+            entry_data.sentry = None
+    except Exception as error:
+        _LOGGER.error("Error during Sentry cleanup: %s", error)
 
-    hass.data[DOMAIN].pop(entry.entry_id)
+    hass.data[DOMAIN].pop(entry.entry_id, None)
+    if not hass.data[DOMAIN]:
+        hass.data.pop(DOMAIN, None)
 
-    return unload_ok
+    return True
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -185,7 +173,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-def initialize_sentry(hass: HomeAssistant):
+def initialize_sentry() -> Client:
     """Initialize Sentry synchronously in an offloaded executor job."""
 
     def exception_filter(event, hint):
@@ -214,5 +202,4 @@ def initialize_sentry(hass: HomeAssistant):
     hub = Hub(client)
     hub.bind_client(client)
 
-    # Store the hub in Home Assistant's data for later use
-    hass.data[DOMAIN][SENTRY] = client
+    return client

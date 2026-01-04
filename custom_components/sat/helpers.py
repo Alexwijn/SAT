@@ -6,7 +6,7 @@ from typing import Optional, Union, Iterable, Tuple
 from homeassistant.core import State
 from homeassistant.util import dt
 
-from .const import HEATING_SYSTEM_UNDERFLOOR
+from .const import HeatingSystem
 
 
 def timestamp() -> float:
@@ -64,7 +64,7 @@ def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: 
 
 def calculate_default_maximum_setpoint(heating_system: str) -> int:
     """Determine the default maximum temperature for a given heating system."""
-    return 50 if heating_system == HEATING_SYSTEM_UNDERFLOOR else 55
+    return 50 if heating_system == HeatingSystem.UNDERFLOOR else 55
 
 
 def snake_case(value: str) -> str:

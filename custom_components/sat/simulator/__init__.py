@@ -1,29 +1,30 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Mapping, Any, Optional
+from typing import Optional
 
 from homeassistant.core import HomeAssistant
 
-from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
+from ..const import MINIMUM_SETPOINT
 from ..coordinator import SatDataUpdateCoordinator
-from ..helpers import convert_time_str_to_seconds, seconds_since
+from ..entry_data import SatConfig
+from ..helpers import seconds_since
 from ..types import DeviceState
 
 
 class SatSimulatorCoordinator(SatDataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
+    def __init__(self, hass: HomeAssistant, config: SatConfig) -> None:
         """Initialize."""
-        super().__init__(hass, config_data, options)
+        super().__init__(hass, config)
 
         self._setpoint = MINIMUM_SETPOINT
         self._boiler_temperature = MINIMUM_SETPOINT
 
         self._device_state = DeviceState.OFF
-        self._heating = config_data.get(CONF_SIMULATED_HEATING)
-        self._cooling = config_data.get(CONF_SIMULATED_COOLING)
-        self._maximum_setpoint = config_data.get(CONF_MAXIMUM_SETPOINT)
-        self._warming_up = convert_time_str_to_seconds(config_data.get(CONF_SIMULATED_WARMING_UP))
+        self._heating = self._config.simulation.simulated_heating
+        self._cooling = self._config.simulation.simulated_cooling
+        self._maximum_setpoint = self._config.limits.maximum_setpoint or MINIMUM_SETPOINT
+        self._warming_up = self._config.simulation.simulated_warming_up_seconds
 
     @property
     def device_id(self) -> str:

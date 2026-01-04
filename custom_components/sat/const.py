@@ -1,6 +1,8 @@
 # Core domain identifiers and shared defaults used across the integration.
 from __future__ import annotations
 
+from enum import StrEnum
+
 from .types import CycleClassification
 
 NAME = "Smart Autotune Thermostat"
@@ -11,13 +13,6 @@ COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 
 # Integration operation modes and backends.
-MODE_FAKE = "fake"
-MODE_MQTT_EMS = "mqtt_ems"
-MODE_MQTT_OPENTHERM = "mqtt_opentherm"
-MODE_SWITCH = "switch"
-MODE_SERIAL = "serial"
-MODE_ESPHOME = "esphome"
-MODE_SIMULATOR = "simulator"
 
 # Control loop tolerances and timing thresholds.
 DEADBAND = 0.1
@@ -99,14 +94,16 @@ CONF_SLEEP_TEMPERATURE = "sleep_temperature"
 CONF_COMFORT_TEMPERATURE = "comfort_temperature"
 CONF_ACTIVITY_TEMPERATURE = "activity_temperature"
 
-# Heating system types and comfort modes.
-HEATING_SYSTEM_UNKNOWN = "unknown"
-HEATING_SYSTEM_HEAT_PUMP = "heat_pump"
-HEATING_SYSTEM_RADIATORS = "radiators"
-HEATING_SYSTEM_UNDERFLOOR = "underfloor"
+class HeatingSystem(StrEnum):
+    UNKNOWN = "unknown"
+    HEAT_PUMP = "heat_pump"
+    RADIATORS = "radiators"
+    UNDERFLOOR = "underfloor"
 
-HEATING_MODE_ECO = "eco"
-HEATING_MODE_COMFORT = "comfort"
+
+class HeatingMode(StrEnum):
+    ECO = "eco"
+    COMFORT = "comfort"
 
 # Default values for integration options.
 OPTIONS_DEFAULTS = {
@@ -168,16 +165,16 @@ OPTIONS_DEFAULTS = {
 
     # Heating system defaults.
     CONF_HEATING_CURVE_COEFFICIENT: 2.0,
-    CONF_HEATING_MODE: HEATING_MODE_COMFORT,
-    CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
+    CONF_HEATING_MODE: HeatingMode.COMFORT,
+    CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS,
 }
 
 # Constants and defaults for overshoot protection logic.
 OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 OVERSHOOT_PROTECTION_SETPOINT = {
-    HEATING_SYSTEM_HEAT_PUMP: 40,
-    HEATING_SYSTEM_RADIATORS: 62,
-    HEATING_SYSTEM_UNDERFLOOR: 45,
+    HeatingSystem.HEAT_PUMP: 40,
+    HeatingSystem.RADIATORS: 62,
+    HeatingSystem.UNDERFLOOR: 45,
 }
 
 # Storage keys for persistent values.
@@ -196,6 +193,9 @@ STEP_SETUP_SENSORS = "sensors"
 # Event names emitted on cycle lifecycle changes.
 EVENT_SAT_CYCLE_STARTED = "sat_cycle_started"
 EVENT_SAT_CYCLE_ENDED = "sat_cycle_ended"
+
+# Dispatcher signals for internal updates.
+SIGNAL_PID_UPDATED = "sat_pid_updated"
 
 # Classification thresholds/sets for cycle health.
 UNHEALTHY_CYCLES = (

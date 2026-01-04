@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from types import MappingProxyType
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
 
 from .const import *
+from .entry_data import SatConfig
 from .heating_curve import HeatingCurve
-from .helpers import convert_time_str_to_seconds
 from .minimum_setpoint import DynamicMinimumSetpoint, MinimumSetpointConfig
 from .pid import PID
 from .pwm import PWM, PWMConfig
@@ -17,60 +16,44 @@ if TYPE_CHECKING:
     from .climate import SatClimate
 
 
-def create_pid_controller(config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> PID:
+def create_pid_controller(config: SatConfig) -> PID:
     """Create and return a PID controller instance with the given configuration options."""
-    # Extract the configuration options
-    kp = float(config_options.get(CONF_PROPORTIONAL))
-    ki = float(config_options.get(CONF_INTEGRAL))
-    kd = float(config_options.get(CONF_DERIVATIVE))
+    kp = config.pid.proportional
+    ki = config.pid.integral
+    kd = config.pid.derivative
 
-    heating_system = config_data.get(CONF_HEATING_SYSTEM)
-    automatic_gains = bool(config_options.get(CONF_AUTOMATIC_GAINS))
-    automatic_gains_value = float(config_options.get(CONF_AUTOMATIC_GAINS_VALUE))
-    heating_curve_coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
+    automatic_gains = config.pid.automatic_gains
+    automatic_gains_value = config.pid.automatic_gains_value
+    heating_curve_coefficient = config.pid.heating_curve_coefficient
 
-    # Return a new PID controller instance with the given configuration options
     return PID(
-        heating_system=heating_system,
+        heating_system=config.heating_system,
         automatic_gain_value=automatic_gains_value,
         heating_curve_coefficient=heating_curve_coefficient,
-
-        kp=kp, ki=ki, kd=kd,
         automatic_gains=automatic_gains,
+        kp=kp,
+        ki=ki,
+        kd=kd,
     )
 
 
-def create_dynamic_minimum_setpoint_controller(_config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> DynamicMinimumSetpoint:
+def create_dynamic_minimum_setpoint_controller(config: SatConfig) -> DynamicMinimumSetpoint:
     """Create and return a Dynamic Minimum Setpoint controller instance with the given configuration options."""
-    # Return a new Minimum Setpoint controller instance with the given configuration options
-    return DynamicMinimumSetpoint(
-        config=MinimumSetpointConfig(
-            minimum_setpoint=config_options.get(CONF_MINIMUM_SETPOINT),
-            maximum_setpoint=config_options.get(CONF_MAXIMUM_SETPOINT)
-        )
-    )
+    return DynamicMinimumSetpoint(config=MinimumSetpointConfig(minimum_setpoint=config.limits.minimum_setpoint, maximum_setpoint=config.limits.maximum_setpoint))
 
 
-def create_heating_curve_controller(config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> HeatingCurve:
+def create_heating_curve_controller(config: SatConfig) -> HeatingCurve:
     """Create and return a Heating Curve controller instance with the given configuration options."""
-    # Extract the configuration options
-    heating_system = config_data.get(CONF_HEATING_SYSTEM)
-    coefficient = float(config_options.get(CONF_HEATING_CURVE_COEFFICIENT))
-
-    # Return a new Heating Curve controller instance with the given configuration options
-    return HeatingCurve(heating_system=heating_system, coefficient=coefficient)
+    return HeatingCurve(heating_system=config.heating_system, coefficient=config.pid.heating_curve_coefficient)
 
 
-def create_pwm_controller(heating_curve: HeatingCurve, _config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]) -> Optional[PWM]:
+def create_pwm_controller(heating_curve: HeatingCurve, config: SatConfig) -> Optional[PWM]:
     """Create and return a PWM controller instance with the given configuration options."""
-    # Extract the configuration options
-    max_duty_cycles = int(config_options.get(CONF_CYCLES_PER_HOUR))
-    max_cycle_time = int(convert_time_str_to_seconds(config_options.get(CONF_DUTY_CYCLE)))
+    max_duty_cycles = config.pwm.cycles_per_hour
+    max_cycle_time = config.pwm.duty_cycle_seconds
 
-    # Extra settings
-    cycles = PWMConfig(maximum_cycles=max_duty_cycles, maximum_cycle_time=max_cycle_time)
+    cycles = PWMConfig(maximum_cycle_time=max_cycle_time, maximum_cycles=max_duty_cycles)
 
-    # Return a new PWM controller instance with the given configuration options
     return PWM(heating_curve=heating_curve, config=cycles)
 
 
@@ -83,12 +66,10 @@ def get_climate_entities(hass: "HomeAssistant", entity_ids: list[str]) -> list["
         if not (entry := registry.async_get(entity_id)):
             continue
 
-        if not (config_entry := hass.data[DOMAIN].get(entry.config_entry_id)):
+        if not (entry_data := hass.data[DOMAIN].get(entry.config_entry_id)):
             continue
 
-        if not (climate := config_entry.get(CLIMATE)):
-            continue
-
-        entities.append(climate)
+        if entry_data.climate is not None:
+            entities.append(entry_data.climate)
 
     return entities

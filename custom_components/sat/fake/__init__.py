@@ -1,11 +1,12 @@
 from __future__ import annotations, annotations
 
 import logging
-from typing import Mapping, Any, Optional
+from typing import Optional
 
 from homeassistant.core import HomeAssistant
 
 from ..coordinator import SatDataUpdateCoordinator
+from ..entry_data import SatConfig
 from ..types import DeviceState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
     def member_id(self) -> Optional[int]:
         return -1
 
-    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
+    def __init__(self, hass: HomeAssistant, config: SatConfig) -> None:
         self.config = SatFakeConfig(True)
 
         self._setpoint = None
@@ -48,7 +49,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._device_state = DeviceState.OFF
         self._relative_modulation_value = 100
 
-        super().__init__(hass, config_data, options)
+        super().__init__(hass, config)
 
     @property
     def setpoint(self) -> Optional[float]:

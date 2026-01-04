@@ -4,8 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta, datetime
-from types import MappingProxyType
-from typing import Any, Callable, Iterable, Optional, Union
+from typing import Callable, Iterable, Optional, Union, Any, Mapping
 
 from homeassistant.components import sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -15,16 +14,13 @@ from homeassistant.components.climate import (
     HVACAction,
     HVACMode,
     PRESET_ACTIVITY,
-    PRESET_AWAY,
     PRESET_HOME,
     PRESET_NONE,
-    PRESET_SLEEP,
-    PRESET_COMFORT,
     ATTR_HVAC_MODE,
     ATTR_PRESET_MODE,
     SERVICE_SET_HVAC_MODE,
     SERVICE_SET_TEMPERATURE,
-    DOMAIN as CLIMATE_DOMAIN,
+    DOMAIN as CLIMATE_DOMAIN, PRESET_AWAY, PRESET_SLEEP, PRESET_COMFORT,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
@@ -39,10 +35,11 @@ from .boiler import BoilerControlIntent
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
-from .errors import Error
-from .helpers import convert_time_str_to_seconds, float_value, is_state_stale, state_age_seconds, event_timestamp, clamp
+from .entry_data import SatConfig, get_entry_data, SatMode
+from .helpers import float_value, is_state_stale, state_age_seconds, event_timestamp, clamp
 from .manufacturers.geminox import Geminox
 from .summer_simmer import SummerSimmer
+from .temperature_state import TemperatureState
 from .types import BoilerStatus, RelativeModulationState, PWMStatus, PWMDecision, DeviceState
 from .util import create_pid_controller, create_heating_curve_controller, create_pwm_controller, create_dynamic_minimum_setpoint_controller
 
@@ -61,35 +58,29 @@ DECREASE_STEP_THRESHOLD_CELSIUS = 0.5
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_devices: AddEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices: AddEntitiesCallback) -> None:
     """Set up the SatClimate device."""
-    coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
-    climate = SatClimate(coordinator, _config_entry, _hass.config.units.temperature_unit)
+    entry_data = get_entry_data(hass, config_entry.entry_id)
+    climate = SatClimate(entry_data.coordinator, entry_data.config, hass.config.units.temperature_unit)
 
-    _async_add_devices([climate])
-    _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE] = climate
+    async_add_devices([climate])
+    entry_data.climate = climate
+    entry_data.climate_ready.set()
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     _enable_turn_on_off_backwards_compatibility: bool = False
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry, unit: str) -> None:
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, unit: str) -> None:
         """Initialize the climate entity."""
-        super().__init__(coordinator, config_entry)
-
-        self.thermostat: Optional[str] = config_entry.data.get(CONF_THERMOSTAT)
-        self.inside_sensor_entity_id: str = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
-        self.humidity_sensor_entity_id: Optional[str] = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
-        self.outside_sensor_entities: list[str] = self._ensure_list(config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID))
-
-        config_options = self._build_config_options(config_entry)
-        self._presets: dict[str, float] = self._build_presets(config_options)
+        super().__init__(coordinator, config)
 
         self._sensors: dict[str, str] = {}
         self._setpoint: Optional[float] = None
         self._requested_setpoint_down_ticks: int = 0
         self._rooms: Optional[dict[str, float]] = None
         self._last_requested_setpoint: Optional[float] = None
+        self._presets: dict[str, float] = self._build_presets(config.presets.presets)
 
         self._hvac_mode: Optional[Union[HVACMode, str]] = None
         self._target_temperature: Optional[float] = None
@@ -109,38 +100,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._control_heating_loop_unsub: Optional[Callable[[], None]] = None
 
         # System Configuration
-        self._attr_name = str(config_entry.data.get(CONF_NAME))
-        self._attr_id = str(config_entry.data.get(CONF_NAME)).lower()
-
-        self._radiators: list[str] = config_entry.data.get(CONF_RADIATORS) or []
-        self._window_sensors: list[str] = config_entry.options.get(CONF_WINDOW_SENSORS) or []
-
-        self._simulation: bool = bool(config_entry.data.get(CONF_SIMULATION))
-        self._heating_system: str = str(config_entry.data.get(CONF_HEATING_SYSTEM))
-        self._overshoot_protection: bool = bool(config_entry.data.get(CONF_OVERSHOOT_PROTECTION))
-        self._push_setpoint_to_thermostat: bool = bool(config_entry.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT))
-
-        # User Configuration
-        self._heating_mode: str = str(config_entry.options.get(CONF_HEATING_MODE))
-        self._thermal_comfort: bool = bool(config_options.get(CONF_THERMAL_COMFORT))
-        self._climate_valve_offset: float = float(config_options.get(CONF_CLIMATE_VALVE_OFFSET))
-        self._target_temperature_step: float = float(config_options.get(CONF_TARGET_TEMPERATURE_STEP))
-        self._dynamic_minimum_setpoint: bool = bool(config_options.get(CONF_DYNAMIC_MINIMUM_SETPOINT))
-        self._sync_climates_with_mode: bool = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_MODE))
-        self._sync_climates_with_preset: bool = bool(config_options.get(CONF_SYNC_CLIMATES_WITH_PRESET))
-        self._maximum_relative_modulation: int = int(config_options.get(CONF_MAXIMUM_RELATIVE_MODULATION))
-        self._sensor_max_value_age: float = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
-        self._window_minimum_open_time: float = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
-        self._force_pulse_width_modulation: bool = bool(config_entry.data.get(CONF_MODE) == MODE_SWITCH) or bool(config_options.get(CONF_FORCE_PULSE_WIDTH_MODULATION))
+        self._attr_name = self._config.name
+        self._attr_id = self._config.name_lower
 
         # Controllers
-        self.pid = create_pid_controller(config_entry.data, config_options)
-        self.heating_curve = create_heating_curve_controller(config_entry.data, config_options)
-        self.minimum_setpoint = create_dynamic_minimum_setpoint_controller(config_entry.data, config_options)
-        self.pwm = create_pwm_controller(self.heating_curve, config_entry.data, config_options)
-        self.areas = Areas(config_entry.data, config_options, self.heating_curve)
+        self.pid = create_pid_controller(self._config)
+        self.heating_curve = create_heating_curve_controller(self._config)
 
-        if self._simulation:
+        self.areas = Areas(self._config, self.heating_curve)
+        self.pwm = create_pwm_controller(self.heating_curve, self._config)
+        self.minimum_setpoint = create_dynamic_minimum_setpoint_controller(self._config)
+
+        if self._config.simulation_enabled:
             _LOGGER.warning("Simulation mode!")
 
     @staticmethod
@@ -155,19 +126,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return list(value)
 
     @staticmethod
-    def _build_config_options(config_entry: ConfigEntry) -> MappingProxyType[str, Any]:
-        """Merge default options with config entry overrides."""
-        config_options = OPTIONS_DEFAULTS.copy()
-        config_options.update(config_entry.options)
-        return config_options
-
-    @staticmethod
-    def _build_presets(config_options: MappingProxyType[str, Any]) -> dict[str, float]:
-        """Build preset temperature mapping from config options."""
-        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
-        return {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}
-
-    @staticmethod
     def _build_supported_features() -> ClimateEntityFeature:
         """Determine supported features based on Home Assistant version."""
         supported = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
@@ -179,16 +137,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return supported
 
-    def _get_entity_state_float(self, entity_id: Optional[str]) -> Optional[float]:
-        """Return state as float if available and valid."""
+    def _get_entity_state_float(self, entity_id: str) -> Optional[float]:
+        """Return state if available and valid."""
         if entity_id is None:
             return None
 
-        if (entity := self._coordinator.hass.states.get(entity_id)) is None:
+        if (entity := self.hass.states.get(entity_id)) is None:
             return None
 
-        if is_state_stale(entity, self._sensor_max_value_age):
-            _LOGGER.debug("Sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self.entity_id, state_age_seconds(entity), self._sensor_max_value_age)
+        sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
+
+        if is_state_stale(entity, sensor_max_value_age):
+            _LOGGER.debug("Sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self.entity_id, state_age_seconds(entity), sensor_max_value_age)
             return None
 
         if entity.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
@@ -264,10 +224,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        if self.thermostat is not None:
+        if self._config.thermostat is not None:
             self.async_on_remove(
                 async_track_state_change_event(
-                    self.hass, self.thermostat, self._async_thermostat_changed
+                    self.hass, self._config.thermostat, self._async_thermostat_changed
                 )
             )
 
@@ -277,10 +237,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        if len(self._window_sensors) > 0:
+        if len(self._config.window_sensors) > 0:
             entities = entity_registry.async_get(self.hass)
-            device_name = self._config_entry.data.get(CONF_NAME)
-            window_id = entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, f"{device_name.lower()}-window-sensor")
+            window_id = entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, f"{self._config.name_lower}-window-sensor")
 
             self.async_on_remove(
                 async_track_state_change_event(
@@ -401,10 +360,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def current_temperature(self) -> Optional[float]:
         """Return the sensor temperature."""
-        if (current_temperature := self._get_entity_state_float(self.inside_sensor_entity_id)) is None:
+        if (current_temperature := self._get_entity_state_float(self._config.sensors.inside_sensor_entity_id)) is None:
             return None
 
-        if self._thermal_comfort:
+        if self._config.presets.thermal_comfort:
             return SummerSimmer.index(current_temperature, self.current_humidity)
 
         return current_temperature
@@ -412,33 +371,48 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def current_humidity(self) -> Optional[float]:
         """Return the sensor humidity."""
-        if self.humidity_sensor_entity_id is None:
+        if self._config.sensors.humidity_sensor_entity_id is None:
             return None
 
-        return self._get_entity_state_float(self.humidity_sensor_entity_id)
+        return self._get_entity_state_float(self._config.sensors.humidity_sensor_entity_id)
 
     @property
-    def error(self) -> Optional[Error]:
+    def error(self) -> Optional[TemperatureState]:
         """Return the error value."""
+        if self._config.sensors.inside_sensor_entity_id is None:
+            return None
+
+        if (state := self.hass.states.get(self._config.sensors.inside_sensor_entity_id)) is None:
+            return None
+
         target_temperature = self.target_temperature
         current_temperature = self.current_temperature
-
         if target_temperature is None or current_temperature is None:
             return None
 
-        return Error(self.entity_id, round(target_temperature - current_temperature, 2))
+        return TemperatureState(
+            entity_id=self.entity_id,
+            setpoint=target_temperature,
+            current=current_temperature,
+            last_updated=state.last_updated,
+            last_changed=state.last_changed,
+        )
 
     @property
     def current_outside_temperature(self) -> Optional[float]:
         """Return the current outside temperature"""
-        self.outside_sensor_entities.sort(key=lambda x: "sensor" not in x)
-        for entity_id in self.outside_sensor_entities:
+        outside_sensor_entities = self._ensure_list(self._config.sensors.outside_sensor_entity_id)
+        outside_sensor_entities.sort(key=lambda x: "sensor" not in x)
+
+        for entity_id in outside_sensor_entities:
             state = self.hass.states.get(entity_id)
             if state is None:
                 continue
 
-            if is_state_stale(state, self._sensor_max_value_age):
-                _LOGGER.debug("Outside sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self.entity_id, state_age_seconds(state), self._sensor_max_value_age)
+            sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
+
+            if is_state_stale(state, sensor_max_value_age):
+                _LOGGER.debug("Outside sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self.entity_id, state_age_seconds(state), sensor_max_value_age)
                 continue
 
             if state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
@@ -455,7 +429,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def target_temperature_step(self) -> float:
         """Return the target temperature step to control the thermostat"""
-        return self._target_temperature_step
+        return self._config.limits.target_temperature_step
 
     @property
     def hvac_mode(self) -> HVACMode:
@@ -490,7 +464,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         setpoint = self.pid.output
 
         # ECO: only follow the primary PID.
-        if self._heating_mode == HEATING_MODE_ECO:
+        if self._config.presets.heating_mode == HeatingMode.ECO:
             return round(setpoint, 1)
 
         # Secondary rooms: heating and overshoot information.
@@ -509,10 +483,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def valves_open(self) -> bool:
         """Determine if any of the controlled climates have open valves."""
         # Get the list of all controlled climates
-        climates = self._radiators + self.areas.ids()
+        climates = self._config.radiators + self.areas.ids()
 
         # If there are no radiators attached, there is no way to detect a closed valve
-        if len(self._radiators) == 0:
+        if len(self._config.radiators) == 0:
             return True
 
         # Iterate through each controlled thermostat
@@ -542,7 +516,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     continue
 
                 # If there is a current temperature, and it is not at the target temperature, we can assume the valves are open
-                if float(target_temperature) >= float(current_temperature) + float(self._climate_valve_offset):
+                if float(target_temperature) >= float(current_temperature) + float(self._config.limits.climate_valve_offset):
                     return True
 
         # If none of the thermostats have open valves, return False
@@ -572,15 +546,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return PWMDecision.NO_SETPOINT
 
         # Forced on (relay-only or explicit override).
-        if not self._coordinator.supports_setpoint_management or self._force_pulse_width_modulation:
+        if not self._coordinator.supports_setpoint_management or self._config.is_mode(SatMode.SWITCH) or self._config.pwm.force_pulse_width_modulation:
             return PWMDecision.FORCED_ON
 
         # Disabled by config.
-        if not self._overshoot_protection:
+        if not self._config.overshoot_protection:
             return PWMDecision.OVERSHOOT_PROTECTION_DISABLED
 
         # Static vs dynamic minimum-setpoint logic.
-        if not self._dynamic_minimum_setpoint:
+        if not self._config.pwm.dynamic_minimum_setpoint:
             return self._pwm_static_decision()
 
         return self._pwm_dynamic_decision()
@@ -626,7 +600,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def relative_modulation_value(self) -> int:
         """Return the capped maximum relative modulation value."""
         if not self._coordinator.supports_relative_modulation_management or self.relative_modulation_state != RelativeModulationState.OFF:
-            return self._maximum_relative_modulation
+            return self._config.pwm.maximum_relative_modulation
 
         return MINIMUM_RELATIVE_MODULATION
 
@@ -647,7 +621,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def minimum_setpoint_value(self) -> float:
         """Get the minimum allowable setpoint temperature."""
-        if self._dynamic_minimum_setpoint:
+        if self._config.pwm.dynamic_minimum_setpoint:
             return self.minimum_setpoint.value
 
         # Default to coordinator's minimum setpoint
@@ -707,7 +681,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 return
 
             try:
-                self._window_sensor_handle = asyncio.create_task(asyncio.sleep(self._window_minimum_open_time))
+                self._window_sensor_handle = asyncio.create_task(
+                    asyncio.sleep(self._config.sensors.window_minimum_open_time_seconds)
+                )
                 self._pre_activity_temperature = self.target_temperature or self.min_temp
 
                 await self._window_sensor_handle
@@ -841,16 +817,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.areas.pids.reset()
         self._last_requested_setpoint = None
 
-    async def async_control_pid(self, time: Optional[datetime] = None) -> None:
+    async def async_control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller."""
-        if self._sensor_max_value_age > 0:
-            state = self.hass.states.get(self.inside_sensor_entity_id)
-            if is_state_stale(state, self._sensor_max_value_age):
-                _LOGGER.debug("Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)", self.entity_id, self.inside_sensor_entity_id, state_age_seconds(state), self._sensor_max_value_age)
+        sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
+
+        if sensor_max_value_age > 0:
+            state = self.hass.states.get(self._config.sensors.inside_sensor_entity_id)
+            if is_state_stale(state, sensor_max_value_age):
+                _LOGGER.debug("Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)", self.entity_id, self._config.sensors.inside_sensor_entity_id, state_age_seconds(state), sensor_max_value_age)
                 self.pid.reset()
                 return
 
-        if self.error is None:
+        if (error := self.error) is None:
             _LOGGER.debug("Skipping control loop for %s because error could not be computed", self.entity_id)
             return
 
@@ -863,14 +841,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         # Calculate an optimal heating curve when we are in the deadband
-        if self.target_temperature is not None and -DEADBAND <= self.error.value <= DEADBAND:
+        if self.target_temperature is not None and -DEADBAND <= error.error <= DEADBAND:
             self.heating_curve.autotune(self.requested_setpoint, self.target_temperature, self.current_outside_temperature)
 
         if self.heating_curve.value is None:
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self.entity_id)
             return
 
-        self.pid.update(self.error.value, event_timestamp(time), self.heating_curve.value)
+        self.pid.update(error, self.heating_curve.value)
 
         self.async_write_ha_state()
 
@@ -979,8 +957,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.reset_control_state()
 
         # Collect which climates to control
-        climates = self._radiators[:]
-        if self._sync_climates_with_mode:
+        climates = self._config.radiators[:]
+        if self._config.presets.sync_climates_with_mode:
             climates += self.areas.ids()
 
         if cascade:
@@ -1020,7 +998,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await self.async_set_target_temperature(self._presets[preset_mode])
 
             # Set the temperature for each room, when enabled
-            if self._sync_climates_with_preset:
+            if self._config.presets.sync_climates_with_preset:
                 for entity_id in self.areas.ids():
                     state = self.hass.states.get(entity_id)
                     if state is None or state.state == HVACMode.OFF:
@@ -1044,12 +1022,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if cascade:
             # Set the target temperature for each main climate
-            for entity_id in self._radiators:
+            for entity_id in self._config.radiators:
                 data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
             # Set the target temperature for the connected boiler
-            if self._push_setpoint_to_thermostat:
+            if self._config.push_setpoint_to_thermostat:
                 await self._coordinator.async_set_control_thermostat_setpoint(temperature)
 
         # Reset the climate
@@ -1060,3 +1038,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Control the heating based on the new temperature setpoint
         self.schedule_control_heating_loop(force=True)
+
+    @staticmethod
+    def _build_presets(config_options: Mapping[str, float]) -> dict[str, float]:
+        """Build preset temperature mapping from config options."""
+        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
+        return {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}

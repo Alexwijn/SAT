@@ -1,7 +1,6 @@
 import logging
 from datetime import timedelta, datetime
-from types import MappingProxyType
-from typing import Any, Optional
+from typing import Optional
 
 from homeassistant.components import sensor, climate
 from homeassistant.components.climate import HVACMode
@@ -13,11 +12,12 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State, CoreState
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_ROOMS, COLD_SETPOINT, CONF_ROOM_WEIGHTS, MINIMUM_SETPOINT, CONF_SENSOR_MAX_VALUE_AGE
-from .errors import Errors, Error
+from .const import COLD_SETPOINT, MINIMUM_SETPOINT
+from .entry_data import SatConfig
 from .heating_curve import HeatingCurve
-from .helpers import float_value, convert_time_str_to_seconds, is_state_stale, state_age_seconds, event_timestamp
+from .helpers import float_value, is_state_stale, state_age_seconds
 from .pid import PID
+from .temperature_state import TemperatureStates, TemperatureState
 from .util import create_pid_controller
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,21 +37,20 @@ COOLING_HEADROOM = 10.0
 class Area:
     """Represents a single climate-controlled area."""
 
-    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], heating_curve: HeatingCurve, entity_id: str) -> None:
+    def __init__(self, config: SatConfig, heating_curve: HeatingCurve, entity_id: str) -> None:
         self._time_interval = None
         self._sensor_handler = None
 
         self._entity_id: str = entity_id
         self._hass: Optional[HomeAssistant] = None
-        self._sensor_max_value_age: float = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
+        self._sensor_max_value_age: float = config.sensors.sensor_max_value_age_seconds
 
         # Controllers and heating curve
         self.heating_curve: HeatingCurve = heating_curve
-        self.pid: PID = create_pid_controller(config_data, config_options)
+        self.pid: PID = create_pid_controller(config)
 
         # Per-room influence scaling for demand calculations.
-        raw_weights = config_options.get(CONF_ROOM_WEIGHTS, {}) or {}
-        raw_value = raw_weights.get(entity_id, 1.0)
+        raw_value = config.presets.room_weights.get(entity_id, 1.0)
 
         try:
             room_weight = float(raw_value)
@@ -125,6 +124,27 @@ class Area:
         return float_value(state.attributes.get("temperature"))
 
     @property
+    def error(self) -> Optional[TemperatureState]:
+        """Calculate the temperature error (target - current)."""
+        temperature_state = self.temperature_state()
+        if temperature_state is None:
+            return None
+
+        target_temperature = self.target_temperature
+        current_temperature = self.current_temperature
+
+        if target_temperature is None or current_temperature is None:
+            return None
+
+        return TemperatureState(
+            entity_id=self._entity_id,
+            setpoint=target_temperature,
+            current=current_temperature,
+            last_updated=temperature_state.last_updated,
+            last_changed=temperature_state.last_changed,
+        )
+
+    @property
     def valve_position(self) -> Optional[float]:
         """Retrieve the valve position from the climate entity."""
         if (self._hass is None) or (climate_state := self.climate_state) is None:
@@ -142,23 +162,8 @@ class Area:
             return None
 
     @property
-    def error(self) -> Optional[Error]:
-        """Calculate the temperature error (target - current)."""
-        target_temperature = self.target_temperature
-        current_temperature = self.current_temperature
-
-        if target_temperature is None or current_temperature is None:
-            return None
-
-        return Error(self._entity_id, round(target_temperature - current_temperature, 2))
-
-    @property
     def weight(self) -> Optional[float]:
-        """
-        Room heating demand weight in range [0, 2].
-
-        Based on the difference between target and current temperature.
-        """
+        """Room heating demand weight in range [0, 2]."""
         target_temperature = self.target_temperature
         current_temperature = self.current_temperature
 
@@ -167,6 +172,7 @@ class Area:
 
         delta = target_temperature - current_temperature
         effective_delta = max(delta - 0.2, 0.0)
+
         raw_weight = effective_delta * 1.0
         clamped_weight = max(0.0, min(raw_weight, 2.0))
 
@@ -214,32 +220,32 @@ class Area:
 
     def update(self, time: Optional[datetime] = None) -> None:
         """Update the PID controller with the current error and heating curve."""
-        if self.error is None:
-            _LOGGER.debug("Skipping control loop for %s because error could not be computed", self._entity_id)
-            return
-
         if self.heating_curve.value is None:
             _LOGGER.debug("Skipping control loop for %s because heating curve has no value", self._entity_id)
             return
 
-        self.pid.update(self.error.value, event_timestamp(time), self.heating_curve.value)
+        if (error := self.error) is None:
+            _LOGGER.debug("Skipping control loop for %s because error could not be computed", self._entity_id)
+            return
+
+        self.pid.update(error, self.heating_curve.value)
 
 
 class Areas:
     """Container for multiple Area instances."""
 
-    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], heating_curve: HeatingCurve) -> None:
-        """Initialize Areas with multiple Area instances using shared config data and options."""
-        self._entity_ids: list[str] = config_data.get(CONF_ROOMS) or []
-        self._areas: list[Area] = [Area(config_data, config_options, heating_curve, entity_id) for entity_id in self._entity_ids]
+    def __init__(self, config: SatConfig, heating_curve: HeatingCurve) -> None:
+        """Initialize Areas with multiple Area instances using shared config data."""
+        self._entity_ids: list[str] = config.rooms
+        self._areas: list[Area] = [Area(config, heating_curve, entity_id) for entity_id in self._entity_ids]
 
         _LOGGER.debug("Initialized Areas with entity_ids=%s", ", ".join(self._entity_ids) if self._entity_ids else "<none>")
 
     @property
-    def errors(self) -> Errors:
+    def errors(self) -> TemperatureStates:
         """Return a collection of all the error values for all areas."""
         error_list = [area.error for area in self._areas if area.error is not None]
-        return Errors(error_list)
+        return TemperatureStates(error_list)
 
     @property
     def pids(self) -> "Areas._PIDs":
@@ -319,11 +325,11 @@ class Areas:
                 if error is None:
                     continue
 
-                if error.value >= -OVERSHOOT_MARGIN:
+                if error.error >= -OVERSHOOT_MARGIN:
                     continue
 
                 # Degrees above target (positive number)
-                degrees_over = -error.value
+                degrees_over = -error.error
 
                 # Start from a “max allowed in cooling” and pull it down with overshoot severity.
                 caps.append(COLD_SETPOINT + COOLING_HEADROOM - COOLING_SLOPE * degrees_over)

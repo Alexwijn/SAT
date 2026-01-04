@@ -6,7 +6,7 @@ import pytest
 from homeassistant.core import State
 
 from custom_components.sat.boiler import BoilerState
-from custom_components.sat.const import HEATING_SYSTEM_RADIATORS
+from custom_components.sat.const import HeatingSystem
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pwm import PWM, PWMConfig
 from custom_components.sat.types import PWMStatus
@@ -37,7 +37,7 @@ def _make_boiler_state(
 
 @pytest.fixture
 def heating_curve() -> HeatingCurve:
-    curve = HeatingCurve(HEATING_SYSTEM_RADIATORS, coefficient=1.0)
+    curve = HeatingCurve(HeatingSystem.RADIATORS, coefficient=1.0)
     curve.update(20.0, 20.0)
     return curve
 

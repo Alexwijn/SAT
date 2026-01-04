@@ -77,7 +77,7 @@ class HeatingCurve:
     @property
     def base_offset(self) -> float:
         """Determine the base offset for the heating system."""
-        return 20 if self._heating_system == HEATING_SYSTEM_UNDERFLOOR else 27.2
+        return 20 if self._heating_system == HeatingSystem.UNDERFLOOR else 27.2
 
     @property
     def optimal_coefficient(self) -> Optional[float]:

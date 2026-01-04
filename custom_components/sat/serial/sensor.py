@@ -1,6 +1,6 @@
 """Sensor platform for SAT."""
 import logging
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from homeassistant.components import sensor
 from homeassistant.config_entries import ConfigEntry
@@ -10,8 +10,8 @@ from homeassistant.helpers.entity import async_generate_entity_id
 from pyotgw.vars import *
 
 from . import TRANSLATE_SOURCE, SatSerialCoordinator
-from ..const import *
 from ..entity import SatEntity
+from ..entry_data import SatConfig, get_entry_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -83,9 +83,10 @@ SENSOR_INFO: dict[str, SatSensorInfo] = {
 }
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
     """Setup sensor platform."""
-    coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
+    entry_data = get_entry_data(hass, config_entry.entry_id)
+    coordinator = cast(SatSerialCoordinator, entry_data.coordinator)
     has_thermostat = coordinator.data[OTGW].get(OTGW_THRM_DETECT) != "D"
 
     # Create a list of entities to be added
@@ -99,31 +100,30 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
                 continue
 
             if coordinator.data[source].get(key) is not None:
-                entities.append(SatSensor(coordinator, config_entry, info, key, source))
+                entities.append(SatSensor(coordinator, entry_data.config, info, key, source))
 
     # Add all devices
     async_add_entities(entities)
 
 
 class SatSensor(SatEntity, sensor.SensorEntity):
-    def __init__(self, coordinator: SatSerialCoordinator, config_entry: ConfigEntry, info: SatSensorInfo, key: str, source: str):
-        super().__init__(coordinator, config_entry)
+    def __init__(self, coordinator: SatSerialCoordinator, config: SatConfig, info: SatSensorInfo, key: str, source: str):
+        super().__init__(coordinator, config)
 
         self.entity_id = async_generate_entity_id(
-            sensor.DOMAIN + ".{}", f"{config_entry.data.get(CONF_NAME).lower()}_{source}_{key}", hass=coordinator.hass
+            sensor.DOMAIN + ".{}", f"{self._config.name_lower}_{source}_{key}", hass=coordinator.hass
         )
 
         self._key = key
         self._unit = info.unit
         self._source = source
         self._device_class = info.device_class
-        self._config_entry = config_entry
 
         friendly_name_format = info.friendly_name_format
         if TRANSLATE_SOURCE[source] is not None:
             friendly_name_format = f"{friendly_name_format} ({TRANSLATE_SOURCE[source]})"
 
-        self._friendly_name = friendly_name_format.format(config_entry.data.get(CONF_NAME))
+        self._friendly_name = friendly_name_format.format(self._config.name)
 
     @property
     def name(self):
@@ -157,4 +157,4 @@ class SatSensor(SatEntity, sensor.SensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-{self._source}-{self._key}"
+        return f"{self._config.name_lower}-{self._source}-{self._key}"

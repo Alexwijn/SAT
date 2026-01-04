@@ -1,6 +1,7 @@
 """Tests focused on SAT climate setpoint and heating curve behavior."""
 
 from datetime import timedelta
+from itertools import chain, repeat
 
 import pytest
 from homeassistant.components.climate import HVACMode
@@ -11,13 +12,17 @@ from custom_components.sat.climate import (
     NEAR_TARGET_MARGIN_CELSIUS,
     SatClimate,
 )
+from custom_components.sat.entry_data import SatConfig
 from custom_components.sat.const import (
+    CONF_DYNAMIC_MINIMUM_SETPOINT,
     CONF_HEATING_CURVE_COEFFICIENT,
+    CONF_HEATING_MODE,
     CONF_MINIMUM_SETPOINT,
+    CONF_OVERSHOOT_PROTECTION,
+    CONF_SENSOR_MAX_VALUE_AGE,
     CONF_HEATING_SYSTEM,
-    HEATING_MODE_COMFORT,
-    HEATING_MODE_ECO,
-    HEATING_SYSTEM_RADIATORS,
+    HeatingMode,
+    HeatingSystem,
     MINIMUM_SETPOINT,
     OPTIONS_DEFAULTS,
     PWM_DISABLE_MARGIN_CELSIUS,
@@ -33,7 +38,7 @@ pytestmark = pytest.mark.parametrize(
         (
             [],
             {
-                CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
+                CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS,
             },
             {},
             {},
@@ -42,13 +47,28 @@ pytestmark = pytest.mark.parametrize(
 )
 
 
+def _update_climate_config(climate, *, data=None, options=None) -> None:
+    current_data = dict(climate._config.data)
+    current_options = dict(climate._config.options)
+
+    if data:
+        current_data.update(data)
+
+    if options:
+        current_options.update(options)
+
+    new_config = SatConfig(climate._config.entry_id, current_data, {**OPTIONS_DEFAULTS, **current_options})
+    climate._config = new_config
+    climate._coordinator._config = new_config
+
+
 def test_requested_setpoint_without_heating_curve(climate):
     assert climate.heating_curve.value is None
     assert climate.requested_setpoint == MINIMUM_SETPOINT
 
 
 def test_requested_setpoint_eco_mode_ignores_secondary_and_caps(monkeypatch, climate):
-    climate._heating_mode = HEATING_MODE_ECO
+    _update_climate_config(climate, options={CONF_HEATING_MODE: HeatingMode.ECO})
     climate.heating_curve._last_heating_curve_value = 30.0
 
     monkeypatch.setattr(PID, "output", property(lambda self: 42.44))
@@ -59,7 +79,7 @@ def test_requested_setpoint_eco_mode_ignores_secondary_and_caps(monkeypatch, cli
 
 
 def test_requested_setpoint_uses_secondary_and_cap(monkeypatch, climate):
-    climate._heating_mode = HEATING_MODE_COMFORT
+    _update_climate_config(climate, options={CONF_HEATING_MODE: HeatingMode.COMFORT})
     climate.heating_curve._last_heating_curve_value = 30.0
 
     monkeypatch.setattr(PID, "output", property(lambda self: 40.2))
@@ -84,7 +104,7 @@ async def test_async_control_pid_updates_heating_curve_value(climate):
 
 
 async def test_async_control_pid_resets_on_stale_inside_sensor(monkeypatch, climate):
-    climate._sensor_max_value_age = 60
+    _update_climate_config(climate, options={CONF_SENSOR_MAX_VALUE_AGE: "00:01:00"})
     climate._target_temperature = 21.0
 
     now = dt_util.utcnow()
@@ -120,7 +140,7 @@ async def test_async_control_setpoint_hvac_off_forces_minimum(climate):
 async def test_async_control_setpoint_holds_near_target(monkeypatch, climate):
     climate._hvac_mode = HVACMode.HEAT
     climate._setpoint = 50.0
-    climate._overshoot_protection = False
+    _update_climate_config(climate, data={CONF_OVERSHOOT_PROTECTION: False})
 
     await climate._coordinator.async_set_heater_state(DeviceState.ON)
     await climate._coordinator.async_set_boiler_temperature(50.0 - NEAR_TARGET_MARGIN_CELSIUS + 0.1)
@@ -134,7 +154,7 @@ async def test_async_control_setpoint_holds_near_target(monkeypatch, climate):
 async def test_async_control_setpoint_increase_applies_immediately(monkeypatch, climate):
     climate._hvac_mode = HVACMode.HEAT
     climate._setpoint = 50.0
-    climate._overshoot_protection = False
+    _update_climate_config(climate, data={CONF_OVERSHOOT_PROTECTION: False})
 
     new_requested = 50.0 + INCREASE_STEP_THRESHOLD_CELSIUS + 0.1
     monkeypatch.setattr(SatClimate, "requested_setpoint", property(lambda self: new_requested))
@@ -147,10 +167,10 @@ async def test_async_control_setpoint_increase_applies_immediately(monkeypatch, 
 async def test_async_control_setpoint_decrease_requires_persistence(monkeypatch, climate):
     climate._hvac_mode = HVACMode.HEAT
     climate._setpoint = 50.0
-    climate._overshoot_protection = False
+    _update_climate_config(climate, data={CONF_OVERSHOOT_PROTECTION: False})
     await climate._coordinator.async_set_heater_state(DeviceState.ON)
 
-    requested_values = iter([45.0, 44.0, 43.0])
+    requested_values = iter(chain([45.0, 44.0, 43.0], repeat(43.0)))
 
     monkeypatch.setattr(SatClimate, "requested_setpoint", property(lambda self: next(requested_values)))
 
@@ -174,7 +194,7 @@ def test_pwm_disabled_without_setpoint(climate):
 
 def test_pwm_forced_without_setpoint_management(climate):
     climate._setpoint = 45.0
-    climate._overshoot_protection = False
+    _update_climate_config(climate, data={CONF_OVERSHOOT_PROTECTION: False})
     climate._coordinator.config.supports_setpoint_management = False
 
     assert climate.pulse_width_modulation_enabled is True
@@ -182,9 +202,11 @@ def test_pwm_forced_without_setpoint_management(climate):
 
 def test_pwm_static_minimum_setpoint_deadband(monkeypatch, climate):
     climate._setpoint = 41.0
-    climate._overshoot_protection = True
-    climate._dynamic_minimum_setpoint = False
-    climate._coordinator._config_data = {**climate._coordinator._config_data, CONF_MINIMUM_SETPOINT: 40.0}
+    _update_climate_config(
+        climate,
+        data={CONF_MINIMUM_SETPOINT: 40.0, CONF_OVERSHOOT_PROTECTION: True},
+        options={CONF_DYNAMIC_MINIMUM_SETPOINT: False},
+    )
     delta = (PWM_ENABLE_MARGIN_CELSIUS + PWM_DISABLE_MARGIN_CELSIUS) / 2
 
     monkeypatch.setattr(
@@ -211,8 +233,11 @@ def test_pwm_static_minimum_setpoint_deadband(monkeypatch, climate):
 )
 def test_pwm_dynamic_minimum_setpoint_hysteresis(monkeypatch, climate, delta, pwm_enabled, expected):
     climate._setpoint = 45.0
-    climate._overshoot_protection = True
-    climate._dynamic_minimum_setpoint = True
+    _update_climate_config(
+        climate,
+        data={CONF_OVERSHOOT_PROTECTION: True},
+        options={CONF_DYNAMIC_MINIMUM_SETPOINT: True},
+    )
     climate.minimum_setpoint._value = 40.0
     climate._coordinator.config.supports_setpoint_management = True
     climate._coordinator.config.supports_relative_modulation_management = True
@@ -227,4 +252,3 @@ def test_pwm_dynamic_minimum_setpoint_hysteresis(monkeypatch, climate, delta, pw
 
     climate.pwm._enabled = pwm_enabled
     assert climate.pulse_width_modulation_enabled is expected
-

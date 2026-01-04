@@ -1,14 +1,13 @@
 import asyncio
 import logging
 from abc import abstractmethod
-from typing import Mapping, Any, Optional
 
 from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
-from ..const import CONF_MQTT_TOPIC
 from ..coordinator import SatDataUpdateCoordinator
+from ..entry_data import SatConfig
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -18,12 +17,12 @@ STORAGE_VERSION = 1
 class SatMqttCoordinator(SatDataUpdateCoordinator):
     """Base class to manage fetching data using MQTT."""
 
-    def __init__(self, hass: HomeAssistant, device_id: str, config_data: Mapping[str, Any], options: Optional[Mapping[str, Any]] = None) -> None:
-        super().__init__(hass, config_data, options)
+    def __init__(self, hass: HomeAssistant, config: SatConfig) -> None:
+        super().__init__(hass, config)
 
-        self._device_id: str = device_id
-        self._topic: str = config_data.get(CONF_MQTT_TOPIC)
-        self._store: Store = Store(hass, STORAGE_VERSION, f"sat.mqtt.{device_id}")
+        self._device_id: str = str(self._config.device)
+        self._topic: str = self._config.mqtt_topic or ""
+        self._store: Store = Store(hass, STORAGE_VERSION, f"sat.mqtt.{self._device_id}")
 
     @property
     def device_id(self) -> str:
