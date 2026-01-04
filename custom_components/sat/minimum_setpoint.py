@@ -284,7 +284,7 @@ class DynamicMinimumSetpoint:
 
     @property
     def value(self) -> float:
-        return self._value if self._value is not None else self._config.minimum_setpoint
+        return round(self._value if self._value is not None else self._config.minimum_setpoint, 1)
 
     def reset(self) -> None:
         """Reset learned minimums and internal state."""
