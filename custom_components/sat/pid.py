@@ -235,7 +235,8 @@ class PID:
             return
 
         # Convert the temperature delta into a time-based derivative.
-        derivative = (state.current - self._last_temperature) / delta_time
+        temperature_delta = state.current - self._last_temperature
+        derivative = -temperature_delta / delta_time
 
         # Apply the first low-pass filter.
         filtered_derivative = DERIVATIVE_ALPHA1 * derivative + (1 - DERIVATIVE_ALPHA1) * self._raw_derivative

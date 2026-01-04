@@ -158,14 +158,14 @@ def test_derivative_filtering_and_cap():
     pid.update(_state_for_error(1.0, 10.0, current=10.0), heating_curve=10.0)
     pid.update(_state_for_error(1.0, 11.0, current=11.0), heating_curve=10.0)
 
-    derivative = (11.0 - 10.0) / 1.0
+    derivative = -(11.0 - 10.0) / 1.0
     expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)
 
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
     assert pid.derivative == pytest.approx(expected_raw, rel=1e-3)
 
     pid.update(_state_for_error(1.0, 12.0, current=1000.0), heating_curve=10.0)
-    assert pid.raw_derivative == DERIVATIVE_RAW_CAP
+    assert pid.raw_derivative == -DERIVATIVE_RAW_CAP
 
 
 def test_derivative_freeze_in_deadband():
@@ -199,7 +199,7 @@ def test_derivative_uses_sensor_timing():
     pid.update(_state_for_error(1.0, 100.0, current=10.0), heating_curve=10.0)
     pid.update(_state_for_error(1.0, 300.0, current=11.0), heating_curve=10.0)
 
-    derivative = (11.0 - 10.0) / 200.0
+    derivative = -(11.0 - 10.0) / 200.0
     expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)
 
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
