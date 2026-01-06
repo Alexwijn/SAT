@@ -106,7 +106,7 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
             if entity_id != self._signal_entity_id:
                 return
 
-            self.hass.async_add_job(self.async_write_ha_state)
+            self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
         self._signal_entity_id = self._area_id or self._climate.entity_id
@@ -344,7 +344,7 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 class SatCycleSensor(SatEntity, SensorEntity):
     async def async_added_to_hass(self) -> None:
         def on_cycle_event(_event: Event) -> None:
-            self.async_write_ha_state()
+            self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
 

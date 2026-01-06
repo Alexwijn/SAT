@@ -118,10 +118,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._control_update_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_control)
 
         self._config: SatConfig = config
-
         self._manufacturer: Optional[Manufacturer] = None
-        self._heating_system: str = self._config.heating_system
-        self._simulation: bool = self._config.simulation_enabled
 
         if self._config.manufacturer is not None:
             self._manufacturer = ManufacturerFactory.resolve_by_name(self._config.manufacturer)
@@ -312,7 +309,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def maximum_setpoint(self) -> float:
         """Return the maximum setpoint temperature that the device can support."""
-        default_maximum_setpoint = calculate_default_maximum_setpoint(self._heating_system)
+        default_maximum_setpoint = calculate_default_maximum_setpoint(self._config.heating_system)
         maximum_setpoint = self._config.limits.maximum_setpoint
 
         if maximum_setpoint is None:

@@ -31,6 +31,7 @@ class SensorsConfig:
     inside_sensor_entity_id: str
     humidity_sensor_entity_id: Optional[str]
     outside_sensor_entity_id: list[str] | str
+
     sensor_max_value_age_seconds: float
     window_minimum_open_time_seconds: float
 
@@ -78,6 +79,7 @@ class PresetConfig:
 
 @dataclass(frozen=True)
 class SimulationConfig:
+    enabled: bool
     simulated_heating: float
     simulated_cooling: float
     simulated_warming_up_seconds: float
@@ -142,10 +144,6 @@ class SatConfig:
     @property
     def rooms(self) -> list[str]:
         return self.data.get(CONF_ROOMS) or []
-
-    @property
-    def simulation_enabled(self) -> bool:
-        return bool(self.data.get(CONF_SIMULATION))
 
     @property
     def thermostat(self) -> Optional[str]:
@@ -241,11 +239,10 @@ class SatConfig:
     @property
     def simulation(self) -> SimulationConfig:
         return SimulationConfig(
+            enabled=bool(self.options.get(CONF_SIMULATION)),
             simulated_heating=float(self.data.get(CONF_SIMULATED_HEATING, OPTIONS_DEFAULTS[CONF_SIMULATED_HEATING])),
             simulated_cooling=float(self.data.get(CONF_SIMULATED_COOLING, OPTIONS_DEFAULTS[CONF_SIMULATED_COOLING])),
-            simulated_warming_up_seconds=convert_time_str_to_seconds(
-                self.data.get(CONF_SIMULATED_WARMING_UP, OPTIONS_DEFAULTS[CONF_SIMULATED_WARMING_UP])
-            ),
+            simulated_warming_up_seconds=convert_time_str_to_seconds(self.data.get(CONF_SIMULATED_WARMING_UP, OPTIONS_DEFAULTS[CONF_SIMULATED_WARMING_UP])),
         )
 
 

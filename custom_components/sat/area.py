@@ -9,7 +9,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     EVENT_HOMEASSISTANT_STARTED,
 )
-from homeassistant.core import HomeAssistant, State, CoreState
+from homeassistant.core import HomeAssistant, State, CoreState, Event, EventStateChangedData
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import COLD_SETPOINT, MINIMUM_SETPOINT
@@ -18,7 +18,7 @@ from .heating_curve import HeatingCurve
 from .helpers import float_value, is_state_stale, state_age_seconds
 from .pid import PID
 from .temperature_state import TemperatureStates, TemperatureState
-from .util import create_pid_controller
+from .util import create_pid_controller, create_heating_curve_controller
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ COOLING_HEADROOM = 10.0
 class Area:
     """Represents a single climate-controlled area."""
 
-    def __init__(self, config: SatConfig, heating_curve: HeatingCurve, entity_id: str) -> None:
+    def __init__(self, config: SatConfig, entity_id: str) -> None:
         self._time_interval = None
         self._sensor_handler = None
 
@@ -45,9 +45,9 @@ class Area:
         self._hass: Optional[HomeAssistant] = None
         self._sensor_max_value_age: float = config.sensors.sensor_max_value_age_seconds
 
-        # Controllers and heating curve
-        self.heating_curve: HeatingCurve = heating_curve
-        self.pid: PID = create_pid_controller(config)
+        # Create controllers.
+        self.heating_curve: HeatingCurve = create_heating_curve_controller(config)
+        self.pid: PID = create_pid_controller(self.heating_curve, config)
 
         # Per-room influence scaling for demand calculations.
         raw_value = config.presets.room_weights.get(entity_id, 1.0)
@@ -218,28 +218,26 @@ class Area:
             self._time_interval()
             self._time_interval = None
 
-    def update(self, time: Optional[datetime] = None) -> None:
-        """Update the PID controller with the current error and heating curve."""
-        if self.heating_curve.value is None:
-            _LOGGER.debug("Skipping control loop for %s because heating curve has no value", self._entity_id)
-            return
+    async def async_outside_entity_changed(self, _event: Event[EventStateChangedData]) -> None:
+        """Handle changes to the outside entity."""
+        self.heating_curve.update(self.target_temperature, self.current_temperature)
 
+    def update(self, _time: Optional[datetime] = None) -> None:
+        """Update the PID controller with the current error and heating curve."""
         if (error := self.error) is None:
             _LOGGER.debug("Skipping control loop for %s because error could not be computed", self._entity_id)
             return
 
-        self.pid.update(error, self.heating_curve.value)
+        self.pid.update(error)
 
 
 class Areas:
     """Container for multiple Area instances."""
 
-    def __init__(self, config: SatConfig, heating_curve: HeatingCurve) -> None:
+    def __init__(self, config: SatConfig) -> None:
         """Initialize Areas with multiple Area instances using shared config data."""
         self._entity_ids: list[str] = config.rooms
-        self._areas: list[Area] = [Area(config, heating_curve, entity_id) for entity_id in self._entity_ids]
-
-        _LOGGER.debug("Initialized Areas with entity_ids=%s", ", ".join(self._entity_ids) if self._entity_ids else "<none>")
+        self._areas: list[Area] = [Area(config, entity_id) for entity_id in self._entity_ids]
 
     @property
     def errors(self) -> TemperatureStates:
@@ -251,6 +249,11 @@ class Areas:
     def pids(self) -> "Areas._PIDs":
         """Return an interface to reset PID controllers for all areas."""
         return Areas._PIDs(self._areas)
+
+    @property
+    def heating_curves(self) -> "Areas._HeatingCurves":
+        """Return an interface to update heating curves for all areas."""
+        return Areas._HeatingCurves(self._areas)
 
     def get(self, entity_id: str) -> Optional[Area]:
         """Return the Area instance for a given entity id, if present."""
@@ -272,6 +275,16 @@ class Areas:
         """Call async_added_to_hass for all areas."""
         for area in self._areas:
             await area.async_added_to_hass(hass, device_id)
+
+    class _HeatingCurves:
+        """Helper for interacting with heating curves of all areas."""
+
+        def __init__(self, areas: list[Area]):
+            self._areas = areas
+
+        def update(self, outside_temperature: float) -> None:
+            for area in self._areas:
+                area.heating_curve.update(area.target_temperature, outside_temperature)
 
     class _PIDs:
         """Helper for interacting with PID controllers of all areas."""

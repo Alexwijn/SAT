@@ -94,6 +94,8 @@ async def test_async_control_pid_updates_heating_curve_value(climate):
     climate.hass.states.async_set("sensor.test_outside_sensor", "5")
     climate._target_temperature = 21.0
 
+    climate.heating_curve.update(climate.target_temperature, climate.current_outside_temperature)
+
     await climate.async_control_pid()
 
     coefficient = float(OPTIONS_DEFAULTS[CONF_HEATING_CURVE_COEFFICIENT])

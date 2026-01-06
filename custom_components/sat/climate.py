@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta, datetime
-from typing import Callable, Iterable, Optional, Union, Any, Mapping
+from typing import Callable, Optional, Union, Any, Mapping
 
 from homeassistant.components import sensor, weather
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -36,7 +36,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .entry_data import SatConfig, get_entry_data, SatMode
-from .helpers import float_value, is_state_stale, state_age_seconds, event_timestamp, clamp
+from .helpers import float_value, is_state_stale, state_age_seconds, event_timestamp, clamp, ensure_list
 from .manufacturers.geminox import Geminox
 from .summer_simmer import SummerSimmer
 from .temperature_state import TemperatureState
@@ -104,26 +104,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_id = self._config.name_lower
 
         # Controllers
-        self.pid = create_pid_controller(self._config)
+        self.areas = Areas(self._config)
         self.heating_curve = create_heating_curve_controller(self._config)
-
-        self.areas = Areas(self._config, self.heating_curve)
         self.pwm = create_pwm_controller(self.heating_curve, self._config)
+        self.pid = create_pid_controller(self.heating_curve, self._config)
         self.minimum_setpoint = create_dynamic_minimum_setpoint_controller(self._config)
 
-        if self._config.simulation_enabled:
+        if self._config.simulation.enabled:
             _LOGGER.warning("Simulation mode!")
-
-    @staticmethod
-    def _ensure_list(value: Optional[Union[Iterable[str], str]]) -> list[str]:
-        """Normalize a config option to a list of strings."""
-        if value is None:
-            return []
-
-        if isinstance(value, str):
-            return [value]
-
-        return list(value)
 
     @staticmethod
     def _build_supported_features() -> ClimateEntityFeature:
@@ -166,6 +154,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Update a heating curve if outside temperature is available
         if self.current_outside_temperature is not None:
+            self.areas.heating_curves.update(self.current_outside_temperature)
             self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         if self.hass.state is CoreState.running:
@@ -221,6 +210,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_on_remove(
             async_track_time_interval(
                 self.hass, self.async_control_pid, timedelta(seconds=30)
+            )
+        )
+
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, ensure_list(self._config.sensors.outside_sensor_entity_id), self._async_outside_entity_changed
             )
         )
 
@@ -401,7 +396,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @property
     def current_outside_temperature(self) -> Optional[float]:
         """Return the current outside temperature"""
-        outside_sensor_entities = self._ensure_list(self._config.sensors.outside_sensor_entity_id)
+        outside_sensor_entities = ensure_list(self._config.sensors.outside_sensor_entity_id)
         outside_sensor_entities.sort(key=lambda x: "sensor" not in x)
 
         for entity_id in outside_sensor_entities:
@@ -644,6 +639,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Thermostat state changed.")
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
+    async def _async_outside_entity_changed(self, event: Event[EventStateChangedData]) -> None:
+        """Handle changes to the outside entity."""
+        if event.data.get("new_state") is None or event.data.get("new_state") in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+
+        target_temperature = self.target_temperature
+        outside_temperature = self.current_outside_temperature
+
+        if target_temperature is None or outside_temperature is None:
+            return
+
+        self.areas.heating_curves.update(outside_temperature)
+        self.heating_curve.update(target_temperature, outside_temperature)
+
     async def _async_climate_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to a climate entity."""
         new_state = event.data.get("new_state")
@@ -829,26 +838,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 return
 
         if (error := self.error) is None:
-            _LOGGER.debug("Skipping control loop for %s because error could not be computed", self.entity_id)
+            _LOGGER.debug("Skipping control loop for %s because error value is not available.", self.entity_id)
             return
-
-        if self.current_outside_temperature is None:
-            _LOGGER.warning("Current outside temperature is not available. Skipping PID control.")
-            return
-
-        # Make sure we use the latest heating curve value
-        if self.target_temperature is not None:
-            self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
 
         # Calculate an optimal heating curve when we are in the deadband
-        if self.target_temperature is not None and -DEADBAND <= error.error <= DEADBAND:
-            self.heating_curve.autotune(self.requested_setpoint, self.target_temperature, self.current_outside_temperature)
+        if (
+            self.target_temperature is not None
+            and self.current_outside_temperature is not None
+            and -DEADBAND <= error.error <= DEADBAND
+        ):
+            self.heating_curve.autotune(
+                self.requested_setpoint,
+                self.target_temperature,
+                self.current_outside_temperature,
+            )
 
-        if self.heating_curve.value is None:
-            _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self.entity_id)
-            return
-
-        self.pid.update(error, self.heating_curve.value)
+        self.pid.update(error)
 
         self.async_write_ha_state()
 

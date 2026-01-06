@@ -214,7 +214,7 @@ class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
 class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
     async def async_added_to_hass(self) -> None:
         def on_cycle_event(_event: Event) -> None:
-            self.async_write_ha_state()
+            self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
         self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, on_cycle_event))

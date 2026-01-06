@@ -8,7 +8,9 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 
 from .const import *
-from .helpers import clamp, float_value, timestamp as _timestamp
+from .entry_data import PidConfig
+from .heating_curve import HeatingCurve
+from .helpers import float_value, timestamp as _timestamp, clamp_to_range
 from .temperature_state import TemperatureState
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,17 +34,12 @@ STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, heating_system: str, automatic_gain_value: float, heating_curve_coefficient: float, kp: float, ki: float, kd: float, automatic_gains: bool = False) -> None:
-        self._kp: float = kp
-        self._ki: float = ki
-        self._kd: float = kd
-        self._heating_system: str = heating_system
-        self._automatic_gains: bool = automatic_gains
-        self._automatic_gains_value: float = automatic_gain_value
-        self._heating_curve_coefficient: float = heating_curve_coefficient
+    def __init__(self, heating_system: HeatingSystem, config: PidConfig, heating_curve: HeatingCurve) -> None:
+        self._config = config
+        self._heating_curve = heating_curve
+        self._heating_system = heating_system
 
         self._raw_derivative: float = 0.0
-        self._heating_curve: Optional[float] = None
         self._last_temperature: Optional[float] = None
         self._last_derivative_updated: Optional[float] = None
 
@@ -55,33 +52,33 @@ class PID:
     @property
     def available(self):
         """Return whether the PID controller is available."""
-        return self._last_error is not None and self._heating_curve is not None
+        return self._last_error is not None and self._heating_curve.value is not None
 
     @property
     def kp(self) -> Optional[float]:
         """Return the value of kp based on the current configuration."""
-        if not self._automatic_gains:
-            return float(self._kp)
+        if not self._config.automatic_gains:
+            return float(self._config.proportional)
 
-        if self._heating_curve is None:
+        if self._heating_curve.value is None:
             return 0.0
 
         automatic_gain_value = 4 if self._heating_system == HeatingSystem.UNDERFLOOR else 3
-        return round((self._heating_curve_coefficient * self._heating_curve) / automatic_gain_value, 6)
+        return round((self._config.heating_curve_coefficient * self._heating_curve.value) / automatic_gain_value, 6)
 
     @property
     def ki(self) -> Optional[float]:
         """Return the value of ki based on the current configuration."""
-        if not self._automatic_gains:
-            return float(self._ki)
+        if not self._config.automatic_gains:
+            return float(self._config.integral)
 
         return round(self.kp / 8400, 6)
 
     @property
     def kd(self) -> Optional[float]:
         """Return the value of kd based on the current configuration."""
-        if not self._automatic_gains:
-            return float(self._kd)
+        if not self._config.automatic_gains:
+            return float(self._config.derivative)
 
         return round(0.07 * 8400 * self.kp, 6)
 
@@ -119,7 +116,7 @@ class PID:
     @property
     def output(self) -> float:
         """Return the control output value."""
-        if (heating_curve := self._heating_curve) is None:
+        if (heating_curve := self._heating_curve.value) is None:
             return 0.0
 
         return round(heating_curve + self.proportional + self.integral + self.derivative, 1)
@@ -154,12 +151,18 @@ class PID:
 
         _LOGGER.debug("Loaded PID state from storage for entity=%s", self._entity_id)
 
-    def update(self, state: TemperatureState, heating_curve: float) -> None:
-        """Update PID state with the latest error and heating curve value."""
-        self._heating_curve = heating_curve
+    def set_heating_curve_value(self, heating_curve_value: float) -> None:
+        """Set the heating curve value."""
+        self._heating_curve_value = heating_curve_value
 
+    def update(self, state: TemperatureState) -> None:
+        """Update PID state with the latest error and heating curve value."""
+        if self._heating_curve.value is None:
+            _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self._entity_id)
+            return
+
+        self._update_integral(state)
         self._update_derivative(state)
-        self._update_integral(state, heating_curve)
 
         self._last_error = state.error
         self._last_temperature = state.current
@@ -167,7 +170,7 @@ class PID:
         if self._hass is not None:
             _LOGGER.debug(
                 "PID update: entity=%s error=%.3f heating_curve=%.3f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
-                self._entity_id, state.error, heating_curve, self.proportional, self.integral, self.derivative, self.output
+                self._entity_id, state.error, self._heating_curve.value, self.proportional, self.integral, self.derivative, self.output
             )
 
             if self._store is not None:
@@ -175,7 +178,7 @@ class PID:
 
             self._hass.loop.call_soon_threadsafe(async_dispatcher_send, self._hass, SIGNAL_PID_UPDATED, self._entity_id)
 
-    def _update_integral(self, state: TemperatureState, heating_curve_value: float) -> None:
+    def _update_integral(self, state: TemperatureState) -> None:
         """Update the integral value in the PID controller."""
         error_abs = abs(state.error)
         state_timestamp = state.last_updated.timestamp()
@@ -208,7 +211,7 @@ class PID:
         self._integral += self.ki * state.error * delta_time
 
         # Clamp integral to the heating curve bounds.
-        self._integral = clamp(self._integral, -heating_curve_value, +heating_curve_value)
+        self._integral = clamp_to_range(self._integral, self._heating_curve.value)
 
         # Record the timestamp used for this integration step.
         self._last_interval_updated = state_timestamp

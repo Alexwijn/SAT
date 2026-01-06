@@ -54,7 +54,7 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         return -1
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             domain_service = DOMAIN_SERVICE.get(self._entity.domain)
             state_service = SERVICE_TURN_ON if state == DeviceState.ON else SERVICE_TURN_OFF
 

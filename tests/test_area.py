@@ -4,7 +4,6 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.sat.area import Area, ATTR_SENSOR_TEMPERATURE_ID
 from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_SENSOR_MAX_VALUE_AGE, HeatingSystem, OPTIONS_DEFAULTS
-from custom_components.sat.heating_curve import HeatingCurve
 from tests.const import make_config
 
 
@@ -17,7 +16,7 @@ async def test_area_current_temperature_stale_climate_state(hass, monkeypatch):
     config_options[CONF_SENSOR_MAX_VALUE_AGE] = "00:01:00"
     config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=config_options)
 
-    area = Area(config, HeatingCurve(HeatingSystem.RADIATORS, 1.0), "climate.room1")
+    area = Area(config, "climate.room1")
     await area.async_added_to_hass(hass, "device.test")
 
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
@@ -42,7 +41,7 @@ async def test_area_current_temperature_stale_override_sensor(hass, monkeypatch)
     config_options[CONF_SENSOR_MAX_VALUE_AGE] = "00:01:00"
     config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=config_options)
 
-    area = Area(config, HeatingCurve(HeatingSystem.RADIATORS, 1.0), "climate.room1")
+    area = Area(config, "climate.room1")
     await area.async_added_to_hass(hass, "device.test")
 
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))

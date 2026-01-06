@@ -101,9 +101,9 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         """Publish a command to the MQTT topic."""
         topic = self._get_topic_for_publishing()
 
-        _LOGGER.debug("Publishing MQTT command: payload='%s', topic='%s', simulation='%s'", payload, topic, self._simulation)
+        _LOGGER.debug("Publishing MQTT command: payload='%s', topic='%s', simulation='%s'", payload, topic, self._config.simulation.enabled)
 
-        if self._simulation:
+        if self._config.simulation.enabled:
             return
 
         try:

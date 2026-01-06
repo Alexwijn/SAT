@@ -5,6 +5,8 @@ from datetime import datetime
 import pytest
 
 from custom_components.sat.const import DEADBAND, HeatingSystem
+from custom_components.sat.entry_data import PidConfig
+from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pid import (
     DERIVATIVE_ALPHA1,
     DERIVATIVE_ALPHA2,
@@ -27,15 +29,46 @@ def _state_for_error(error, timestamp_value, current=20.0):
     )
 
 
-def test_initial_state_and_availability():
+def _pid_config(
+    *,
+    proportional: float = 1.0,
+    integral: float = 0.5,
+    derivative: float = 0.1,
+    automatic_gains: bool = False,
+    automatic_gains_value: float = 0.0,
+    heating_curve_coefficient: float = 2.0,
+) -> PidConfig:
+    return PidConfig(
+        integral=integral,
+        derivative=derivative,
+        proportional=proportional,
+        automatic_gains=automatic_gains,
+        automatic_gains_value=automatic_gains_value,
+        heating_curve_coefficient=heating_curve_coefficient,
+    )
 
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=1.0,
-        ki=0.5,
-        kd=0.1,
+
+def _make_pid(
+    heating_system: HeatingSystem,
+    *,
+    config: PidConfig,
+    heating_curve_value: float | None = None,
+) -> PID:
+    heating_curve = HeatingCurve(heating_system, config.heating_curve_coefficient)
+    if heating_curve_value is not None:
+        heating_curve._last_heating_curve_value = heating_curve_value
+
+    return PID(heating_system=heating_system, config=config, heating_curve=heating_curve)
+
+
+def _set_heating_curve_value(pid: PID, value: float) -> None:
+    pid._heating_curve._last_heating_curve_value = value
+
+
+def test_initial_state_and_availability():
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(),
     )
 
     assert pid.available is False
@@ -46,19 +79,18 @@ def test_initial_state_and_availability():
 
 
 def test_manual_gains_output_and_availability():
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=2.0,
-        ki=1.0,
-        kd=0.5,
-        automatic_gains=False,
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(
+            proportional=2.0,
+            integral=1.0,
+            derivative=0.5,
+        ),
     )
 
-    pid.update(_state_for_error(0.05, 0.0), heating_curve=30.0)
-    state = _state_for_error(0.05, 10.0)
-    pid.update(state, heating_curve=30.0)
+    _set_heating_curve_value(pid, 30.0)
+    pid.update(_state_for_error(0.05, 0.0))
+    pid.update(_state_for_error(0.05, 10.0))
 
     assert pid.available is True
     assert pid.kp == 2.0
@@ -71,20 +103,20 @@ def test_manual_gains_output_and_availability():
 
 
 def test_automatic_gains_calculation():
-    pid = PID(
-        heating_system=HeatingSystem.UNDERFLOOR,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=1.0,
-        ki=1.0,
-        kd=1.0,
-        automatic_gains=True,
+    pid = _make_pid(
+        HeatingSystem.UNDERFLOOR,
+        config=_pid_config(
+            automatic_gains=True,
+            proportional=1.0,
+            integral=1.0,
+            derivative=1.0,
+        ),
     )
 
     assert pid.kp == 0.0
 
-    state = _state_for_error(0.05, 5.0)
-    pid.update(state, heating_curve=40.0)
+    _set_heating_curve_value(pid, 40.0)
+    pid.update(_state_for_error(0.05, 5.0))
 
     assert pid.kp == 20.0
     assert pid.ki == round(20.0 / 8400, 6)
@@ -92,71 +124,60 @@ def test_automatic_gains_calculation():
 
 
 def test_integral_timebase_reset_and_accumulation():
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=1.0,
-        ki=1.0,
-        kd=0.0,
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, integral=1.0, derivative=0.0),
     )
 
-    pid.update(_state_for_error(DEADBAND + 0.4, 10.0), heating_curve=10.0)
+    _set_heating_curve_value(pid, 10.0)
+
+    pid.update(_state_for_error(DEADBAND + 0.4, 10.0))
     assert pid.integral == 0.0
 
-    pid.update(_state_for_error(DEADBAND / 2, 20.0), heating_curve=10.0)
+    pid.update(_state_for_error(DEADBAND / 2, 20.0))
     assert pid.integral == 0.0
 
-    pid.update(_state_for_error(DEADBAND / 2, 30.0), heating_curve=10.0)
+    pid.update(_state_for_error(DEADBAND / 2, 30.0))
     assert pid.integral == 0.5
 
 
 def test_integral_clamped_to_heating_curve():
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=1.0,
-        ki=1.0,
-        kd=0.0,
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, integral=1.0, derivative=0.0),
     )
 
-    pid.update(_state_for_error(DEADBAND, 0.0), heating_curve=0.5)
-    pid.update(_state_for_error(DEADBAND, 10.0), heating_curve=0.5)
+    _set_heating_curve_value(pid, 0.5)
+    pid.update(_state_for_error(DEADBAND, 0.0))
+    pid.update(_state_for_error(DEADBAND, 10.0))
 
     assert pid.integral == 0.5
 
 
 def test_integral_clamps_large_interval():
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=1.0,
-        ki=1.0,
-        kd=0.0,
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, integral=1.0, derivative=0.0),
     )
 
-    pid.update(_state_for_error(0.05, 0.0), heating_curve=100.0)
+    _set_heating_curve_value(pid, 100.0)
+    pid.update(_state_for_error(0.05, 0.0))
     state = _state_for_error(0.05, SENSOR_MAX_INTERVAL + 600.0)
-    pid.update(state, heating_curve=100.0)
+    pid.update(state)
 
     expected = 0.05 * SENSOR_MAX_INTERVAL
     assert pid.integral == pytest.approx(expected, rel=1e-3)
 
 
 def test_derivative_filtering_and_cap():
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=0.0,
-        ki=0.0,
-        kd=1.0,
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
     )
 
-    pid.update(_state_for_error(1.0, 10.0, current=10.0), heating_curve=10.0)
-    pid.update(_state_for_error(1.0, 11.0, current=11.0), heating_curve=10.0)
+    _set_heating_curve_value(pid, 10.0)
+    pid.update(_state_for_error(1.0, 10.0, current=10.0))
+    pid.update(_state_for_error(1.0, 11.0, current=11.0))
 
     derivative = -(11.0 - 10.0) / 1.0
     expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)
@@ -164,40 +185,34 @@ def test_derivative_filtering_and_cap():
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
     assert pid.derivative == pytest.approx(expected_raw, rel=1e-3)
 
-    pid.update(_state_for_error(1.0, 12.0, current=1000.0), heating_curve=10.0)
+    pid.update(_state_for_error(1.0, 12.0, current=1000.0))
     assert pid.raw_derivative == -DERIVATIVE_RAW_CAP
 
 
 def test_derivative_freeze_in_deadband():
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=0.0,
-        ki=0.0,
-        kd=1.0,
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
     )
 
-    pid.update(_state_for_error(1.0, 10.0, current=10.0), heating_curve=10.0)
+    _set_heating_curve_value(pid, 10.0)
+    pid.update(_state_for_error(1.0, 10.0, current=10.0))
     pid._raw_derivative = 3.0
 
-    pid.update(_state_for_error(DEADBAND / 2, 20.0, current=10.0), heating_curve=10.0)
+    pid.update(_state_for_error(DEADBAND / 2, 20.0, current=10.0))
 
     assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)
 
 
 def test_derivative_uses_sensor_timing():
-    pid = PID(
-        heating_system=HeatingSystem.RADIATORS,
-        automatic_gain_value=2.0,
-        heating_curve_coefficient=2.0,
-        kp=0.0,
-        ki=0.0,
-        kd=1.0,
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
     )
 
-    pid.update(_state_for_error(1.0, 100.0, current=10.0), heating_curve=10.0)
-    pid.update(_state_for_error(1.0, 300.0, current=11.0), heating_curve=10.0)
+    _set_heating_curve_value(pid, 10.0)
+    pid.update(_state_for_error(1.0, 100.0, current=10.0))
+    pid.update(_state_for_error(1.0, 300.0, current=11.0))
 
     derivative = -(11.0 - 10.0) / 200.0
     expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)

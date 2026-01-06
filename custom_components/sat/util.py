@@ -16,25 +16,9 @@ if TYPE_CHECKING:
     from .climate import SatClimate
 
 
-def create_pid_controller(config: SatConfig) -> PID:
+def create_pid_controller(heating_curve: HeatingCurve, config: SatConfig) -> PID:
     """Create and return a PID controller instance with the given configuration options."""
-    kp = config.pid.proportional
-    ki = config.pid.integral
-    kd = config.pid.derivative
-
-    automatic_gains = config.pid.automatic_gains
-    automatic_gains_value = config.pid.automatic_gains_value
-    heating_curve_coefficient = config.pid.heating_curve_coefficient
-
-    return PID(
-        heating_system=config.heating_system,
-        automatic_gain_value=automatic_gains_value,
-        heating_curve_coefficient=heating_curve_coefficient,
-        automatic_gains=automatic_gains,
-        kp=kp,
-        ki=ki,
-        kd=kd,
-    )
+    return PID(config=config.pid, heating_curve=heating_curve, heating_system=config.heating_system)
 
 
 def create_dynamic_minimum_setpoint_controller(config: SatConfig) -> DynamicMinimumSetpoint:

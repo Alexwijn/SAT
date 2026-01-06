@@ -199,7 +199,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     async def _send_command(self, domain: str, service: str, _key: str, payload: dict):
         """Helper method to send a command to a specified domain and service."""
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             await self.hass.services.async_call(domain, service, payload, blocking=True)
 
         _LOGGER.debug(f"Sending '{payload}' to {service} in {domain}.")

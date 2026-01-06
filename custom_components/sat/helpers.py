@@ -113,9 +113,25 @@ def clamp(value: float, low: float, high: Optional[float] = None) -> float:
     return max(low, min(value, high))
 
 
+def clamp_to_range(value: float, range_limit: float) -> float:
+    """Return the value clamped to the range."""
+    return clamp(value, -range_limit, range_limit)
+
+
 def filter_none(values: Iterable[Optional[float]]) -> list[float]:
     """Return a list with all None values removed."""
     return [value for value in values if value is not None]
+
+
+def ensure_list(value: Optional[Union[Iterable[str], str]]) -> list[str]:
+    """Normalize a config option to a list of strings."""
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        return [value]
+
+    return list(value)
 
 
 def average(values: Iterable[Optional[float]]) -> Optional[float]:

@@ -172,37 +172,37 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         await self._api.disconnect()
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             await self._api.set_control_setpoint(value)
 
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             await self._api.set_dhw_setpoint(value)
 
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             await self._api.set_target_temp(value)
 
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             await self._api.set_ch_enable_bit(1 if state == DeviceState.ON else 0)
 
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             await self._api.set_max_relative_mod(value)
 
         await super().async_set_control_max_relative_modulation(value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
-        if not self._simulation:
+        if not self._config.simulation.enabled:
             await self._api.set_max_ch_setpoint(value)
 
         await super().async_set_control_max_setpoint(value)
