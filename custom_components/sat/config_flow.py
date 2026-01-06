@@ -86,20 +86,47 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.debug("Discovered MQTT at [mqtt://%s]", discovery_info.topic)
 
         # Mapping topic prefixes to handler methods and device IDs
-        topic_mapping = {
-            "ems-esp/": (SatMode.MQTT_EMS, "ems-esp", self.async_step_mosquitto_ems),
-            "OTGW/": (SatMode.MQTT_OPENTHERM, discovery_info.topic[11:], self.async_step_mosquitto_opentherm),
-        }
+        topic_mapping = (
+            (
+                "ems-esp/",
+                SatMode.MQTT_EMS,
+                "ems-esp",
+                self.async_step_mosquitto_ems,
+            ),
+            (
+                "OTGW/",
+                SatMode.MQTT_OPENTHERM,
+                lambda topic: topic[11:],
+                self.async_step_mosquitto_opentherm,
+            ),
+            (
+                "otthing/",
+                SatMode.MQTT_OTTHING,
+                lambda topic: topic[:-len("/state")] if topic.endswith("/state") else topic,
+                self.async_step_mosquitto_otthing,
+            ),
+        )
 
         # Check for matching prefix and handle appropriately
-        for prefix, (mode, device_id, step_method) in topic_mapping.items():
+        for prefix, mode, device_id, step_method in topic_mapping:
             if discovery_info.topic.startswith(prefix):
-                _LOGGER.debug("Identified gateway type %s: %s", mode[5:], device_id)
+                resolved_device_id = device_id(discovery_info.topic) if callable(device_id) else device_id
+
+                _LOGGER.debug(
+                    "Identified gateway type %s: %s",
+                    mode[5:] if mode.startswith("mqtt_") else mode,
+                    resolved_device_id,
+                )
+
                 self.data[CONF_MODE] = mode
-                self.data[CONF_DEVICE] = device_id
+
+                if mode == SatMode.MQTT_OTTHING:
+                    self.data[CONF_MQTT_TOPIC] = resolved_device_id
+
+                self.data[CONF_DEVICE] = resolved_device_id
 
                 # Abort if the gateway is already registered, reload if necessary
-                await self.async_set_unique_id(device_id)
+                await self.async_set_unique_id(resolved_device_id)
                 self._abort_if_unique_id_configured(updates=self.data)
 
                 return await step_method()
@@ -120,6 +147,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if self.data[CONF_MODE] == SatMode.MQTT_EMS:
                 return await self.async_step_mosquitto_ems()
 
+            if self.data[CONF_MODE] == SatMode.MQTT_OTTHING:
+                return await self.async_step_mosquitto_otthing()
+
         return self.async_show_form(
             step_id="mosquitto",
             last_step=False,
@@ -129,8 +159,18 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.SelectSelectorConfig(
                         mode=SelectSelectorMode.DROPDOWN,
                         options=[
-                            selector.SelectOptionDict(value=SatMode.MQTT_OPENTHERM, label="OpenTherm Gateway (For advanced boiler control)"),
-                            selector.SelectOptionDict(value=SatMode.MQTT_EMS, label="EMS-ESP (For Bosch, Junkers, Buderus systems)"),
+                            selector.SelectOptionDict(
+                                value=SatMode.MQTT_OPENTHERM,
+                                label="OpenTherm Gateway (For advanced boiler control)",
+                            ),
+                            selector.SelectOptionDict(
+                                value=SatMode.MQTT_EMS,
+                                label="EMS-ESP (For Bosch, Junkers, Buderus systems)",
+                            ),
+                            selector.SelectOptionDict(
+                                value=SatMode.MQTT_OTTHING,
+                                label="OTthing (For OTthing MQTT devices)",
+                            ),
                         ]
                     )
                 ),
@@ -155,6 +195,25 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_sensors()
 
         return self._create_mqtt_form("mosquitto_ems", "ems-esp")
+
+    async def async_step_mosquitto_otthing(self, _user_input: Optional[dict[str, Any]] = None):
+        """Setup specific to OTthing MQTT telemetry."""
+        if _user_input is not None:
+            self.data.update(_user_input)
+            self.data[CONF_MODE] = SatMode.MQTT_OTTHING
+            self.data[CONF_DEVICE] = self.data.get(CONF_MQTT_TOPIC)
+
+            return await self.async_step_sensors()
+
+        return self.async_show_form(
+            step_id="mosquitto_otthing",
+            last_step=False,
+            errors=self.errors,
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=self.data.get(CONF_NAME, DEFAULT_NAME)): str,
+                vol.Required(CONF_MQTT_TOPIC, default=self.data.get(CONF_MQTT_TOPIC)): str,
+            }),
+        )
 
     async def async_step_esphome(self, _user_input: Optional[dict[str, Any]] = None):
         if _user_input is not None:
@@ -244,16 +303,28 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=self.errors,
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                vol.Required(CONF_SIMULATED_HEATING, default=OPTIONS_DEFAULTS[CONF_SIMULATED_HEATING]): selector.NumberSelector(
+                vol.Required(
+                    CONF_SIMULATED_HEATING,
+                    default=OPTIONS_DEFAULTS[CONF_SIMULATED_HEATING],
+                ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=1, max=100, step=1)
                 ),
-                vol.Required(CONF_SIMULATED_COOLING, default=OPTIONS_DEFAULTS[CONF_SIMULATED_COOLING]): selector.NumberSelector(
+                vol.Required(
+                    CONF_SIMULATED_COOLING,
+                    default=OPTIONS_DEFAULTS[CONF_SIMULATED_COOLING],
+                ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=1, max=100, step=1)
                 ),
-                vol.Required(CONF_MINIMUM_SETPOINT, default=OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT]): selector.NumberSelector(
+                vol.Required(
+                    CONF_MINIMUM_SETPOINT,
+                    default=OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT],
+                ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=10, max=100, step=1)
                 ),
-                vol.Required(CONF_SIMULATED_WARMING_UP, default=OPTIONS_DEFAULTS[CONF_SIMULATED_WARMING_UP]): selector.TimeSelector()
+                vol.Required(
+                    CONF_SIMULATED_WARMING_UP,
+                    default=OPTIONS_DEFAULTS[CONF_SIMULATED_WARMING_UP],
+                ): selector.TimeSelector()
             }),
         )
 
@@ -274,7 +345,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if _user_input.get(CONF_HUMIDITY_SENSOR_ENTITY_ID) is None:
                 self.data[CONF_HUMIDITY_SENSOR_ENTITY_ID] = None
 
-            if self.data[CONF_MODE] in [SatMode.ESPHOME, SatMode.MQTT_OPENTHERM, SatMode.MQTT_EMS, SatMode.SERIAL, SatMode.SIMULATOR]:
+            if self.data[CONF_MODE] in [
+                SatMode.ESPHOME,
+                SatMode.MQTT_OPENTHERM,
+                SatMode.MQTT_EMS,
+                SatMode.MQTT_OTTHING,
+                SatMode.SERIAL,
+                SatMode.SIMULATOR,
+            ]:
                 return await self.async_step_heating_system()
 
             return await self.async_step_areas()
@@ -284,13 +362,22 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="sensors",
             data_schema=self.add_suggested_values_to_schema(vol.Schema({
                 vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=sensor.DOMAIN, device_class=[sensor.SensorDeviceClass.TEMPERATURE])
+                    selector.EntitySelectorConfig(
+                        domain=sensor.DOMAIN,
+                        device_class=[sensor.SensorDeviceClass.TEMPERATURE],
+                    )
                 ),
                 vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=[sensor.DOMAIN, weather.DOMAIN], multiple=True)
+                    selector.EntitySelectorConfig(
+                        domain=[sensor.DOMAIN, weather.DOMAIN],
+                        multiple=True,
+                    )
                 ),
                 vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=sensor.DOMAIN, device_class=[sensor.SensorDeviceClass.HUMIDITY])
+                    selector.EntitySelectorConfig(
+                        domain=sensor.DOMAIN,
+                        device_class=[sensor.SensorDeviceClass.HUMIDITY],
+                    )
                 )
             }), self.data),
         )
@@ -305,12 +392,26 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="heating_system",
             data_schema=vol.Schema({
-                vol.Required(CONF_HEATING_SYSTEM, default=self.data.get(CONF_HEATING_SYSTEM, OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM])): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=[
-                        SelectOptionDict(value=HeatingSystem.RADIATORS, label="Radiators"),
-                        SelectOptionDict(value=HeatingSystem.HEAT_PUMP, label="Heat Pump"),
-                        SelectOptionDict(value=HeatingSystem.UNDERFLOOR, label="Underfloor"),
-                    ])
+                vol.Required(
+                    CONF_HEATING_SYSTEM,
+                    default=self.data.get(CONF_HEATING_SYSTEM, OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM]),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(
+                                value=HeatingSystem.RADIATORS,
+                                label="Radiators",
+                            ),
+                            SelectOptionDict(
+                                value=HeatingSystem.HEAT_PUMP,
+                                label="Heat Pump",
+                            ),
+                            SelectOptionDict(
+                                value=HeatingSystem.UNDERFLOOR,
+                                label="Underfloor",
+                            ),
+                        ]
+                    )
                 )
             })
         )
@@ -448,8 +549,16 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="overshoot_protection",
             data_schema=vol.Schema({
-                vol.Required(CONF_MINIMUM_SETPOINT, default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT])): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=MINIMUM_SETPOINT, max=MAXIMUM_SETPOINT, step=1, unit_of_measurement="°C")
+                vol.Required(
+                    CONF_MINIMUM_SETPOINT,
+                    default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT]),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MINIMUM_SETPOINT,
+                        max=MAXIMUM_SETPOINT,
+                        step=1,
+                        unit_of_measurement="°C",
+                    )
                 ),
             })
         )
@@ -469,9 +578,18 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="pid_controller",
             data_schema=vol.Schema({
-                vol.Required(CONF_PROPORTIONAL, default=self.data.get(CONF_PROPORTIONAL, OPTIONS_DEFAULTS[CONF_PROPORTIONAL])): str,
-                vol.Required(CONF_INTEGRAL, default=self.data.get(CONF_INTEGRAL, OPTIONS_DEFAULTS[CONF_INTEGRAL])): str,
-                vol.Required(CONF_DERIVATIVE, default=self.data.get(CONF_DERIVATIVE, OPTIONS_DEFAULTS[CONF_DERIVATIVE])): str
+                vol.Required(
+                    CONF_PROPORTIONAL,
+                    default=self.data.get(CONF_PROPORTIONAL, OPTIONS_DEFAULTS[CONF_PROPORTIONAL]),
+                ): str,
+                vol.Required(
+                    CONF_INTEGRAL,
+                    default=self.data.get(CONF_INTEGRAL, OPTIONS_DEFAULTS[CONF_INTEGRAL]),
+                ): str,
+                vol.Required(
+                    CONF_DERIVATIVE,
+                    default=self.data.get(CONF_DERIVATIVE, OPTIONS_DEFAULTS[CONF_DERIVATIVE]),
+                ): str
             })
         )
 

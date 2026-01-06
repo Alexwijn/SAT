@@ -76,6 +76,14 @@
         },
         "title": "EMS-ESP Gateway Configuratie"
       },
+      "mosquitto_otthing": {
+        "description": "Stel de OTthing-gateway in. Geef het MQTT-onderwerp op dat de basisnaam bevat (bijv. otthing/31F44C) en publiceert de /state-payload.",
+        "data": {
+          "name": "Naam",
+          "mqtt_topic": "MQTT-onderwerp"
+        },
+        "title": "OTthing Gateway Configuratie"
+      },
       "overshoot_protection": {
         "data": {
           "minimum_setpoint": "Waarde"

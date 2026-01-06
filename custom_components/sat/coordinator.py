@@ -93,6 +93,10 @@ class SatDataUpdateCoordinatorFactory:
             from .mqtt.opentherm import SatOpenThermMqttCoordinator
             return SatOpenThermMqttCoordinator(hass=hass, config=config)
 
+        if config.mode == SatMode.MQTT_OTTHING:
+            from .mqtt.otthing import SatOtthingMqttCoordinator
+            return SatOtthingMqttCoordinator(hass=hass, config=config)
+
         if config.mode == SatMode.SERIAL:
             from .serial import SatSerialCoordinator
             return SatSerialCoordinator(hass=hass, config=config)

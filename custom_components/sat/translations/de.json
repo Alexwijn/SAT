@@ -76,6 +76,14 @@
         },
         "title": "EMS-ESP Gateway Einrichtung"
       },
+      "mosquitto_otthing": {
+        "description": "Richten Sie das OTthing-Gateway ein. Geben Sie das MQTT-Thema an, das den Basisnamen (z. B. otthing/31F44C) enthält und die /state-Nutzlast veröffentlicht.",
+        "data": {
+          "name": "Name",
+          "mqtt_topic": "MQTT-Thema"
+        },
+        "title": "OTthing Gateway Einrichtung"
+      },
       "overshoot_protection": {
         "data": {
           "minimum_setpoint": "Wert"

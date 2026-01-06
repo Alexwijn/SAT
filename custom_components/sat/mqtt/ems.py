@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from . import SatMqttCoordinator
 from ..helpers import float_value
@@ -143,8 +142,8 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
     def _get_topic_for_publishing(self) -> str:
         return f"{self._topic}/boiler"
 
-    def _process_message_payload(self, key: str, value: str):
-        try:
-            self.async_set_updated_data(json.loads(value))
-        except json.JSONDecodeError as error:
-            _LOGGER.error("Failed to decode JSON payload: %s. Error: %s", value, error)
+    def _normalize_payload(self, key: str, payload: Any) -> dict[str, Any]:
+        if isinstance(payload, dict):
+            return payload
+
+        return {key: payload}

@@ -1,6 +1,8 @@
 import asyncio
+import json
 import logging
 from abc import abstractmethod
+from typing import Any, Optional
 
 from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
@@ -93,13 +95,33 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         return message_handler
 
-    def _process_message_payload(self, key: str, value):
+    def _process_message_payload(self, key: str, value: Any):
         """Process and store the payload of a received MQTT message."""
-        self.async_set_updated_data({key: value})
+        payload = self._decode_payload(value)
 
-    async def _publish_command(self, payload: str, wait_time: float = 1.0):
+        try:
+            update = self._normalize_payload(key, payload)
+        except Exception as error:  # pragma: no cover - defensive guard
+            _LOGGER.error(
+                "Failed to normalize MQTT payload for key '%s': %s",
+                key,
+                error,
+            )
+            return
+
+        if not update:
+            return
+
+        self.async_set_updated_data(update)
+
+    async def _publish_command(
+        self,
+        payload: str,
+        wait_time: float = 1.0,
+        suffix: Optional[str] = None,
+    ):
         """Publish a command to the MQTT topic."""
-        topic = self._get_topic_for_publishing()
+        topic = self._build_publish_topic(suffix)
 
         _LOGGER.debug("Publishing MQTT command: payload='%s', topic='%s', simulation='%s'", payload, topic, self._config.simulation.enabled)
 
@@ -113,3 +135,28 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
             await asyncio.sleep(wait_time)
         except Exception as error:
             _LOGGER.error("Failed to publish MQTT command. Error: %s", error)
+
+    def _build_publish_topic(self, suffix: Optional[str] = None) -> str:
+        base_topic = self._get_topic_for_publishing()
+        if not suffix:
+            return base_topic
+
+        return f"{base_topic}/{suffix}"
+
+    def _decode_payload(self, value: Any) -> Any:
+        if isinstance(value, (bytes, bytearray)):
+            try:
+                value = value.decode()
+            except UnicodeDecodeError:
+                return value
+
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+
+        return value
+
+    def _normalize_payload(self, key: str, payload: Any) -> dict[str, Any]:
+        return {key: payload}

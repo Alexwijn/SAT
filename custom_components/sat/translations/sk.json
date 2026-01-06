@@ -78,6 +78,14 @@
         },
         "title": "Konfigurácia EMS-ESP Gateway"
       },
+      "mosquitto_otthing": {
+        "description": "Nakonfigurujte bránu OTthing. Zadajte MQTT tému, ktorá obsahuje základný názov (napr. otthing/31F44C) a publikuje /state payload.",
+        "data": {
+          "name": "Názov",
+          "mqtt_topic": "Predmet MQTT"
+        },
+        "title": "Nastavenie brány OTthing"
+      },
       "overshoot_protection": {
         "data": {
           "minimum_setpoint": "Hodnota"

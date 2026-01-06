@@ -76,6 +76,14 @@
         },
         "title": "Configuration de la Passerelle EMS-ESP"
       },
+      "mosquitto_otthing": {
+        "description": "Configurez la passerelle OTthing. Indiquez le topic MQTT qui contient le nom de base (par exemple otthing/31F44C) et publie le payload /state.",
+        "data": {
+          "name": "Nom",
+          "mqtt_topic": "Sujet MQTT"
+        },
+        "title": "Configuration de la passerelle OTthing"
+      },
       "overshoot_protection": {
         "data": {
           "minimum_setpoint": "Valeur"

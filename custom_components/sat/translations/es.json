@@ -76,6 +76,14 @@
         },
         "title": "Configuración de la Puerta de Enlace EMS-ESP"
       },
+      "mosquitto_otthing": {
+        "description": "Configure la pasarela OTthing. Proporcione el tema MQTT que contiene el nombre base (por ejemplo, otthing/31F44C) y publica la carga útil /state.",
+        "data": {
+          "name": "Nombre",
+          "mqtt_topic": "Tema MQTT"
+        },
+        "title": "Configuración del gateway OTthing"
+      },
       "overshoot_protection": {
         "data": {
           "minimum_setpoint": "Valor"

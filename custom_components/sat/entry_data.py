@@ -20,6 +20,7 @@ class SatMode(StrEnum):
     FAKE = "fake"
     MQTT_EMS = "mqtt_ems"
     MQTT_OPENTHERM = "mqtt_opentherm"
+    MQTT_OTTHING = "mqtt_otthing"
     SERIAL = "serial"
     ESPHOME = "esphome"
     SIMULATOR = "simulator"

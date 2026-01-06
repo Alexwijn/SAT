@@ -76,6 +76,14 @@
         },
         "title": "Configurazione del Gateway EMS-ESP"
       },
+      "mosquitto_otthing": {
+        "description": "Configura il gateway OTthing. Fornisci il topic MQTT che contiene il nome base (es. otthing/31F44C) che pubblica il payload /state.",
+        "data": {
+          "name": "Nome",
+          "mqtt_topic": "Argomento MQTT"
+        },
+        "title": "Configurazione del gateway OTthing"
+      },
       "overshoot_protection": {
         "data": {
           "minimum_setpoint": "Valore"
