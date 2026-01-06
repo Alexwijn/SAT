@@ -1,7 +1,14 @@
 import logging
+import math
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
+from homeassistant.util import utcnow
+
+from .boiler import BoilerState
+from .const import PWMStatus
+from .helpers import clamp, to_int
+from .state import State, update_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -11,46 +18,70 @@ class MinimumSetpoint:
     _STORAGE_KEY = "minimum_setpoint"
 
     def __init__(self, adjustment_factor: float, configured_minimum_setpoint: float):
-        self._store = None
-        self.base_return_temperature = None
-        self.current_minimum_setpoint = None
+        self._store: Store | None = None
+        self._base_return_temperature: State = State()
+        self._current_minimum_setpoint: State = State()
+        self._relative_modulation_level: State = State()
 
-        self.adjustment_factor = adjustment_factor
-        self.configured_minimum_setpoint = configured_minimum_setpoint
+        self._adjustment_factor: float = adjustment_factor
+        self._configured_minimum_setpoint: float = configured_minimum_setpoint
 
     async def async_initialize(self, hass: HomeAssistant) -> None:
         self._store = Store(hass, self._STORAGE_VERSION, self._STORAGE_KEY)
 
         data = await self._store.async_load()
         if data and "base_return_temperature" in data:
-            self.base_return_temperature = data["base_return_temperature"]
+            self._base_return_temperature = State(data["base_return_temperature"])
             _LOGGER.debug("Loaded base return temperature from storage.")
 
-    def warming_up(self, return_temperature: float) -> None:
-        if self.base_return_temperature is not None and self.base_return_temperature > return_temperature:
+    def warming_up(self, boiler_state: BoilerState) -> None:
+        if self._base_return_temperature.value is not None and self._base_return_temperature.value == boiler_state.return_temperature:
             return
 
-        # Use the new value if it's higher or none is set
-        self.base_return_temperature = return_temperature
-        _LOGGER.debug(f"Higher temperature set to: {return_temperature}.")
+        self._base_return_temperature = update_state(previous=self._base_return_temperature, new_value=boiler_state.return_temperature)
+        _LOGGER.debug("New temperature set to: %.1f°C.", self._base_return_temperature.value)
 
-        # Make sure to remember this value
         if self._store:
             self._store.async_delay_save(self._data_to_save)
-            _LOGGER.debug("Stored base return temperature changes.")
 
-    def calculate(self, return_temperature: float) -> None:
-        if self.base_return_temperature is None:
+    def calculate(self, boiler_state: BoilerState, pwm_state: PWMStatus) -> None:
+        self._relative_modulation_level = update_state(
+            tolerance=0.01,
+            previous=self._relative_modulation_level,
+            new_value=boiler_state.relative_modulation_level,
+        )
+
+        if self._base_return_temperature.value is None:
+            _LOGGER.debug("Skip calculation: base return temperature is not set.")
             return
 
-        adjustment = (return_temperature - self.base_return_temperature) * self.adjustment_factor
-        self.current_minimum_setpoint = self.configured_minimum_setpoint + adjustment
+        if boiler_state.return_temperature is None:
+            _LOGGER.debug("Skip calculation: boiler return temperature is not available.")
+            return
 
-        _LOGGER.debug("Calculated new minimum setpoint: %d°C", self.current_minimum_setpoint)
+        if self._is_running_normal_mode(boiler_state, pwm_state):
+            proportion = 1.0 - (boiler_state.relative_modulation_level / 100.0)
+            proportional_candidate = (proportion * boiler_state.flow_temperature) - 3.0
+            new_minimum = clamp(proportional_candidate, 30.0)
+        else:
+            adjustment = (boiler_state.return_temperature - self._base_return_temperature.value) * self._adjustment_factor
+            minimum_setpoint_candidate = self._configured_minimum_setpoint + adjustment
+            new_minimum = clamp(minimum_setpoint_candidate, 30.0)
+
+        self._current_minimum_setpoint = update_state(previous=self._current_minimum_setpoint, new_value=new_minimum)
+        _LOGGER.debug("Calculated new minimum setpoint: %.1f°C.", self._current_minimum_setpoint.value)
 
     @property
     def current(self) -> float:
-        return self.current_minimum_setpoint if self.current_minimum_setpoint is not None else self.configured_minimum_setpoint
+        return self._current_minimum_setpoint.value if self._current_minimum_setpoint.value is not None else self._configured_minimum_setpoint
 
     def _data_to_save(self) -> dict:
-        return {"base_return_temperature": self.base_return_temperature}
+        return {"base_return_temperature": self._base_return_temperature.value}
+
+    def _is_running_normal_mode(self, boiler_state: BoilerState, pwm_state: PWMStatus) -> bool:
+        return (
+                pwm_state is PWMStatus.IDLE
+                and to_int(self._relative_modulation_level.value, 0) > 0
+                and (utcnow() - self._relative_modulation_level.last_changed).total_seconds() > 180
+                and math.isclose(boiler_state.flow_temperature, boiler_state.setpoint, abs_tol=1.0)
+        )

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from time import monotonic
 from typing import Optional, TYPE_CHECKING, Mapping, Any
 
 from homeassistant.core import HomeAssistant
 
-from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT
+from ..const import CONF_SIMULATED_HEATING, CONF_SIMULATED_COOLING, MINIMUM_SETPOINT, CONF_SIMULATED_WARMING_UP, CONF_MAXIMUM_SETPOINT, PWMStatus
 from ..coordinator import DeviceState, SatDataUpdateCoordinator
 from ..helpers import convert_time_str_to_seconds
 
@@ -15,18 +14,18 @@ if TYPE_CHECKING:
 
 
 class SatSimulatorCoordinator(SatDataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
         """Initialize."""
-        super().__init__(hass, data, options)
+        super().__init__(hass, config_data, options)
 
         self._setpoint = MINIMUM_SETPOINT
         self._boiler_temperature = MINIMUM_SETPOINT
 
         self._device_state = DeviceState.OFF
-        self._heating = data.get(CONF_SIMULATED_HEATING)
-        self._cooling = data.get(CONF_SIMULATED_COOLING)
-        self._maximum_setpoint = data.get(CONF_MAXIMUM_SETPOINT)
-        self._warming_up = convert_time_str_to_seconds(data.get(CONF_SIMULATED_WARMING_UP))
+        self._heating = config_data.get(CONF_SIMULATED_HEATING)
+        self._cooling = config_data.get(CONF_SIMULATED_COOLING)
+        self._maximum_setpoint = config_data.get(CONF_MAXIMUM_SETPOINT)
+        self._warming_up = convert_time_str_to_seconds(config_data.get(CONF_SIMULATED_WARMING_UP))
 
     @property
     def device_id(self) -> str:
@@ -45,7 +44,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         return True
 
     @property
-    def supports_relative_modulation_management(self) -> float | None:
+    def supports_relative_modulation(self) -> float | None:
         return True
 
     @property
@@ -85,7 +84,7 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = value
         await super().async_set_control_max_setpoint(value)
 
-    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, _time: Optional[datetime] = None) -> None:
+    async def async_control_heating_loop(self, climate: Optional[SatClimate] = None, pwm_state: Optional[PWMStatus] = None, _time=None) -> None:
         # Calculate the difference, so we know when to slowdown
         difference = abs(self._boiler_temperature - self.target)
         self.logger.debug(f"Target: {self.target}, Current: {self._boiler_temperature}, Difference: {difference}")
@@ -108,7 +107,8 @@ class SatSimulatorCoordinator(SatDataUpdateCoordinator):
                 self._boiler_temperature -= self._cooling
                 self.logger.debug(f"Decreasing boiler temperature with {self._cooling}")
 
-        self.async_set_updated_data({})
+        # Notify listeners to ensure the entities are updated
+        self.hass.async_create_task(self.async_notify_listeners())
 
     @property
     def target(self):

@@ -1,4 +1,8 @@
 # Base component constants
+from __future__ import annotations
+
+from enum import Enum
+
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 CLIMATE = "climate"
@@ -15,12 +19,14 @@ MODE_ESPHOME = "esphome"
 MODE_SIMULATOR = "simulator"
 
 DEADBAND = 0.1
+BOILER_DEADBAND = 2
 HEATER_STARTUP_TIMEFRAME = 180
 
+COLD_SETPOINT = 28.2
 MINIMUM_SETPOINT = 10
 MAXIMUM_SETPOINT = 65
-MINIMUM_RELATIVE_MOD = 0
-MAXIMUM_RELATIVE_MOD = 100
+MINIMUM_RELATIVE_MODULATION = 0
+MAXIMUM_RELATIVE_MODULATION = 100
 
 MAX_BOILER_TEMPERATURE_AGE = 60
 
@@ -68,7 +74,6 @@ CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
 
 CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
-CONF_HEATING_CURVE_VERSION = "heating_curve_version"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
 CONF_PID_CONTROLLER_VERSION = "pid_controller_version"
@@ -144,7 +149,6 @@ OPTIONS_DEFAULTS = {
     CONF_SLEEP_TEMPERATURE: 15,
     CONF_COMFORT_TEMPERATURE: 20,
 
-    CONF_HEATING_CURVE_VERSION: 3,
     CONF_HEATING_CURVE_COEFFICIENT: 2.0,
     CONF_HEATING_MODE: HEATING_MODE_COMFORT,
     CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
@@ -166,9 +170,45 @@ STORAGE_OVERSHOOT_PROTECTION_VALUE = "overshoot_protection_value"
 
 # Services
 SERVICE_RESET_INTEGRAL = "reset_integral"
+SERVICE_PULSE_WIDTH_MODULATION = "pulse_width_modulation"
 SERVICE_SET_OVERSHOOT_PROTECTION_VALUE = "set_overshoot_protection_value"
 SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION = "start_overshoot_protection_calculation"
 
 # Config steps
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"
+
+
+# Enumerations
+class FlameStatus(str, Enum):
+    HEALTHY = "healthy"
+    IDLE_OK = "idle_ok"
+    STUCK_ON = "stuck_on"
+    STUCK_OFF = "stuck_off"
+    PWM_SHORT = "pwm_short"
+    SHORT_CYCLING = "short_cycling"
+    INSUFFICIENT_DATA = "insufficient_data"
+
+
+class BoilerStatus(str, Enum):
+    HOT_WATER = "hot_water"
+    PREHEATING = "preheating"
+    HEATING_UP = "heating_up"
+    AT_SETPOINT = "at_setpoint"
+    COOLING_DOWN = "cooling_down"
+    ANTI_CYCLING = "anti_cycling"
+    NEAR_SETPOINT = "near_setpoint"
+    PUMP_STARTING = "pump_starting"
+    WAITING_FOR_FLAME = "waiting_for_flame"
+    OVERSHOOT_HANDLING = "overshoot_handling"
+    OVERSHOOT_STABILIZED = "overshoot_stabilized"
+
+    IDLE = "idle"
+    INSUFFICIENT_DATA = "insufficient_data"
+
+
+class PWMStatus(str, Enum):
+    """The current state of Pulse Width Modulation"""
+    ON = "on"
+    OFF = "off"
+    IDLE = "idle"

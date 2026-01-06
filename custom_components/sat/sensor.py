@@ -6,7 +6,7 @@ import typing
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume
-from homeassistant.core import HomeAssistant, Event
+from homeassistant.core import HomeAssistant, Event, EventStateChangedData
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
@@ -42,6 +42,7 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _a
         await simulator_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
 
     _async_add_entities([
+        SatFlameSensor(coordinator, _config_entry),
         SatBoilerSensor(coordinator, _config_entry),
         SatManufacturerSensor(coordinator, _config_entry),
         SatErrorValueSensor(coordinator, _config_entry, climate),
@@ -124,10 +125,10 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
         In this case, the state represents the current consumption of the boiler in m³/h.
         """
 
-        if self._coordinator.device_active is False:
+        if not self._coordinator.device_active:
             return 0
 
-        if self._coordinator.flame_active is False:
+        if not self._coordinator.flame_active:
             return 0
 
         differential_gas_consumption = self._maximum_consumption - self._minimum_consumption
@@ -144,7 +145,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
-        async def on_state_change(_event: Event):
+        async def on_state_change(_event: Event[EventStateChangedData]):
             self.async_write_ha_state()
 
         self.async_on_remove(
@@ -189,7 +190,7 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
-        async def on_state_change(_event: Event):
+        async def on_state_change(_event: Event[EventStateChangedData]):
             self.async_write_ha_state()
 
         self.async_on_remove(
@@ -238,7 +239,8 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.manufacturer.name
+        manufacturer = self._coordinator.manufacturer
+        return manufacturer.friendly_name if manufacturer is not None else None
 
     @property
     def available(self) -> bool:
@@ -249,6 +251,24 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
         return f"{self._config_entry.data.get(CONF_NAME).lower()}-manufacturer"
 
 
+class SatFlameSensor(SatEntity, SensorEntity):
+    @property
+    def name(self) -> str:
+        return "Flame Status"
+
+    @property
+    def native_value(self) -> str:
+        return self._coordinator.flame.health_status.name
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.flame.health_status is not None
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config_entry.data.get(CONF_NAME).lower()}-flame-status"
+
+
 class SatBoilerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
@@ -256,7 +276,7 @@ class SatBoilerSensor(SatEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.device_status
+        return self._coordinator.device_status.name
 
     @property
     def available(self) -> bool:

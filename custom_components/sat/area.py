@@ -1,17 +1,16 @@
 from types import MappingProxyType
-from typing import Any, List
+from typing import Any
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
 
 from .const import CONF_ROOMS
+from .errors import Errors, Error
 from .heating_curve import HeatingCurve
 from .helpers import float_value
 from .pid import PID
-from .pwm import PWM
 from .util import (
-    create_pwm_controller,
     create_pid_controller,
     create_heating_curve_controller,
 )
@@ -27,7 +26,6 @@ class Area:
         # Create controllers with the given configuration options
         self.pid: PID = create_pid_controller(config_options)
         self.heating_curve: HeatingCurve = create_heating_curve_controller(config_data, config_options)
-        self.pwm: PWM = create_pwm_controller(self.heating_curve, config_data, config_options)
 
     @property
     def id(self) -> str:
@@ -64,7 +62,7 @@ class Area:
         return float_value(state.attributes.get("current_temperature") or self.target_temperature)
 
     @property
-    def error(self) -> float | None:
+    def error(self) -> Error | None:
         """Calculate the temperature error."""
         target_temperature = self.target_temperature
         current_temperature = self.current_temperature
@@ -72,7 +70,25 @@ class Area:
         if target_temperature is None or current_temperature is None:
             return None
 
-        return round(target_temperature - current_temperature, 2)
+        return Error(self._entity_id, round(target_temperature - current_temperature, 2))
+
+    @property
+    def weight(self) -> float | None:
+        """
+        Room heating demand weight (0-2 range).
+        Based on the difference between target and current temperature.
+        """
+        target_temperature = self.target_temperature
+        current_temperature = self.current_temperature
+
+        if target_temperature is None or current_temperature is None:
+            return None
+
+        delta = target_temperature - current_temperature
+        effective_delta = max(delta - 0.2, 0.0)
+        raw_weight = effective_delta * 1.0
+
+        return round(max(0.0, min(raw_weight, 2.0)), 3)
 
     async def async_added_to_hass(self, hass: HomeAssistant):
         self._hass = hass
@@ -93,9 +109,9 @@ class Areas:
         self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in self._entity_ids]
 
     @property
-    def errors(self) -> List[float]:
+    def errors(self) -> Errors:
         """Return a list of all the error values for all areas."""
-        return [area.error for area in self._areas if area.error is not None]
+        return Errors([area.error for area in self._areas if area.error is not None])
 
     @property
     def heating_curves(self):
@@ -124,7 +140,7 @@ class Areas:
             self.areas = areas
 
         def update(self, current_outside_temperature: float) -> None:
-            """Update the heating curve for all areas based on current outside temperature."""
+            """Update the heating curve for all areas based on the current outside temperature."""
             for area in self.areas:
                 if area.target_temperature is None:
                     continue

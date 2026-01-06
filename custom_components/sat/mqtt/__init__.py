@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Mapping, Any
 
 from homeassistant.components import mqtt
@@ -16,15 +16,14 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 STORAGE_VERSION = 1
 
 
-class SatMqttCoordinator(SatDataUpdateCoordinator, ABC):
+class SatMqttCoordinator(SatDataUpdateCoordinator):
     """Base class to manage fetching data using MQTT."""
 
-    def __init__(self, hass: HomeAssistant, device_id: str, data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
-        super().__init__(hass, data, options)
+    def __init__(self, hass: HomeAssistant, device_id: str, config_data: Mapping[str, Any], options: Mapping[str, Any] | None = None) -> None:
+        super().__init__(hass, config_data, options)
 
-        self.data: dict = {}
         self._device_id: str = device_id
-        self._topic: str = data.get(CONF_MQTT_TOPIC)
+        self._topic: str = config_data.get(CONF_MQTT_TOPIC)
         self._store: Store = Store(hass, STORAGE_VERSION, snake_case(f"{self.__class__.__name__}_{device_id}"))
 
     @property
@@ -52,19 +51,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, ABC):
         # Save the updated data to persistent storage
         await self._save_data()
 
-    async def async_notify_listeners(self):
-        """Notify listeners of an update asynchronously."""
-        # Make sure we do not spam
-        self._async_unsub_refresh()
-        self._debounced_refresh.async_cancel()
-
-        # Inform the listeners that we are updated
-        self.async_update_listeners()
-
     async def _load_stored_data(self) -> None:
         """Load the data from persistent storage."""
         if stored_data := await self._store.async_load():
-            self.data.update({key: value for key, value in stored_data.items() if value not in (None, "")})
+            self.async_set_updated_data({key: value for key, value in stored_data.items() if value not in (None, "")})
 
     async def _save_data(self) -> None:
         """Save the data to persistent storage."""
@@ -103,14 +93,11 @@ class SatMqttCoordinator(SatDataUpdateCoordinator, ABC):
             except Exception as e:
                 _LOGGER.error("Failed to process message for key '%s': %s", key, str(e))
 
-            # Notify listeners to ensure the entities are updated
-            self.hass.async_create_task(self.async_notify_listeners())
-
         return message_handler
 
-    def _process_message_payload(self, key: str, payload):
+    def _process_message_payload(self, key: str, value):
         """Process and store the payload of a received MQTT message."""
-        self.data[key] = payload
+        self.async_set_updated_data({key: value})
 
     async def _publish_command(self, payload: str, wait_time: float = 1.0):
         """Publish a command to the MQTT topic."""

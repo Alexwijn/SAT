@@ -5,21 +5,16 @@ from typing import Optional, Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
-from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, ATTR_HVAC_MODE, HVACMode, SERVICE_SET_HVAC_MODE
-from homeassistant.components.dhcp import DhcpServiceInfo
-from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
-from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
-from homeassistant.components.valve import DOMAIN as VALVE_DOMAIN
-from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
+from homeassistant.components import sensor, switch, valve, weather, binary_sensor, climate, input_boolean
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import callback
 from homeassistant.helpers import selector, entity_registry
-from homeassistant.helpers.selector import SelectSelectorMode
+from homeassistant.helpers.selector import SelectSelectorMode, SelectOptionDict
+from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
 from pyotgw import OpenThermGateway
+from voluptuous import Marker
 
 from . import SatDataUpdateCoordinatorFactory
 from .const import *
@@ -112,7 +107,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_abort(reason="unsupported_gateway")
 
     async def async_step_mosquitto(self, _user_input: dict[str, Any] | None = None):
-        """Entry step to select the MQTT mode and branch to specific setup."""
+        """Entry step to select the MQTT mode and branch to a specific setup."""
 
         if _user_input is not None:
             self.errors = {}
@@ -226,7 +221,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_DEVICE): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=[SWITCH_DOMAIN, VALVE_DOMAIN, INPUT_BOOLEAN_DOMAIN])
+                    selector.EntitySelectorConfig(domain=[switch.DOMAIN, valve.DOMAIN, input_boolean.DOMAIN])
                 ),
                 vol.Required(CONF_MINIMUM_SETPOINT, default=50): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=10, max=100, step=1)
@@ -288,13 +283,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="sensors",
             data_schema=self.add_suggested_values_to_schema(vol.Schema({
                 vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=SENSOR_DOMAIN, device_class=[SensorDeviceClass.TEMPERATURE])
+                    selector.EntitySelectorConfig(domain=sensor.DOMAIN, device_class=[sensor.SensorDeviceClass.TEMPERATURE])
                 ),
                 vol.Required(CONF_OUTSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=[SENSOR_DOMAIN, WEATHER_DOMAIN], multiple=True)
+                    selector.EntitySelectorConfig(domain=[sensor.DOMAIN, weather.DOMAIN], multiple=True)
                 ),
                 vol.Optional(CONF_HUMIDITY_SENSOR_ENTITY_ID): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=SENSOR_DOMAIN, device_class=[SensorDeviceClass.HUMIDITY])
+                    selector.EntitySelectorConfig(domain=sensor.DOMAIN, device_class=[sensor.SensorDeviceClass.HUMIDITY])
                 )
             }), self.data),
         )
@@ -311,9 +306,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_HEATING_SYSTEM, default=self.data.get(CONF_HEATING_SYSTEM, OPTIONS_DEFAULTS[CONF_HEATING_SYSTEM])): selector.SelectSelector(
                     selector.SelectSelectorConfig(options=[
-                        {"value": HEATING_SYSTEM_RADIATORS, "label": "Radiators"},
-                        {"value": HEATING_SYSTEM_HEAT_PUMP, "label": "Heat Pump"},
-                        {"value": HEATING_SYSTEM_UNDERFLOOR, "label": "Underfloor"},
+                        SelectOptionDict(value=HEATING_SYSTEM_RADIATORS, label="Radiators"),
+                        SelectOptionDict(value=HEATING_SYSTEM_HEAT_PUMP, label="Heat Pump"),
+                        SelectOptionDict(value=HEATING_SYSTEM_UNDERFLOOR, label="Underfloor"),
                     ])
                 )
             })
@@ -336,13 +331,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="areas",
             data_schema=self.add_suggested_values_to_schema(vol.Schema({
                 vol.Optional(CONF_THERMOSTAT): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN)
+                    selector.EntitySelectorConfig(domain=climate.DOMAIN)
                 ),
                 vol.Optional(CONF_RADIATORS): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
+                    selector.EntitySelectorConfig(domain=climate.DOMAIN, multiple=True)
                 ),
                 vol.Optional(CONF_ROOMS): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=CLIMATE_DOMAIN, multiple=True)
+                    selector.EntitySelectorConfig(domain=climate.DOMAIN, multiple=True)
                 ),
             }), self.data)
         )
@@ -353,6 +348,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not self.data[CONF_AUTOMATIC_GAINS]:
                 return await self.async_step_pid_controller()
+
+            if self.data[CONF_MODE] == MODE_SIMULATOR:
+                return await self.async_step_finish()
 
             return await self.async_step_manufacturer()
 
@@ -372,7 +370,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # Let's see if we have already been configured before
         device_name = self.data[CONF_NAME]
         entities = entity_registry.async_get(self.hass)
-        climate_id = entities.async_get_entity_id(CLIMATE_DOMAIN, DOMAIN, device_name.lower())
+        climate_id = entities.async_get_entity_id(climate.DOMAIN, DOMAIN, device_name.lower())
 
         async def start_calibration():
             try:
@@ -396,13 +394,13 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # Make sure to turn off the existing climate if we found one
             if climate_id is not None:
                 self.previous_hvac_mode = self.hass.states.get(climate_id).state
-                data = {ATTR_ENTITY_ID: climate_id, ATTR_HVAC_MODE: HVACMode.OFF}
-                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+                data = {ATTR_ENTITY_ID: climate_id, climate.ATTR_HVAC_MODE: climate.HVACMode.OFF}
+                await self.hass.services.async_call(climate.DOMAIN, climate.SERVICE_SET_HVAC_MODE, data, blocking=True)
 
             # Make sure all climate valves are open
             for entity_id in self.data.get(CONF_RADIATORS, []) + self.data.get(CONF_ROOMS, []):
-                data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: HVACMode.HEAT}
-                await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+                data = {ATTR_ENTITY_ID: entity_id, climate.ATTR_HVAC_MODE: climate.HVACMode.HEAT}
+                await self.hass.services.async_call(climate.DOMAIN, climate.SERVICE_SET_HVAC_MODE, data, blocking=True)
 
             return self.async_show_progress(
                 step_id="calibrate",
@@ -422,8 +420,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Make sure to restore the mode after we are done
         if climate_id is not None:
-            data = {ATTR_ENTITY_ID: climate_id, ATTR_HVAC_MODE: self.previous_hvac_mode}
-            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
+            data = {ATTR_ENTITY_ID: climate_id, climate.ATTR_HVAC_MODE: self.previous_hvac_mode}
+            await self.hass.services.async_call(climate.DOMAIN, climate.SERVICE_SET_HVAC_MODE, data, blocking=True)
 
         return self.async_show_progress_done(next_step_id="calibrated")
 
@@ -439,6 +437,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             self._enable_overshoot_protection(
                 _user_input[CONF_MINIMUM_SETPOINT]
             )
+
+            if self.data[CONF_MODE] == MODE_SIMULATOR:
+                return await self.async_step_finish()
 
             return await self.async_step_manufacturer()
 
@@ -457,6 +458,10 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if _user_input is not None:
             self.data.update(_user_input)
+
+            if self.data[CONF_MODE] == MODE_SIMULATOR:
+                return await self.async_step_finish()
+
             return await self.async_step_manufacturer()
 
         return self.async_show_form(
@@ -479,14 +484,14 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
-            default_manufacturer = manufacturers[0].name if len(manufacturers) > 0 else None
+            default_manufacturer = manufacturers[0].friendly_name if len(manufacturers) > 0 else -1
         finally:
             await coordinator.async_will_remove_from_hass()
 
         options = []
-        for name, _info in MANUFACTURERS.items():
+        for name in MANUFACTURERS:
             manufacturer = ManufacturerFactory.resolve_by_name(name)
-            options.append({"value": name, "label": manufacturer.name})
+            options.append({"value": name, "label": manufacturer.friendly_name})
 
         return self.async_show_form(
             last_step=True,
@@ -568,13 +573,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._config_entry.data.get(CONF_HEATING_SYSTEM))
         maximum_setpoint = float(options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
-        schema[vol.Required(CONF_HEATING_CURVE_VERSION, default=str(options[CONF_HEATING_CURVE_VERSION]))] = selector.SelectSelector(
-            selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
-                selector.SelectOptionDict(value="2", label="Quantum Curve"),
-                selector.SelectOptionDict(value="3", label="Precision Curve"),
-            ])
-        )
-
         schema[vol.Required(CONF_PID_CONTROLLER_VERSION, default=str(options[CONF_PID_CONTROLLER_VERSION]))] = selector.SelectSelector(
             selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                 selector.SelectOptionDict(value="1", label="Classic Controller"),
@@ -630,14 +628,18 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         entities = entity_registry.async_get(self.hass)
         device_name = self._config_entry.data.get(CONF_NAME)
-        window_id = entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, f"{device_name.lower()}-window-sensor")
+        window_id = entities.async_get_entity_id(binary_sensor.DOMAIN, DOMAIN, f"{device_name.lower()}-window-sensor")
 
         schema[vol.Optional(CONF_WINDOW_SENSORS, default=options[CONF_WINDOW_SENSORS])] = selector.EntitySelector(
             selector.EntitySelectorConfig(
                 multiple=True,
-                domain=BINARY_SENSOR_DOMAIN,
+                domain=binary_sensor.DOMAIN,
                 exclude_entities=[window_id] if window_id else [],
-                device_class=[BinarySensorDeviceClass.DOOR, BinarySensorDeviceClass.WINDOW, BinarySensorDeviceClass.GARAGE_DOOR]
+                device_class=[
+                    binary_sensor.BinarySensorDeviceClass.DOOR,
+                    binary_sensor.BinarySensorDeviceClass.WINDOW,
+                    binary_sensor.BinarySensorDeviceClass.GARAGE_DOOR
+                ]
             )
         )
 
@@ -677,7 +679,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         options = await self.get_options()
 
-        schema = {
+        schema: dict[Marker, Any] = {
             vol.Required(CONF_AUTOMATIC_DUTY_CYCLE, default=options[CONF_AUTOMATIC_DUTY_CYCLE]): bool,
             vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
         }
@@ -712,7 +714,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         options = await self.get_options()
 
-        schema = {
+        schema: dict[Marker, Any] = {
             vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]): bool,
             vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]): bool,
             vol.Required(CONF_ERROR_MONITORING, default=options[CONF_ERROR_MONITORING]): bool,

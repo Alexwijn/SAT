@@ -3,5 +3,5 @@ from ..manufacturer import Manufacturer
 
 class Immergas(Manufacturer):
     @property
-    def name(self) -> str:
+    def friendly_name(self) -> str:
         return 'Immergas'

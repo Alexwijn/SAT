@@ -7,7 +7,7 @@ def test_resolve_by_name():
         # Test valid name
         manufacturer = ManufacturerFactory.resolve_by_name(name)
         assert manufacturer is not None, f"Manufacturer '{name}' should not be None"
-        assert manufacturer.__class__.__name__ == data["class"]
+        assert manufacturer.__class__.__name__ == name
 
     # Test invalid name
     manufacturer = ManufacturerFactory.resolve_by_name("InvalidName")
@@ -16,16 +16,17 @@ def test_resolve_by_name():
 
 def test_resolve_by_member_id():
     """Test resolving manufacturers by member ID."""
-    member_id_to_names = {data["id"]: [] for data in MANUFACTURERS.values()}
-    for name, data in MANUFACTURERS.items():
-        member_id_to_names[data["id"]].append(name)
+    member_id_to_names = {member_id: [] for name, member_id in MANUFACTURERS.items()}
+    for name, member_id in MANUFACTURERS.items():
+        member_id_to_names[member_id].append(name)
 
     for member_id, names in member_id_to_names.items():
         manufacturers = ManufacturerFactory.resolve_by_member_id(member_id)
         assert len(manufacturers) == len(names), f"Expected {len(names)} manufacturers for member ID {member_id}"
 
         for manufacturer in manufacturers:
-            assert manufacturer.__class__.__name__ in names, f"Manufacturer name '{manufacturer.name}' not expected for member ID {member_id}"
+            assert manufacturer.member_id == member_id, f"Expected {manufacturer.member_id} for member ID {member_id}"
+            assert manufacturer.__class__.__name__ in names, f"Manufacturer name '{manufacturer.friendly_name}' not expected for member ID {member_id}"
 
     # Test invalid member ID
     manufacturers = ManufacturerFactory.resolve_by_member_id(999)
