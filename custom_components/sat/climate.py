@@ -152,17 +152,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._restore_previous_state_or_set_defaults()
         await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.device_id)
 
-        # Update a heating curve if outside temperature is available
-        if self.current_outside_temperature is not None:
-            self.areas.heating_curves.update(self.current_outside_temperature)
-            self.heating_curve.update(self.target_temperature, self.current_outside_temperature)
-
         if self.hass.state is CoreState.running:
+            self._update_heating_curves()
             self._register_event_listeners()
 
             await self.async_control_pid()
             await self.async_control_heating_loop()
         else:
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._update_heating_curves())
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
 
         await self._register_services()
@@ -198,6 +195,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             await area.async_will_remove_from_hass()
 
         await super().async_will_remove_from_hass()
+
+    def _update_heating_curves(self) -> None:
+        """Update the heating curves based on the current outside temperature."""
+        target_temperature = self.target_temperature
+        outside_temperature = self.current_outside_temperature
+
+        if target_temperature is None or outside_temperature is None:
+            return
+
+        self.areas.heating_curves.update(outside_temperature)
+        self.heating_curve.update(target_temperature, outside_temperature)
 
     def _register_event_listeners(self) -> None:
         """Register event listeners."""
@@ -644,14 +652,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if event.data.get("new_state") is None or event.data.get("new_state") in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
-        target_temperature = self.target_temperature
-        outside_temperature = self.current_outside_temperature
-
-        if target_temperature is None or outside_temperature is None:
-            return
-
-        self.areas.heating_curves.update(outside_temperature)
-        self.heating_curve.update(target_temperature, outside_temperature)
+        self._update_heating_curves()
 
     async def _async_climate_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to a climate entity."""
@@ -843,9 +844,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Calculate an optimal heating curve when we are in the deadband
         if (
-            self.target_temperature is not None
-            and self.current_outside_temperature is not None
-            and -DEADBAND <= error.error <= DEADBAND
+                self.target_temperature is not None
+                and self.current_outside_temperature is not None
+                and -DEADBAND <= error.error <= DEADBAND
         ):
             self.heating_curve.autotune(
                 self.requested_setpoint,
