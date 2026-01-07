@@ -22,21 +22,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     config = SatConfig(entry.entry_id, entry.data, {**OPTIONS_DEFAULTS, **entry.options})
-    hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(
-        coordinator=SatDataUpdateCoordinatorFactory().resolve(
-            hass=hass,
-            config=config,
-        ),
-        config=config,
-    )
+    coordinator = SatDataUpdateCoordinatorFactory().resolve(hass=hass, config=config)
+    hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(coordinator=coordinator, config=config)
 
     try:
-        if entry_data.config.error_monitoring_enabled:
-            entry_data.sentry = initialize_sentry()
+        if config.error_monitoring_enabled:
+            def create_sentry_client() -> None:
+                entry_data.sentry = initialize_sentry()
+
+            await hass.async_add_executor_job(create_sentry_client)
     except Exception as error:
         _LOGGER.error("Error during Sentry initialization: %s", error)
 
-    await entry_data.coordinator.async_setup()
+    await coordinator.async_setup()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_register_services(hass)
 
