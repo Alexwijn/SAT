@@ -1,7 +1,8 @@
 """Tests for cycle tracking and classification."""
 
-import pytest
 from typing import Optional
+
+import pytest
 
 from custom_components.sat.boiler import BoilerState, BoilerControlIntent
 from custom_components.sat.coordinator import ControlLoopSample
@@ -15,7 +16,7 @@ from custom_components.sat.cycles import (
     OVERSHOOT_MARGIN_CELSIUS,
     UNDERSHOOT_MARGIN_CELSIUS,
     DEFAULT_DUTY_WINDOW_SECONDS,
-    DEFAULT_CYCLES_WINDOW_SECONDS,
+    DEFAULT_CYCLES_WINDOW_SECONDS, CycleShapeMetrics,
 )
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
@@ -88,12 +89,23 @@ def _tail_metrics_for_error(error: Optional[float]) -> CycleMetrics:
     )
 
 
+def _shape_metrics(duration: float) -> CycleShapeMetrics:
+    return CycleShapeMetrics(
+        total_overshoot_seconds=0,
+        max_flow_setpoint_error=0,
+        time_in_band_seconds=duration,
+        time_to_first_overshoot_seconds=None,
+        time_to_sustained_overshoot_seconds=duration,
+    )
+
+
 def _make_cycle(end_time: float, duration: float) -> Cycle:
     metrics = _tail_metrics_for_error(0.0)
     return Cycle(
         kind=CycleKind.CENTRAL_HEATING,
         tail=metrics,
         metrics=metrics,
+        shape=_shape_metrics(duration),
         classification=CycleClassification.GOOD,
         start=end_time - duration,
         end=end_time,
