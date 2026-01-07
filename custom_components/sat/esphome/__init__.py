@@ -15,6 +15,7 @@ from ..helpers import float_value, int_value
 
 # Sensors
 DATA_FLAME_ACTIVE = "flame_on"
+DATA_DHW_ACTIVE = "dhw_active"
 DATA_REL_MOD_LEVEL = "rel_mod_level"
 DATA_SLAVE_MEMBERID = "device_id"
 DATA_BOILER_TEMPERATURE = "t_boiler"
@@ -84,7 +85,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     @property
     def hot_water_active(self) -> bool:
-        return self.get(binary_sensor.DOMAIN, DATA_DHW_ENABLE) == DeviceState.ON
+        return self.get(binary_sensor.DOMAIN, DATA_DHW_ACTIVE) == DeviceState.ON
 
     @property
     def setpoint(self) -> float | None:
@@ -140,6 +141,7 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         # Create a list of entities that we track
         entities = list(filter(lambda entity: entity is not None, [
             self._get_entity_id(sensor.DOMAIN, DATA_FLAME_ACTIVE),
+            self._get_entity_id(switch.DOMAIN, DATA_DHW_ACTIVE),
             self._get_entity_id(sensor.DOMAIN, DATA_REL_MOD_LEVEL),
             self._get_entity_id(sensor.DOMAIN, DATA_SLAVE_MEMBERID),
             self._get_entity_id(sensor.DOMAIN, DATA_BOILER_TEMPERATURE),
