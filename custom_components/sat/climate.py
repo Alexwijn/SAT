@@ -40,7 +40,7 @@ from .const import PWMStatus
 from .coordinator import SatDataUpdateCoordinator, DeviceState
 from .entity import SatEntity
 from .errors import Errors, Error
-from .helpers import convert_time_str_to_seconds
+from .helpers import convert_time_str_to_seconds, is_state_stale, state_age_seconds
 from .manufacturers.geminox import Geminox
 from .pwm import PWMState
 from .relative_modulation import RelativeModulation, RelativeModulationState
@@ -89,20 +89,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Get some sensor entity IDs
         self.inside_sensor_entity_id = config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID)
         self.humidity_sensor_entity_id = config_entry.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID)
-
-        # Get some sensor entity states
-        inside_sensor_entity = coordinator.hass.states.get(self.inside_sensor_entity_id)
-        humidity_sensor_entity = coordinator.hass.states.get(self.humidity_sensor_entity_id) if self.humidity_sensor_entity_id is not None else None
-
-        # Get current temperature
-        self._current_temperature = None
-        if inside_sensor_entity is not None and inside_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            self._current_temperature = float(inside_sensor_entity.state)
-
-        # Get current temperature
-        self._current_humidity = None
-        if humidity_sensor_entity is not None and humidity_sensor_entity.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-            self._current_humidity = float(humidity_sensor_entity.state)
 
         # Get outside sensor entity IDs
         self.outside_sensor_entities = config_entry.data.get(CONF_OUTSIDE_SENSOR_ENTITY_ID)
@@ -405,10 +391,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "rooms": self._rooms,
             "setpoint": self._setpoint,
-            "current_humidity": self._current_humidity,
+            "current_humidity": self.current_humidity,
 
-            "summer_simmer_index": SummerSimmer.index(self._current_temperature, self._current_humidity),
-            "summer_simmer_perception": SummerSimmer.perception(self._current_temperature, self._current_humidity),
+            "summer_simmer_index": SummerSimmer.index(self.current_temperature, self.current_humidity),
+            "summer_simmer_perception": SummerSimmer.perception(self.current_temperature, self.current_humidity),
 
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
@@ -428,22 +414,28 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         }
 
     @property
-    def current_temperature(self):
+    def current_temperature(self) -> Optional[float]:
         """Return the sensor temperature."""
-        if self._thermal_comfort and self._current_humidity is not None:
-            return SummerSimmer.index(self._current_temperature, self._current_humidity)
+        if (current_temperature := self._get_entity_state_float(self.inside_sensor_entity_id)) is None:
+            return None
 
-        return self._current_temperature
+        if self._thermal_comfort:
+            return SummerSimmer.index(current_temperature, self.current_humidity)
+
+        return current_temperature
+
+    @property
+    def current_humidity(self) -> Optional[float]:
+        """Return the sensor humidity."""
+        if self.humidity_sensor_entity_id is None:
+            return None
+
+        return self._get_entity_state_float(self.humidity_sensor_entity_id)
 
     @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
         return self._target_temperature
-
-    @property
-    def current_humidity(self):
-        """Return the sensor humidity."""
-        return self._current_humidity
 
     @property
     def error(self):
@@ -632,7 +624,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         _LOGGER.debug("Inside Sensor Changed.")
-        self._current_temperature = float(new_state.state)
         self.async_write_ha_state()
 
         self._async_control_pid()
@@ -656,7 +647,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         _LOGGER.debug("Humidity Sensor Changed.")
-        self._current_humidity = float(new_state.state)
         self.async_write_ha_state()
 
         self._async_control_pid()
@@ -1135,3 +1125,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Send a notification to the user."""
         data = {"title": title, "message": message}
         await self.hass.services.async_call(notify.DOMAIN, service, data)
+
+    def _get_entity_state_float(self, entity_id: str) -> Optional[float]:
+        """Return state if available and valid."""
+        if entity_id is None:
+            return None
+
+        if (entity := self.hass.states.get(entity_id)) is None:
+            return None
+
+        sensor_max_value_age = self._sensor_max_value_age
+
+        if is_state_stale(entity, sensor_max_value_age):
+            _LOGGER.debug("Sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self.entity_id, state_age_seconds(entity), sensor_max_value_age)
+            return None
+
+        if entity.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            return None
+
+        return float(entity.state)
