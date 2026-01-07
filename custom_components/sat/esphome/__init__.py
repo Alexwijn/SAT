@@ -140,8 +140,8 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         # Create a list of entities that we track
         entities = list(filter(lambda entity: entity is not None, [
-            self._get_entity_id(sensor.DOMAIN, DATA_FLAME_ACTIVE),
-            self._get_entity_id(switch.DOMAIN, DATA_DHW_ACTIVE),
+            self._get_entity_id(binary_sensor.DOMAIN, DATA_FLAME_ACTIVE),
+            self._get_entity_id(binary_sensor.DOMAIN, DATA_DHW_ACTIVE),
             self._get_entity_id(sensor.DOMAIN, DATA_REL_MOD_LEVEL),
             self._get_entity_id(sensor.DOMAIN, DATA_SLAVE_MEMBERID),
             self._get_entity_id(sensor.DOMAIN, DATA_BOILER_TEMPERATURE),
