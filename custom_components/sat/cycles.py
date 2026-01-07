@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+IN_BAND_MARGIN_CELSIUS: float = 1.0
+MAX_ON_DURATION_SECONDS_FOR_ROLLING_WINDOWS: float = 1800.0
+
 # Below this, if we overshoot / underheat, we call it "too short".
 TARGET_MIN_ON_TIME_SECONDS: float = 600.0
 ULTRA_SHORT_MIN_ON_TIME_SECONDS: float = 90.0
@@ -26,6 +29,7 @@ ULTRA_SHORT_MIN_ON_TIME_SECONDS: float = 90.0
 # Flow vs. setpoint classification margins
 OVERSHOOT_MARGIN_CELSIUS: float = 2.0
 UNDERSHOOT_MARGIN_CELSIUS: float = 2.0
+OVERSHOOT_SUSTAIN_SECONDS: float = 60.0
 
 # Timeouts
 LAST_CYCLE_MAX_AGE_SECONDS: float = 6 * 3600
@@ -34,6 +38,16 @@ LAST_CYCLE_MAX_AGE_SECONDS: float = 6 * 3600
 DEFAULT_DUTY_WINDOW_SECONDS: int = 15 * 60
 DEFAULT_CYCLES_WINDOW_SECONDS: int = 60 * 60
 DEFAULT_MEDIAN_WINDOW_SECONDS: int = 4 * 60 * 60
+
+
+@dataclass(frozen=True, slots=True)
+class CycleShapeMetrics:
+    """Shape metrics describing how a cycle behaved over time (beyond tail classification)."""
+    time_in_band_seconds: float
+    time_to_first_overshoot_seconds: Optional[float]
+    time_to_sustained_overshoot_seconds: Optional[float]
+    total_overshoot_seconds: float
+    max_flow_setpoint_error: Optional[float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +69,7 @@ class Cycle:
     kind: CycleKind
     tail: CycleMetrics
     metrics: CycleMetrics
+    shape: CycleShapeMetrics
     classification: CycleClassification
 
     end: float
@@ -202,8 +217,9 @@ class CycleHistory:
         """Record a completed flame cycle into rolling windows."""
         end_time = cycle.end
         duration_seconds = max(0.0, cycle.duration)
+        capped_duration_seconds = min(duration_seconds, MAX_ON_DURATION_SECONDS_FOR_ROLLING_WINDOWS)
 
-        self._cycle_durations_window.append((end_time, duration_seconds))
+        self._cycle_durations_window.append((end_time, capped_duration_seconds))
         self._delta_window.append((end_time, cycle.metrics.flow_return_delta.p50, cycle.metrics.flow_setpoint_error.p50))
 
         self._prune_cycle_window(end_time)
@@ -212,13 +228,36 @@ class CycleHistory:
         self._last_cycle = cycle
 
         _LOGGER.debug(
-            "Recorded cycle kind=%s classification=%s duration=%.1fs cycles_last_hour=%.1f samples_4h=%d",
+            "Recorded cycle kind=%s classification=%s duration=%.1fs capped_duration=%.1fs cycles_last_hour=%.1f samples_4h=%d",
             cycle.kind.name,
             cycle.classification.name,
             duration_seconds,
+            capped_duration_seconds,
             self.cycles_last_hour,
             self.sample_count_4h,
         )
+
+        if cycle.shape is not None and cycle.duration >= MAX_ON_DURATION_SECONDS_FOR_ROLLING_WINDOWS:
+            _LOGGER.debug(
+                "Long cycle shape: duration=%.0fs in_band=%.0fs "
+                "t_first_overshoot=%s t_sustained_overshoot=%s "
+                "overshoot_total=%.0fs max_error=%.1f°C classification=%s",
+                cycle.duration,
+                cycle.shape.time_in_band_seconds,
+                (
+                    f"{cycle.shape.time_to_first_overshoot_seconds:.0f}s"
+                    if cycle.shape.time_to_first_overshoot_seconds is not None
+                    else "none"
+                ),
+                (
+                    f"{cycle.shape.time_to_sustained_overshoot_seconds:.0f}s"
+                    if cycle.shape.time_to_sustained_overshoot_seconds is not None
+                    else "none"
+                ),
+                cycle.shape.total_overshoot_seconds,
+                cycle.shape.max_flow_setpoint_error,
+                cycle.classification.name,
+            )
 
     def record_off_with_demand_duration(self, duration_seconds: Optional[float]) -> None:
         """Record the OFF-with-demand duration (seconds) measured right before a cycle started."""
@@ -362,11 +401,13 @@ class CycleTracker:
 
         base_metrics = self._build_metrics(samples=samples)
         tail_metrics = self._build_metrics(samples=samples, tail_start=tail_start)
+        shape_metrics = self._build_cycle_shape_metrics(samples=samples, observation_start=observation_start, start_time=start_time)
         classification = self._classify_cycle(duration=duration_seconds, pwm=pwm, boiler_state=boiler_state, tail_metrics=tail_metrics)
 
         return Cycle(
             kind=kind,
             tail=tail_metrics,
+            shape=shape_metrics,
             metrics=base_metrics,
             classification=classification,
 
@@ -434,6 +475,69 @@ class CycleTracker:
             relative_modulation_level=build_percentiles(get_relative_modulation_level),
             flow_setpoint_error=build_percentiles(get_flow_setpoint_error),
             flow_return_delta=build_percentiles(get_flow_return_delta),
+        )
+
+    @staticmethod
+    def _build_cycle_shape_metrics(samples: list[ControlLoopSample], observation_start: float, start_time: float) -> CycleShapeMetrics:
+        """Compute shape metrics using flow_setpoint_error over time."""
+        relevant_samples = [sample for sample in samples if sample.timestamp >= observation_start]
+        if len(relevant_samples) < 2:
+            return CycleShapeMetrics(
+                time_in_band_seconds=0.0,
+                time_to_first_overshoot_seconds=None,
+                time_to_sustained_overshoot_seconds=None,
+                total_overshoot_seconds=0.0,
+                max_flow_setpoint_error=None,
+            )
+
+        time_in_band_seconds = 0.0
+        total_overshoot_seconds = 0.0
+
+        time_to_first_overshoot_seconds: Optional[float] = None
+        time_to_sustained_overshoot_seconds: Optional[float] = None
+
+        current_overshoot_streak_seconds = 0.0
+        max_flow_setpoint_error: Optional[float] = None
+
+        for index in range(len(relevant_samples) - 1):
+            current_sample = relevant_samples[index]
+            next_sample = relevant_samples[index + 1]
+
+            interval_seconds = max(0.0, next_sample.timestamp - current_sample.timestamp)
+            flow_setpoint_error = current_sample.state.flow_setpoint_error
+
+            if flow_setpoint_error is None:
+                # No contribution when signal is missing.
+                current_overshoot_streak_seconds = 0.0
+                continue
+
+            if (max_flow_setpoint_error is None) or (flow_setpoint_error > max_flow_setpoint_error):
+                max_flow_setpoint_error = flow_setpoint_error
+
+            in_band = abs(flow_setpoint_error) <= IN_BAND_MARGIN_CELSIUS
+            is_overshoot = flow_setpoint_error >= OVERSHOOT_MARGIN_CELSIUS
+
+            if in_band:
+                time_in_band_seconds += interval_seconds
+
+            if is_overshoot:
+                total_overshoot_seconds += interval_seconds
+
+                if time_to_first_overshoot_seconds is None:
+                    time_to_first_overshoot_seconds = max(0.0, current_sample.timestamp - start_time)
+
+                current_overshoot_streak_seconds += interval_seconds
+                if time_to_sustained_overshoot_seconds is None and current_overshoot_streak_seconds >= OVERSHOOT_SUSTAIN_SECONDS:
+                    time_to_sustained_overshoot_seconds = max(0.0, current_sample.timestamp - start_time)
+            else:
+                current_overshoot_streak_seconds = 0.0
+
+        return CycleShapeMetrics(
+            time_in_band_seconds=time_in_band_seconds,
+            time_to_first_overshoot_seconds=time_to_first_overshoot_seconds,
+            time_to_sustained_overshoot_seconds=time_to_sustained_overshoot_seconds,
+            total_overshoot_seconds=total_overshoot_seconds,
+            max_flow_setpoint_error=max_flow_setpoint_error,
         )
 
     @staticmethod
