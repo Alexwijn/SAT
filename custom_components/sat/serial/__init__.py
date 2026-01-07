@@ -31,8 +31,14 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         self.async_set_updated_data(DEFAULT_STATUS)
 
         self._port: str = port
+        self._hass_loop = hass.loop
         self._api: OpenThermGateway = OpenThermGateway()
-        self._api.subscribe(lambda data: self.async_set_updated_data(data))
+
+        async def _publish(data: dict) -> None:
+            self._hass_loop.call_soon_threadsafe(self.async_set_updated_data, data)
+
+        self._publish_callback = _publish
+        self._api.subscribe(self._publish_callback)
 
     @property
     def device_id(self) -> str:
@@ -137,7 +143,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().maximum_relative_modulation_value
 
     @property
-    def member_id(self) -> int | None:
+    def member_id(self) -> Optional[int]:
         if (value := self.get(DATA_SLAVE_MEMBERID)) is not None:
             return int(value)
 
@@ -148,11 +154,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return bool(self.get(DATA_SLAVE_FLAME_ON))
 
     def get(self, key: str) -> Optional[Any]:
-        """Get the value for the given `key` from the boiler data.
-
-        :param key: Key of the value to retrieve from the boiler data.
-        :return: Value for the given key from the boiler data, or None if the boiler data or the value are not available.
-        """
+        """Get the value for the given `key` from the boiler data."""
         return self.data[BOILER].get(key)
 
     async def async_connect(self) -> SatSerialCoordinator:
@@ -167,11 +169,15 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         await self.async_connect()
 
     async def async_will_remove_from_hass(self) -> None:
-        self._api.unsubscribe(self.async_set_updated_data)
+        if self._publish_callback is not None:
+            try:
+                self._api.unsubscribe(self._publish_callback)
+            except Exception:  # pragma: no cover - best effort cleanup
+                _LOGGER.debug("Failed to unsubscribe serial listener", exc_info=True)
+            finally:
+                self._publish_callback = None
 
-        await self._api.set_control_setpoint(0)
-        await self._api.set_max_relative_mod("-")
-        await self._api.disconnect()
+        await self._graceful_disconnect()
 
     async def async_set_control_setpoint(self, value: float) -> None:
         if not self._simulation:
@@ -183,7 +189,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         if not self._simulation:
             await self._api.set_dhw_setpoint(value)
 
-        await super().async_set_control_thermostat_setpoint(value)
+        await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         if not self._simulation:
@@ -208,3 +214,15 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
             await self._api.set_max_ch_setpoint(value)
 
         await super().async_set_control_max_setpoint(value)
+
+    async def _graceful_disconnect(self) -> None:
+        try:
+            await self._api.set_control_setpoint(0)
+            await self._api.set_max_relative_mod("-")
+        except Exception:  # pragma: no cover - best effort cleanup
+            _LOGGER.debug("Failed to reset serial gateway state before disconnect", exc_info=True)
+
+        try:
+            await self._api.disconnect()
+        except Exception:  # pragma: no cover - best effort cleanup
+            _LOGGER.debug("Error while disconnecting serial gateway", exc_info=True)
