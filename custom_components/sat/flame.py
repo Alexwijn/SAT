@@ -172,8 +172,6 @@ class Flame:
         self._last_boiler_state = boiler_state
         self._last_pulse_width_modulation_state = pwm_state or self._last_pulse_width_modulation_state
 
-        _LOGGER.debug("Flame active=%s->%s, last_update=%.1fs", previously_active, currently_active, elapsed)
-
         if previously_active and elapsed > 0.0:
             self._on_deltas_window.append((now, elapsed))
 
@@ -195,28 +193,13 @@ class Flame:
             self._latest_on_time_seconds = now - self._flame_on_monotonic
 
             if self._has_completed_first_cycle:
-                alpha = self._smoothing_alpha
-                previous_average = self._average_on_time_seconds
-
                 self._average_on_time_seconds = (
                     self._latest_on_time_seconds
                     if self._average_on_time_seconds is None
-                    else (1.0 - alpha) * self._average_on_time_seconds + alpha * self._latest_on_time_seconds
+                    else (1.0 - self._smoothing_alpha) * self._average_on_time_seconds + self._smoothing_alpha * self._latest_on_time_seconds
                 )
-            else:
-                previous_average = self._average_on_time_seconds
 
             self._last_update_monotonic = now
-
-            _LOGGER.debug(
-                "Flame transition ON->ON: latest_on=%.1fs, average_on=%s->%s, cycles_last_hour=%.1f, duty_ratio_15m=%.2f",
-                self._latest_on_time_seconds,
-                previous_average,
-                self._average_on_time_seconds,
-                self._cycles_per_hour(now),
-                self._duty_ratio_last_window(now),
-            )
-
             self._recompute_health(now)
             return
 
@@ -252,14 +235,6 @@ class Flame:
                 self._flame_off_monotonic = now
 
             self._last_update_monotonic = now
-
-            _LOGGER.debug(
-                "Flame transition OFF->OFF: off_since=%.1fs, cycles_last_hour=%.1f, duty_ratio_15m=%.2f",
-                None if self._flame_off_monotonic is None else now - self._flame_off_monotonic,
-                self._cycles_per_hour(now),
-                self._duty_ratio_last_window(now),
-            )
-
             self._recompute_health(now)
             return
 
@@ -293,8 +268,6 @@ class Flame:
             timeout = self.MAX_DOMESTIC_HOT_WATER_IDLE_OFF_SECONDS if domestic_hot_water_active else self.STUCK_OFF_SECONDS
             if (not state.flame_active) and last_off_seconds > timeout and state.status not in self._TRANSIENT_STATUSES:
                 self._health_status = FlameStatus.STUCK_OFF
-            else:
-                self._health_status = FlameStatus.INSUFFICIENT_DATA
 
             return
 
