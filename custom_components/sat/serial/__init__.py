@@ -34,7 +34,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         self._hass_loop = hass.loop
         self._api: OpenThermGateway = OpenThermGateway()
 
-        def _publish(data: dict) -> None:
+        async def _publish(data: dict) -> None:
             self._hass_loop.call_soon_threadsafe(self.async_set_updated_data, data)
 
         self._publish_callback = _publish
