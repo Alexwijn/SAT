@@ -160,17 +160,16 @@ class PID:
         if self._heating_curve.value is None:
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self._entity_id)
             return
-
-        _LOGGER.debug(
-            "PID update: entity=%s temperature=%.2f setpoint=%.2f heating_curve=%.1f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
-            self._entity_id, state.current, state.setpoint, self._heating_curve.value, self.proportional, self.integral, self.derivative, self.output
-        )
-
         self._update_integral(state)
         self._update_derivative(state)
 
         self._last_error = state.error
         self._last_temperature = state.current
+
+        _LOGGER.debug(
+            "PID update: entity=%s temperature=%.2f setpoint=%.2f heating_curve=%.1f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
+            self._entity_id, state.current, state.setpoint, self._heating_curve.value, self.proportional, self.integral, self.derivative, self.output
+        )
 
         if self._hass is not None:
             if self._store is not None:
