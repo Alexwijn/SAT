@@ -47,7 +47,7 @@ class SatClimateEntity(SatEntity):
 
     async def async_added_to_hass(self) -> None:
         def on_state_change(_event):
-            self.hass.async_add_job(self.async_write_ha_state)
+            self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
 
