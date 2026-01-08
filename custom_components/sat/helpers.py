@@ -3,6 +3,7 @@ from re import sub
 from time import monotonic
 from typing import Optional, Union
 
+from homeassistant.core import State
 from homeassistant.util import dt
 
 from .const import HEATING_SYSTEM_UNDERFLOOR
@@ -14,6 +15,19 @@ def seconds_since(start_time: float | None) -> float:
         return 0.0
 
     return monotonic() - start_time
+
+
+def state_age_seconds(state: State) -> float:
+    """Return the age of a HA state in seconds."""
+    return (dt.utcnow() - state.last_updated).total_seconds()
+
+
+def is_state_stale(state: Optional[State], max_age_seconds: float) -> bool:
+    """Return True when the state is older than max_age_seconds."""
+    if state is None or max_age_seconds <= 0:
+        return False
+
+    return state_age_seconds(state) > max_age_seconds
 
 
 def convert_time_str_to_seconds(time_str: str) -> int:
