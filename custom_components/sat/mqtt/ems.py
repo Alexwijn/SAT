@@ -123,7 +123,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        await self._publish_command(f'{{"cmd": "heatingoff", "value": "{DATA_OFF if state == DeviceState.ON else DATA_ON}"}}')
+        await self._publish_command(f'{{"cmd": "heatingactivated", "value": "{DATA_ON if state == DeviceState.ON else DATA_OFF}"}}')
 
         await super().async_set_heater_state(state)
 
