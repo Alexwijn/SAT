@@ -161,6 +161,11 @@ class PID:
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self._entity_id)
             return
 
+        _LOGGER.debug(
+            "PID update: entity=%s temperature=%.2f setpoint=%.2f heating_curve=%.1f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
+            self._entity_id, state.current, state.setpoint, self._heating_curve.value, self.proportional, self.integral, self.derivative, self.output
+        )
+
         self._update_integral(state)
         self._update_derivative(state)
 
@@ -168,11 +173,6 @@ class PID:
         self._last_temperature = state.current
 
         if self._hass is not None:
-            _LOGGER.debug(
-                "PID update: entity=%s temperature=%.2f setpoint=%.2f heating_curve=%.1f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
-                self._entity_id, state.current, state.setpoint, self._heating_curve.value, self.proportional, self.integral, self.derivative, self.output
-            )
-
             if self._store is not None:
                 self._hass.create_task(self._async_save_state())
 
@@ -250,8 +250,8 @@ class PID:
         self._last_derivative_updated = state_timestamp
 
         _LOGGER.debug(
-            "Derivative update: entity=%s temperature=%.3f previous_temperature=%.3f raw_derivative=%.6f delta_time=%.3f",
-            self._entity_id, state.current, self._last_temperature, self._raw_derivative, delta_time
+            "PID derivative update: entity=%s previous_temperature=%.2f raw_derivative=%.6f delta_time=%.3f",
+            self._entity_id, self._last_temperature, self._raw_derivative, delta_time
         )
 
     async def _async_save_state(self) -> None:
