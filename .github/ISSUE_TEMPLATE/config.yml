@@ -1,5 +1,0 @@
-blank_issues_enabled: false
-
-templates:
-  - bug_report.yml
-  - feature_request.yml
