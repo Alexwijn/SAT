@@ -37,6 +37,19 @@ def is_state_stale(state: Optional[State], max_age_seconds: float) -> bool:
     return state_age_seconds(state) > max_age_seconds
 
 
+def state_age_seconds(state: State) -> float:
+    """Return the age of a HA state in seconds."""
+    return (dt.utcnow() - state.last_updated).total_seconds()
+
+
+def is_state_stale(state: Optional[State], max_age_seconds: float) -> bool:
+    """Return True when the state is older than max_age_seconds."""
+    if state is None or max_age_seconds <= 0:
+        return False
+
+    return state_age_seconds(state) > max_age_seconds
+
+
 def convert_time_str_to_seconds(time_str: str) -> int:
     """Convert a time string in the format 'HH:MM:SS' to seconds."""
     try:

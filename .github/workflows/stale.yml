@@ -1,0 +1,22 @@
+name: Stale Issue Cleanup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 1 * * *'
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v10
+        with:
+          days-before-stale: 30
+          days-before-close: 7
+          stale-issue-message: |
+            Hi! This issue has been marked as stale because there has been no recent activity.
+            If you still need help, please add a new comment or update the issue so we can continue the discussion.
+          close-issue-message: |
+            Closing this issue because it has remained inactive for over seven days after being marked stale.
+            Feel free to reopen it or leave a comment if you can provide more details or reproduce the problem.
+          exempt-issue-labels: 'keep-open'
