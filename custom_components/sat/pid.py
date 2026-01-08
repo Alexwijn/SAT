@@ -170,7 +170,7 @@ class PID:
         if self._hass is not None:
             _LOGGER.debug(
                 "PID update: entity=%s temperature=%.3f setpoint=%.3f heating_curve=%.3f proportional=%.3f integral=%.3f derivative=%.3f output=%.3f",
-                self._entity_id, state.current, state.error, state.setpoint, self._heating_curve.value, self.proportional, self.integral, self.derivative, self.output
+                self._entity_id, state.current, state.setpoint, self._heating_curve.value, self.proportional, self.integral, self.derivative, self.output
             )
 
             if self._store is not None:
