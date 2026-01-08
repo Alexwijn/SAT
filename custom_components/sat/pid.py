@@ -160,6 +160,7 @@ class PID:
         if self._heating_curve.value is None:
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self._entity_id)
             return
+
         self._update_integral(state)
         self._update_derivative(state)
 
