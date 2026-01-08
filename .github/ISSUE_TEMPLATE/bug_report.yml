@@ -1,0 +1,68 @@
+name: Bug Report
+about: Create a report to help us improve the integration.
+title: "[BUG]"
+labels:
+  - bug
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file an issue! Please fill out the form below so we can investigate and fix your problem.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary of the bug
+      description: A short, descriptive title for the issue
+      placeholder: e.g., "OpenTherm gateway disconnects after restart"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Detailed steps that lead to the bug.
+      placeholder: |
+        1. Open Home Assistant
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: false
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual behavior
+      description: What actually happened.
+    validations:
+      required: true
+  - type: input
+    id: homeassistant_version
+    attributes:
+      label: Home Assistant version
+      description: The version of Home Assistant you are using.
+      placeholder: e.g., 2024.1.0
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      description: The commit or tag of the SAT integration.
+      placeholder: e.g., v1.2.3 or HEAD
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant log snippets (e.g., from config entries). Use triple backticks.
+      render: shell
+    validations:
+      required: false
+

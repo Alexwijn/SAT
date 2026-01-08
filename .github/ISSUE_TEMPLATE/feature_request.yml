@@ -1,0 +1,34 @@
+name: Feature Request
+about: Suggest a new feature or improvement.
+title: "[FEATURE]"
+labels:
+  - enhancement
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve SAT! Please describe the feature you’d like to see.
+  - type: input
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: One‑sentence description of the requested feature.
+      placeholder: e.g., "Add support for XYZ boiler model"
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+      description: Why is this feature valuable? Who will benefit?
+    validations:
+      required: false
+  - type: textarea
+    id: implementation_ideas
+    attributes:
+      label: Implementation Ideas
+      description: Any thoughts on how to implement it or potential challenges.
+    validations:
+      required: false
+
