@@ -1,5 +1,5 @@
 name: Bug Report
-about: Create a report to help us improve the integration.
+description: Create a report to help us improve the integration.
 title: "[BUG]"
 labels:
   - bug
@@ -65,4 +65,3 @@ body:
       render: shell
     validations:
       required: false
-
