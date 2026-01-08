@@ -559,10 +559,6 @@ class CycleTracker:
         if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
-        # If PWM expects the flame to be ON, but it ended anyway, treat as pre-mature.
-        if pwm.status == PWMStatus.ON:
-            return CycleClassification.PREMATURE_OFF
-
         def compute_short_threshold_seconds() -> float:
             if pwm.status == PWMStatus.IDLE or pwm.duty_cycle is None:
                 return TARGET_MIN_ON_TIME_SECONDS
@@ -603,5 +599,8 @@ class CycleTracker:
 
         if overshoot:
             return CycleClassification.LONG_OVERSHOOT
+
+        if pwm.status == PWMStatus.ON:
+            return CycleClassification.PREMATURE_OFF
 
         return CycleClassification.GOOD
