@@ -284,7 +284,8 @@ class Areas:
 
         def update(self, outside_temperature: float) -> None:
             for area in self._areas:
-                area.heating_curve.update(area.target_temperature, outside_temperature)
+                if area.target_temperature is not None:
+                    area.heating_curve.update(area.target_temperature, outside_temperature)
 
     class _PIDs:
         """Helper for interacting with PID controllers of all areas."""
