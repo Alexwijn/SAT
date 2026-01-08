@@ -46,15 +46,22 @@ body:
     attributes:
       label: Home Assistant version
       description: The version of Home Assistant you are using.
-      placeholder: e.g., 2024.1.0
+      placeholder: e.g., 2025.2.0
     validations:
       required: true
-  - type: input
+  - type: dropdown
     id: integration_version
     attributes:
       label: Integration version
-      description: The commit or tag of the SAT integration.
-      placeholder: e.g., v1.2.3 or HEAD
+      description: Select the SAT integration release.
+      options:
+        - 4.2.1
+        - 4.2.0
+        - 4.1.2
+        - 4.1.1
+        - 4.1.0
+        - 4.0.0
+        - Other (please specify in the summary)
     validations:
       required: true
   - type: textarea
