@@ -20,6 +20,11 @@
           "main_climates": "Primárne",
           "secondary_climates": "Izby"
         },
+        "data_description": {
+          "thermostat": "Voliteľný existujúci termostat na synchronizáciu cieľových teplôt.",
+          "main_climates": "Radiátory v rovnakej miestnosti ako vnútorný senzor.",
+          "secondary_climates": "Izby s vlastnými cieľovými teplotami."
+        },
         "description": "Nastavenia súvisiace s klímou, viacerými miestnosťami a reguláciou teploty. Primárna klíma je v rovnakej miestnosti ako vnútorný snímač a miestnosti majú svoje vlastné cieľové teploty oddelené od systému.",
         "title": "Oblasti"
       },
@@ -51,40 +56,71 @@
         "data": {
           "heating_system": "Systém"
         },
+        "data_description": {
+          "heating_system": "Vyberte systém, ktorý zodpovedá vašim vykurovacím telesám."
+        },
         "description": "Výber správneho typu vykurovacieho systému je pre SAT dôležitý na presné riadenie teploty a optimalizáciu výkonu. Vyberte si možnosť, ktorá zodpovedá vášmu nastaveniu, aby ste zabezpečili správnu reguláciu teploty v celom dome.",
         "title": "Vykurovací systém"
       },
       "mosquitto": {
-        "description": "Nakonfigurujte režim MQTT pre váš vykurovací systém. Vyberte režim brány a zadajte jej názov.",
+        "description": "Vyberte typ brány, aby SAT vedel, ktoré MQTT témy použiť.",
         "data": {
           "mode": "Režim"
+        },
+        "data_description": {
+          "mode": "Vyberte typ brány, aby SAT poznal očakávaný formát MQTT témy."
         },
         "title": "Konfigurácia MQTT"
       },
       "mosquitto_opentherm": {
-        "description": "Nakonfigurujte OpenTherm Gateway. Uveďte hlavný predmet MQTT a identifikátor zariadenia.",
+        "description": "Zadajte základnú MQTT tému (napr. {example_otgw_topic}) a identifikátor zariadenia.",
         "data": {
           "name": "Názov",
           "mqtt_topic": "Predmet MQTT",
           "device": "ID zariadenia"
         },
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "mqtt_topic": "Základná téma používaná bránou (napr. OTGW/ alebo OTGW/ABCDEF).",
+          "device": "Identifikátor brány (často ID OTGW)."
+        },
         "title": "Konfigurácia OpenTherm Gateway"
       },
       "mosquitto_ems": {
-        "description": "Nakonfigurujte EMS-ESP Gateway. Uveďte predmet MQTT.",
+        "description": "Zadajte základnú MQTT tému (napr. {example_ems_topic}).",
         "data": {
           "name": "Názov",
           "mqtt_topic": "Predmet MQTT"
+        },
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "mqtt_topic": "Základná téma používaná EMS-ESP (napr. ems-esp/)."
         },
         "title": "Konfigurácia EMS-ESP Gateway"
       },
       "mosquitto_otthing": {
-        "description": "Nakonfigurujte bránu OTthing. Zadajte MQTT tému, ktorá obsahuje základný názov (napr. otthing/31F44C) a publikuje /state payload.",
+        "description": "Zadajte základnú tému bez /state (napr. {example_otthing_topic}).",
         "data": {
           "name": "Názov",
           "mqtt_topic": "Predmet MQTT"
         },
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "mqtt_topic": "Základná téma bez /state (napr. otthing/31F44C)."
+        },
         "title": "Nastavenie brány OTthing"
+      },
+      "esphome": {
+        "description": "Vyberte zariadenie ESPHome a zadajte názov.",
+        "data": {
+          "name": "Názov",
+          "device": "Zariadenie"
+        },
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "device": "Zariadenie ESPHome na použitie."
+        },
+        "title": "Nastavenie ESPHome"
       },
       "overshoot_protection": {
         "data": {
@@ -108,7 +144,12 @@
           "inside_sensor_entity_id": "Vnútorná entita senzora",
           "outside_sensor_entity_id": "Entita vonkajšieho senzora"
         },
-        "description": "Vyberte senzory, ktoré sa budú používať na sledovanie teploty.",
+        "data_description": {
+          "inside_sensor_entity_id": "Primárny vnútorný teplotný senzor.",
+          "outside_sensor_entity_id": "Vonkajší senzor alebo entita počasia (možno vybrať viac).",
+          "humidity_sensor_entity_id": "Voliteľný senzor vlhkosti."
+        },
+        "description": "Vyberte vnútorný senzor, vonkajší senzor(y) a voliteľný senzor vlhkosti.",
         "title": "Nakonfigurujte senzory"
       },
       "serial": {
@@ -116,7 +157,11 @@
           "device": "URL",
           "name": "Názov"
         },
-        "description": "Ak chcete vytvoriť spojenie s bránou OpenTherm pomocou zásuvky, uveďte nasledujúce podrobnosti. Do poľa Názov zadajte názov brány, ktorý vám pomôže identifikovať ju vo vašom systéme.\n\nV poli Zariadenie zadajte sieťovú adresu brány OpenTherm. Môže to byť vo formáte \"socket://otgw.local:25238\", kde \"otgw.local\" je názov hostiteľa alebo IP adresa brány a \"25238\" je číslo portu.\n\nTieto nastavenia sú nevyhnutné pre nadviazanie komunikácie a integráciu s vašou bránou OpenTherm cez pripojenie soketu. Uistite sa, že poskytnuté podrobnosti sú presné, aby sa zabezpečila správna funkčnosť.",
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "device": "URL socketu, napr. socket://otgw.local:25238."
+        },
+        "description": "Zadajte názov a socket URL (napr. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
       },
       "simulator": {
@@ -137,7 +182,12 @@
           "minimum_setpoint": "Nastavenie teploty",
           "name": "Názov"
         },
-        "description": "Ak chcete nastaviť prepínač, vyplňte nasledujúce údaje. Do poľa Názov zadajte názov prepínača, ktorý vám pomôže identifikovať ho vo vašom systéme. Z poskytnutých možností vyberte vhodnú entitu pre váš prepínač.\n\nV poli Nastavenie teploty zadajte požadovanú cieľovú teplotu pre váš vykurovací systém. Ak používate teplovodný bojler, vyplňte nastavenie teploty kotla príslušnou hodnotou. Pre elektrické vykurovacie systémy zadajte hodnotu 100.\n\nTieto nastavenia sú nevyhnutné pre presnú reguláciu teploty a zabezpečenie optimálneho výkonu vášho vykurovacieho systému. Poskytnutie správneho nastavenia teploty umožňuje presnú reguláciu a pomáha dosiahnuť pohodlné a energeticky efektívne prostredie vo vašej domácnosti.",
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "device": "Prepínač, ventil alebo input_boolean použitý na ovládanie vykurovania.",
+          "minimum_setpoint": "Teplota kotla pre systémy s teplou vodou; pre elektrické kúrenie použite 100."
+        },
+        "description": "Vyberte riadiacu entitu a nastavte teplotu. Pre kotly na teplú vodu použite teplotu kotla; pre elektrické kúrenie použite 100.",
         "title": "PID termostat s PWM (ON/OFF)"
       },
       "user": {
@@ -222,8 +272,13 @@
           "advanced": "Rozšírené možnosti",
           "general": "Všeobecné",
           "presets": "Predvoľby",
+          "areas": "Oblasti",
           "system_configuration": "Konfigurácia systému"
         }
+      },
+      "areas": {
+        "description": "Upravte váhy vykurovania pre jednotlivé miestnosti, aby ste riadili, koľko tepla sa pridelí, keď má miestnosť najväčšiu odchýlku. Vyššie váhy zvyšujú množstvo tepla smerované do tejto miestnosti v porovnaní s ostatnými.",
+        "title": "Oblasti"
       },
       "presets": {
         "data": {

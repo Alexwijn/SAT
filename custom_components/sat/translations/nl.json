@@ -5,6 +5,7 @@
       "reconfigure_successful": "Gateway is opnieuw geconfigureerd."
     },
     "error": {
+      "invalid_device": "Dit is een ongeldig apparaat.",
       "connection": "Kan geen verbinding maken met de gateway.",
       "mqtt_component": "Het MQTT-component is niet beschikbaar.",
       "unable_to_calibrate": "Het kalibratieproces is op een probleem gestuit en kon niet succesvol worden voltooid. Zorg ervoor dat uw verwarmingssysteem correct functioneert en dat alle vereiste sensoren zijn aangesloten en correct werken.\n\nAls u problemen blijft ondervinden met de kalibratie, overweeg dan om contact met ons op te nemen voor verdere hulp. Onze excuses voor het ongemak."
@@ -15,8 +16,14 @@
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Thermostaat",
           "main_climates": "Primair",
           "secondary_climates": "Kamers"
+        },
+        "data_description": {
+          "thermostat": "Optionele bestaande thermostaat om setpoints te synchroniseren.",
+          "main_climates": "Radiatoren in dezelfde ruimte als de binnensensor.",
+          "secondary_climates": "Kamers met hun eigen doeltemperaturen."
         },
         "description": "Instellingen met betrekking tot klimaten, multi-kamer en temperatuurregeling. Primaire klimaten bevinden zich in dezelfde kamer als de binnensensor en de kamers hebben hun eigen doeltemperaturen los van het systeem.",
         "title": "Gebieden"
@@ -49,40 +56,71 @@
         "data": {
           "heating_system": "Systeem"
         },
+        "data_description": {
+          "heating_system": "Kies het systeem dat past bij uw warmteafgiftes."
+        },
         "description": "Het kiezen van het juiste type verwarmingssysteem is belangrijk voor SAT om de temperatuur nauwkeurig te regelen en prestaties te optimaliseren. Kies de optie die overeenkomt met uw opstelling om een correcte temperatuurregeling in uw huis te verzekeren.",
         "title": "Verwarmingssysteem"
       },
       "mosquitto": {
-        "description": "Configureer de MQTT-modus voor uw verwarmingssysteem. Kies de gateway-modus en geef de naam op.",
+        "description": "Kies het gatewaytype zodat SAT weet welke MQTT-topics te gebruiken.",
         "data": {
           "mode": "Modus"
+        },
+        "data_description": {
+          "mode": "Kies het gatewaytype zodat SAT het MQTT-topicformaat weet."
         },
         "title": "MQTT-configuratie"
       },
       "mosquitto_opentherm": {
-        "description": "Stel de OpenTherm Gateway in. Geef het belangrijkste MQTT-onderwerp en het apparaat-ID op.",
+        "description": "Geef het basis MQTT-topic op (bijv. {example_otgw_topic}) en de apparaat-ID.",
         "data": {
           "name": "Naam",
           "mqtt_topic": "MQTT-onderwerp",
           "device": "Apparaat-ID"
         },
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "mqtt_topic": "Basistopic gebruikt door de gateway (bijv. OTGW/ of OTGW/ABCDEF).",
+          "device": "Gateway-identificatie (vaak de OTGW-id)."
+        },
         "title": "OpenTherm Gateway Configuratie"
       },
       "mosquitto_ems": {
-        "description": "Stel de EMS-ESP Gateway in. Geef het MQTT-onderwerp op.",
+        "description": "Geef het basis MQTT-topic op (bijv. {example_ems_topic}).",
         "data": {
           "name": "Naam",
           "mqtt_topic": "MQTT-onderwerp"
+        },
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "mqtt_topic": "Basistopic gebruikt door EMS-ESP (bijv. ems-esp/)."
         },
         "title": "EMS-ESP Gateway Configuratie"
       },
       "mosquitto_otthing": {
-        "description": "Stel de OTthing-gateway in. Geef het MQTT-onderwerp op dat de basisnaam bevat (bijv. otthing/31F44C) en publiceert de /state-payload.",
+        "description": "Geef het basistopic op zonder /state (bijv. {example_otthing_topic}).",
         "data": {
           "name": "Naam",
           "mqtt_topic": "MQTT-onderwerp"
         },
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "mqtt_topic": "Basistopic zonder /state (bijv. otthing/31F44C)."
+        },
         "title": "OTthing Gateway Configuratie"
+      },
+      "esphome": {
+        "description": "Selecteer het ESPHome-apparaat en geef het een naam.",
+        "data": {
+          "name": "Naam",
+          "device": "Apparaat"
+        },
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "device": "Te gebruiken ESPHome-apparaat."
+        },
+        "title": "ESPHome-configuratie"
       },
       "overshoot_protection": {
         "data": {
@@ -106,7 +144,12 @@
           "inside_sensor_entity_id": "Binnensensor Entiteit",
           "outside_sensor_entity_id": "Buitensensor Entiteit"
         },
-        "description": "Selecteer de sensoren die gebruikt zullen worden om de temperatuur te volgen.",
+        "data_description": {
+          "inside_sensor_entity_id": "Primaire binnentemperatuursensor.",
+          "outside_sensor_entity_id": "Buitensensor of weer-entiteit (meervoudige selectie mogelijk).",
+          "humidity_sensor_entity_id": "Optionele vochtigheidssensor."
+        },
+        "description": "Selecteer de binnensensor, de buitensensor(en) en een optionele vochtigheidssensor.",
         "title": "Configureer sensoren"
       },
       "serial": {
@@ -114,7 +157,11 @@
           "device": "URL",
           "name": "Naam"
         },
-        "description": "Om een verbinding met de OpenTherm Gateway te maken via een socket-verbinding, gelieve de volgende details te verstrekken. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer het netwerkadres van de OpenTherm Gateway in het veld Apparaat. Dit kan in het formaat zijn van \"socket://otgw.local:25238\", waarbij \"otgw.local\" de hostnaam of het IP-adres van de gateway is en \"25238\" het poortnummer.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via de socket-verbinding. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "device": "Socket-URL, bijv. socket://otgw.local:25238."
+        },
+        "description": "Voer een naam en een socket-URL in (bijv. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIEEL )"
       },
       "simulator": {
@@ -135,7 +182,12 @@
           "minimum_setpoint": "Temperatuurinstelling",
           "name": "Naam"
         },
-        "description": "Gelieve de volgende details in te vullen om de schakelaar in te stellen. Voer in het veld Naam een naam in voor de schakelaar, die u helpt deze te identificeren binnen uw systeem. Kies de geschikte entiteit om voor uw schakelaar te gebruiken uit de aangeboden opties.\n\nIn het veld Temperatuurinstelling specificeert u de gewenste doeltemperatuur voor uw verwarmingssysteem. Als u een warmwaterboiler gebruikt, vul dan de Boiler Temperatuurinstelling in met de geschikte waarde. Voor elektrische verwarmingssystemen, voer de waarde 100 in.\n\nDeze instellingen zijn essentieel voor precieze temperatuurregeling en zorgen voor optimale prestaties van uw verwarmingssysteem. Het verstrekken van de juiste Temperatuurinstelling zorgt voor nauwkeurige regulatie en helpt een comfortabele en energie-efficiënte omgeving in uw huis te bereiken.",
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "device": "Schakelaar, klep of input_boolean om verwarming te regelen.",
+          "minimum_setpoint": "Keteltemperatuur voor warmwatersystemen; gebruik 100 voor elektrische verwarming."
+        },
+        "description": "Kies de besturingsentiteit en stel de temperatuur in. Voor warmwaterketels gebruik je de keteltemperatuur; voor elektrische verwarming 100.",
         "title": "PID Thermostaat met PWM ( AAN/UIT )"
       },
       "user": {
@@ -148,6 +200,12 @@
           "switch": "PID-Thermostaat (PWM Aan/Uit-modus)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "We hebben geprobeerd de meest geschikte fabrikant voor uw verwarmingssysteem te bepalen op basis van het gatewaytype en apparaatgegevens. Als dit niet overeenkomt met uw installatie, kunt u een andere fabrikant uit de lijst kiezen.",
+        "data": {
+          "manufacturer": "Fabrikant"
+        }
       }
     }
   },
@@ -189,6 +247,7 @@
           "heating_curve_version": "Versie van de Verwarmingscurve",
           "integral": "Integraal (kI)",
           "maximum_setpoint": "Maximaal Setpoint",
+          "dynamic_minimum_setpoint_version": "Versie van de minimale setpoint-regelaar",
           "pid_controller_version": "Versie van de PID-regelaar",
           "proportional": "Proportioneel (kP)",
           "window_sensors": "Contact Sensoren",
@@ -213,8 +272,13 @@
           "advanced": "Geavanceerde Opties",
           "general": "Algemeen",
           "presets": "Voorinstellingen",
+          "areas": "Gebieden",
           "system_configuration": "Systeemconfiguratie"
         }
+      },
+      "areas": {
+        "description": "Pas de verwarmingsgewichten per kamer aan om te bepalen hoeveel warmte wordt toegewezen wanneer de kamer de grootste afwijking heeft. Hogere gewichten verhogen de warmte naar die kamer ten opzichte van andere kamers.",
+        "title": "Gebieden"
       },
       "presets": {
         "data": {
@@ -231,6 +295,7 @@
       },
       "system_configuration": {
         "data": {
+          "cycles_per_hour": "Cycli per uur",
           "automatic_duty_cycle": "Automatische inschakelduur",
           "overshoot_protection": "Overshoot Bescherming (met PWM)",
           "sync_climates_with_mode": "Synchroniseer klimaten met modus",
@@ -238,6 +303,7 @@
           "window_minimum_open_time": "Minimale open tijd van het raam"
         },
         "data_description": {
+          "cycles_per_hour": "Het maximale aantal cycli per uur.",
           "automatic_duty_cycle": "Automatische inschakelduur voor Pulsbreedtemodulatie (PWM) in- of uitschakelen.",
           "overshoot_protection": "Overshoot Bescherming inschakelen met Pulsbreedtemodulatie (PWM) om temperatuur-overshoot van de ketel te voorkomen.",
           "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd.",
@@ -245,6 +311,22 @@
         },
         "description": "Voor fijnafstelling en aanpassing.",
         "title": "Systeemconfiguratie"
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Integraal resetten",
+      "description": "Deze service reset het integrale deel van de PID-regelaar voor de opgegeven climate-entiteit. Dit kan nuttig zijn als de integrale waarde te groot is geworden of als de PID-prestaties zijn verslechterd."
+    },
+    "pulse_width_modulation": {
+      "name": "Pulsbreedtemodulatie",
+      "description": "Pulsbreedtemodulatie geforceerd aan of uit zetten. Let op dat deze kort daarna automatisch weer aan of uit kan worden gezet.",
+      "fields": {
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "De toestand die je wilt afdwingen."
+        }
       }
     }
   }

@@ -5,6 +5,7 @@
       "reconfigure_successful": "La puerta de enlace ha sido reconfigurada."
     },
     "error": {
+      "invalid_device": "Este es un dispositivo inválido.",
       "connection": "No se puede conectar a la puerta de enlace.",
       "mqtt_component": "El componente MQTT no está disponible.",
       "unable_to_calibrate": "El proceso de calibración ha encontrado un problema y no se pudo completar con éxito. Por favor, asegúrese de que su sistema de calefacción está funcionando correctamente y que todos los sensores necesarios están conectados y funcionando correctamente.\n\nSi continúa experimentando problemas con la calibración, considere contactarnos para obtener más ayuda. Pedimos disculpas por cualquier inconveniente causado."
@@ -15,8 +16,14 @@
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Termostato",
           "main_climates": "Primarios",
           "secondary_climates": "Habitaciones"
+        },
+        "data_description": {
+          "thermostat": "Termostato existente opcional para sincronizar los puntos de consigna.",
+          "main_climates": "Radiadores en la misma habitación que el sensor interior.",
+          "secondary_climates": "Habitaciones con sus propias temperaturas objetivo."
         },
         "description": "Configuraciones relacionadas con climas, múltiples habitaciones y control de temperatura. Los climas principales están en la misma habitación que el sensor interior y las habitaciones tienen sus propias temperaturas objetivo separadas del sistema.",
         "title": "Áreas"
@@ -49,40 +56,71 @@
         "data": {
           "heating_system": "Sistema"
         },
+        "data_description": {
+          "heating_system": "Seleccione el sistema que coincida con sus emisores de calor."
+        },
         "description": "Seleccionar el tipo correcto de sistema de calefacción es importante para que SAT controle la temperatura de manera precisa y optimice el rendimiento. Elija la opción que coincida con su configuración para asegurar una regulación adecuada de la temperatura en todo su hogar.",
         "title": "Sistema de Calefacción"
       },
       "mosquitto": {
-        "description": "Configure el modo MQTT para su sistema de calefacción. Seleccione el modo de la puerta de enlace e introduzca su nombre.",
+        "description": "Seleccione el tipo de gateway para que SAT sepa qué temas MQTT usar.",
         "data": {
           "mode": "Modo"
+        },
+        "data_description": {
+          "mode": "Elija el tipo de gateway para que SAT sepa qué formato de tema MQTT esperar."
         },
         "title": "Configuración MQTT"
       },
       "mosquitto_opentherm": {
-        "description": "Configure la Puerta de Enlace OpenTherm. Proporcione el tema principal de MQTT y el identificador del dispositivo.",
+        "description": "Indique el tema MQTT base (p. ej. {example_otgw_topic}) y el identificador del dispositivo.",
         "data": {
           "name": "Nombre",
           "mqtt_topic": "Tema MQTT",
           "device": "ID del dispositivo"
         },
+        "data_description": {
+          "name": "Nombre visible en Home Assistant.",
+          "mqtt_topic": "Tema base usado por el gateway (p. ej. OTGW/ o OTGW/ABCDEF).",
+          "device": "Identificador del gateway (a menudo el ID de OTGW)."
+        },
         "title": "Configuración de la Puerta de Enlace OpenTherm"
       },
       "mosquitto_ems": {
-        "description": "Configure la Puerta de Enlace EMS-ESP. Proporcione el tema MQTT.",
+        "description": "Indique el tema MQTT base (p. ej. {example_ems_topic}).",
         "data": {
           "name": "Nombre",
           "mqtt_topic": "Tema MQTT"
+        },
+        "data_description": {
+          "name": "Nombre visible en Home Assistant.",
+          "mqtt_topic": "Tema base usado por EMS-ESP (p. ej. ems-esp/)."
         },
         "title": "Configuración de la Puerta de Enlace EMS-ESP"
       },
       "mosquitto_otthing": {
-        "description": "Configure la pasarela OTthing. Proporcione el tema MQTT que contiene el nombre base (por ejemplo, otthing/31F44C) y publica la carga útil /state.",
+        "description": "Indique el tema base sin /state (p. ej. {example_otthing_topic}).",
         "data": {
           "name": "Nombre",
           "mqtt_topic": "Tema MQTT"
         },
+        "data_description": {
+          "name": "Nombre visible en Home Assistant.",
+          "mqtt_topic": "Tema base sin /state (p. ej. otthing/31F44C)."
+        },
         "title": "Configuración del gateway OTthing"
+      },
+      "esphome": {
+        "description": "Seleccione el dispositivo ESPHome y asigne un nombre.",
+        "data": {
+          "name": "Nombre",
+          "device": "Dispositivo"
+        },
+        "data_description": {
+          "name": "Nombre visible en Home Assistant.",
+          "device": "Dispositivo ESPHome a usar."
+        },
+        "title": "Configuración de ESPHome"
       },
       "overshoot_protection": {
         "data": {
@@ -106,7 +144,12 @@
           "inside_sensor_entity_id": "Entidad del Sensor Interior",
           "outside_sensor_entity_id": "Entidad del Sensor Exterior"
         },
-        "description": "Por favor, seleccione los sensores que se usarán para rastrear la temperatura.",
+        "data_description": {
+          "inside_sensor_entity_id": "Sensor principal de temperatura interior.",
+          "outside_sensor_entity_id": "Sensor exterior o entidad de clima (puede seleccionar varios).",
+          "humidity_sensor_entity_id": "Sensor de humedad opcional."
+        },
+        "description": "Seleccione el sensor interior, el/los sensores exteriores y un sensor de humedad opcional.",
         "title": "Configurar sensores"
       },
       "serial": {
@@ -114,7 +157,11 @@
           "device": "URL",
           "name": "Nombre"
         },
-        "description": "Para establecer una conexión con la Puerta de Enlace OpenTherm usando una conexión de socket, por favor proporcione los siguientes detalles. En el campo Nombre, introduzca un nombre para la puerta de enlace que le ayude a identificarla dentro de su sistema.\n\nEspecifique la dirección de red de la Puerta de Enlace OpenTherm en el campo Dispositivo. Esto podría estar en el formato de \"socket://otgw.local:25238\", donde \"otgw.local\" es el nombre de host o la dirección IP de la puerta de enlace y \"25238\" es el número de puerto.\n\nEstos ajustes son esenciales para establecer la comunicación e integración con su Puerta de Enlace OpenTherm a través de la conexión de socket. Asegúrese de que los detalles proporcionados sean precisos para garantizar una funcionalidad adecuada.",
+        "data_description": {
+          "name": "Nombre visible en Home Assistant.",
+          "device": "URL de socket, p. ej. socket://otgw.local:25238."
+        },
+        "description": "Introduzca un nombre y una URL de socket (p. ej. {example_socket}).",
         "title": "Puerta de Enlace OpenTherm (SERIAL)"
       },
       "simulator": {
@@ -135,7 +182,12 @@
           "minimum_setpoint": "Ajuste de Temperatura",
           "name": "Nombre"
         },
-        "description": "Por favor, rellene los siguientes detalles para configurar el interruptor. Introduzca un nombre para el interruptor en el campo Nombre, lo que le ayudará a identificarlo dentro de su sistema. Elija la entidad adecuada para usar con su interruptor de las opciones proporcionadas.\n\nEn el campo de Ajuste de Temperatura, especifique la temperatura objetivo deseada para su sistema de calefacción. Si está usando una caldera de agua caliente, rellene el Ajuste de Temperatura de la Caldera con el valor adecuado. Para sistemas de calefacción eléctrica, introduzca el valor 100.\n\nEstos ajustes son esenciales para un control preciso de la temperatura y para asegurar un rendimiento óptimo de su sistema de calefacción. Proporcionar el Ajuste de Temperatura correcto permite una regulación precisa y ayuda a lograr un ambiente cómodo y eficiente en energía en su hogar.",
+        "data_description": {
+          "name": "Nombre visible en Home Assistant.",
+          "device": "Interruptor, válvula o input_boolean usado para controlar la calefacción.",
+          "minimum_setpoint": "Temperatura de caldera para sistemas de agua caliente; use 100 para calefacción eléctrica."
+        },
+        "description": "Elija la entidad de control y establezca la temperatura. Para calderas de agua caliente, use la temperatura de la caldera; para calefacción eléctrica, use 100.",
         "title": "Termostato PID con PWM (ON/OFF)"
       },
       "user": {
@@ -148,6 +200,12 @@
           "switch": "Termostato PID (Modo PWM Encendido/Apagado)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "Hemos intentado identificar el fabricante más adecuado para su sistema de calefacción según el tipo de gateway y la información del dispositivo. Si no coincide con su configuración, puede seleccionar un fabricante diferente de la lista.",
+        "data": {
+          "manufacturer": "Fabricante"
+        }
       }
     }
   },
@@ -189,6 +247,7 @@
           "heating_curve_version": "Versión de la Curva de Calefacción",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Punto de Ajuste Máximo",
+          "dynamic_minimum_setpoint_version": "Versión del controlador de punto de consigna mínimo",
           "pid_controller_version": "Versión del controlador PID",
           "proportional": "Proporcional (kP)",
           "window_sensors": "Sensores de Contacto",
@@ -213,8 +272,13 @@
           "advanced": "Opciones Avanzadas",
           "general": "General",
           "presets": "Pre ajustes",
+          "areas": "Áreas",
           "system_configuration": "Configuración del Sistema"
         }
+      },
+      "areas": {
+        "description": "Ajuste los pesos de calefacción de cada habitación para controlar cuánto calor se asigna cuando la habitación tiene el mayor error. Pesos más altos aumentan el calor asignado a esa habitación en relación con las demás.",
+        "title": "Áreas"
       },
       "presets": {
         "data": {
@@ -231,6 +295,7 @@
       },
       "system_configuration": {
         "data": {
+          "cycles_per_hour": "Ciclos por hora",
           "automatic_duty_cycle": "Ciclo de trabajo automático",
           "sync_climates_with_mode": "Sincronizar climas con el modo",
           "overshoot_protection": "Protección contra Sobrepasos (con PWM)",
@@ -238,6 +303,7 @@
           "window_minimum_open_time": "Tiempo mínimo de apertura de ventana"
         },
         "data_description": {
+          "cycles_per_hour": "La cantidad máxima de ciclos por hora.",
           "automatic_duty_cycle": "Habilitar o deshabilitar el ciclo de trabajo automático para la Modulación de Ancho de Pulso (PWM).",
           "overshoot_protection": "Habilitar protección contra sobrepasos con Modulación de Ancho de Pulso (PWM) para prevenir excesos de temperatura de la caldera.",
           "sensor_max_value_age": "La edad máxima del valor del sensor de temperatura antes de considerarlo como obsoleto.",
@@ -245,6 +311,22 @@
         },
         "description": "Para un ajuste fino y personalización.",
         "title": "Configuración del Sistema"
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Restablecer integral",
+      "description": "Este servicio restablece la parte integral del controlador PID para la entidad climate especificada. Puede ser útil si el valor integral se ha vuelto demasiado grande o si el rendimiento del PID se ha degradado."
+    },
+    "pulse_width_modulation": {
+      "name": "Modulación por ancho de pulso",
+      "description": "Forzar activar o desactivar la Modulación por Ancho de Pulso. Tenga en cuenta que puede activarse o desactivarse automáticamente poco después.",
+      "fields": {
+        "enabled": {
+          "name": "Habilitado",
+          "description": "El estado que desea forzar."
+        }
       }
     }
   }

@@ -184,7 +184,12 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        return self._create_mqtt_form("mosquitto_opentherm", "OTGW", "otgw-XXXXXXXXXXXX")
+        return self._create_mqtt_form(
+            "mosquitto_opentherm",
+            "OTGW",
+            "otgw-XXXXXXXXXXXX",
+            description_placeholders={"example_otgw_topic": "OTGW/ABCDEF"},
+        )
 
     async def async_step_mosquitto_ems(self, _user_input: Optional[dict[str, Any]] = None):
         """Setup specific to EMS-ESP."""
@@ -194,7 +199,11 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_sensors()
 
-        return self._create_mqtt_form("mosquitto_ems", "ems-esp")
+        return self._create_mqtt_form(
+            "mosquitto_ems",
+            "ems-esp",
+            description_placeholders={"example_ems_topic": "ems-esp/"},
+        )
 
     async def async_step_mosquitto_otthing(self, _user_input: Optional[dict[str, Any]] = None):
         """Setup specific to OTthing MQTT telemetry."""
@@ -209,6 +218,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="mosquitto_otthing",
             last_step=False,
             errors=self.errors,
+            description_placeholders={"example_otthing_topic": "otthing/31F44C"},
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=self.data.get(CONF_NAME, DEFAULT_NAME)): str,
                 vol.Required(CONF_MQTT_TOPIC, default=self.data.get(CONF_MQTT_TOPIC)): str,
@@ -261,6 +271,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="serial",
             last_step=False,
             errors=self.errors,
+            description_placeholders={"example_socket": "socket://otgw.local:25238"},
             data_schema=vol.Schema({
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_DEVICE, default=self.data.get(CONF_DEVICE, "socket://otgw.local:25238")): str,
@@ -643,7 +654,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             hass=self.hass, config=config
         )
 
-    def _create_mqtt_form(self, step_id: str, default_topic: Optional[str] = None, default_device: Optional[str] = None):
+    def _create_mqtt_form(self, step_id: str, default_topic: Optional[str] = None, default_device: Optional[str] = None, description_placeholders: Optional[dict[str, str]] = None):
         """Create a common MQTT configuration form."""
         schema = {vol.Required(CONF_NAME, default=DEFAULT_NAME): str}
 
@@ -656,6 +667,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id=step_id,
             last_step=False,
+            description_placeholders=description_placeholders,
             data_schema=vol.Schema(schema),
         )
 

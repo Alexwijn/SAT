@@ -20,6 +20,11 @@
           "main_climates": "Radiators",
           "secondary_climates": "Rooms"
         },
+        "data_description": {
+          "thermostat": "Optional existing thermostat to sync setpoints with.",
+          "main_climates": "Radiators in the same room as the inside sensor.",
+          "secondary_climates": "Rooms with their own target temperatures."
+        },
         "description": "Settings related to thermostat, multi-room and temperature control. The radiators are in the same room as the inside sensor and the rooms have their own target temperatures separate from the system.",
         "title": "Areas"
       },
@@ -51,40 +56,71 @@
         "data": {
           "heating_system": "System"
         },
+        "data_description": {
+          "heating_system": "Choose the system that matches your heat emitters."
+        },
         "description": "Selecting the correct heating system type is important for SAT to accurately control the temperature and optimize performance. Choose the option that matches your setup to ensure proper temperature regulation throughout your home.",
         "title": "Heating System"
       },
       "mosquitto": {
-        "description": "Configure the MQTT mode for your heating system. Select the gateway mode and provide its name.",
+        "description": "Select the gateway type so SAT knows which MQTT topics to use.",
         "data": {
           "mode": "Mode"
+        },
+        "data_description": {
+          "mode": "Pick the gateway type so SAT knows which MQTT topic format to expect."
         },
         "title": "MQTT Configuration"
       },
       "mosquitto_opentherm": {
-        "description": "Set up the OpenTherm Gateway. Provide the top MQTT topic and the device identifier.",
+        "description": "Provide the base MQTT topic (e.g. {example_otgw_topic}) and the device identifier.",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT Topic",
           "device": "Device ID"
         },
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "mqtt_topic": "Base topic used by the gateway (e.g. OTGW/ or OTGW/ABCDEF).",
+          "device": "Gateway device identifier (often the OTGW id)."
+        },
         "title": "OpenTherm Gateway Setup"
       },
       "mosquitto_ems": {
-        "description": "Set up the EMS-ESP Gateway. Provide the MQTT topic.",
+        "description": "Provide the base MQTT topic (e.g. {example_ems_topic}).",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT Topic"
+        },
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "mqtt_topic": "Base topic used by EMS-ESP (e.g. ems-esp/)."
         },
         "title": "EMS-ESP Gateway Setup"
       },
       "mosquitto_otthing": {
-        "description": "Set up the OTthing gateway. Provide the MQTT topic that contains the base name (e.g. otthing/31F44C) which publishes the /state payload.",
+        "description": "Provide the base topic without /state (e.g. {example_otthing_topic}).",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT Topic"
         },
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "mqtt_topic": "Base topic without /state (e.g. otthing/31F44C)."
+        },
         "title": "OTthing Gateway Setup"
+      },
+      "esphome": {
+        "description": "Select the ESPHome device and give it a name.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "device": "ESPHome device to use."
+        },
+        "title": "ESPHome Setup"
       },
       "overshoot_protection": {
         "data": {
@@ -108,7 +144,12 @@
           "inside_sensor_entity_id": "Inside Sensor Entity",
           "outside_sensor_entity_id": "Outside Sensor Entity"
         },
-        "description": "Please select the sensors that will be used to track the temperature.",
+        "data_description": {
+          "inside_sensor_entity_id": "Primary indoor temperature sensor.",
+          "outside_sensor_entity_id": "Outdoor sensor or weather entity (you can select multiple).",
+          "humidity_sensor_entity_id": "Optional humidity sensor."
+        },
+        "description": "Select the inside sensor, the outside sensor(s), and an optional humidity sensor.",
         "title": "Configure sensors"
       },
       "serial": {
@@ -116,7 +157,11 @@
           "device": "URL",
           "name": "Name"
         },
-        "description": "To establish a connection with the OpenTherm Gateway using a socket connection, please provide the following details. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the network address of the OpenTherm Gateway in the Device field. This could be in the format of \"socket://otgw.local:25238\", where \"otgw.local\" is the hostname or IP address of the gateway and \"25238\" is the port number.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through the socket connection. Ensure that the provided details are accurate to ensure proper functionality.",
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "device": "Socket URL, e.g. socket://otgw.local:25238."
+        },
+        "description": "Enter a name and a socket URL (e.g. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
       },
       "simulator": {
@@ -137,7 +182,12 @@
           "minimum_setpoint": "Temperature Setting",
           "name": "Name"
         },
-        "description": "Please fill in the following details to set up the switch. Enter a name for the switch in the Name field, which will help you identify it within your system. Choose the appropriate entity to use for your switch from the provided options.\n\nIn the Temperature Setting field, specify the desired target temperature for your heating system. If you are using a hot water boiler, fill in the Boiler Temperature Setting with the appropriate value. For electric heating systems, enter the value 100.\n\nThese settings are essential for precise temperature control and ensuring optimal performance of your heating system. Providing the correct Temperature Setting allows for accurate regulation and helps achieve a comfortable and energy-efficient environment in your home.",
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "device": "Switch, valve, or input_boolean used to control heating.",
+          "minimum_setpoint": "Boiler temp for hot water systems; use 100 for electric heating."
+        },
+        "description": "Choose the control entity and set the temperature. For hot water boilers, use the boiler temperature; for electric heating, use 100.",
         "title": "PID Thermostat with PWM ( ON/OFF )"
       },
       "user": {

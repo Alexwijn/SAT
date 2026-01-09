@@ -5,6 +5,7 @@
       "reconfigure_successful": "Il gateway è stato riconfigurato."
     },
     "error": {
+      "invalid_device": "Questo è un dispositivo non valido.",
       "connection": "Impossibile connettersi al gateway.",
       "mqtt_component": "Il componente MQTT non è disponibile.",
       "unable_to_calibrate": "Il processo di calibrazione ha incontrato un problema e non è stato completato con successo. Si prega di assicurarsi che il sistema di riscaldamento funzioni correttamente e che tutti i sensori richiesti siano connessi e funzionanti correttamente.\n\nSe continui a riscontrare problemi con la calibrazione, considera di contattarci per ulteriore assistenza. Ci scusiamo per eventuali inconvenienti causati."
@@ -15,8 +16,14 @@
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Termostato",
           "main_climates": "Primari",
           "secondary_climates": "Stanze"
+        },
+        "data_description": {
+          "thermostat": "Termostato esistente opzionale per sincronizzare i setpoint.",
+          "main_climates": "Radiatori nella stessa stanza del sensore interno.",
+          "secondary_climates": "Stanze con le proprie temperature target."
         },
         "description": "Impostazioni relative ai climi, alle stanze multiple e al controllo della temperatura. I climi primari sono nella stessa stanza del sensore interno e le stanze hanno le loro temperature obiettivo separate dal sistema.",
         "title": "Aree"
@@ -49,40 +56,71 @@
         "data": {
           "heating_system": "Sistema"
         },
+        "data_description": {
+          "heating_system": "Scegli il sistema che corrisponde ai tuoi terminali di calore."
+        },
         "description": "Selezionare il tipo corretto di sistema di riscaldamento è importante affinché il SAT possa controllare accuratamente la temperatura e ottimizzare le prestazioni. Scegli l'opzione che corrisponde alla tua configurazione per garantire una regolazione appropriata della temperatura in tutta la tua casa.",
         "title": "Sistema di Riscaldamento"
       },
       "mosquitto": {
-        "description": "Configura la modalità MQTT per il tuo sistema di riscaldamento. Seleziona la modalità del gateway e fornisci il suo nome.",
+        "description": "Seleziona il tipo di gateway così SAT sa quali topic MQTT usare.",
         "data": {
           "mode": "Modalità"
+        },
+        "data_description": {
+          "mode": "Scegli il tipo di gateway così SAT conosce il formato del topic MQTT atteso."
         },
         "title": "Configurazione MQTT"
       },
       "mosquitto_opentherm": {
-        "description": "Configura il Gateway OpenTherm. Fornisci l'argomento principale MQTT e l'identificativo del dispositivo.",
+        "description": "Inserisci il topic MQTT di base (es. {example_otgw_topic}) e l'identificativo del dispositivo.",
         "data": {
           "name": "Nome",
           "mqtt_topic": "Argomento MQTT",
           "device": "ID del dispositivo"
         },
+        "data_description": {
+          "name": "Nome visualizzato in Home Assistant.",
+          "mqtt_topic": "Topic base usato dal gateway (es. OTGW/ o OTGW/ABCDEF).",
+          "device": "Identificatore del gateway (spesso l’ID OTGW)."
+        },
         "title": "Configurazione del Gateway OpenTherm"
       },
       "mosquitto_ems": {
-        "description": "Configura il Gateway EMS-ESP. Fornisci l'argomento MQTT.",
+        "description": "Inserisci il topic MQTT di base (es. {example_ems_topic}).",
         "data": {
           "name": "Nome",
           "mqtt_topic": "Argomento MQTT"
+        },
+        "data_description": {
+          "name": "Nome visualizzato in Home Assistant.",
+          "mqtt_topic": "Topic base usato da EMS-ESP (es. ems-esp/)."
         },
         "title": "Configurazione del Gateway EMS-ESP"
       },
       "mosquitto_otthing": {
-        "description": "Configura il gateway OTthing. Fornisci il topic MQTT che contiene il nome base (es. otthing/31F44C) che pubblica il payload /state.",
+        "description": "Inserisci il topic di base senza /state (es. {example_otthing_topic}).",
         "data": {
           "name": "Nome",
           "mqtt_topic": "Argomento MQTT"
         },
+        "data_description": {
+          "name": "Nome visualizzato in Home Assistant.",
+          "mqtt_topic": "Topic base senza /state (es. otthing/31F44C)."
+        },
         "title": "Configurazione del gateway OTthing"
+      },
+      "esphome": {
+        "description": "Seleziona il dispositivo ESPHome e assegna un nome.",
+        "data": {
+          "name": "Nome",
+          "device": "Dispositivo"
+        },
+        "data_description": {
+          "name": "Nome visualizzato in Home Assistant.",
+          "device": "Dispositivo ESPHome da usare."
+        },
+        "title": "Configurazione ESPHome"
       },
       "overshoot_protection": {
         "data": {
@@ -106,7 +144,12 @@
           "inside_sensor_entity_id": "Entità Sensore Interno",
           "outside_sensor_entity_id": "Entità Sensore Esterno"
         },
-        "description": "Si prega di selezionare i sensori che verranno utilizzati per monitorare la temperatura.",
+        "data_description": {
+          "inside_sensor_entity_id": "Sensore principale della temperatura interna.",
+          "outside_sensor_entity_id": "Sensore esterno o entità meteo (selezione multipla possibile).",
+          "humidity_sensor_entity_id": "Sensore di umidità opzionale."
+        },
+        "description": "Seleziona il sensore interno, il/i sensore/i esterno/i e un sensore di umidità opzionale.",
         "title": "Configura sensori"
       },
       "serial": {
@@ -114,7 +157,11 @@
           "device": "URL",
           "name": "Nome"
         },
-        "description": "Per stabilire una connessione con il Gateway OpenTherm tramite una connessione socket, si prega di fornire i seguenti dettagli. Nel campo Nome, inserisci un nome per il gateway che ti aiuterà a identificarlo all'interno del tuo sistema.\n\nSpecifica l'indirizzo di rete del Gateway OpenTherm nel campo Dispositivo. Questo potrebbe essere nel formato \"socket://otgw.local:25238\", dove \"otgw.local\" è il nome host o l'indirizzo IP del gateway e \"25238\" è il numero della porta.\n\nQueste impostazioni sono essenziali per stabilire la comunicazione e l'integrazione con il tuo Gateway OpenTherm tramite la connessione socket. Assicurati che i dettagli forniti siano accurati per garantire un corretto funzionamento.",
+        "data_description": {
+          "name": "Nome visualizzato in Home Assistant.",
+          "device": "URL socket, es. socket://otgw.local:25238."
+        },
+        "description": "Inserisci un nome e un URL socket (es. {example_socket}).",
         "title": "Gateway OpenTherm (SERIALE)"
       },
       "simulator": {
@@ -135,7 +182,12 @@
           "minimum_setpoint": "Impostazione della Temperatura",
           "name": "Nome"
         },
-        "description": "Si prega di compilare i seguenti dettagli per configurare l'interruttore. Inserisci un nome per l'interruttore nel campo Nome, che ti aiuterà a identificarlo all'interno del tuo sistema. Scegli l'entità appropriata da utilizzare per il tuo interruttore tra le opzioni fornite.\n\nNel campo Impostazione della Temperatura, specifica la temperatura desiderata per il tuo sistema di riscaldamento. Se stai utilizzando una caldaia per acqua calda, inserisci l'Impostazione della Temperatura della Caldaia con il valore appropriato. Per i sistemi di riscaldamento elettrici, inserisci il valore 100.\n\nQueste impostazioni sono essenziali per un controllo preciso della temperatura e per garantire prestazioni ottimali del tuo sistema di riscaldamento. Fornire l'Impostazione della Temperatura corretta consente una regolazione accurata e contribuisce a creare un ambiente confortevole ed efficiente dal punto di vista energetico nella tua casa.",
+        "data_description": {
+          "name": "Nome visualizzato in Home Assistant.",
+          "device": "Interruttore, valvola o input_boolean usato per controllare il riscaldamento.",
+          "minimum_setpoint": "Temperatura caldaia per sistemi ad acqua calda; usa 100 per riscaldamento elettrico."
+        },
+        "description": "Scegli l'entità di controllo e imposta la temperatura. Per caldaie ad acqua calda usa la temperatura della caldaia; per riscaldamento elettrico usa 100.",
         "title": "Termostato PID con PWM (ON/OFF)"
       },
       "user": {
@@ -148,6 +200,12 @@
           "switch": "Termostato PID (Modalità PWM Acceso/Spento)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "Abbiamo tentato di identificare il produttore più adatto al tuo sistema di riscaldamento in base al tipo di gateway e alle informazioni del dispositivo. Se non corrisponde alla tua configurazione, puoi selezionare un produttore diverso dall’elenco.",
+        "data": {
+          "manufacturer": "Produttore"
+        }
       }
     }
   },
@@ -189,6 +247,7 @@
           "heating_curve_version": "Versione della Curva di Riscaldamento",
           "integral": "Integrale (kI)",
           "maximum_setpoint": "Setpoint Massimo",
+          "dynamic_minimum_setpoint_version": "Versione del controllore del setpoint minimo",
           "pid_controller_version": "Versione del controllore PID",
           "proportional": "Proporzionale (kP)",
           "window_sensors": "Sensori Contatto",
@@ -213,8 +272,13 @@
           "advanced": "Opzioni Avanzate",
           "general": "Generale",
           "presets": "Pre-impostazioni",
+          "areas": "Aree",
           "system_configuration": "Configurazione del Sistema"
         }
+      },
+      "areas": {
+        "description": "Regola i pesi di riscaldamento per ogni stanza per controllare quanta energia termica viene allocata quando la stanza ha l’errore maggiore. Pesi più alti aumentano il calore assegnato a quella stanza rispetto alle altre.",
+        "title": "Aree"
       },
       "presets": {
         "data": {
@@ -231,6 +295,7 @@
       },
       "system_configuration": {
         "data": {
+          "cycles_per_hour": "Cicli per ora",
           "automatic_duty_cycle": "Ciclo di lavoro automatico",
           "sync_climates_with_mode": "Sincronizza climi con la modalità",
           "overshoot_protection": "Protezione dal Superamento (con PWM)",
@@ -238,6 +303,7 @@
           "window_minimum_open_time": "Tempo minimo di apertura della finestra"
         },
         "data_description": {
+          "cycles_per_hour": "Il numero massimo di cicli per ora.",
           "automatic_duty_cycle": "Abilitare o disabilitare il ciclo di lavoro automatico per la Modulazione di Larghezza di Impulso (PWM).",
           "overshoot_protection": "Abilitare la protezione dal superamento con la Modulazione di Larghezza di Impulso (PWM) per prevenire il superamento della temperatura della caldaia.",
           "sensor_max_value_age": "L'età massima del valore del sensore di temperatura prima di considerarlo stazionario.",
@@ -245,6 +311,22 @@
         },
         "description": "Per una regolazione fine e una personalizzazione.",
         "title": "Configurazione del Sistema"
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Reimposta integrale",
+      "description": "Questo servizio reimposta la parte integrale del controller PID per l’entità climate specificata. Può essere utile se il valore integrale è diventato troppo grande o se le prestazioni del PID sono peggiorate."
+    },
+    "pulse_width_modulation": {
+      "name": "Modulazione a larghezza d’impulso",
+      "description": "Forza l’attivazione o la disattivazione della modulazione a larghezza d’impulso. Nota che può essere riattivata o disattivata automaticamente subito dopo.",
+      "fields": {
+        "enabled": {
+          "name": "Abilitato",
+          "description": "Lo stato che vuoi forzare."
+        }
       }
     }
   }

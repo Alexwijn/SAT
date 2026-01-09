@@ -5,6 +5,7 @@
       "reconfigure_successful": "La passerelle a été reconfigurée."
     },
     "error": {
+      "invalid_device": "Cet appareil est invalide.",
       "connection": "Impossible de se connecter à la passerelle.",
       "mqtt_component": "Le composant MQTT n'est pas disponible.",
       "unable_to_calibrate": "Le processus de calibration a rencontré un problème et n'a pas pu être complété avec succès. Veuillez vous assurer que votre système de chauffage fonctionne correctement et que tous les capteurs requis sont connectés et fonctionnent correctement.\n\nSi vous continuez à rencontrer des problèmes avec la calibration, envisagez de nous contacter pour obtenir de l'aide supplémentaire. Nous nous excusons pour tout désagrément causé."
@@ -15,8 +16,14 @@
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Thermostat",
           "main_climates": "Principaux",
           "secondary_climates": "Pièces"
+        },
+        "data_description": {
+          "thermostat": "Thermostat existant optionnel pour synchroniser les consignes.",
+          "main_climates": "Radiateurs dans la même pièce que le capteur intérieur.",
+          "secondary_climates": "Pièces avec leurs propres températures cibles."
         },
         "description": "Paramètres liés aux climats, aux pièces multiples et au contrôle de la température. Les climats principaux se trouvent dans la même pièce que le capteur intérieur et les pièces ont leurs propres températures cibles séparées du système.",
         "title": "Zones"
@@ -49,40 +56,71 @@
         "data": {
           "heating_system": "Système"
         },
+        "data_description": {
+          "heating_system": "Choisissez le système qui correspond à vos émetteurs de chaleur."
+        },
         "description": "Sélectionner le type de système de chauffage correct est important pour que le SAT contrôle précisément la température et optimise les performances. Choisissez l'option qui correspond à votre configuration pour garantir une régulation appropriée de la température dans votre maison.",
         "title": "Système de chauffage"
       },
       "mosquitto": {
-        "description": "Configurez le mode MQTT pour votre système de chauffage. Sélectionnez le mode de la passerelle et fournissez son nom.",
+        "description": "Sélectionnez le type de passerelle afin que SAT sache quels topics MQTT utiliser.",
         "data": {
           "mode": "Mode"
+        },
+        "data_description": {
+          "mode": "Choisissez le type de passerelle pour que SAT connaisse le format de topic MQTT attendu."
         },
         "title": "Configuration MQTT"
       },
       "mosquitto_opentherm": {
-        "description": "Configurez la passerelle OpenTherm. Fournissez le sujet principal MQTT et l'identifiant de l'appareil.",
+        "description": "Indiquez le topic MQTT de base (p. ex. {example_otgw_topic}) et l'identifiant de l’appareil.",
         "data": {
           "name": "Nom",
           "mqtt_topic": "Sujet MQTT",
           "device": "ID de l'appareil"
         },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "mqtt_topic": "Topic de base utilisé par la passerelle (p. ex. OTGW/ ou OTGW/ABCDEF).",
+          "device": "Identifiant de la passerelle (souvent l’ID OTGW)."
+        },
         "title": "Configuration de la Passerelle OpenTherm"
       },
       "mosquitto_ems": {
-        "description": "Configurez la passerelle EMS-ESP. Fournissez le sujet MQTT.",
+        "description": "Indiquez le topic MQTT de base (p. ex. {example_ems_topic}).",
         "data": {
           "name": "Nom",
           "mqtt_topic": "Sujet MQTT"
+        },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "mqtt_topic": "Topic de base utilisé par EMS-ESP (p. ex. ems-esp/)."
         },
         "title": "Configuration de la Passerelle EMS-ESP"
       },
       "mosquitto_otthing": {
-        "description": "Configurez la passerelle OTthing. Indiquez le topic MQTT qui contient le nom de base (par exemple otthing/31F44C) et publie le payload /state.",
+        "description": "Indiquez le topic de base sans /state (p. ex. {example_otthing_topic}).",
         "data": {
           "name": "Nom",
           "mqtt_topic": "Sujet MQTT"
         },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "mqtt_topic": "Topic de base sans /state (p. ex. otthing/31F44C)."
+        },
         "title": "Configuration de la passerelle OTthing"
+      },
+      "esphome": {
+        "description": "Sélectionnez l’appareil ESPHome et donnez-lui un nom.",
+        "data": {
+          "name": "Nom",
+          "device": "Appareil"
+        },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "device": "Appareil ESPHome à utiliser."
+        },
+        "title": "Configuration ESPHome"
       },
       "overshoot_protection": {
         "data": {
@@ -106,7 +144,12 @@
           "inside_sensor_entity_id": "Entité du capteur intérieur",
           "outside_sensor_entity_id": "Entité du capteur extérieur"
         },
-        "description": "Veuillez sélectionner les capteurs qui seront utilisés pour suivre la température.",
+        "data_description": {
+          "inside_sensor_entity_id": "Capteur de température intérieur principal.",
+          "outside_sensor_entity_id": "Capteur extérieur ou entité météo (sélection multiple possible).",
+          "humidity_sensor_entity_id": "Capteur d’humidité optionnel."
+        },
+        "description": "Sélectionnez le capteur intérieur, le(s) capteur(s) extérieur(s) et un capteur d’humidité optionnel.",
         "title": "Configurer les capteurs"
       },
       "serial": {
@@ -114,7 +157,11 @@
           "device": "URL",
           "name": "Nom"
         },
-        "description": "Pour établir une connexion avec la passerelle OpenTherm en utilisant une connexion socket, veuillez fournir les détails suivants. Dans le champ Nom, entrez un nom pour la passerelle qui vous aidera à l'identifier au sein de votre système.\n\nSpécifiez l'adresse réseau de la passerelle OpenTherm dans le champ Appareil. Cela pourrait être au format \"socket://otgw.local:25238\", où \"otgw.local\" est le nom d'hôte ou l'adresse IP de la passerelle et \"25238\" est le numéro de port.\n\nCes paramètres sont essentiels pour établir la communication et l'intégration avec votre passerelle OpenTherm via la connexion socket. Assurez-vous que les détails fournis sont précis pour garantir une fonctionnalité appropriée.",
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "device": "URL socket, p. ex. socket://otgw.local:25238."
+        },
+        "description": "Saisissez un nom et une URL socket (p. ex. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
       },
       "simulator": {
@@ -135,7 +182,12 @@
           "minimum_setpoint": "Réglage de la température",
           "name": "Nom"
         },
-        "description": "Veuillez remplir les détails suivants pour configurer l'interrupteur. Entrez un nom pour l'interrupteur dans le champ Nom, ce qui vous aidera à l'identifier au sein de votre système. Choisissez l'entité appropriée à utiliser pour votre interrupteur parmi les options fournies.\n\nDans le champ Réglage de la température, spécifiez la température cible désirée pour votre système de chauffage. Si vous utilisez une chaudière à eau chaude, remplissez le Réglage de la température de la chaudière avec la valeur appropriée. Pour les systèmes de chauffage électrique, entrez la valeur 100.\n\nCes paramètres sont essentiels pour un contrôle précis de la température et pour garantir des performances optimales de votre système de chauffage. Fournir le Réglage de la température correct permet une régulation précise et contribue à créer un environnement confortable et économe en énergie dans votre maison.",
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "device": "Interrupteur, vanne ou input_boolean utilisé pour contrôler le chauffage.",
+          "minimum_setpoint": "Température de chaudière pour l’eau chaude ; utilisez 100 pour le chauffage électrique."
+        },
+        "description": "Choisissez l’entité de contrôle et définissez la température. Pour une chaudière eau chaude, utilisez la température de chaudière ; pour chauffage électrique, utilisez 100.",
         "title": "Thermostat PID avec PWM (ON/OFF)"
       },
       "user": {
@@ -148,6 +200,12 @@
           "switch": "Thermostat PID (Mode PWM Marche/Arrêt)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "Nous avons tenté d’identifier le fabricant le plus adapté à votre système de chauffage à partir du type de passerelle et des informations de l’appareil. Si cela ne correspond pas à votre installation, vous pouvez sélectionner un autre fabricant dans la liste.",
+        "data": {
+          "manufacturer": "Fabricant"
+        }
       }
     }
   },
@@ -189,6 +247,7 @@
           "heating_curve_version": "Version de la Courbe de Chauffage",
           "integral": "Intégral (kI)",
           "maximum_setpoint": "Point de consigne maximal",
+          "dynamic_minimum_setpoint_version": "Version du contrôleur de consigne minimale",
           "pid_controller_version": "Version du contrôleur PID",
           "proportional": "Proportionnel (kP)",
           "window_sensors": "Capteurs de Contact",
@@ -213,8 +272,13 @@
           "advanced": "Options Avancées",
           "general": "Général",
           "presets": "Préréglages",
+          "areas": "Zones",
           "system_configuration": "Configuration du Système"
         }
+      },
+      "areas": {
+        "description": "Ajustez les pondérations de chauffage pour chaque pièce afin de contrôler la quantité de chaleur allouée lorsque la pièce a l’erreur la plus élevée. Des pondérations plus élevées augmentent la chaleur envoyée à cette pièce par rapport aux autres.",
+        "title": "Zones"
       },
       "presets": {
         "data": {
@@ -231,6 +295,7 @@
       },
       "system_configuration": {
         "data": {
+          "cycles_per_hour": "Cycles par heure",
           "automatic_duty_cycle": "Cycle de fonctionnement automatique",
           "sync_climates_with_mode": "Synchroniser les climats avec le mode",
           "overshoot_protection": "Protection contre le dépassement (avec PWM)",
@@ -238,6 +303,7 @@
           "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre"
         },
         "data_description": {
+          "cycles_per_hour": "Le nombre maximal de cycles par heure.",
           "automatic_duty_cycle": "Activer ou désactiver le cycle de fonctionnement automatique pour la Modulation de Largeur d'Impulsion (PWM).",
           "overshoot_protection": "Activer la protection contre le dépassement avec la Modulation de Largeur d'Impulsion (PWM) pour prévenir les dépassements de température de la chaudière.",
           "sensor_max_value_age": "L'âge maximum de la valeur du capteur de température avant de la considérer comme stagnante.",
@@ -245,6 +311,22 @@
         },
         "description": "Pour un réglage fin et une personnalisation.",
         "title": "Configuration du Système"
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Réinitialiser l’intégrale",
+      "description": "Ce service réinitialise la partie intégrale du contrôleur PID pour l’entité climate spécifiée. Cela peut être utile si la valeur intégrale est devenue trop grande ou si les performances du PID se sont dégradées."
+    },
+    "pulse_width_modulation": {
+      "name": "Modulation de largeur d’impulsion",
+      "description": "Forcer l’activation ou la désactivation de la modulation de largeur d’impulsion. Notez qu’elle peut être réactivée ou désactivée automatiquement juste après.",
+      "fields": {
+        "enabled": {
+          "name": "Activé",
+          "description": "L’état que vous souhaitez forcer."
+        }
       }
     }
   }

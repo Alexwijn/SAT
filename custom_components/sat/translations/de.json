@@ -5,6 +5,7 @@
       "reconfigure_successful": "Gateway wurde neu konfiguriert."
     },
     "error": {
+      "invalid_device": "Dies ist ein ungültiges Gerät.",
       "connection": "Verbindung zum Gateway konnte nicht hergestellt werden.",
       "mqtt_component": "Die MQTT-Komponente ist nicht verfügbar.",
       "unable_to_calibrate": "Der Kalibrierungsprozess ist auf ein Problem gestoßen und konnte nicht erfolgreich abgeschlossen werden. Bitte stellen Sie sicher, dass Ihr Heizsystem ordnungsgemäß funktioniert und dass alle erforderlichen Sensoren angeschlossen und funktionsfähig sind.\n\nWenn Sie weiterhin Probleme mit der Kalibrierung haben, ziehen Sie in Erwägung, uns für weitere Unterstützung zu kontaktieren. Wir entschuldigen uns für etwaige Unannehmlichkeiten."
@@ -15,8 +16,14 @@
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Thermostat",
           "main_climates": "Primär",
           "secondary_climates": "Zimmer"
+        },
+        "data_description": {
+          "thermostat": "Optionales vorhandenes Thermostat zum Synchronisieren der Sollwerte.",
+          "main_climates": "Heizkörper im selben Raum wie der Innensensor.",
+          "secondary_climates": "Zimmer mit eigenen Zieltemperaturen."
         },
         "description": "Einstellungen im Zusammenhang mit Klimazonen, Mehrzimmern und Temperaturregelung. Primäre Klimazonen befinden sich im selben Raum wie der Innensensor, und die Zimmer haben ihre eigenen Zieltemperaturen, getrennt vom System.",
         "title": "Bereiche"
@@ -49,40 +56,71 @@
         "data": {
           "heating_system": "System"
         },
+        "data_description": {
+          "heating_system": "Wählen Sie das System, das zu Ihren Heizflächen passt."
+        },
         "description": "Die Auswahl des richtigen Heizsystemtyps ist wichtig, damit SAT die Temperatur genau steuern und die Leistung optimieren kann. Wählen Sie die Option, die zu Ihrer Einrichtung passt, um eine ordnungsgemäße Temperaturregelung in Ihrem Zuhause zu gewährleisten.",
         "title": "Heizsystem"
       },
       "mosquitto": {
-        "description": "Konfigurieren Sie den MQTT-Modus für Ihr Heizsystem. Wählen Sie den Gateway-Modus aus und geben Sie seinen Namen an.",
+        "description": "Wählen Sie den Gateway-Typ, damit SAT weiß, welche MQTT-Themen zu verwenden sind.",
         "data": {
           "mode": "Modus"
+        },
+        "data_description": {
+          "mode": "Wählen Sie den Gateway-Typ, damit SAT das MQTT-Themenformat kennt."
         },
         "title": "MQTT-Konfiguration"
       },
       "mosquitto_opentherm": {
-        "description": "Richten Sie das OpenTherm Gateway ein. Geben Sie das Haupt-MQTT-Thema und die Gerätekennung an.",
+        "description": "Geben Sie das Basis-MQTT-Thema (z. B. {example_otgw_topic}) und die Gerätekennung an.",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT-Thema",
           "device": "Geräte-ID"
         },
+        "data_description": {
+          "name": "Anzeigename in Home Assistant.",
+          "mqtt_topic": "Basisthema des Gateways (z. B. OTGW/ oder OTGW/ABCDEF).",
+          "device": "Gateway-Gerätekennung (oft die OTGW-ID)."
+        },
         "title": "OpenTherm Gateway Einrichtung"
       },
       "mosquitto_ems": {
-        "description": "Richten Sie das EMS-ESP Gateway ein. Geben Sie das MQTT-Thema an.",
+        "description": "Geben Sie das Basis-MQTT-Thema an (z. B. {example_ems_topic}).",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT-Thema"
+        },
+        "data_description": {
+          "name": "Anzeigename in Home Assistant.",
+          "mqtt_topic": "Basisthema von EMS-ESP (z. B. ems-esp/)."
         },
         "title": "EMS-ESP Gateway Einrichtung"
       },
       "mosquitto_otthing": {
-        "description": "Richten Sie das OTthing-Gateway ein. Geben Sie das MQTT-Thema an, das den Basisnamen (z. B. otthing/31F44C) enthält und die /state-Nutzlast veröffentlicht.",
+        "description": "Geben Sie das Basisthema ohne /state an (z. B. {example_otthing_topic}).",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT-Thema"
         },
+        "data_description": {
+          "name": "Anzeigename in Home Assistant.",
+          "mqtt_topic": "Basisthema ohne /state (z. B. otthing/31F44C)."
+        },
         "title": "OTthing Gateway Einrichtung"
+      },
+      "esphome": {
+        "description": "Wählen Sie das ESPHome-Gerät aus und vergeben Sie einen Namen.",
+        "data": {
+          "name": "Name",
+          "device": "Gerät"
+        },
+        "data_description": {
+          "name": "Anzeigename in Home Assistant.",
+          "device": "Zu verwendendes ESPHome-Gerät."
+        },
+        "title": "ESPHome Einrichtung"
       },
       "overshoot_protection": {
         "data": {
@@ -106,7 +144,12 @@
           "inside_sensor_entity_id": "Innensensor-Entität",
           "outside_sensor_entity_id": "Außensensor-Entität"
         },
-        "description": "Bitte wählen Sie die Sensoren aus, die zur Überwachung der Temperatur verwendet werden sollen.",
+        "data_description": {
+          "inside_sensor_entity_id": "Primärer Innentemperatursensor.",
+          "outside_sensor_entity_id": "Außensensor oder Wetter-Entität (Mehrfachauswahl möglich).",
+          "humidity_sensor_entity_id": "Optionaler Feuchtigkeitssensor."
+        },
+        "description": "Wählen Sie den Innensensor, die Außensensor(en) und optional den Feuchtigkeitssensor.",
         "title": "Sensoren konfigurieren"
       },
       "serial": {
@@ -114,7 +157,11 @@
           "device": "URL",
           "name": "Name"
         },
-        "description": "Um eine Verbindung mit dem OpenTherm Gateway über eine Socket-Verbindung herzustellen, geben Sie bitte die folgenden Details an. Geben Sie im Feld Name einen Namen für das Gateway ein, der Ihnen hilft, es in Ihrem System zu identifizieren.\n\nGeben Sie die Netzwerkadresse des OpenTherm Gateways im Feld Gerät an. Dies könnte im Format \"socket://otgw.local:25238\" sein, wobei \"otgw.local\" der Hostname oder die IP-Adresse des Gateways ist und \"25238\" die Portnummer.\n\nDiese Einstellungen sind wesentlich, um die Kommunikation und Integration mit Ihrem OpenTherm Gateway über die Socket-Verbindung herzustellen. Stellen Sie sicher, dass die angegebenen Details korrekt sind, um eine ordnungsgemäße Funktionalität zu gewährleisten.",
+        "data_description": {
+          "name": "Anzeigename in Home Assistant.",
+          "device": "Socket-URL, z. B. socket://otgw.local:25238."
+        },
+        "description": "Geben Sie einen Namen und eine Socket-URL ein (z. B. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIELL )"
       },
       "simulator": {
@@ -135,7 +182,12 @@
           "minimum_setpoint": "Temperatureinstellung",
           "name": "Name"
         },
-        "description": "Bitte füllen Sie die folgenden Details aus, um den Schalter einzurichten. Geben Sie einen Namen für den Schalter im Feld Name ein, der Ihnen hilft, ihn in Ihrem System zu identifizieren. Wählen Sie die passende Entität für Ihren Schalter aus den angebotenen Optionen aus.\n\nGeben Sie im Feld Temperatureinstellung die gewünschte Zieltemperatur für Ihr Heizsystem an. Wenn Sie einen Warmwasserboiler verwenden, geben Sie die Boiler temperatureinstellung mit dem entsprechenden Wert an. Für elektrische Heizsysteme geben Sie den Wert 100 ein.\n\nDiese Einstellungen sind wesentlich für eine präzise Temperaturregelung und gewährleisten eine optimale Leistung Ihres Heizsystems. Die Angabe der korrekten Temperatureinstellung ermöglicht eine genaue Regelung und hilft dabei, eine komfortable und energieeffiziente Umgebung in Ihrem Zuhause zu erreichen.",
+        "data_description": {
+          "name": "Anzeigename in Home Assistant.",
+          "device": "Schalter, Ventil oder input_boolean zur Heizungssteuerung.",
+          "minimum_setpoint": "Kesseltemperatur für Warmwassersysteme; für elektrische Heizung 100."
+        },
+        "description": "Wählen Sie die Steuereinheit und legen Sie die Temperatur fest. Für Warmwasserboiler die Kesseltemperatur, für elektrische Heizung 100.",
         "title": "PID-Thermostat mit PWM ( EIN/AUS )"
       },
       "user": {
@@ -148,6 +200,12 @@
           "switch": "PID-Thermostat (PWM Ein/Aus-Modus)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "Wir haben versucht, den geeignetsten Hersteller für Ihr Heizsystem anhand von Gateway-Typ und Geräteinformationen zu bestimmen. Wenn dies nicht zu Ihrer Anlage passt, können Sie einen anderen Hersteller aus der Liste auswählen.",
+        "data": {
+          "manufacturer": "Hersteller"
+        }
       }
     }
   },
@@ -189,6 +247,7 @@
           "heating_curve_version": "Version der Heizkurve",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximaler Sollwert",
+          "dynamic_minimum_setpoint_version": "Version des Minimum-Sollwert-Reglers",
           "pid_controller_version": "PID-Regler version",
           "proportional": "Proportional (kP)",
           "window_sensors": "Kontaktsensoren",
@@ -213,8 +272,13 @@
           "advanced": "Erweiterte Optionen",
           "general": "Allgemein",
           "presets": "Voreinstellungen",
+          "areas": "Bereiche",
           "system_configuration": "Systemkonfiguration"
         }
+      },
+      "areas": {
+        "description": "Passen Sie die Heizungsgewichte für jeden Raum an, um zu steuern, wie viel Wärme zugewiesen wird, wenn der Raum die größte Abweichung hat. Höhere Gewichte erhöhen die Wärmezuteilung für diesen Raum im Vergleich zu anderen.",
+        "title": "Bereiche"
       },
       "presets": {
         "data": {
@@ -223,13 +287,15 @@
           "comfort_temperature": "Komforttemperatur",
           "home_temperature": "Heimtemperatur",
           "sleep_temperature": "Schlafzimmertemperatur",
-          "push_setpoint_to_thermostat": "Sollwert mit Thermostat synchronisieren"
+          "push_setpoint_to_thermostat": "Sollwert mit Thermostat synchronisieren",
+          "sync_climates_with_preset": "Klimazonen mit Vorgabe synchronisieren (Schlaf / Abwesend / Aktivität)"
         },
         "description": "Vordefinierte Temperatureinstellungen für verschiedene Szenarien oder Aktivitäten.",
         "title": "Voreinstellungen"
       },
       "system_configuration": {
         "data": {
+          "cycles_per_hour": "Taktzyklen pro Stunde",
           "automatic_duty_cycle": "Automatischer Tastgrad",
           "overshoot_protection": "Überschwingungsschutz (mit PWM)",
           "sync_climates_with_mode": "Klimazonen mit Modus synchronisieren",
@@ -237,6 +303,7 @@
           "window_minimum_open_time": "Mindestzeit für geöffnetes Fenster"
         },
         "data_description": {
+          "cycles_per_hour": "Maximale Anzahl von Taktzyklen pro Stunde.",
           "automatic_duty_cycle": "Automatischen Tastgrad für Pulsweitenmodulation (PWM) aktivieren oder deaktivieren.",
           "overshoot_protection": "Überschwingungsschutz mit Pulsweitenmodulation (PWM) aktivieren, um die Temperaturüberschreitung des Kessels zu verhindern.",
           "sensor_max_value_age": "Das maximale Alter des Temperatursensorwerts, bevor er als gestoppt betrachtet wird.",
@@ -244,6 +311,22 @@
         },
         "description": "Für Feinabstimmung und Anpassung.",
         "title": "Systemkonfiguration"
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Integral zurücksetzen",
+      "description": "Dieser Dienst setzt den integralen Anteil des PID-Reglers für die angegebene Klima-Entität zurück. Dies kann nützlich sein, wenn der Integralwert zu groß geworden ist oder die Leistung des PID-Reglers nachgelassen hat."
+    },
+    "pulse_width_modulation": {
+      "name": "Pulsweitenmodulation",
+      "description": "Pulsweitenmodulation erzwingen oder deaktivieren. Beachten Sie, dass sie kurz darauf automatisch wieder ein- oder ausgeschaltet werden kann.",
+      "fields": {
+        "enabled": {
+          "name": "Aktiviert",
+          "description": "Der Zustand, den Sie erzwingen möchten."
+        }
       }
     }
   }
