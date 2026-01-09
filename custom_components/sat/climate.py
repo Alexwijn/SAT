@@ -36,7 +36,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .entry_data import SatConfig, get_entry_data, SatMode
-from .helpers import float_value, is_state_stale, state_age_seconds, event_timestamp, clamp, ensure_list
+from .helpers import float_value, int_value, is_state_stale, state_age_seconds, event_timestamp, clamp, ensure_list
 from .manufacturers.geminox import Geminox
 from .summer_simmer import SummerSimmer
 from .temperature_state import TemperatureState
@@ -46,6 +46,8 @@ from .util import create_pid_controller, create_heating_curve_controller, create
 ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
 ATTR_OPTIMAL_COEFFICIENT = "optimal_coefficient"
+ATTR_RELATIVE_MODULATION_VALUE = "relative_modulation_value"
+
 ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
@@ -272,6 +274,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if old_state.attributes.get(ATTR_SETPOINT):
                 self._setpoint = float_value(old_state.attributes.get(ATTR_SETPOINT))
+
+            if old_state.attributes.get(ATTR_RELATIVE_MODULATION_VALUE) is not None:
+                self._relative_modulation_value = int_value(old_state.attributes.get(ATTR_RELATIVE_MODULATION_VALUE))
 
             if old_state.attributes.get(ATTR_PRESET_MODE):
                 self._attr_preset_mode = old_state.attributes.get(ATTR_PRESET_MODE)
