@@ -4,7 +4,7 @@ import traceback
 from homeassistant.components import binary_sensor, climate, number, sensor
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry
+from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.storage import Store
 from sentry_sdk import Client, Hub
 
@@ -22,6 +22,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     config = SatConfig(entry.entry_id, entry.data, {**OPTIONS_DEFAULTS, **entry.options})
+    await async_migrate_identifiers(hass, entry, config)
+
     coordinator = SatDataUpdateCoordinatorFactory().resolve(hass=hass, config=config)
     hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(coordinator=coordinator, config=config)
 
@@ -169,6 +171,33 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Migration to version %s successful", entry.version)
 
     return True
+
+
+async def async_migrate_identifiers(hass: HomeAssistant, entry: ConfigEntry, config: SatConfig) -> None:
+    entity_reg = entity_registry.async_get(hass)
+    device_reg = device_registry.async_get(hass)
+
+    old_prefix = config.name_lower
+    new_prefix = config.entry_id
+    old_dash_prefix = f"{old_prefix}-"
+
+    for entity_entry in entity_registry.async_entries_for_config_entry(entity_reg, entry.entry_id):
+        unique_id = entity_entry.unique_id
+        new_unique_id = None
+
+        if unique_id == old_prefix:
+            new_unique_id = new_prefix
+        elif unique_id.startswith(old_dash_prefix):
+            new_unique_id = f"{new_prefix}-{unique_id[len(old_dash_prefix):]}"
+
+        if new_unique_id and new_unique_id != unique_id:
+            entity_reg.async_update_entity(entity_entry.entity_id, new_unique_id=new_unique_id)
+
+    device = device_reg.async_get_device(identifiers={(DOMAIN, config.name)})
+    if device is None:
+        return
+
+    device_reg.async_update_device(device.id, new_identifiers={(DOMAIN, config.entry_id)})
 
 
 def initialize_sentry() -> Client:

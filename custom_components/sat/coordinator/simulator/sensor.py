@@ -58,7 +58,7 @@ class SatSetpointSensor(SatEntity, sensor.SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-setpoint"
+        return f"{self._config.entry_id}-setpoint"
 
 
 class SatBoilerTemperatureSensor(SatEntity, sensor.SensorEntity):
@@ -96,4 +96,4 @@ class SatBoilerTemperatureSensor(SatEntity, sensor.SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-boiler_temperature"
+        return f"{self._config.entry_id}-boiler_temperature"

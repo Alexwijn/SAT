@@ -35,7 +35,7 @@ class SatEntity(CoordinatorEntity):
             manufacturer=manufacturer,
             suggested_area="Living Room",
             model=self._coordinator.device_type,
-            identifiers={(DOMAIN, self._config.name)}
+            identifiers={(DOMAIN, self._config.entry_id)}
         )
 
 

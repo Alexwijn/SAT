@@ -110,7 +110,7 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensor
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-control-setpoint-synchro"
+        return f"{self._config.entry_id}-control-setpoint-synchro"
 
 
 class SatRelativeModulationSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
@@ -147,7 +147,7 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatClimateEntity, BinarySen
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-relative-modulation-synchro"
+        return f"{self._config.entry_id}-relative-modulation-synchro"
 
 
 class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
@@ -185,7 +185,7 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-central-heating-synchro"
+        return f"{self._config.entry_id}-central-heating-synchro"
 
 
 class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
@@ -208,7 +208,7 @@ class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-boiler-health"
+        return f"{self._config.entry_id}-boiler-health"
 
 
 class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
@@ -244,7 +244,7 @@ class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-cycle-health"
+        return f"{self._config.entry_id}-cycle-health"
 
 
 class SatWindowSensor(SatClimateEntity, BinarySensorGroup):
@@ -268,4 +268,4 @@ class SatWindowSensor(SatClimateEntity, BinarySensorGroup):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-window-sensor"
+        return f"{self._config.entry_id}-window-sensor"

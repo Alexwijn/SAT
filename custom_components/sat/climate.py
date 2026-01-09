@@ -103,7 +103,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # System Configuration
         self._attr_name = self._config.name
-        self._attr_id = self._config.name_lower
+        self._attr_id = self._config.entry_id
 
         # Controllers
         self.areas = Areas(self._config)

@@ -170,4 +170,4 @@ class SatSensor(SatEntity, sensor.SensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-{self._source}-{self._key}"
+        return f"{self._config.entry_id}-{self._source}-{self._key}"

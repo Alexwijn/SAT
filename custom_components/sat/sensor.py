@@ -88,7 +88,7 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config.name_lower}-requested-setpoint"
+        return f"{self._config.entry_id}-requested-setpoint"
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
@@ -156,9 +156,9 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         if self._area_id is None:
-            return f"{self._config.name_lower}-pid"
+            return f"{self._config.entry_id}-pid"
 
-        return f"{self._config.name_lower}-{self._area_id}-pid"
+        return f"{self._config.entry_id}-{self._area_id}-pid"
 
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
@@ -205,7 +205,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-boiler-current-power"
+        return f"{self._config.entry_id}-boiler-current-power"
 
 
 class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
@@ -253,7 +253,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-boiler-current-consumption"
+        return f"{self._config.entry_id}-boiler-current-consumption"
 
 
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
@@ -285,7 +285,7 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-heating-curve"
+        return f"{self._config.entry_id}-heating-curve"
 
 
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):
@@ -320,7 +320,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config.name_lower}-error-value"
+        return f"{self._config.entry_id}-error-value"
 
 
 class SatManufacturerSensor(SatEntity, SensorEntity):
@@ -339,7 +339,7 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config.name_lower}-manufacturer"
+        return f"{self._config.entry_id}-manufacturer"
 
 
 class SatCycleSensor(SatEntity, SensorEntity):
@@ -383,7 +383,7 @@ class SatCycleSensor(SatEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config.name_lower}-cycle-status"
+        return f"{self._config.entry_id}-cycle-status"
 
 
 class SatRegimeSensor(SatClimateEntity, SensorEntity):
@@ -433,7 +433,7 @@ class SatRegimeSensor(SatClimateEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config.name_lower}-minimum-setpoint-regime"
+        return f"{self._config.entry_id}-minimum-setpoint-regime"
 
 
 class SatBoilerSensor(SatEntity, SensorEntity):
@@ -451,4 +451,4 @@ class SatBoilerSensor(SatEntity, SensorEntity):
 
     @property
     def unique_id(self) -> str:
-        return f"{self._config.name_lower}-boiler-status"
+        return f"{self._config.entry_id}-boiler-status"

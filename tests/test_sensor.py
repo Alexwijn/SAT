@@ -139,17 +139,18 @@ async def test_regime_sensor_extra_attributes(hass, climate, domains, data, opti
     assert state.state == f"{attrs['setpoint_band']}:{attrs['outside_band']}:{attrs['delta_band']}"
 
 
-async def test_core_sensors_registered(hass, climate, domains, data, options, config):
+async def test_core_sensors_registered(hass, climate, entry, domains, data, options, config):
     registry = er.async_get(hass)
+    unique_id_prefix = entry.entry_id
     expected_unique_ids = (
-        "test-pid",
-        "test-error-value",
-        "test-heating-curve",
-        "test-boiler-status",
-        "test-manufacturer",
-        "test-cycle-status",
-        "test-requested-setpoint",
-        "test-minimum-setpoint-regime",
+        f"{unique_id_prefix}-pid",
+        f"{unique_id_prefix}-error-value",
+        f"{unique_id_prefix}-heating-curve",
+        f"{unique_id_prefix}-boiler-status",
+        f"{unique_id_prefix}-manufacturer",
+        f"{unique_id_prefix}-cycle-status",
+        f"{unique_id_prefix}-requested-setpoint",
+        f"{unique_id_prefix}-minimum-setpoint-regime",
     )
 
     for unique_id in expected_unique_ids:
