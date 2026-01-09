@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .const import *
 from ..const import COLD_SETPOINT, CycleClassification
 from ..types import CycleKind, PWMStatus
-from .const import OVERSHOOT_MARGIN_CELSIUS, TARGET_MIN_ON_TIME_SECONDS, ULTRA_SHORT_MIN_ON_TIME_SECONDS, UNDERSHOOT_MARGIN_CELSIUS
 
 if TYPE_CHECKING:
     from ..boiler import BoilerState

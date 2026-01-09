@@ -94,6 +94,7 @@ CONF_SLEEP_TEMPERATURE = "sleep_temperature"
 CONF_COMFORT_TEMPERATURE = "comfort_temperature"
 CONF_ACTIVITY_TEMPERATURE = "activity_temperature"
 
+
 class HeatingSystem(StrEnum):
     UNKNOWN = "unknown"
     HEAT_PUMP = "heat_pump"
@@ -104,6 +105,7 @@ class HeatingSystem(StrEnum):
 class HeatingMode(StrEnum):
     ECO = "eco"
     COMFORT = "comfort"
+
 
 # Default values for integration options.
 OPTIONS_DEFAULTS = {

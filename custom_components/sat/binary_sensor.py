@@ -13,10 +13,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .climate import SatClimate
 from .const import *
+from .coordinator.serial import binary_sensor as serial_binary_sensor
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .helpers import seconds_since, timestamp
-from .coordinator.serial import binary_sensor as serial_binary_sensor
 from .types import BoilerStatus
 
 

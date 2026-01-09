@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from statistics import median
 from typing import Deque, Optional
 
+from .const import *
+from .types import Cycle, CycleStatistics, CycleWindowStats
 from ..helpers import clamp, percentile_interpolated, seconds_since
 from ..types import Percentiles
-from .const import DEFAULT_CYCLES_WINDOW_SECONDS, DEFAULT_DUTY_WINDOW_SECONDS, DEFAULT_MEDIAN_WINDOW_SECONDS, LAST_CYCLE_MAX_AGE_SECONDS, MAX_ON_DURATION_SECONDS_FOR_ROLLING_WINDOWS
-from .types import Cycle, CycleStatistics, CycleWindowStats
 
 _LOGGER = logging.getLogger(__name__)
 

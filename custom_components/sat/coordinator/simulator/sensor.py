@@ -1,13 +1,13 @@
 from typing import Optional, cast
 
-from homeassistant.core import HomeAssistant
 from homeassistant.components import sensor
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from ...entity import SatEntity
 from . import SatSimulatorCoordinator
+from ...entity import SatEntity
 from ...entry_data import SatConfig, get_entry_data
 
 

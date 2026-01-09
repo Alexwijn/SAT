@@ -13,10 +13,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .climate import SatClimate
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
-from .entity import SatClimateEntity, SatEntity
-from .entry_data import SatConfig, SatMode, get_entry_data
 from .coordinator.serial import sensor as serial_sensor
 from .coordinator.simulator import sensor as simulator_sensor
+from .entity import SatClimateEntity, SatEntity
+from .entry_data import SatConfig, SatMode, get_entry_data
 from .types import BoilerStatus
 
 

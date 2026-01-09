@@ -3,19 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
+from .const import *
+from .types import BoilerState
 from ..const import UNHEALTHY_CYCLES
 from ..types import BoilerStatus
-from .const import (
-    BOILER_PREHEAT_DELTA,
-    BOILER_SETPOINT_BAND,
-    BOILER_OVERSHOOT_DELTA,
-    BOILER_DEMAND_HYSTERESIS,
-    BOILER_ANTI_CYCLING_MIN_OFF_SECONDS,
-    BOILER_POST_CYCLE_SETTLING_SECONDS,
-    BOILER_STALL_IGNITION_OFF_RATIO,
-    BOILER_STALL_IGNITION_MIN_OFF_SECONDS,
-)
-from .types import BoilerState
 
 if TYPE_CHECKING:
     from ..cycles import Cycle
@@ -54,11 +45,11 @@ class BoilerStatusEvaluator:
 
             # Stalled ignition: OFF for much longer than expected, with demand present.
             if BoilerStatusEvaluator.is_ignition_stalled(
-                last_cycle=snapshot.last_cycle,
-                last_flame_off_at=snapshot.last_flame_off_at,
-                last_flame_off_was_overshoot=snapshot.last_flame_off_was_overshoot,
-                last_update_at=snapshot.last_update_at,
-                state=state,
+                    last_cycle=snapshot.last_cycle,
+                    last_flame_off_at=snapshot.last_flame_off_at,
+                    last_flame_off_was_overshoot=snapshot.last_flame_off_was_overshoot,
+                    last_update_at=snapshot.last_update_at,
+                    state=state,
             ):
                 return BoilerStatus.STALLED_IGNITION
 

@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Callable, Deque, Optional, TypeAlias
 
 from homeassistant.core import HomeAssistant
 
-from ..const import EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED
-from ..helpers import min_max, percentile_interpolated
-from ..types import CycleKind, Percentiles
 from .classifier import CycleClassifier
 from .const import IN_BAND_MARGIN_CELSIUS, OVERSHOOT_MARGIN_CELSIUS, OVERSHOOT_SUSTAIN_SECONDS
 from .history import CycleHistory
 from .types import Cycle, CycleMetrics, CycleShapeMetrics
+from ..const import EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED
+from ..helpers import min_max, percentile_interpolated
+from ..types import CycleKind, Percentiles
 
 if TYPE_CHECKING:
     from ..boiler import BoilerState

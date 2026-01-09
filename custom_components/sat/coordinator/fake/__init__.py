@@ -5,9 +5,9 @@ from typing import Optional
 
 from homeassistant.core import HomeAssistant
 
-from ...types import DeviceState
-from ...entry_data import SatConfig
 from .. import SatDataUpdateCoordinator
+from ...entry_data import SatConfig
+from ...types import DeviceState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 

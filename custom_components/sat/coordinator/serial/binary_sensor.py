@@ -5,15 +5,15 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, cast
 
-from pyotgw.vars import *
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity, ENTITY_ID_FORMAT
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import async_generate_entity_id
+from pyotgw.vars import *
 
+from . import TRANSLATE_SOURCE, SatSerialCoordinator
 from ...entity import SatEntity
 from ...entry_data import SatConfig, get_entry_data
-from . import TRANSLATE_SOURCE, SatSerialCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
