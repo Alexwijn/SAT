@@ -481,9 +481,8 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_calibrate(self, _user_input: Optional[dict[str, Any]] = None):
         # Let's see if we have already been configured before
-        device_name = self.data[CONF_NAME]
         entities = entity_registry.async_get(self.hass)
-        climate_id = entities.async_get_entity_id(climate.DOMAIN, DOMAIN, device_name.lower())
+        climate_id = entities.async_get_entity_id(climate.DOMAIN, DOMAIN, self.config_entry.entry_id)
 
         async def start_calibration():
             try:
@@ -737,8 +736,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             )
 
         entities = entity_registry.async_get(self.hass)
-        device_name = self._config_entry.data.get(CONF_NAME)
-        window_id = entities.async_get_entity_id(binary_sensor.DOMAIN, DOMAIN, f"{device_name.lower()}-window-sensor")
+        window_id = entities.async_get_entity_id(binary_sensor.DOMAIN, DOMAIN, f"{self.config_entry.entry_id}-window-sensor")
 
         schema[vol.Optional(CONF_WINDOW_SENSORS, default=options[CONF_WINDOW_SENSORS])] = selector.EntitySelector(
             selector.EntitySelectorConfig(
