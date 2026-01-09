@@ -577,7 +577,7 @@ class CycleTracker:
         if kind in (CycleKind.DOMESTIC_HOT_WATER, CycleKind.UNKNOWN):
             return CycleClassification.UNCERTAIN
 
-        if (tail_metrics.hot_water_active_fraction or 0.0) > 0.0:
+        if tail_metrics.hot_water_active_fraction > 0.0:
             return CycleClassification.UNCERTAIN
 
         def compute_short_threshold_seconds() -> float:

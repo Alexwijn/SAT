@@ -46,6 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatBoilerSensor(entry_data.coordinator, entry_data.config),
         SatManufacturerSensor(entry_data.coordinator, entry_data.config),
         SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
+        SatRegimeSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
         SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
         SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.climate),
         SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
@@ -92,11 +93,11 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
     def __init__(
-        self,
-        coordinator: SatDataUpdateCoordinator,
-        config: SatConfig,
-        climate: SatClimate,
-        area_id: Optional[str] = None,
+            self,
+            coordinator: SatDataUpdateCoordinator,
+            config: SatConfig,
+            climate: SatClimate,
+            area_id: Optional[str] = None,
     ):
         super().__init__(coordinator, config, climate)
         self._area_id: Optional[str] = area_id
@@ -362,8 +363,77 @@ class SatCycleSensor(SatEntity, SensorEntity):
         return self._coordinator.last_cycle.classification.name
 
     @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        cycle = self._coordinator.last_cycle
+        if cycle is None:
+            return {}
+
+        return {
+            "kind": cycle.kind.name,
+            "sample_count": cycle.sample_count,
+            "duration_seconds": round(cycle.duration, 1),
+            "max_flow_temperature": cycle.max_flow_temperature,
+            "fraction_space_heating": cycle.fraction_space_heating,
+            "fraction_domestic_hot_water": cycle.fraction_domestic_hot_water,
+            "tail_hot_water_active_fraction": cycle.tail.hot_water_active_fraction,
+            "tail_flow_setpoint_error_p90": cycle.tail.flow_setpoint_error.p90,
+            "tail_flow_temperature_p90": cycle.tail.flow_temperature.p90,
+            "tail_setpoint_p50": cycle.tail.setpoint.p50,
+        }
+
+    @property
     def unique_id(self) -> str:
         return f"{self._config.name_lower}-cycle-status"
+
+
+class SatRegimeSensor(SatClimateEntity, SensorEntity):
+    async def async_added_to_hass(self) -> None:
+        def on_cycle_event(_event: Event) -> None:
+            self.schedule_update_ha_state()
+
+        await super().async_added_to_hass()
+
+        self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_STARTED, on_cycle_event))
+
+    @property
+    def name(self) -> str:
+        return f"Minimum Setpoint Regime {self._config.name}"
+
+    @property
+    def native_value(self) -> Optional[str]:
+        if (regime_state := self._climate.minimum_setpoint.active_regime) is None:
+            return None
+
+        return regime_state.key.to_storage()
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        minimum_setpoint = self._climate.minimum_setpoint
+        regime_state = minimum_setpoint.active_regime
+
+        attributes: dict[str, Any] = {
+            "regime_count": minimum_setpoint.regime_count,
+        }
+
+        if regime_state is None:
+            return attributes
+
+        attributes.update({
+            "setpoint_band": regime_state.key.setpoint_band,
+            "outside_band": regime_state.key.outside_band,
+            "delta_band": regime_state.key.delta_band,
+            "stable_cycles": regime_state.stable_cycles,
+            "completed_cycles": regime_state.completed_cycles,
+            "last_increase_at": regime_state.last_increase_at.isoformat() if regime_state.last_increase_at is not None else None,
+            "increase_window_total": regime_state.increase_window_total,
+            "increase_window_start": (regime_state.increase_window_start.isoformat() if regime_state.increase_window_start is not None else None),
+        })
+
+        return attributes
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.name_lower}-minimum-setpoint-regime"
 
 
 class SatBoilerSensor(SatEntity, SensorEntity):

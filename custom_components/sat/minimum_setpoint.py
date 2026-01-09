@@ -286,6 +286,16 @@ class DynamicMinimumSetpoint:
     def value(self) -> float:
         return round(self._value if self._value is not None else self._config.minimum_setpoint, 1)
 
+    @property
+    def active_regime(self) -> Optional[RegimeState]:
+        """Return the currently active regime state, if any."""
+        return self._active_regime
+
+    @property
+    def regime_count(self) -> int:
+        """Return the number of known regimes."""
+        return len(self._regimes)
+
     def reset(self) -> None:
         """Reset learned minimums and internal state."""
         self._value = None
@@ -749,9 +759,9 @@ class DynamicMinimumSetpoint:
             return 0.0
 
         applied_step = min(step, remaining)
+        regime_state.last_increase_at = now
         regime_state.minimum_setpoint += applied_step
         regime_state.increase_window_total += applied_step
-        regime_state.last_increase_at = now
 
         _LOGGER.debug(
             "Applied minimum setpoint increase: step=%.2f remaining_today=%.2f.",
