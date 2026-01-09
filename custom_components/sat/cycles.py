@@ -61,6 +61,7 @@ class CycleMetrics:
 
     flow_return_delta: Percentiles
     flow_setpoint_error: Percentiles
+    hot_water_active_fraction: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,7 +369,7 @@ class CycleTracker:
         self._last_flame_off_timestamp = None
         return None
 
-    def _build_cycle_state(self, boiler_state: BoilerState, pwm: PWMState, end_time: float) -> Optional[Cycle]:
+    def _build_cycle_state(self, boiler_state: BoilerState, pwm_state: PWMState, end_time: float) -> Optional[Cycle]:
         """Build a Cycle from the current sample buffer."""
         if self._current_cycle_start is None:
             _LOGGER.debug("No start time, ignoring cycle.")
@@ -402,7 +403,13 @@ class CycleTracker:
         base_metrics = self._build_metrics(samples=samples)
         tail_metrics = self._build_metrics(samples=samples, tail_start=tail_start)
         shape_metrics = self._build_cycle_shape_metrics(samples=samples, observation_start=observation_start, start_time=start_time)
-        classification = self._classify_cycle(duration=duration_seconds, pwm=pwm, boiler_state=boiler_state, tail_metrics=tail_metrics)
+        classification = self._classify_cycle(
+            duration=duration_seconds,
+            kind=kind,
+            pwm_state=pwm_state,
+            boiler_state=boiler_state,
+            tail_metrics=tail_metrics,
+        )
 
         return Cycle(
             kind=kind,
@@ -425,12 +432,15 @@ class CycleTracker:
     def _build_metrics(samples: list[ControlLoopSample], tail_start: Optional[float] = None) -> CycleMetrics:
         """Compute percentile metrics for full and tail sections of a cycle."""
 
+        relevant_samples = [
+            sample
+            for sample in samples
+            if tail_start is None or sample.timestamp >= tail_start
+        ]
+
         def tail_values(value_getter: ControlSampleValueGetter) -> list[float]:
             values: list[float] = []
-            for sample in samples:
-                if tail_start is not None and sample.timestamp < tail_start:
-                    continue
-
+            for sample in relevant_samples:
                 value = value_getter(sample)
                 if value is not None:
                     values.append(float(value))
@@ -467,6 +477,10 @@ class CycleTracker:
         def get_relative_modulation_level(sample: ControlLoopSample) -> Optional[float]:
             return sample.state.relative_modulation_level
 
+        hot_water_active_fraction = 0.0
+        if relevant_samples:
+            hot_water_active_fraction = sum(1 for sample in relevant_samples if sample.state.hot_water_active) / float(len(relevant_samples))
+
         return CycleMetrics(
             setpoint=build_percentiles(get_state_setpoint),
             intent_setpoint=build_percentiles(get_intent_setpoint),
@@ -475,6 +489,7 @@ class CycleTracker:
             relative_modulation_level=build_percentiles(get_relative_modulation_level),
             flow_setpoint_error=build_percentiles(get_flow_setpoint_error),
             flow_return_delta=build_percentiles(get_flow_return_delta),
+            hot_water_active_fraction=hot_water_active_fraction,
         )
 
     @staticmethod
@@ -554,16 +569,22 @@ class CycleTracker:
         return CycleKind.UNKNOWN
 
     @staticmethod
-    def _classify_cycle(duration: float, boiler_state: BoilerState, pwm: PWMState, tail_metrics: CycleMetrics) -> CycleClassification:
+    def _classify_cycle(duration: float, kind: CycleKind, pwm_state: PWMState, boiler_state: BoilerState, tail_metrics: CycleMetrics) -> CycleClassification:
         """Classify a cycle based on duration, PWM state, and tail error metrics."""
         if duration <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
+        if kind in (CycleKind.DOMESTIC_HOT_WATER, CycleKind.UNKNOWN):
+            return CycleClassification.UNCERTAIN
+
+        if (tail_metrics.hot_water_active_fraction or 0.0) > 0.0:
+            return CycleClassification.UNCERTAIN
+
         def compute_short_threshold_seconds() -> float:
-            if pwm.status == PWMStatus.IDLE or pwm.duty_cycle is None:
+            if pwm_state.status == PWMStatus.IDLE or pwm_state.duty_cycle is None:
                 return TARGET_MIN_ON_TIME_SECONDS
 
-            if (on_time_seconds := pwm.duty_cycle[0]) is None:
+            if (on_time_seconds := pwm_state.duty_cycle[0]) is None:
                 return TARGET_MIN_ON_TIME_SECONDS
 
             return float(min(on_time_seconds * 0.9, TARGET_MIN_ON_TIME_SECONDS))
@@ -600,7 +621,7 @@ class CycleTracker:
         if overshoot:
             return CycleClassification.LONG_OVERSHOOT
 
-        if pwm.status == PWMStatus.ON:
+        if pwm_state.status == PWMStatus.ON:
             return CycleClassification.PREMATURE_OFF
 
         return CycleClassification.GOOD
