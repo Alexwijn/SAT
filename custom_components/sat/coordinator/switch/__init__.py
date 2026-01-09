@@ -2,20 +2,20 @@ from __future__ import annotations
 
 from typing import Optional
 
-from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
-from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
-from homeassistant.const import SERVICE_TURN_ON, SERVICE_TURN_OFF, ATTR_ENTITY_ID, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_registry import RegistryEntry
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
+from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_ON, STATE_ON
 
-from ..coordinator import SatDataUpdateCoordinator
-from ..entry_data import SatConfig
-from ..types import DeviceState
+from ...types import DeviceState
+from .. import SatDataUpdateCoordinator
+from ...entry_data import SatConfig
 
 DOMAIN_SERVICE = {
     SWITCH_DOMAIN: SWITCH_DOMAIN,
-    INPUT_BOOLEAN_DOMAIN: INPUT_BOOLEAN_DOMAIN
+    INPUT_BOOLEAN_DOMAIN: INPUT_BOOLEAN_DOMAIN,
 }
 
 

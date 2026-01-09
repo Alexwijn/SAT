@@ -4,7 +4,7 @@ import pytest
 
 from custom_components.sat.const import CONF_DEVICE, CONF_MODE, OPTIONS_DEFAULTS
 from custom_components.sat.entry_data import SatConfig, SatMode
-from custom_components.sat.serial import SatSerialCoordinator
+from custom_components.sat.coordinator.serial import SatSerialCoordinator
 from tests.const import DEFAULT_USER_DATA
 
 
@@ -63,7 +63,7 @@ def serial_gateway_monkeypatch(monkeypatch):
     def _factory():
         return DummyGateway(tracker)
 
-    monkeypatch.setattr("custom_components.sat.serial.OpenThermGateway", _factory)
+    monkeypatch.setattr("custom_components.sat.coordinator.serial.OpenThermGateway", _factory)
     return tracker
 
 

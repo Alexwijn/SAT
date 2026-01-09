@@ -1,27 +1,35 @@
 """Sensor platform for SAT."""
 import logging
-from typing import List, Optional, cast
+from dataclasses import dataclass
+from typing import Optional, cast
 
+from pyotgw.vars import *
+from homeassistant.core import HomeAssistant
 from homeassistant.components import sensor
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTemperature, PERCENTAGE, UnitOfPressure, UnitOfVolume, UnitOfTime
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
-from pyotgw.vars import *
+from homeassistant.const import PERCENTAGE, UnitOfPower, UnitOfPressure, UnitOfTemperature, UnitOfTime, UnitOfVolume
 
+from ...entity import SatEntity
+from ...entry_data import SatConfig, get_entry_data
 from . import TRANSLATE_SOURCE, SatSerialCoordinator
-from ..entity import SatEntity
-from ..entry_data import SatConfig, get_entry_data
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class SatSensorInfo:
-    def __init__(self, device_class: Optional[str], unit: Optional[str], friendly_name_format: str, status_sources: List[str]):
+    def __init__(self, device_class: Optional[str], unit: Optional[str], friendly_name_format: str, status_sources: list[str]):
         self.unit = unit
         self.device_class = device_class
         self.status_sources = status_sources
         self.friendly_name_format = friendly_name_format
+
+
+@dataclass(frozen=True, slots=True)
+class SatSerialSensorDefinition:
+    info: SatSensorInfo
+    key: str
+    source: str
 
 
 SENSOR_INFO: dict[str, SatSensorInfo] = {
@@ -100,28 +108,33 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
                 continue
 
             if coordinator.data[source].get(key) is not None:
-                entities.append(SatSensor(coordinator, entry_data.config, info, key, source))
+                definition = SatSerialSensorDefinition(
+                    key=key,
+                    info=info,
+                    source=source,
+                )
+                entities.append(SatSensor(coordinator, entry_data.config, definition))
 
     # Add all devices
     async_add_entities(entities)
 
 
 class SatSensor(SatEntity, sensor.SensorEntity):
-    def __init__(self, coordinator: SatSerialCoordinator, config: SatConfig, info: SatSensorInfo, key: str, source: str):
+    def __init__(self, coordinator: SatSerialCoordinator, config: SatConfig, definition: SatSerialSensorDefinition) -> None:
         super().__init__(coordinator, config)
 
         self.entity_id = async_generate_entity_id(
-            sensor.DOMAIN + ".{}", f"{self._config.name_lower}_{source}_{key}", hass=coordinator.hass
+            sensor.DOMAIN + ".{}", f"{self._config.name_lower}_{definition.source}_{definition.key}", hass=coordinator.hass
         )
 
-        self._key = key
-        self._unit = info.unit
-        self._source = source
-        self._device_class = info.device_class
+        self._key = definition.key
+        self._unit = definition.info.unit
+        self._source = definition.source
+        self._device_class = definition.info.device_class
 
-        friendly_name_format = info.friendly_name_format
-        if TRANSLATE_SOURCE[source] is not None:
-            friendly_name_format = f"{friendly_name_format} ({TRANSLATE_SOURCE[source]})"
+        friendly_name_format = definition.info.friendly_name_format
+        if TRANSLATE_SOURCE[definition.source] is not None:
+            friendly_name_format = f"{friendly_name_format} ({TRANSLATE_SOURCE[definition.source]})"
 
         self._friendly_name = friendly_name_format.format(self._config.name)
 

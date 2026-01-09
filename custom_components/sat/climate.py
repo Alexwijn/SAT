@@ -78,6 +78,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensors: dict[str, str] = {}
         self._setpoint: Optional[float] = None
         self._requested_setpoint_down_ticks: int = 0
+        self._relative_modulation_value: Optional[float] = None
+
         self._rooms: Optional[dict[str, float]] = None
         self._last_requested_setpoint: Optional[float] = None
         self._presets: dict[str, float] = self._build_presets(config.presets.presets)
@@ -347,7 +349,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "optimal_coefficient": self.heating_curve.optimal_coefficient,
             "coefficient_derivative": self.heating_curve.coefficient_derivative,
 
-            "relative_modulation_value": self.relative_modulation_value,
+            "relative_modulation_value": self._relative_modulation_value,
             "relative_modulation_state": self.relative_modulation_state.name,
 
             "pulse_width_modulation_enabled": self.pwm.enabled,
@@ -483,6 +485,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return clamp(round(max(MINIMUM_SETPOINT, setpoint), 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
     @property
+    def relative_modulation_value(self) -> Optional[float]:
+        """Return the current boiler control setpoint."""
+        return self._relative_modulation_value
+
+    @property
+    def requested_relative_modulation_value(self) -> int:
+        """Return the capped maximum relative modulation value."""
+        if not self._coordinator.supports_relative_modulation_management or self.relative_modulation_state != RelativeModulationState.OFF:
+            return self._config.pwm.maximum_relative_modulation
+
+        return MINIMUM_RELATIVE_MODULATION
+
+    @property
     def valves_open(self) -> bool:
         """Determine if any of the controlled climates have open valves."""
         # Get the list of all controlled climates
@@ -598,14 +613,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return PWMDecision.ABOVE_DYNAMIC_HYSTERESIS
 
         return PWMDecision.RETAIN_PWM_STATE
-
-    @property
-    def relative_modulation_value(self) -> int:
-        """Return the capped maximum relative modulation value."""
-        if not self._coordinator.supports_relative_modulation_management or self.relative_modulation_state != RelativeModulationState.OFF:
-            return self._config.pwm.maximum_relative_modulation
-
-        return MINIMUM_RELATIVE_MODULATION
 
     @property
     def relative_modulation_state(self) -> RelativeModulationState:
@@ -789,18 +796,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         # Retrieve the relative modulation
-        relative_modulation_value = self.relative_modulation_value
+        self._relative_modulation_value = self.requested_relative_modulation_value
 
         # Apply some filters based on the manufacturer
         if isinstance(self._coordinator.manufacturer, Geminox):
-            relative_modulation_value = max(10, relative_modulation_value)
+            self._relative_modulation_value = max(10, self._relative_modulation_value)
 
         # Determine if the value needs to be updated
-        if self._coordinator.maximum_relative_modulation_value == relative_modulation_value:
-            _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", relative_modulation_value)
+        if self._coordinator.maximum_relative_modulation_value == self._relative_modulation_value:
+            _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", self._relative_modulation_value)
             return
 
-        await self._coordinator.async_set_control_max_relative_modulation(relative_modulation_value)
+        await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
 
     async def _async_update_rooms_from_climates(self) -> None:
         """Update the temperature setpoint for each room based on their associated climate entity."""
@@ -901,15 +908,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             self.pwm.disable()
 
-        # Pass the control intent and context to the coordinator for sampling.
-        self._coordinator.set_control_context(pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
-        self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self.requested_setpoint, relative_modulation=self.relative_modulation_value))
-        await self._coordinator.async_control_heating_loop(time)
-
         # Apply the computed boiler controls.
         await self._async_control_setpoint()
         await self._async_control_relative_modulation()
         await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)
+
+        # Pass the control intent and context to the coordinator for sampling.
+        self._coordinator.set_control_context(pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
+        self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self._setpoint, relative_modulation=self._relative_modulation_value))
+        await self._coordinator.async_control_heating_loop(time)
 
         self.async_write_ha_state()
 

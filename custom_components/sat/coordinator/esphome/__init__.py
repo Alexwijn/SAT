@@ -1,19 +1,19 @@
-from __future__ import annotations, annotations
+from __future__ import annotations
 
 import logging
 from typing import Optional
 
-from homeassistant.components import mqtt, binary_sensor, esphome, number, sensor, switch
-from homeassistant.core import HomeAssistant, Event, EventStateChangedData
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.device_registry import DeviceEntry
-from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.core import Event, HomeAssistant, EventStateChangedData
+from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
+from homeassistant.components import binary_sensor, esphome, mqtt, number, sensor, switch
 
-from ..coordinator import SatDataUpdateCoordinator, SatEntityCoordinator
-from ..entry_data import SatConfig
-from ..helpers import float_value, int_value
-from ..types import DeviceState
+from ...types import DeviceState
+from ...helpers import float_value, int_value
+from ...entry_data import SatConfig
+from .. import SatDataUpdateCoordinator, SatEntityCoordinator
 
 # Sensors
 DATA_FLAME_ACTIVE = "flame_on"

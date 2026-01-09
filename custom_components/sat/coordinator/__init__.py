@@ -11,20 +11,20 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .boiler import Boiler, BoilerState, BoilerCapabilities, BoilerControlIntent
-from .const import *
-from .cycles import CycleTracker, CycleHistory, CycleStatistics, Cycle
-from .entry_data import SatConfig, SatMode
-from .helpers import calculate_default_maximum_setpoint, event_timestamp, timestamp
-from .manufacturer import Manufacturer, ManufacturerFactory
-from .manufacturers.geminox import Geminox
-from .manufacturers.ideal import Ideal
-from .manufacturers.intergas import Intergas
-from .manufacturers.nefit import Nefit
-from .types import BoilerStatus, DeviceState
+from ..boiler import Boiler, BoilerState, BoilerCapabilities, BoilerControlIntent
+from ..const import DOMAIN, MINIMUM_SETPOINT
+from ..cycles import CycleTracker, CycleHistory, CycleStatistics, Cycle
+from ..entry_data import SatConfig, SatMode
+from ..helpers import calculate_default_maximum_setpoint, event_timestamp, timestamp
+from ..manufacturer import Manufacturer, ManufacturerFactory
+from ..manufacturers.geminox import Geminox
+from ..manufacturers.ideal import Ideal
+from ..manufacturers.intergas import Intergas
+from ..manufacturers.nefit import Nefit
+from ..types import BoilerStatus, DeviceState
 
 if TYPE_CHECKING:
-    from .pwm import PWMState
+    from ..pwm import PWMState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ class SatDataUpdateCoordinatorFactory:
             from .serial import SatSerialCoordinator
             return SatSerialCoordinator(hass=hass, config=config)
 
-        raise Exception(f'Invalid mode[{config.mode}]')
+        raise ValueError(f"Invalid mode[{config.mode}]")
 
 
 class SatDataUpdateCoordinator(DataUpdateCoordinator):

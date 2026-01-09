@@ -16,7 +16,7 @@ from .const import *
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .helpers import seconds_since, timestamp
-from .serial import binary_sensor as serial_binary_sensor
+from .coordinator.serial import binary_sensor as serial_binary_sensor
 from .types import BoilerStatus
 
 

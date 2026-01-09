@@ -8,8 +8,8 @@ from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
-from ..coordinator import SatDataUpdateCoordinator
-from ..entry_data import SatConfig
+from .. import SatDataUpdateCoordinator
+from ...entry_data import SatConfig
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -29,6 +29,22 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     @property
     def device_id(self) -> str:
         return self._device_id
+
+    @staticmethod
+    def _decode_payload(value: Any) -> Any:
+        if isinstance(value, (bytes, bytearray)):
+            try:
+                value = value.decode()
+            except UnicodeDecodeError:
+                return value
+
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+
+        return value
 
     async def async_setup(self):
         await self._load_stored_data()
@@ -114,12 +130,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         self.async_set_updated_data(update)
 
-    async def _publish_command(
-        self,
-        payload: str,
-        wait_time: float = 1.0,
-        suffix: Optional[str] = None,
-    ):
+    async def _publish_command(self, payload: str, wait_time: float = 1.0, suffix: Optional[str] = None):
         """Publish a command to the MQTT topic."""
         topic = self._build_publish_topic(suffix)
 
@@ -142,21 +153,6 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
             return base_topic
 
         return f"{base_topic}/{suffix}"
-
-    def _decode_payload(self, value: Any) -> Any:
-        if isinstance(value, (bytes, bytearray)):
-            try:
-                value = value.decode()
-            except UnicodeDecodeError:
-                return value
-
-        if isinstance(value, str):
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return value
-
-        return value
 
     def _normalize_payload(self, key: str, payload: Any) -> dict[str, Any]:
         return {key: payload}

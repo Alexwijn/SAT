@@ -1,11 +1,7 @@
 """Tests for boiler behavior."""
 
-from custom_components.sat.boiler import (
-    BOILER_MODULATION_DELTA_THRESHOLD,
-    BOILER_MODULATION_RELIABILITY_MIN_SAMPLES,
-    Boiler,
-    BoilerState,
-)
+from custom_components.sat.boiler import Boiler, BoilerState
+from custom_components.sat.boiler.const import BOILER_MODULATION_DELTA_THRESHOLD, BOILER_MODULATION_RELIABILITY_MIN_SAMPLES
 
 
 def _boiler_state(modulation: float) -> BoilerState:

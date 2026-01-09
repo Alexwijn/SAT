@@ -1,20 +1,11 @@
 import pytest
 
 from custom_components.sat.boiler import BoilerCapabilities
-from custom_components.sat.cycles import (
-    Cycle,
-    CycleMetrics,
-    CycleShapeMetrics,
-    CycleStatistics,
-    CycleWindowStats,
-    TARGET_MIN_ON_TIME_SECONDS,
-)
-from custom_components.sat.minimum_setpoint import (
-    DynamicMinimumSetpoint,
-    MinimumSetpointConfig,
-    RegimeKey,
-    RegimeState,
-)
+from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics, CycleStatistics, CycleWindowStats
+from custom_components.sat.cycles.const import TARGET_MIN_ON_TIME_SECONDS
+from custom_components.sat.minimum_setpoint import DynamicMinimumSetpoint, MinimumSetpointConfig, RegimeKey, RegimeSeeder, RegimeState
+from custom_components.sat.minimum_setpoint.const import DELTA_BAND_LOW, DELTA_BAND_MED, OUTSIDE_BAND_COLD, OUTSIDE_BAND_MILD
+from custom_components.sat.minimum_setpoint.tuner import MinimumSetpointTuner
 from custom_components.sat.types import CycleClassification, CycleKind, Percentiles
 
 
@@ -83,7 +74,12 @@ def test_learning_band_expands_early() -> None:
     controller._active_regime = _make_regime(minimum_setpoint=40.0, completed_cycles=0)
 
     cycle = _make_cycle(CycleClassification.FAST_OVERSHOOT, setpoint=44.0, error=2.5)
-    controller._maybe_tune_minimum(BoilerCapabilities(minimum_setpoint=30.0, maximum_setpoint=80.0), _make_stats(), cycle)
+    MinimumSetpointTuner.tune(
+        boiler_capabilities=BoilerCapabilities(minimum_setpoint=30.0, maximum_setpoint=80.0),
+        cycles=_make_stats(),
+        cycle=cycle,
+        regime_state=controller._active_regime,
+    )
 
     assert controller._active_regime.minimum_setpoint > 40.0
 
@@ -93,6 +89,43 @@ def test_early_step_scaling_accelerates_adjustment() -> None:
     controller._active_regime = _make_regime(minimum_setpoint=50.0, completed_cycles=0)
 
     cycle = _make_cycle(CycleClassification.FAST_UNDERHEAT, setpoint=50.0, error=-2.5)
-    controller._maybe_tune_minimum(BoilerCapabilities(minimum_setpoint=30.0, maximum_setpoint=80.0), _make_stats(), cycle)
+    MinimumSetpointTuner.tune(
+        boiler_capabilities=BoilerCapabilities(minimum_setpoint=30.0, maximum_setpoint=80.0),
+        cycles=_make_stats(),
+        cycle=cycle,
+        regime_state=controller._active_regime,
+    )
 
     assert controller._active_regime.minimum_setpoint == pytest.approx(48.7, abs=0.01)
+
+
+def test_initial_minimum_blends_nearby_regimes() -> None:
+    controller = DynamicMinimumSetpoint(MinimumSetpointConfig(minimum_setpoint=30.0, maximum_setpoint=80.0))
+    controller._value = None
+
+    active_key = RegimeKey(setpoint_band=5, outside_band=OUTSIDE_BAND_COLD, delta_band=DELTA_BAND_LOW)
+
+    controller._regimes = {
+        RegimeKey(setpoint_band=5, outside_band=OUTSIDE_BAND_COLD, delta_band=DELTA_BAND_LOW): RegimeState(
+            key=RegimeKey(setpoint_band=5, outside_band=OUTSIDE_BAND_COLD, delta_band=DELTA_BAND_LOW),
+            minimum_setpoint=40.0,
+            completed_cycles=3,
+            stable_cycles=2,
+        ),
+        RegimeKey(setpoint_band=6, outside_band=OUTSIDE_BAND_COLD, delta_band=DELTA_BAND_LOW): RegimeState(
+            key=RegimeKey(setpoint_band=6, outside_band=OUTSIDE_BAND_COLD, delta_band=DELTA_BAND_LOW),
+            minimum_setpoint=50.0,
+            completed_cycles=4,
+            stable_cycles=3,
+        ),
+        RegimeKey(setpoint_band=5, outside_band=OUTSIDE_BAND_MILD, delta_band=DELTA_BAND_MED): RegimeState(
+            key=RegimeKey(setpoint_band=5, outside_band=OUTSIDE_BAND_MILD, delta_band=DELTA_BAND_MED),
+            minimum_setpoint=60.0,
+            completed_cycles=3,
+            stable_cycles=2,
+        ),
+    }
+
+    initial = RegimeSeeder.initial_minimum(active_key, controller._regimes, controller._value)
+
+    assert initial == pytest.approx(46.4, abs=0.05)

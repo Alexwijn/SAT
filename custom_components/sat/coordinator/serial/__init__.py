@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, Any
+from typing import Any, Optional
 
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
-from pyotgw import vars as gw_vars, OpenThermGateway
 from pyotgw.vars import *
 from serial import SerialException
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
+from pyotgw import OpenThermGateway, vars as gw_vars
 
-from ..coordinator import SatDataUpdateCoordinator
-from ..entry_data import SatConfig
-from ..types import DeviceState
+from ...types import DeviceState
+from .. import SatDataUpdateCoordinator
+from ...entry_data import SatConfig
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
