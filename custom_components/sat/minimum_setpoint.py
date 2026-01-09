@@ -33,6 +33,10 @@ MIN_SPACE_HEATING_FRACTION_FOR_TUNING: float = 0.6
 
 # When learning, only trust cycles whose setpoint is close to the current learned minimum.
 MINIMUM_SETPOINT_LEARNING_BAND: float = 3.0
+MINIMUM_SETPOINT_LEARNING_BAND_EARLY_BONUS: float = 2.0
+
+MINIMUM_SETPOINT_EARLY_TUNING_CYCLES: int = 3
+MINIMUM_SETPOINT_EARLY_TUNING_MULTIPLIER: float = 1.3
 
 # Offset decay factors in various cases
 MINIMUM_RELAX_FACTOR_WHEN_UNTUNABLE: float = 0.8
@@ -476,7 +480,9 @@ class DynamicMinimumSetpoint:
                 off_with_demand_minutes = max(0.0, float(cycles.window.off_with_demand_duration) / 60.0)
 
             step = self._compute_scaled_step(base=0.5, scale=0.1, value=off_with_demand_minutes, fallback=1.0)
+            step = self._scale_step_for_regime(regime_state, step)
             regime_state.minimum_setpoint += step
+
             _LOGGER.debug("Premature flame off detected; increasing minimum setpoint to %.2f", regime_state.minimum_setpoint)
             return
 
@@ -493,8 +499,9 @@ class DynamicMinimumSetpoint:
 
         current_minimum = regime_state.minimum_setpoint
 
-        if abs(reference_setpoint - current_minimum) > MINIMUM_SETPOINT_LEARNING_BAND:
-            _LOGGER.debug("Cycle reference_setpoint=%.1f is too far from regime minimum_setpoint=%.1f (band=%.1f), skipping tuning.", reference_setpoint, current_minimum, MINIMUM_SETPOINT_LEARNING_BAND)
+        learning_band = self._learning_band(regime_state)
+        if abs(reference_setpoint - current_minimum) > learning_band:
+            _LOGGER.debug("Cycle reference_setpoint=%.1f is too far from regime minimum_setpoint=%.1f (band=%.1f), skipping tuning.", reference_setpoint, current_minimum, learning_band)
             return
 
         if classification in (CycleClassification.FAST_OVERSHOOT, CycleClassification.TOO_SHORT_OVERSHOOT):
@@ -533,8 +540,10 @@ class DynamicMinimumSetpoint:
         #   But we do try to find a better value.
         elif classification == CycleClassification.GOOD:
             if regime_state.stable_cycles >= 2:
-                regime_state.minimum_setpoint -= 0.3
-                _LOGGER.debug("GOOD stable cycle; decreasing minimum setpoint by 0.3.")
+                step = self._scale_step_for_regime(regime_state, 0.3)
+                regime_state.minimum_setpoint -= step
+
+                _LOGGER.debug("GOOD stable cycle; decreasing minimum setpoint by %.2f.", step)
 
             self._apply_condensing_bias(cycle, regime_state)
 
@@ -542,8 +551,10 @@ class DynamicMinimumSetpoint:
         #   - Boiler fails to approach the requested flow temperature.
         #   - Indicates the requested flow setpoint is too high for the available heat output.
         elif classification in (CycleClassification.FAST_UNDERHEAT, CycleClassification.TOO_SHORT_UNDERHEAT):
-            regime_state.minimum_setpoint -= 1.0
-            _LOGGER.debug("Underheat cycle; decreasing minimum setpoint by 1.0.")
+            step = self._scale_step_for_regime(regime_state, 1.0)
+            regime_state.minimum_setpoint -= step
+
+            _LOGGER.debug("Underheat cycle; decreasing minimum setpoint by %.2f.", step)
 
         # FAST_OVERSHOOT / TOO_SHORT_OVERSHOOT:
         #   - Boiler fails to stay stable at the requested flow temperature.
@@ -553,7 +564,8 @@ class DynamicMinimumSetpoint:
                 _LOGGER.debug("Overshoot likely due to load drop; skipping minimum setpoint increase.")
                 return
 
-            if (applied_step := self._apply_increase_with_limits(regime_state, step=1.0)) > 0.0:
+            step = self._scale_step_for_regime(regime_state, 1.0)
+            if (applied_step := self._apply_increase_with_limits(regime_state, step=step)) > 0.0:
                 _LOGGER.debug("Overshoot cycle; increasing minimum setpoint by %.2f.", applied_step)
 
         # LONG_UNDERHEAT:
@@ -562,8 +574,9 @@ class DynamicMinimumSetpoint:
         elif classification == CycleClassification.LONG_UNDERHEAT:
             error = cycle.tail.flow_setpoint_error.p90
             step = self._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
-
+            step = self._scale_step_for_regime(regime_state, step)
             regime_state.minimum_setpoint -= step
+
             _LOGGER.debug("Long underheat; decreasing minimum setpoint by %.2f.", step)
             self._apply_condensing_bias(cycle, regime_state)
 
@@ -577,6 +590,7 @@ class DynamicMinimumSetpoint:
 
             error = cycle.tail.flow_setpoint_error.p90
             step = self._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
+            step = self._scale_step_for_regime(regime_state, step)
 
             if (applied_step := self._apply_increase_with_limits(regime_state, step=step)) > 0.0:
                 _LOGGER.debug("Long overshoot; increasing minimum setpoint by %.2f.", applied_step)
@@ -648,6 +662,29 @@ class DynamicMinimumSetpoint:
             ran_near_minimum,
             anchor_source,
         )
+
+    @staticmethod
+    def _learning_band(regime_state: RegimeState) -> float:
+        if regime_state.completed_cycles >= MINIMUM_SETPOINT_EARLY_TUNING_CYCLES:
+            return MINIMUM_SETPOINT_LEARNING_BAND
+
+        remaining = MINIMUM_SETPOINT_EARLY_TUNING_CYCLES - regime_state.completed_cycles
+        bonus = MINIMUM_SETPOINT_LEARNING_BAND_EARLY_BONUS * (remaining / MINIMUM_SETPOINT_EARLY_TUNING_CYCLES)
+
+        return MINIMUM_SETPOINT_LEARNING_BAND + bonus
+
+    @staticmethod
+    def _scale_step_for_regime(regime_state: RegimeState, step: float) -> float:
+        if step == 0.0:
+            return 0.0
+
+        multiplier = 1.0
+        if regime_state.completed_cycles < MINIMUM_SETPOINT_EARLY_TUNING_CYCLES:
+            multiplier = MINIMUM_SETPOINT_EARLY_TUNING_MULTIPLIER
+
+        scaled = step * multiplier
+        magnitude = clamp(abs(scaled), MINIMUM_SETPOINT_STEP_MIN, MINIMUM_SETPOINT_STEP_MAX)
+        return magnitude if scaled >= 0.0 else -magnitude
 
     def _seed_minimum_for_new_regime(self, active_key: RegimeKey, boiler_control_intent: BoilerControlIntent, boiler_capabilities: BoilerCapabilities) -> float:
         if (initial_minimum := self._initial_minimum_for_regime(active_key)) is not None:
