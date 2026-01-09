@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import timedelta
+
+from .types import DeltaBandThresholds
 
 STORAGE_VERSION = 1
 
@@ -72,13 +73,5 @@ CONDENSING_STEP_BASE: float = 0.2
 CONDENSING_STEP_SCALE: float = 0.02
 CONDENSING_STEP_FALLBACK: float = 0.2
 CONDENSING_RETURN_TEMP_TARGET: float = 55.0
-
-
-@dataclass(frozen=True, slots=True)
-class DeltaBandThresholds:
-    low: float
-    med: float
-    high: float
-
 
 DELTA_BAND_THRESHOLDS = DeltaBandThresholds(low=5.0, med=10.0, high=15.0)
