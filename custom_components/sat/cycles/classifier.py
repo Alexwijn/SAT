@@ -43,9 +43,6 @@ class CycleClassifier:
         overshoot = tail_metrics.flow_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
         underheat = tail_metrics.flow_setpoint_error.p90 <= -UNDERSHOOT_MARGIN_CELSIUS
 
-        if underheat and boiler_state.setpoint < COLD_SETPOINT:
-            return CycleClassification.UNCERTAIN
-
         if is_ultra_short:
             if overshoot:
                 return CycleClassification.FAST_OVERSHOOT
@@ -58,6 +55,9 @@ class CycleClassifier:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
 
             if underheat:
+                if boiler_state.setpoint < COLD_SETPOINT:
+                    return CycleClassification.UNCERTAIN
+
                 return CycleClassification.TOO_SHORT_UNDERHEAT
 
         if underheat:

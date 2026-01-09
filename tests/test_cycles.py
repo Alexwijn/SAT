@@ -15,6 +15,7 @@ from custom_components.sat.cycles.const import (
     TARGET_MIN_ON_TIME_SECONDS,
     ULTRA_SHORT_MIN_ON_TIME_SECONDS,
 )
+from custom_components.sat.const import COLD_SETPOINT
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
 from custom_components.sat.types import CycleClassification, CycleKind, Percentiles, PWMStatus
@@ -176,6 +177,38 @@ def test_classify_long_underheat():
     )
 
     assert classification is CycleClassification.LONG_UNDERHEAT
+
+
+def test_classify_long_underheat_below_cold_setpoint():
+    boiler_state = _make_boiler_state(flame_active=False, setpoint=COLD_SETPOINT - 5.0)
+    pwm_state = _make_pwm_state(PWMStatus.IDLE)
+    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.3))
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=TARGET_MIN_ON_TIME_SECONDS + 10.0,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.LONG_UNDERHEAT
+
+
+def test_classify_short_underheat_below_cold_setpoint_uncertain():
+    boiler_state = _make_boiler_state(flame_active=False, setpoint=COLD_SETPOINT - 5.0)
+    pwm_state = _make_pwm_state(PWMStatus.IDLE)
+    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.2))
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=TARGET_MIN_ON_TIME_SECONDS * 0.5,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.UNCERTAIN
 
 
 def test_classify_good_cycle():
