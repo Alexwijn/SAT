@@ -476,7 +476,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # ECO: only follow the primary PID.
         if self._config.presets.heating_mode == HeatingMode.ECO:
-            return round(setpoint, 1)
+            return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
         # Secondary rooms: heating and overshoot information.
         secondary_heating = self.areas.pids.output
@@ -488,7 +488,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if overshoot_cap is not None:
             setpoint = min(setpoint, overshoot_cap)
 
-        return clamp(round(max(MINIMUM_SETPOINT, setpoint), 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
+        return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
     @property
     def relative_modulation_value(self) -> Optional[float]:
