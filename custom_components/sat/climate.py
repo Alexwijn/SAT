@@ -404,6 +404,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             entity_id=self.entity_id,
             setpoint=target_temperature,
             current=current_temperature,
+            last_reported=state.last_reported,
             last_updated=state.last_updated,
             last_changed=state.last_changed,
         )

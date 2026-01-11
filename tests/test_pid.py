@@ -24,6 +24,7 @@ def _state_for_error(error, timestamp_value, current=20.0):
         entity_id="climate.test",
         current=current,
         setpoint=setpoint,
+        last_reported=timestamp_dt,
         last_updated=timestamp_dt,
         last_changed=timestamp_dt,
     )

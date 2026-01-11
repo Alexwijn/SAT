@@ -42,6 +42,7 @@ class TemperatureState:
     setpoint: float
     last_updated: datetime
     last_changed: datetime
+    last_reported: datetime
 
     @property
     def error(self) -> float:

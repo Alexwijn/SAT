@@ -181,7 +181,7 @@ class PID:
     def _update_integral(self, state: TemperatureState) -> None:
         """Update the integral value in the PID controller."""
         error_abs = abs(state.error)
-        state_timestamp = state.last_updated.timestamp()
+        state_timestamp = state.last_reported.timestamp()
 
         # Start a fresh time base when we enter the deadband.
         if self._last_error is not None and abs(self._last_error) > DEADBAND >= error_abs:
@@ -219,7 +219,7 @@ class PID:
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
         error_abs = abs(state.error)
-        state_timestamp = state.last_updated.timestamp()
+        state_timestamp = state.last_reported.timestamp()
 
         in_deadband = error_abs <= DEADBAND
         last_derivative_updated = self._last_derivative_updated

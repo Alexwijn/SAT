@@ -140,6 +140,7 @@ class Area:
             entity_id=self._entity_id,
             setpoint=target_temperature,
             current=current_temperature,
+            last_reported=temperature_state.last_reported,
             last_updated=temperature_state.last_updated,
             last_changed=temperature_state.last_changed,
         )
