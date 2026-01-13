@@ -920,8 +920,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)
 
         # Pass the control intent and context to the coordinator for sampling.
-        self._coordinator.set_control_context(pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
         self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self._setpoint, relative_modulation=self._relative_modulation_value))
+        self._coordinator.set_control_context(requested_setpoint=self.requested_setpoint, pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
         await self._coordinator.async_control_heating_loop(time)
 
         self.async_write_ha_state()

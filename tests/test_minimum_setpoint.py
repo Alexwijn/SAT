@@ -1,12 +1,17 @@
+from typing import Optional
+
 import pytest
 
-from custom_components.sat.boiler import BoilerCapabilities
+from custom_components.sat.boiler import BoilerCapabilities, BoilerControlIntent, BoilerState
+from custom_components.sat.coordinator import ControlLoopSample
+from custom_components.sat.const import MINIMUM_SETPOINT
 from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics, CycleStatistics, CycleWindowStats
 from custom_components.sat.cycles.const import TARGET_MIN_ON_TIME_SECONDS
 from custom_components.sat.minimum_setpoint import DynamicMinimumSetpoint, MinimumSetpointConfig, RegimeKey, RegimeSeeder, RegimeState
 from custom_components.sat.minimum_setpoint.const import DELTA_BAND_LOW, DELTA_BAND_MED, OUTSIDE_BAND_COLD, OUTSIDE_BAND_MILD
 from custom_components.sat.minimum_setpoint.tuner import MinimumSetpointTuner
-from custom_components.sat.types import CycleClassification, CycleKind, Percentiles
+from custom_components.sat.pwm import PWMState
+from custom_components.sat.types import CycleClassification, CycleKind, Percentiles, PWMStatus
 
 
 def _make_metrics(setpoint: float, error: float) -> CycleMetrics:
@@ -16,7 +21,7 @@ def _make_metrics(setpoint: float, error: float) -> CycleMetrics:
         flow_temperature=Percentiles(p50=setpoint + error, p90=setpoint + error),
         return_temperature=Percentiles(p50=35.0, p90=35.0),
         relative_modulation_level=Percentiles(p50=30.0, p90=30.0),
-        flow_return_delta=Percentiles(p50=5.0, p90=5.0),
+        flow_return_delta=Percentiles(p50=12.0, p90=12.0),
         flow_setpoint_error=Percentiles(p50=error, p90=error),
         hot_water_active_fraction=0.0,
     )
@@ -67,6 +72,71 @@ def _make_regime(*, minimum_setpoint: float, completed_cycles: int) -> RegimeSta
         completed_cycles=completed_cycles,
         stable_cycles=0,
     )
+
+
+def _make_sample(*, requested_setpoint: Optional[float], intent_setpoint: Optional[float], hot_water_active: bool = False) -> ControlLoopSample:
+    return ControlLoopSample(
+        timestamp=0.0,
+        pwm=PWMState(
+            enabled=True,
+            status=PWMStatus.IDLE,
+            duty_cycle=None,
+            last_duty_cycle_percentage=None,
+        ),
+        state=BoilerState(
+            flame_active=True,
+            central_heating=True,
+            hot_water_active=hot_water_active,
+            modulation_reliable=True,
+            flame_on_since=None,
+            flame_off_since=None,
+            setpoint=intent_setpoint,
+            flow_temperature=intent_setpoint if intent_setpoint is not None else 40.0,
+            return_temperature=(intent_setpoint - 5.0) if intent_setpoint is not None else 35.0,
+            max_modulation_level=100,
+            relative_modulation_level=30.0,
+        ),
+        intent=BoilerControlIntent(setpoint=intent_setpoint, relative_modulation=None),
+        outside_temperature=10.0,
+        requested_setpoint=requested_setpoint,
+    )
+
+
+def test_regime_key_prefers_requested_setpoint() -> None:
+    controller = DynamicMinimumSetpoint(MinimumSetpointConfig(minimum_setpoint=30.0, maximum_setpoint=80.0))
+    sample = _make_sample(requested_setpoint=36.0, intent_setpoint=10.0)
+
+    controller.on_cycle_start(
+        boiler_capabilities=BoilerCapabilities(minimum_setpoint=30.0, maximum_setpoint=80.0),
+        sample=sample,
+    )
+
+    assert controller.active_regime is not None
+    assert controller.active_regime.key.setpoint_band == 9
+
+
+def test_regime_skips_hot_water_cycles() -> None:
+    controller = DynamicMinimumSetpoint(MinimumSetpointConfig(minimum_setpoint=30.0, maximum_setpoint=80.0))
+    sample = _make_sample(requested_setpoint=36.0, intent_setpoint=36.0, hot_water_active=True)
+
+    controller.on_cycle_start(
+        boiler_capabilities=BoilerCapabilities(minimum_setpoint=30.0, maximum_setpoint=80.0),
+        sample=sample,
+    )
+
+    assert controller.active_regime is None
+
+
+def test_regime_skips_forced_minimum_without_request() -> None:
+    controller = DynamicMinimumSetpoint(MinimumSetpointConfig(minimum_setpoint=30.0, maximum_setpoint=80.0))
+    sample = _make_sample(requested_setpoint=None, intent_setpoint=MINIMUM_SETPOINT)
+
+    controller.on_cycle_start(
+        boiler_capabilities=BoilerCapabilities(minimum_setpoint=30.0, maximum_setpoint=80.0),
+        sample=sample,
+    )
+
+    assert controller.active_regime is None
 
 
 def test_learning_band_expands_early() -> None:

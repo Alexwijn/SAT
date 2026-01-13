@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from .const import *
-from ..boiler import BoilerControlIntent
+from .types import RegimeSample
 
 
 @dataclass(slots=True)
@@ -57,19 +57,19 @@ class RegimeKey:
 class RegimeBucketizer:
     """Stateful bucketizer with hysteresis for regime keys."""
 
-    previous_setpoint_band: Optional[int] = None
     previous_delta_bucket: Optional[str] = None
+    previous_setpoint_band: Optional[int] = None
     previous_outside_temperature_bucket: Optional[str] = None
 
-    def make_key(self, boiler_control_intent: BoilerControlIntent, flow_setpoint_error: Optional[float], outside_temperature: Optional[float]) -> RegimeKey:
-        setpoint_band = self._bucket_setpoint_band_with_hysteresis(boiler_control_intent)
-        delta_bucket = self._bucket_delta_with_hysteresis(flow_setpoint_error)
-        outside_band = self._bucket_outside_temperature_with_hysteresis(outside_temperature)
+    def make_key(self, sample: RegimeSample) -> RegimeKey:
+        setpoint_band = self._bucket_setpoint_band_with_hysteresis(sample.setpoint)
+        delta_bucket = self._bucket_delta_with_hysteresis(sample.delta_value)
+        outside_band = self._bucket_outside_temperature_with_hysteresis(sample.outside_temperature)
 
         return RegimeKey(setpoint_band=setpoint_band, outside_band=outside_band, delta_band=delta_bucket)
 
-    def _bucket_setpoint_band_with_hysteresis(self, boiler_control_intent: BoilerControlIntent) -> int:
-        raw_band = int((boiler_control_intent.setpoint + (REGIME_BAND_WIDTH / 2.0)) // REGIME_BAND_WIDTH)
+    def _bucket_setpoint_band_with_hysteresis(self, setpoint: float) -> int:
+        raw_band = int((setpoint + (REGIME_BAND_WIDTH / 2.0)) // REGIME_BAND_WIDTH)
 
         previous_band = self.previous_setpoint_band
         if previous_band is None:
@@ -83,9 +83,9 @@ class RegimeBucketizer:
         lower_boundary = previous_center - (REGIME_BAND_WIDTH / 2.0) - margin
 
         band = previous_band
-        if boiler_control_intent.setpoint >= upper_boundary:
+        if setpoint >= upper_boundary:
             band = raw_band
-        elif boiler_control_intent.setpoint <= lower_boundary:
+        elif setpoint <= lower_boundary:
             band = raw_band
 
         self.previous_setpoint_band = band

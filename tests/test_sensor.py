@@ -71,6 +71,7 @@ def _make_sample(sample_time: float) -> ControlLoopSample:
         ),
         intent=BoilerControlIntent(setpoint=45.0, relative_modulation=None),
         outside_temperature=5.0,
+        requested_setpoint=45.0,
     )
 
 

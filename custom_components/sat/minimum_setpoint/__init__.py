@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, TYPE_CHECKING
@@ -10,10 +11,12 @@ from homeassistant.helpers.storage import Store
 
 from .const import *
 from .regimes import RegimeBucketizer, RegimeKey, RegimeState
+from .types import RegimeSample
 from .seeding import RegimeSeeder
 from .tuner import MinimumSetpointTuner
 from ..boiler import BoilerCapabilities, BoilerControlIntent
 from ..coordinator import ControlLoopSample
+from ..const import MINIMUM_SETPOINT
 from ..helpers import clamp
 from ..types import CycleClassification
 
@@ -43,6 +46,7 @@ class DynamicMinimumSetpoint:
         self._active_regime: Optional[RegimeState] = None
 
         self._bucketizer = RegimeBucketizer()
+        self._setpoint_history: deque[float] = deque(maxlen=REGIME_SETPOINT_SMOOTHING_SAMPLES)
 
     @property
     def value(self) -> float:
@@ -65,10 +69,17 @@ class DynamicMinimumSetpoint:
         self._active_regime = None
 
         self._bucketizer = RegimeBucketizer()
+        self._setpoint_history.clear()
 
     def on_cycle_start(self, boiler_capabilities: BoilerCapabilities, sample: ControlLoopSample) -> None:
         """Initialize or switch regime buckets when a new cycle begins."""
-        if sample.intent.setpoint is None:
+        if sample.state.hot_water_active:
+            return
+
+        if sample.requested_setpoint is None and sample.intent.setpoint is not None and sample.intent.setpoint <= MINIMUM_SETPOINT:
+            return
+
+        if sample.intent.setpoint is None and sample.requested_setpoint is None:
             return
 
         active_key = self._make_regime_key(sample)
@@ -255,13 +266,24 @@ class DynamicMinimumSetpoint:
 
     def _make_regime_key(self, sample: ControlLoopSample) -> RegimeKey:
         """Build a stable key using hysteresis buckets to avoid flapping regimes."""
-        key = self._bucketizer.make_key(
-            boiler_control_intent=sample.intent,
-            flow_setpoint_error=sample.state.flow_setpoint_error,
+        setpoint = self._select_regime_setpoint(sample)
+        if setpoint is None:
+            raise ValueError("Cannot build regime key without a setpoint.")
+
+        key = self._bucketizer.make_key(RegimeSample(
+            setpoint=setpoint,
+            delta_value=sample.state.flow_return_delta,
             outside_temperature=sample.outside_temperature,
-        )
+        ))
 
         return key
+
+    def _select_regime_setpoint(self, sample: ControlLoopSample) -> Optional[float]:
+        if sample.requested_setpoint is not None:
+            self._setpoint_history.append(sample.requested_setpoint)
+            return sum(self._setpoint_history) / len(self._setpoint_history)
+
+        return sample.intent.setpoint
 
     @staticmethod
     def _parse_last_seen(value: Optional[str]) -> Optional[datetime]:

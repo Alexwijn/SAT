@@ -37,6 +37,7 @@ class ControlLoopSample:
     state: "BoilerState"
     intent: "BoilerControlIntent"
     outside_temperature: Optional[float] = None
+    requested_setpoint: Optional[float] = None
 
 
 class SatData(dict):
@@ -116,6 +117,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         self._device_on_since: Optional[float] = None
         self._control_pwm_state: Optional["PWMState"] = None
+        self._control_requested_setpoint: Optional[float] = None
         self._control_outside_temperature: Optional[float] = None
         self._control_intent: Optional[BoilerControlIntent] = None
         self._hass_notify_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_listeners)
@@ -385,9 +387,10 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Store the latest control intent produced by a climate entity."""
         self._control_intent = intent
 
-    def set_control_context(self, pwm_state: "PWMState", outside_temperature: Optional[float] = None) -> None:
+    def set_control_context(self, pwm_state: "PWMState", requested_setpoint: Optional[float] = None, outside_temperature: Optional[float] = None) -> None:
         """Store the latest control context produced by a climate entity."""
         self._control_pwm_state = pwm_state
+        self._control_requested_setpoint = requested_setpoint
         self._control_outside_temperature = outside_temperature
 
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
@@ -443,6 +446,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 intent=self._control_intent,
                 pwm=self._control_pwm_state,
                 outside_temperature=self._control_outside_temperature,
+                requested_setpoint=self._control_requested_setpoint,
             ))
 
     @callback

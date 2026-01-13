@@ -72,6 +72,7 @@ def _make_sample(
         ),
         intent=BoilerControlIntent(setpoint=setpoint, relative_modulation=None),
         outside_temperature=5.0,
+        requested_setpoint=setpoint,
     )
 
 

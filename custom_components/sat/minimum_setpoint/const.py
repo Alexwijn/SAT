@@ -26,7 +26,8 @@ MINIMUM_SETPOINT_EARLY_TUNING_MULTIPLIER: float = 1.3
 MINIMUM_RELAX_FACTOR_WHEN_UNTUNABLE: float = 0.8
 
 # Regime grouping: bucket base setpoint into bands so we can remember different regimes.
-REGIME_BAND_WIDTH: float = 3.0
+REGIME_BAND_WIDTH: float = 4.0
+REGIME_SETPOINT_SMOOTHING_SAMPLES: int = 3
 
 OUTSIDE_BAND_UNKNOWN = "unknown"
 OUTSIDE_BAND_FREEZING = "freezing"
@@ -74,4 +75,4 @@ CONDENSING_STEP_SCALE: float = 0.02
 CONDENSING_STEP_FALLBACK: float = 0.2
 CONDENSING_RETURN_TEMP_TARGET: float = 55.0
 
-DELTA_BAND_THRESHOLDS = DeltaBandThresholds(low=5.0, med=10.0, high=15.0)
+DELTA_BAND_THRESHOLDS = DeltaBandThresholds(low=7.0, med=14.0, high=21.0)
