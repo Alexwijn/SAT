@@ -28,6 +28,7 @@ class Boiler:
         self._current_status: Optional[BoilerStatus] = None
 
         self._last_update_at: Optional[float] = None
+        self._previous_update_at: Optional[float] = None
         self._last_flame_on_at: Optional[float] = None
         self._last_flame_off_at: Optional[float] = None
         self._last_flame_off_was_overshoot: bool = False
@@ -96,6 +97,7 @@ class Boiler:
         self._current_state = state
         self._last_cycle = last_cycle
         self._previous_state = previous
+        self._previous_update_at = self._last_update_at
         self._last_update_at = timestamp()
 
         if not BoilerStatusEvaluator.has_demand(state):
@@ -121,6 +123,7 @@ class Boiler:
             last_flame_off_at=self._last_flame_off_at,
             last_flame_off_was_overshoot=self._last_flame_off_was_overshoot,
             last_update_at=self._last_update_at,
+            previous_update_at=self._previous_update_at,
             modulation_direction=self._determine_modulation_direction(),
             previous_state=previous,
             state=state,

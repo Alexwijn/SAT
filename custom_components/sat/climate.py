@@ -792,9 +792,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._setpoint = MINIMUM_SETPOINT
                 _LOGGER.debug("PWM OFF phase: forcing boiler to absolute minimum %.1f°C", self._setpoint)
 
-        # Apply the setpoint using the coordinator
-        await self._coordinator.async_set_control_setpoint(self._setpoint if self._setpoint > COLD_SETPOINT else MINIMUM_SETPOINT)
-
     async def _async_control_relative_modulation(self) -> None:
         """Control the relative modulation value based on the conditions."""
         if not self._coordinator.supports_relative_modulation_management:
@@ -812,8 +809,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._coordinator.maximum_relative_modulation_value == self._relative_modulation_value:
             _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", self._relative_modulation_value)
             return
-
-        await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
 
     async def _async_update_rooms_from_climates(self) -> None:
         """Update the temperature setpoint for each room based on their associated climate entity."""
@@ -914,6 +909,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         else:
             self.pwm.disable()
 
+        self._coordinator.set_control_context(
+            requested_setpoint=self.requested_setpoint,
+            pwm_state=self.pwm.state,
+            outside_temperature=self.current_outside_temperature,
+        )
+
         # Apply the computed boiler controls.
         await self._async_control_setpoint()
         await self._async_control_relative_modulation()
@@ -921,7 +922,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Pass the control intent and context to the coordinator for sampling.
         self._coordinator.set_control_intent(BoilerControlIntent(setpoint=self._setpoint, relative_modulation=self._relative_modulation_value))
-        self._coordinator.set_control_context(requested_setpoint=self.requested_setpoint, pwm_state=self.pwm.state, outside_temperature=self.current_outside_temperature)
         await self._coordinator.async_control_heating_loop(time)
 
         self.async_write_ha_state()

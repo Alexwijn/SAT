@@ -29,6 +29,7 @@ from custom_components.sat.const import (
     PWM_ENABLE_MARGIN_CELSIUS,
 )
 from custom_components.sat.heating_curve import HeatingCurve
+from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.pid import PID
 from custom_components.sat.types import DeviceState
 
@@ -60,6 +61,7 @@ def _update_climate_config(climate, *, data=None, options=None) -> None:
     new_config = SatConfig(climate._config.entry_id, current_data, {**OPTIONS_DEFAULTS, **current_options})
     climate._config = new_config
     climate._coordinator._config = new_config
+    climate._coordinator._manufacturer = ManufacturerFactory.resolve_by_name(new_config.manufacturer) if new_config.manufacturer else None
 
 
 def test_requested_setpoint_without_heating_curve(climate):
@@ -136,7 +138,6 @@ async def test_async_control_setpoint_hvac_off_forces_minimum(climate):
     await climate._async_control_setpoint()
 
     assert climate.setpoint == MINIMUM_SETPOINT
-    assert climate._coordinator.setpoint == MINIMUM_SETPOINT
 
 
 async def test_async_control_setpoint_holds_near_target(monkeypatch, climate):
@@ -163,7 +164,6 @@ async def test_async_control_setpoint_increase_applies_immediately(monkeypatch, 
     await climate._async_control_setpoint()
 
     assert climate.setpoint == new_requested
-    assert climate._coordinator.setpoint == new_requested
 
 
 async def test_async_control_setpoint_decrease_requires_persistence(monkeypatch, climate):
@@ -184,7 +184,6 @@ async def test_async_control_setpoint_decrease_requires_persistence(monkeypatch,
 
     await climate._async_control_setpoint()
     assert climate.setpoint == 43.0
-    assert climate._coordinator.setpoint == 43.0
 
 
 def test_pwm_disabled_without_setpoint(climate):

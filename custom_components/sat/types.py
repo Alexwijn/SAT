@@ -28,6 +28,7 @@ class BoilerStatus(Enum):
     # Modulation / active heating
     MODULATING_UP = "modulating_up"
     MODULATING_DOWN = "modulating_down"
+    IGNITION_SURGE = "ignition_surge"
     CENTRAL_HEATING = "central_heating"
     HEATING_HOT_WATER = "heating_hot_water"
 

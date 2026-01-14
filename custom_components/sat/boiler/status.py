@@ -19,6 +19,7 @@ class BoilerStatusSnapshot:
     last_flame_off_at: Optional[float]
     last_flame_off_was_overshoot: bool
     last_update_at: Optional[float]
+    previous_update_at: Optional[float]
     modulation_direction: int
     previous_state: Optional[BoilerState]
     state: BoilerState
@@ -82,6 +83,9 @@ class BoilerStatusEvaluator:
         if state.setpoint is None or state.flow_temperature is None:
             # Without temperatures, we cannot distinguish phases well.
             return BoilerStatus.CENTRAL_HEATING
+
+        if BoilerStatusEvaluator.is_ramping_up(state, previous, snapshot.last_flame_on_at, snapshot.last_update_at, snapshot.previous_update_at):
+            return BoilerStatus.IGNITION_SURGE
 
         delta_to_setpoint = state.setpoint - state.flow_temperature
 
@@ -216,3 +220,32 @@ class BoilerStatusEvaluator:
 
         # Pump circulating colder system water: flow temperature falling or flat.
         return state.flow_temperature - previous.flow_temperature <= 0.0
+
+    @staticmethod
+    def is_ramping_up(state: BoilerState, previous: Optional[BoilerState], last_flame_on_at: Optional[float], last_update_at: Optional[float], previous_update_at: Optional[float]) -> bool:
+        """Detect rapid temperature rise shortly after flame-on."""
+        if previous is None:
+            return False
+
+        if state.flow_temperature is None or previous.flow_temperature is None:
+            return False
+
+        if last_flame_on_at is None or last_update_at is None or previous_update_at is None:
+            return False
+
+        if last_update_at < previous_update_at:
+            return False
+
+        if last_update_at - last_flame_on_at > BOILER_RAMP_UP_WINDOW_SECONDS:
+            return False
+
+        delta_seconds = last_update_at - previous_update_at
+        if delta_seconds <= 0:
+            return False
+
+        delta_temperature = state.flow_temperature - previous.flow_temperature
+        if delta_temperature <= 0:
+            return False
+
+        ramp_rate = delta_temperature / delta_seconds
+        return ramp_rate >= BOILER_RAMP_UP_RATE_CELSIUS_PER_SECOND
