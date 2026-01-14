@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional, List, Type
+from typing import List, Type, Optional
 
 from .helpers import snake_case
 
@@ -26,17 +25,6 @@ MANUFACTURERS = {
 }
 
 
-@dataclass(frozen=True, slots=True)
-class ModulationSuppressionConfig:
-    delay_seconds: float
-    offset_celsius: float
-
-
-@dataclass(frozen=True, slots=True)
-class FlameOffSetpointConfig:
-    offset_celsius: float
-
-
 class Manufacturer(ABC):
     def __init__(self):
         self._member_id = MANUFACTURERS.get(type(self).__name__)
@@ -49,15 +37,6 @@ class Manufacturer(ABC):
     @abstractmethod
     def friendly_name(self) -> str:
         pass
-
-    @property
-    def modulation_suppression(self) -> Optional[ModulationSuppressionConfig]:
-        return None
-
-    @property
-    def flame_off_setpoint(self) -> Optional[FlameOffSetpointConfig]:
-        return None
-
 
 class ManufacturerFactory:
     @staticmethod

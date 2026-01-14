@@ -226,14 +226,20 @@
           "thermal_comfort": "Comfort Termico"
         },
         "data_description": {
-          "climate_valve_offset": "Offset per regolare il grado di apertura della valvola climatica.",
-          "dynamic_minimum_setpoint": "Attiva la regolazione dinamica del punto di impostazione minimo in base alla temperatura di ritorno della caldaia, che aiuta anche a identificare se delle valvole sono chiuse.",
-          "maximum_consumption": "Il consumo massimo di gas quando la caldaia è attiva.",
-          "maximum_relative_modulation": "Rappresenta il livello di modulazione più alto per un sistema di riscaldamento efficiente.",
-          "minimum_consumption": "Il consumo minimo di gas quando la caldaia è attiva.",
+          "climate_valve_offset": "Differenza di temperatura (target vs attuale) per considerare una valvola aperta.",
+          "dynamic_minimum_setpoint": "Apprende un setpoint minimo dinamico per regime dal comportamento dei cicli per stabilizzare le combustioni e ridurre i cicli brevi.",
+          "maximum_consumption": "Consumo di gas alla modulazione massima, usato per stimare i consumi.",
+          "maximum_relative_modulation": "Limita la percentuale di modulazione della caldaia (0–100) per ridurre la potenza massima.",
+          "minimum_consumption": "Consumo di gas alla modulazione minima, usato per stimare i consumi.",
           "sample_time": "L'intervallo di tempo minimo tra gli aggiornamenti del controllore PID.",
-          "target_temperature_step": "Regolare il passo della temperatura target per un'accurata regolazione dei livelli di comfort.",
-          "thermal_comfort": "Abilitare l'uso dell Indice di Simmer per l'aggiustamento del comfort termico."
+          "target_temperature_step": "Passo di regolazione della temperatura target nell'interfaccia.",
+          "thermal_comfort": "Abilitare l'uso dell Indice di Simmer per l'aggiustamento del comfort termico.",
+          "simulation": "Abilita la modalità simulazione (non vengono inviati comandi reali alla caldaia).",
+          "error_monitoring": "Invia gli errori relativi a SAT a Sentry per aiutare la diagnosi.",
+          "force_pulse_width_modulation": "Forza il PWM anche quando è disponibile la modulazione (utile per controllo a relè).",
+          "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo a ritorno + offset (solo PWM).",
+          "modulation_suppression_delay_seconds": "Tempo dopo l'accensione della fiamma prima della soppressione (solo PWM).",
+          "modulation_suppression_offset_celsius": "Riduzione del setpoint di mandata durante la soppressione (solo PWM)."
         },
         "title": "Avanzate"
       },

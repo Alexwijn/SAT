@@ -73,6 +73,9 @@ CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
+CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS = "flame_off_setpoint_offset_celsius"
+CONF_MODULATION_SUPPRESSION_DELAY_SECONDS = "modulation_suppression_delay_seconds"
+CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS = "modulation_suppression_offset_celsius"
 
 # Heating system configuration keys.
 CONF_HEATING_MODE = "heating_mode"
@@ -81,7 +84,6 @@ CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
 # Dynamic minimum setpoint tuning keys.
 CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
-CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
 
 # Consumption bounds for energy/cost tracking.
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
@@ -121,7 +123,6 @@ OPTIONS_DEFAULTS = {
     CONF_AUTOMATIC_GAINS_VALUE: 2.0,
     CONF_OVERSHOOT_PROTECTION: False,
     CONF_DYNAMIC_MINIMUM_SETPOINT: False,
-    CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR: 0.2,
 
     # Linked climates and weighting.
     CONF_RADIATORS: [],
@@ -145,6 +146,10 @@ OPTIONS_DEFAULTS = {
     CONF_MINIMUM_SETPOINT: 10,
     CONF_MAXIMUM_RELATIVE_MODULATION: 100,
     CONF_FORCE_PULSE_WIDTH_MODULATION: False,
+
+    CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS: 18.0,
+    CONF_MODULATION_SUPPRESSION_DELAY_SECONDS: 20,
+    CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS: 1.0,
 
     # Consumption bounds.
     CONF_MINIMUM_CONSUMPTION: 0,

@@ -226,14 +226,20 @@
           "thermal_comfort": "Confort Thermique"
         },
         "data_description": {
-          "climate_valve_offset": "Décalage pour ajuster le degré d'ouverture de la vanne climatique.",
-          "dynamic_minimum_setpoint": "Active l'ajustement dynamique du point de consigne minimal en fonction de la température de retour de la chaudière, ce qui aide également à identifier si des vannes sont fermées.",
-          "maximum_consumption": "La consommation maximale de gaz lorsque la chaudière est active.",
-          "maximum_relative_modulation": "Représentant le niveau de modulation le plus élevé pour un système de chauffage efficace.",
-          "minimum_consumption": "La consommation minimale de gaz lorsque la chaudière est active.",
+          "climate_valve_offset": "Écart de température (cible vs actuelle) pour considérer une vanne ouverte.",
+          "dynamic_minimum_setpoint": "Apprend un point de consigne minimum dynamique par régime à partir du comportement des cycles pour stabiliser les cycles de chauffe et réduire les cycles courts.",
+          "maximum_consumption": "Consommation de gaz à la modulation maximale, utilisée pour estimer la consommation.",
+          "maximum_relative_modulation": "Limite le pourcentage de modulation de la chaudière (0–100) pour plafonner la puissance.",
+          "minimum_consumption": "Consommation de gaz à la modulation minimale, utilisée pour estimer la consommation.",
           "sample_time": "L'intervalle de temps minimum entre les mises à jour du régulateur PID.",
-          "target_temperature_step": "Ajuster le pas de température cible pour un réglage fin des niveaux de confort.",
-          "thermal_comfort": "Activer l'utilisation de l'Indice de Simmer pour ajuster le confort thermique."
+          "target_temperature_step": "Pas d'ajustement de la température cible dans l'interface.",
+          "thermal_comfort": "Activer l'utilisation de l'Indice de Simmer pour ajuster le confort thermique.",
+          "simulation": "Activer le mode simulation (aucune commande réelle n'est envoyée à la chaudière).",
+          "error_monitoring": "Envoie les erreurs liées à SAT à Sentry pour aider au diagnostic.",
+          "force_pulse_width_modulation": "Forcer le PWM même si la modulation est disponible (utile pour un relais).",
+          "flame_off_setpoint_offset_celsius": "Quand la flamme est éteinte, maintient un setpoint temporaire à retour + offset (PWM uniquement).",
+          "modulation_suppression_delay_seconds": "Délai après l'allumage avant suppression (PWM uniquement).",
+          "modulation_suppression_offset_celsius": "Réduction du setpoint de départ pendant la suppression (PWM uniquement)."
         },
         "title": "Avancé"
       },

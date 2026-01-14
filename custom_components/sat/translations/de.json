@@ -226,14 +226,20 @@
           "thermal_comfort": "Thermischer Komfort"
         },
         "data_description": {
-          "climate_valve_offset": "Offset zur Anpassung des Öffnungsgrads des Klimaventils.",
-          "dynamic_minimum_setpoint": "Aktiviert die dynamische Sollwertanpassung basierend auf der Rücklauftemperatur des Kessels, was auch hilft zu identifizieren, ob Ventile geschlossen sind.",
-          "maximum_consumption": "Der maximale Gasverbrauch, wenn der Kessel aktiv ist.",
-          "maximum_relative_modulation": "Die höchste Modulationsstufe für ein effizientes Heizsystem darstellen.",
-          "minimum_consumption": "Der minimale Gasverbrauch, wenn der Kessel aktiv ist.",
+          "climate_valve_offset": "Temperaturdifferenz (Soll vs. Ist), ab der ein Ventil als geöffnet gilt.",
+          "dynamic_minimum_setpoint": "Lernt einen dynamischen Minimal-Sollwert pro Regime aus dem Zyklusverhalten, um stabile Brennerläufe zu fördern und Kurzzyklen zu reduzieren.",
+          "maximum_consumption": "Gasverbrauch bei maximaler Modulation, zur Verbrauchsschätzung.",
+          "maximum_relative_modulation": "Begrenzt die Modulation des Kessels in Prozent (0–100), um die Maximalleistung zu begrenzen.",
+          "minimum_consumption": "Gasverbrauch bei minimaler Modulation, zur Verbrauchsschätzung.",
           "sample_time": "Das minimale Zeitintervall zwischen Aktualisierungen des PID-Reglers.",
-          "target_temperature_step": "Die Schrittweite der Zieltemperatur zur Feinabstimmung der Komfortstufen anpassen.",
-          "thermal_comfort": "Verwendung des Simmer-Index für die Anpassung des thermischen Komforts aktivieren."
+          "target_temperature_step": "Schrittweite für Zieltemperatur-Änderungen in der Oberfläche.",
+          "thermal_comfort": "Verwendung des Simmer-Index für die Anpassung des thermischen Komforts aktivieren.",
+          "simulation": "Simulation aktivieren (es werden keine echten Kesselbefehle gesendet).",
+          "error_monitoring": "Sendet SAT-bezogene Fehler über Sentry an den Entwickler, um Probleme zu diagnostizieren.",
+          "force_pulse_width_modulation": "PWM erzwingen, auch wenn Modulationssteuerung verfügbar ist (nützlich für Relaisbetrieb).",
+          "flame_off_setpoint_offset_celsius": "Bei ausgeschalteter Flamme wird ein temporärer Sollwert auf Rücklauf + Offset gehalten (nur PWM).",
+          "modulation_suppression_delay_seconds": "Zeit nach dem Flammenstart, bevor die Unterdrückung greift (nur PWM).",
+          "modulation_suppression_offset_celsius": "Absenkung des Vorlauf-Sollwerts während der Unterdrückung (nur PWM)."
         },
         "title": "Erweitert"
       },

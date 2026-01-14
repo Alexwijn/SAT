@@ -478,10 +478,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self.async_notify_listeners(False)
 
     def _apply_control_setpoint_override(self, intended_setpoint: float) -> float:
-        """Apply manufacturer specific logic to override the intended setpoint."""
-        if (manufacturer := self.manufacturer) is None:
-            return intended_setpoint
-
+        """Apply a setpoint override based on the current device state."""
         if self._control_pwm_state is None or not self._control_pwm_state.enabled:
             return intended_setpoint
 
@@ -492,40 +489,31 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             if (return_temperature := self.return_temperature) is None:
                 return intended_setpoint
 
-            if (flame_off_config := manufacturer.flame_off_setpoint) is None:
-                return intended_setpoint
-
-            overridden = return_temperature + flame_off_config.offset_celsius
-            self._flame_off_hold_setpoint = overridden
+            self._flame_off_hold_setpoint = return_temperature + self._config.flame_off_setpoint_offset_celsius
 
             _LOGGER.debug(
-                "Setpoint override (flame off) for %s: return=%.1f°C offset=%.1f°C -> %.1f°C (intended=%.1f°C)",
-                manufacturer.friendly_name, return_temperature, flame_off_config.offset_celsius, overridden, intended_setpoint
+                "Setpoint override (flame off): return=%.1f°C offset=%.1f°C -> %.1f°C (intended=%.1f°C)",
+                return_temperature, self._config.flame_off_setpoint_offset_celsius, self._flame_off_hold_setpoint, intended_setpoint
             )
 
-            return overridden
-
-        if (suppression := manufacturer.modulation_suppression) is None:
-            return intended_setpoint
+            return self._flame_off_hold_setpoint
 
         if (flame_on_since := self._boiler.flame_on_since) is None:
             return intended_setpoint
 
         elapsed_since_flame_on = timestamp() - flame_on_since
-        if elapsed_since_flame_on < suppression.delay_seconds:
+        if elapsed_since_flame_on < self._config.modulation_suppression_delay_seconds:
             if self._flame_off_hold_setpoint is not None:
                 _LOGGER.debug(
-                    "Setpoint override hold for %s: using flame-off setpoint %.1f°C for %.1fs more.",
-                    manufacturer.friendly_name,
-                    self._flame_off_hold_setpoint,
-                    suppression.delay_seconds - elapsed_since_flame_on,
+                    "Setpoint override hold: using flame-off setpoint %.1f°C for %.1fs more.",
+                    self._flame_off_hold_setpoint, self._config.modulation_suppression_delay_seconds - elapsed_since_flame_on
                 )
 
                 return self._flame_off_hold_setpoint
 
             _LOGGER.debug(
-                "Setpoint override pending for %s: waiting %.1fs more (elapsed=%.1fs, delay=%.1fs).",
-                manufacturer.friendly_name, suppression.delay_seconds - elapsed_since_flame_on, elapsed_since_flame_on, suppression.delay_seconds
+                "Setpoint override pending: waiting %.1fs more (elapsed=%.1fs, delay=%.1fs).",
+                self._config.modulation_suppression_delay_seconds - elapsed_since_flame_on, elapsed_since_flame_on, self._config.modulation_suppression_delay_seconds
             )
 
             return intended_setpoint
@@ -533,14 +521,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if (flow_temperature := self.boiler_temperature) is None:
             return intended_setpoint
 
-        suppressed_setpoint = flow_temperature - suppression.offset_celsius
+        suppressed_setpoint = flow_temperature - self._config.modulation_suppression_offset_celsius
         if suppressed_setpoint <= self._control_intent.setpoint:
             self._flame_off_hold_setpoint = None
             return intended_setpoint
 
         _LOGGER.debug(
-            "Setpoint override (suppression) for %s: flow=%.1f°C offset=%.1f°C -> %.1f°C (min=%.1f°C, intended=%.1f°C)",
-            manufacturer.friendly_name, flow_temperature, suppression.offset_celsius, suppressed_setpoint, self._control_intent.setpoint, intended_setpoint
+            "Setpoint override (suppression) : flow=%.1f°C offset=%.1f°C -> %.1f°C (min=%.1f°C, intended=%.1f°C)",
+            flow_temperature, self._config.modulation_suppression_offset_celsius, suppressed_setpoint, self._control_intent.setpoint, intended_setpoint
         )
 
         self._flame_off_hold_setpoint = None

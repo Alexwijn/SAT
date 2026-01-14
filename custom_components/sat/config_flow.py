@@ -730,11 +730,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
             schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
 
-        if options[CONF_DYNAMIC_MINIMUM_SETPOINT]:
-            schema[vol.Required(CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR, default=options[CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR])] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0.1, max=0.5, step=0.1)
-            )
-
         entities = entity_registry.async_get(self.hass)
         window_id = entities.async_get_entity_id(binary_sensor.DOMAIN, DOMAIN, f"{self.config_entry.entry_id}-window-sensor")
 
@@ -854,36 +849,54 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             return await self.update_options(_user_input)
 
         options = await self.get_options()
+        schema_entries: list[tuple[Marker, Any]] = [
+            (vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]), bool),
+            (vol.Required(CONF_ERROR_MONITORING, default=options[CONF_ERROR_MONITORING]), bool),
+            (vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]), bool),
+            (vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]), bool),
+        ]
 
-        schema: dict[Marker, Any] = {
-            vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]): bool,
-            vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]): bool,
-            vol.Required(CONF_ERROR_MONITORING, default=options[CONF_ERROR_MONITORING]): bool,
-            vol.Required(CONF_DYNAMIC_MINIMUM_SETPOINT, default=options[CONF_DYNAMIC_MINIMUM_SETPOINT]): bool,
-        }
+        supports_modulation = self._config_entry.data.get(CONF_MODE) in [SatMode.MQTT_OPENTHERM, SatMode.SERIAL, SatMode.SIMULATOR]
+        if supports_modulation:
+            schema_entries.append((vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION]), bool))
 
-        if self._config_entry.data.get(CONF_MODE) in [SatMode.MQTT_OPENTHERM, SatMode.SERIAL, SatMode.SIMULATOR]:
-            schema[vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION])] = bool
+        schema_entries.append((
+            vol.Required(CONF_MAXIMUM_RELATIVE_MODULATION, default=options[CONF_MAXIMUM_RELATIVE_MODULATION]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=100, step=1)),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS, default=options[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=30, step=0.5)),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_MODULATION_SUPPRESSION_DELAY_SECONDS, default=options[CONF_MODULATION_SUPPRESSION_DELAY_SECONDS]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=120, step=1)),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS, default=options[CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=10, step=0.1)),
+        ))
 
-            schema[vol.Required(CONF_MINIMUM_CONSUMPTION, default=options[CONF_MINIMUM_CONSUMPTION])] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0, max=8, step=0.1)
-            )
+        if supports_modulation:
+            schema_entries.append((
+                vol.Required(CONF_MINIMUM_CONSUMPTION, default=options[CONF_MINIMUM_CONSUMPTION]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=8, step=0.1)),
+            ))
+            schema_entries.append((
+                vol.Required(CONF_MAXIMUM_CONSUMPTION, default=options[CONF_MAXIMUM_CONSUMPTION]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=8, step=0.1)),
+            ))
 
-            schema[vol.Required(CONF_MAXIMUM_CONSUMPTION, default=options[CONF_MAXIMUM_CONSUMPTION])] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0, max=8, step=0.1)
-            )
+        schema_entries.append((
+            vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=options[CONF_CLIMATE_VALVE_OFFSET]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=-1, max=1, step=0.1)),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=options[CONF_TARGET_TEMPERATURE_STEP]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)),
+        ))
 
-        schema[vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=options[CONF_CLIMATE_VALVE_OFFSET])] = selector.NumberSelector(
-            selector.NumberSelectorConfig(min=-1, max=1, step=0.1)
-        )
-
-        schema[vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=options[CONF_TARGET_TEMPERATURE_STEP])] = selector.NumberSelector(
-            selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)
-        )
-
-        schema[vol.Required(CONF_MAXIMUM_RELATIVE_MODULATION, default=options[CONF_MAXIMUM_RELATIVE_MODULATION])] = selector.NumberSelector(
-            selector.NumberSelectorConfig(min=0, max=100, step=1)
-        )
+        schema: dict[Marker, Any] = {key: value for key, value in schema_entries}
 
         return self.async_show_form(
             step_id="advanced",

@@ -226,14 +226,20 @@
           "thermal_comfort": "Tepelný komfort"
         },
         "data_description": {
-          "climate_valve_offset": "Offset na nastavenie stupňa otvorenia klimatizačného ventilu.",
-          "dynamic_minimum_setpoint": "Aktivuje dynamické nastavenie požadovanej hodnoty na základe teploty spiatočky kotla, čo tiež pomáha identifikovať, či sú nejaké ventily zatvorené.",
-          "maximum_consumption": "Maximálna spotreba plynu, keď je kotol aktívny.",
-          "maximum_relative_modulation": "Predstavuje najvyššiu úroveň modulácie pre efektívny vykurovací systém.",
-          "minimum_consumption": "Minimálna spotreba plynu, keď je kotol aktívny.",
+          "climate_valve_offset": "Rozdiel teplôt (cieľ vs aktuálna) na považovanie ventilu za otvorený.",
+          "dynamic_minimum_setpoint": "Učí sa dynamickú minimálnu nastavenú hodnotu pre jednotlivé režimy podľa správania cyklov, aby boli horenia stabilné a znížilo sa krátke cyklovanie.",
+          "maximum_consumption": "Spotreba plynu pri maximálnej modulácii, používa sa na odhad spotreby.",
+          "maximum_relative_modulation": "Obmedzí percento modulácie kotla (0–100) na zníženie maximálneho výkonu.",
+          "minimum_consumption": "Spotreba plynu pri minimálnej modulácii, používa sa na odhad spotreby.",
           "sample_time": "Minimálny časový interval medzi aktualizáciami PID regulátora.",
-          "target_temperature_step": "Upravte krok cieľovej teploty pre jemné doladenie úrovní komfortu.",
-          "thermal_comfort": "Povoľte používanie indexu Simmer na nastavenie tepelného komfortu."
+          "target_temperature_step": "Krok úpravy cieľovej teploty v rozhraní.",
+          "thermal_comfort": "Povoľte používanie indexu Simmer na nastavenie tepelného komfortu.",
+          "simulation": "Zapne režim simulácie (neodosielajú sa reálne príkazy kotlu).",
+          "error_monitoring": "Odosiela chyby súvisiace so SAT do Sentry na diagnostiku.",
+          "force_pulse_width_modulation": "Vynúti PWM aj pri dostupnej modulácii (užitočné pre relé).",
+          "flame_off_setpoint_offset_celsius": "Pri vypnutej plameni drží dočasný setpoint na spiatočke + offset (len PWM).",
+          "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len PWM).",
+          "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len PWM)."
         },
         "title": "Rozšírené"
       },

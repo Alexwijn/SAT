@@ -226,14 +226,20 @@
           "thermal_comfort": "Thermisch Comfort"
         },
         "data_description": {
-          "climate_valve_offset": "Offset om de openingsgraad van de klimaatklep aan te passen.",
-          "dynamic_minimum_setpoint": "Activeert de dynamische aanpassing van de minimale instelwaarde op basis van de retourtemperatuur van de ketel, wat ook helpt te identificeren of er kleppen gesloten zijn.",
-          "maximum_consumption": "Het maximale gasverbruik wanneer de ketel actief is.",
-          "maximum_relative_modulation": "Vertegenwoordigt het hoogste modulatieniveau voor een efficiënt verwarmingssysteem.",
-          "minimum_consumption": "Het minimale gasverbruik wanneer de ketel actief is.",
+          "climate_valve_offset": "Temperatuurverschil (doel vs. huidig) om een klep als open te beschouwen.",
+          "dynamic_minimum_setpoint": "Leert een dynamische minimale setpoint per regime op basis van cycli-gedrag om stabiele branderloops te behouden en kort cyclen te verminderen.",
+          "maximum_consumption": "Gasverbruik bij maximale modulatie, gebruikt voor verbruiksschatting.",
+          "maximum_relative_modulation": "Begrenst het modulatiepercentage van de ketel (0–100) om de maximale output te beperken.",
+          "minimum_consumption": "Gasverbruik bij minimale modulatie, gebruikt voor verbruiksschatting.",
           "sample_time": "Het minimale tijdsinterval tussen updates aan de PID-regelaar.",
-          "target_temperature_step": "De stap van de doeltemperatuur aanpassen voor fijnafstemming van comfortniveaus.",
-          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen."
+          "target_temperature_step": "Stapgrootte voor doeltemperatuur in de UI.",
+          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen.",
+          "simulation": "Simulatiemodus inschakelen (er worden geen echte ketelcommando's verzonden).",
+          "error_monitoring": "Stuurt SAT-gerelateerde fouten naar Sentry om problemen te diagnosticeren.",
+          "force_pulse_width_modulation": "PWM forceren, ook als modulatieregeling beschikbaar is (handig voor relaisbediening).",
+          "flame_off_setpoint_offset_celsius": "Bij uitgeschakelde vlam een tijdelijk setpoint op retourtemp + offset (alleen PWM).",
+          "modulation_suppression_delay_seconds": "Tijd na vlam-aan voordat onderdrukking start (alleen PWM).",
+          "modulation_suppression_offset_celsius": "Hoeveel de aanvoer-setpoint wordt verlaagd tijdens onderdrukking (alleen PWM)."
         },
         "title": "Geavanceerd"
       },

@@ -7,7 +7,7 @@ from typing import Any, Mapping, Optional, TYPE_CHECKING
 from sentry_sdk import Client
 
 from .const import *
-from .helpers import calculate_default_maximum_setpoint, convert_time_str_to_seconds
+from .helpers import calculate_default_maximum_setpoint, convert_time_str_to_seconds, float_value
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -54,7 +54,6 @@ class PwmConfig:
     dynamic_minimum_setpoint: bool
     force_pulse_width_modulation: bool
     maximum_relative_modulation: int
-    minimum_setpoint_adjustment_factor: float
 
 
 @dataclass(frozen=True)
@@ -155,6 +154,18 @@ class SatConfig:
         return self.options.get(CONF_WINDOW_SENSORS) or []
 
     @property
+    def flame_off_setpoint_offset_celsius(self) -> float:
+        return float_value(self.options.get(CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS))
+
+    @property
+    def modulation_suppression_delay_seconds(self) -> float:
+        return float_value(self.options.get(CONF_MODULATION_SUPPRESSION_DELAY_SECONDS))
+
+    @property
+    def modulation_suppression_offset_celsius(self) -> float:
+        return float_value(self.options.get(CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS))
+
+    @property
     def sensors(self) -> SensorsConfig:
         return SensorsConfig(
             inside_sensor_entity_id=self.data[CONF_INSIDE_SENSOR_ENTITY_ID],
@@ -190,7 +201,6 @@ class SatConfig:
             dynamic_minimum_setpoint=bool(self.options.get(CONF_DYNAMIC_MINIMUM_SETPOINT)),
             force_pulse_width_modulation=bool(self.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION)),
             maximum_relative_modulation=int(self.options.get(CONF_MAXIMUM_RELATIVE_MODULATION)),
-            minimum_setpoint_adjustment_factor=float(self.options.get(CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR)),
         )
 
     @property

@@ -226,14 +226,20 @@
           "thermal_comfort": "Confort Térmico"
         },
         "data_description": {
-          "climate_valve_offset": "Compensación para ajustar el grado de apertura de la válvula climática.",
-          "dynamic_minimum_setpoint": "Activa el ajuste dinámico del punto de consigna mínimo basado en la temperatura de retorno de la caldera, lo que también ayuda a identificar si alguna válvula está cerrada.",
-          "maximum_consumption": "El consumo máximo de gas cuando la caldera está activa.",
-          "maximum_relative_modulation": "Representa el nivel más alto de modulación para un sistema de calefacción eficiente.",
-          "minimum_consumption": "El consumo mínimo de gas cuando la caldera está activa.",
+          "climate_valve_offset": "Diferencia de temperatura (objetivo vs actual) para considerar una válvula abierta.",
+          "dynamic_minimum_setpoint": "Aprende un punto de consigna mínimo dinámico por régimen a partir del comportamiento de los ciclos para mantener combustiones estables y reducir ciclos cortos.",
+          "maximum_consumption": "Consumo de gas a la modulación máxima, usado para estimar el consumo.",
+          "maximum_relative_modulation": "Limita el porcentaje de modulación de la caldera (0–100) para restringir la potencia máxima.",
+          "minimum_consumption": "Consumo de gas a la modulación mínima, usado para estimar el consumo.",
           "sample_time": "El intervalo de tiempo mínimo entre actualizaciones del controlador PID.",
-          "target_temperature_step": "Ajustar el paso de la temperatura objetivo para una afinación precisa de los niveles de confort.",
-          "thermal_comfort": "Habilitar el uso del Índice de Simmer para ajuste de confort térmico."
+          "target_temperature_step": "Paso de ajuste de la temperatura objetivo en la interfaz.",
+          "thermal_comfort": "Habilitar el uso del Índice de Simmer para ajuste de confort térmico.",
+          "simulation": "Activar modo de simulación (no se envían comandos reales a la caldera).",
+          "error_monitoring": "Envía errores relacionados con SAT a Sentry para ayudar a diagnosticar problemas.",
+          "force_pulse_width_modulation": "Forzar PWM aunque haya control de modulación disponible (útil para control por relé).",
+          "flame_off_setpoint_offset_celsius": "Con la llama apagada, mantiene un setpoint temporal en retorno + offset (solo PWM).",
+          "modulation_suppression_delay_seconds": "Tiempo tras encender la llama antes de aplicar la supresión (solo PWM).",
+          "modulation_suppression_offset_celsius": "Cuánto se reduce el setpoint de impulsión durante la supresión (solo PWM)."
         },
         "title": "Avanzadas"
       },
