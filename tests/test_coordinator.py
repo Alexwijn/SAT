@@ -65,7 +65,7 @@ async def test_pwm_suppression_applied(coordinator):
     await coordinator.async_set_boiler_temperature(50.0)
     coordinator._boiler._last_flame_on_at = timestamp() - (OPTIONS_DEFAULTS[CONF_MODULATION_SUPPRESSION_DELAY_SECONDS] + 1)
 
-    coordinator.set_control_intent(BoilerControlIntent(setpoint=40.0, relative_modulation=None))
+    coordinator.set_control_intent(BoilerControlIntent(setpoint=60.0, relative_modulation=None))
     await coordinator.async_control_heating_loop()
 
     assert coordinator.setpoint == 49.0
