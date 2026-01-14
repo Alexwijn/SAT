@@ -522,7 +522,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             return intended_setpoint
 
         suppressed_setpoint = flow_temperature - self._config.modulation_suppression_offset_celsius
-        if suppressed_setpoint > self._control_intent.setpoint:
+        if suppressed_setpoint <= self._control_intent.setpoint:
             self._flame_off_hold_setpoint = None
             return intended_setpoint
 
