@@ -270,7 +270,7 @@
           "proportional": "Il termine proporzionale (kP) nel controllore PID, responsabile della risposta immediata agli errori.",
           "window_sensors": "Sensori di Contatto che attivano il sistema quando una finestra o una porta è aperta per un periodo di tempo."
         },
-        "description": "Impostazioni e configurazioni generali.",
+        "description": "Impostazioni principali di controllo del riscaldamento (limiti, curva, sensori).",
         "title": "Generale"
       },
       "init": {
@@ -283,7 +283,7 @@
         }
       },
       "areas": {
-        "description": "Regola i pesi di riscaldamento per ogni stanza per controllare quanta energia termica viene allocata quando la stanza ha l’errore maggiore. Pesi più alti aumentano il calore assegnato a quella stanza rispetto alle altre.",
+        "description": "Imposta i pesi delle stanze per dare priorità a quelle con maggiore richiesta.",
         "title": "Aree"
       },
       "presets": {
@@ -296,8 +296,12 @@
           "push_setpoint_to_thermostat": "Sincronizza setpoint con termostato",
           "sync_climates_with_preset": "Sincronizza climi con pre-impostazione (sonno / assente / attività)"
         },
-        "description": "Impostazioni di temperatura predefinite per diversi scenari o attività.",
-        "title": "Pre-impostazioni"
+        "description": "Imposta le temperature dei preset e la loro sincronizzazione con altri climi.",
+        "title": "Pre-impostazioni",
+        "data_description": {
+          "sync_climates_with_preset": "Quando si seleziona un preset, applica quella temperatura ai climi delle stanze.",
+          "push_setpoint_to_thermostat": "Invia la temperatura obiettivo di SAT al termostato della caldaia."
+        }
       },
       "system_configuration": {
         "data": {
@@ -313,9 +317,10 @@
           "automatic_duty_cycle": "Abilitare o disabilitare il ciclo di lavoro automatico per la Modulazione di Larghezza di Impulso (PWM).",
           "overshoot_protection": "Abilitare la protezione dal superamento con la Modulazione di Larghezza di Impulso (PWM) per prevenire il superamento della temperatura della caldaia.",
           "sensor_max_value_age": "L'età massima del valore del sensore di temperatura prima di considerarlo stazionario.",
-          "window_minimum_open_time": "Il tempo minimo che una finestra deve essere aperta prima che il sistema reagisca."
+          "window_minimum_open_time": "Il tempo minimo che una finestra deve essere aperta prima che il sistema reagisca.",
+          "sync_climates_with_mode": "Applica anche la modalità HVAC ai climi delle stanze quando cambia qui."
         },
-        "description": "Per una regolazione fine e una personalizzazione.",
+        "description": "Comportamento di temporizzazione e sincronizzazione per cicli, sensori e modalità HVAC.",
         "title": "Configurazione del Sistema"
       }
     }

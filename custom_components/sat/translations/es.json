@@ -270,7 +270,7 @@
           "proportional": "El término proporcional (kP) en el controlador PID, responsable de la respuesta inmediata a errores.",
           "window_sensors": "Sensores de Contacto que activan el sistema cuando una ventana o puerta está abierta durante un período."
         },
-        "description": "Configuraciones y ajustes generales.",
+        "description": "Ajustes clave de control térmico (límites, curva de calefacción, sensores).",
         "title": "General"
       },
       "init": {
@@ -283,7 +283,7 @@
         }
       },
       "areas": {
-        "description": "Ajuste los pesos de calefacción de cada habitación para controlar cuánto calor se asigna cuando la habitación tiene el mayor error. Pesos más altos aumentan el calor asignado a esa habitación en relación con las demás.",
+        "description": "Ajusta los pesos de las habitaciones para priorizar las de mayor demanda.",
         "title": "Áreas"
       },
       "presets": {
@@ -296,8 +296,12 @@
           "push_setpoint_to_thermostat": "Sincronizar punto de ajuste con el termostato",
           "sync_climates_with_preset": "Sincronizar climas con pre ajuste (sueño / ausencia / actividad)"
         },
-        "description": "Configuraciones de temperatura predefinidas para diferentes escenarios o actividades.",
-        "title": "Pre ajustes"
+        "description": "Define temperaturas de presets y cómo se sincronizan con otros climas.",
+        "title": "Pre ajustes",
+        "data_description": {
+          "sync_climates_with_preset": "Al seleccionar un preset, aplica esa temperatura a los climas de las habitaciones.",
+          "push_setpoint_to_thermostat": "Envía la temperatura objetivo de SAT al termostato de la caldera."
+        }
       },
       "system_configuration": {
         "data": {
@@ -313,9 +317,10 @@
           "automatic_duty_cycle": "Habilitar o deshabilitar el ciclo de trabajo automático para la Modulación de Ancho de Pulso (PWM).",
           "overshoot_protection": "Habilitar protección contra sobrepasos con Modulación de Ancho de Pulso (PWM) para prevenir excesos de temperatura de la caldera.",
           "sensor_max_value_age": "La edad máxima del valor del sensor de temperatura antes de considerarlo como obsoleto.",
-          "window_minimum_open_time": "El tiempo mínimo que una ventana debe estar abierta antes de que el sistema reaccione."
+          "window_minimum_open_time": "El tiempo mínimo que una ventana debe estar abierta antes de que el sistema reaccione.",
+          "sync_climates_with_mode": "También aplica el modo HVAC a los climas de las habitaciones cuando se cambia aquí."
         },
-        "description": "Para un ajuste fino y personalización.",
+        "description": "Comportamiento de tiempos y sincronización para ciclos, sensores y modo HVAC.",
         "title": "Configuración del Sistema"
       }
     }

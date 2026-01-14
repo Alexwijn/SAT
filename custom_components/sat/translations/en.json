@@ -277,7 +277,7 @@
           "proportional": "The proportional term (kP) in the PID controller, responsible for the immediate response to errors.",
           "window_sensors": "Contact Sensors that trigger the system to react when a window or door is open for a period of time."
         },
-        "description": "General settings and configurations.",
+        "description": "Core heating control settings (limits, heating curve, sensors).",
         "title": "General"
       },
       "init": {
@@ -290,7 +290,7 @@
         }
       },
       "areas": {
-        "description": "Adjust the heating weights for each room to control how much heat is allocated when the room has the highest error. Higher weights will increase the heat sent to the room relative to others.",
+        "description": "Set room weights to bias heating toward rooms with higher demand.",
         "title": "Areas"
       },
       "presets": {
@@ -303,8 +303,12 @@
           "push_setpoint_to_thermostat": "Synchronize with thermostat attached to the boiler",
           "sync_climates_with_preset": "Synchronize climates with preset (sleep / away / activity)"
         },
-        "description": "Predefined temperature settings for different scenarios or activities.",
-        "title": "Presets"
+        "description": "Set target temperatures for presets and how they sync with other climates.",
+        "title": "Presets",
+        "data_description": {
+          "sync_climates_with_preset": "When a preset is selected, apply that temperature to room climates.",
+          "push_setpoint_to_thermostat": "Send SAT's target temperature to the boiler thermostat."
+        }
       },
       "system_configuration": {
         "data": {
@@ -320,9 +324,10 @@
           "automatic_duty_cycle": "Enable or disable automatic duty cycle for Pulse Width Modulation (PWM).",
           "overshoot_protection": "Enable overshoot protection with Pulse Width Modulation (PWM) to prevent boiler temperature overshooting.",
           "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall.",
-          "window_minimum_open_time": "The minimum time a window must be open before the system reacts."
+          "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
+          "sync_climates_with_mode": "Also set HVAC mode on room climates when it changes here."
         },
-        "description": "For fine-tuning and customization.",
+        "description": "Timing and synchronization behavior for cycles, sensors, and HVAC mode.",
         "title": "System Configuration"
       }
     }

@@ -753,27 +753,34 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             return await self.update_options(_user_input)
 
         options = await self.get_options()
+        schema_entries: list[tuple[Marker, Any]] = [
+            (
+                vol.Required(CONF_HOME_TEMPERATURE, default=options[CONF_HOME_TEMPERATURE]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")),
+            ),
+            (
+                vol.Required(CONF_COMFORT_TEMPERATURE, default=options[CONF_COMFORT_TEMPERATURE]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")),
+            ),
+            (
+                vol.Required(CONF_SLEEP_TEMPERATURE, default=options[CONF_SLEEP_TEMPERATURE]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")),
+            ),
+            (
+                vol.Required(CONF_AWAY_TEMPERATURE, default=options[CONF_AWAY_TEMPERATURE]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")),
+            ),
+            (
+                vol.Required(CONF_ACTIVITY_TEMPERATURE, default=options[CONF_ACTIVITY_TEMPERATURE]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")),
+            ),
+            (vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=options[CONF_SYNC_CLIMATES_WITH_PRESET]), bool),
+            (vol.Required(CONF_PUSH_SETPOINT_TO_THERMOSTAT, default=options[CONF_PUSH_SETPOINT_TO_THERMOSTAT]), bool),
+        ]
+
         return self.async_show_form(
             step_id="presets",
-            data_schema=vol.Schema({
-                vol.Required(CONF_ACTIVITY_TEMPERATURE, default=options[CONF_ACTIVITY_TEMPERATURE]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
-                ),
-                vol.Required(CONF_AWAY_TEMPERATURE, default=options[CONF_AWAY_TEMPERATURE]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
-                ),
-                vol.Required(CONF_SLEEP_TEMPERATURE, default=options[CONF_SLEEP_TEMPERATURE]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
-                ),
-                vol.Required(CONF_HOME_TEMPERATURE, default=options[CONF_HOME_TEMPERATURE]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
-                ),
-                vol.Required(CONF_COMFORT_TEMPERATURE, default=options[CONF_COMFORT_TEMPERATURE]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C")
-                ),
-                vol.Required(CONF_SYNC_CLIMATES_WITH_PRESET, default=options[CONF_SYNC_CLIMATES_WITH_PRESET]): bool,
-                vol.Required(CONF_PUSH_SETPOINT_TO_THERMOSTAT, default=options[CONF_PUSH_SETPOINT_TO_THERMOSTAT]): bool,
-            })
+            data_schema=vol.Schema({key: value for key, value in schema_entries})
         )
 
     async def async_step_areas(self, user_input: Optional[dict[str, Any]] = None):
@@ -816,32 +823,33 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         options = await self.get_options()
 
-        schema: dict[Marker, Any] = {
-            vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]): bool,
-        }
+        schema_entries: list[tuple[Marker, Any]] = []
 
         if options.get(CONF_HEATING_SYSTEM) == HeatingSystem.HEAT_PUMP:
-            schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
-                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+            schema_entries.append((
+                vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR])),
+                selector.SelectSelector(selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                     selector.SelectOptionDict(value="2", label="Normal (2x per hour)"),
                     selector.SelectOptionDict(value="3", label="High (3x per hour)"),
-                ])
-            )
+                ])),
+            ))
 
         if options.get(CONF_HEATING_SYSTEM) == HeatingSystem.RADIATORS:
-            schema[vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR]))] = selector.SelectSelector(
-                selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
+            schema_entries.append((
+                vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR])),
+                selector.SelectSelector(selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                     selector.SelectOptionDict(value="3", label="Normal (3x per hour)"),
                     selector.SelectOptionDict(value="4", label="High (4x per hour)"),
-                ])
-            )
+                ])),
+            ))
 
-        schema[vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE])] = selector.TimeSelector()
-        schema[vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME])] = selector.TimeSelector()
+        schema_entries.append((vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]), bool))
+        schema_entries.append((vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE]), selector.TimeSelector()))
+        schema_entries.append((vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]), selector.TimeSelector()))
 
         return self.async_show_form(
             step_id="system_configuration",
-            data_schema=vol.Schema(schema)
+            data_schema=vol.Schema({key: value for key, value in schema_entries})
         )
 
     async def async_step_advanced(self, _user_input: Optional[dict[str, Any]] = None):
