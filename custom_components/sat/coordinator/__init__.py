@@ -116,6 +116,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._cycle_tracker: CycleTracker = CycleTracker(hass, self._cycles)
 
         self._device_on_since: Optional[float] = None
+        self._flame_off_hold_setpoint: Optional[float] = None
+
         self._control_pwm_state: Optional["PWMState"] = None
         self._control_requested_setpoint: Optional[float] = None
         self._control_outside_temperature: Optional[float] = None
@@ -494,6 +496,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
                 return intended_setpoint
 
             overridden = return_temperature + flame_off_config.offset_celsius
+            self._flame_off_hold_setpoint = overridden
+
             _LOGGER.debug(
                 "Setpoint override (flame off) for %s: return=%.1f°C offset=%.1f°C -> %.1f°C (intended=%.1f°C)",
                 manufacturer.friendly_name, return_temperature, flame_off_config.offset_celsius, overridden, intended_setpoint
@@ -507,7 +511,23 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if (flame_on_since := self._boiler.flame_on_since) is None:
             return intended_setpoint
 
-        if timestamp() - flame_on_since < suppression.delay_seconds:
+        elapsed_since_flame_on = timestamp() - flame_on_since
+        if elapsed_since_flame_on < suppression.delay_seconds:
+            if self._flame_off_hold_setpoint is not None:
+                _LOGGER.debug(
+                    "Setpoint override hold for %s: using flame-off setpoint %.1f°C for %.1fs more.",
+                    manufacturer.friendly_name,
+                    self._flame_off_hold_setpoint,
+                    suppression.delay_seconds - elapsed_since_flame_on,
+                )
+
+                return self._flame_off_hold_setpoint
+
+            _LOGGER.debug(
+                "Setpoint override pending for %s: waiting %.1fs more (elapsed=%.1fs, delay=%.1fs).",
+                manufacturer.friendly_name, suppression.delay_seconds - elapsed_since_flame_on, elapsed_since_flame_on, suppression.delay_seconds
+            )
+
             return intended_setpoint
 
         if (flow_temperature := self.boiler_temperature) is None:
@@ -515,6 +535,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
         suppressed_setpoint = flow_temperature - suppression.offset_celsius
         if suppressed_setpoint <= self._control_intent.setpoint:
+            self._flame_off_hold_setpoint = None
             return intended_setpoint
 
         _LOGGER.debug(
@@ -522,6 +543,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             manufacturer.friendly_name, flow_temperature, suppression.offset_celsius, suppressed_setpoint, self._control_intent.setpoint, intended_setpoint
         )
 
+        self._flame_off_hold_setpoint = None
         return suppressed_setpoint
 
 

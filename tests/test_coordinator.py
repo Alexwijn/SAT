@@ -87,3 +87,24 @@ async def test_ideal_pwm_flame_off_return_offset(monkeypatch, coordinator):
     await coordinator.async_control_heating_loop()
 
     assert coordinator.setpoint == 30.0 + FLAME_OFF_SETPOINT_OFFSET_CELSIUS
+
+
+async def test_ideal_flame_off_setpoint_held_until_suppression_delay(monkeypatch, coordinator):
+    _update_coordinator_config(coordinator)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: 30.0))
+
+    coordinator._control_pwm_state = _pwm_state(PWMStatus.ON)
+    await coordinator.async_set_heater_state(DeviceState.OFF)
+
+    coordinator.set_control_intent(BoilerControlIntent(setpoint=40.0, relative_modulation=None))
+    await coordinator.async_control_heating_loop()
+
+    assert coordinator.setpoint == 30.0 + FLAME_OFF_SETPOINT_OFFSET_CELSIUS
+
+    await coordinator.async_set_heater_state(DeviceState.ON)
+    await coordinator.async_set_boiler_temperature(50.0)
+    coordinator._boiler._last_flame_on_at = timestamp() - (MODULATION_SUPPRESSION_DELAY_SECONDS - 1)
+
+    await coordinator.async_control_heating_loop()
+
+    assert coordinator.setpoint == 30.0 + FLAME_OFF_SETPOINT_OFFSET_CELSIUS
