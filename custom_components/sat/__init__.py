@@ -2,7 +2,7 @@ import logging
 import traceback
 
 from homeassistant.components import binary_sensor, climate, number, sensor
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.storage import Store
@@ -51,10 +51,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry_data is None:
         return True
 
-    if entry.state is ConfigEntryState.LOADED:
+    try:
         unload_successful = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-        if not unload_successful:
-            return False
+    except ValueError:
+        _LOGGER.debug("Platforms already unloaded for entry %s.", entry.entry_id)
+        unload_successful = True
+
+    if not unload_successful:
+        return False
 
     try:
         if entry_data.sentry is not None:
@@ -74,7 +78,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload a config entry."""
     # Unload the entry and its dependent components
-    await async_unload_entry(hass, entry)
+    if not await async_unload_entry(hass, entry):
+        _LOGGER.warning("Reload skipped: unload failed for entry %s.", entry.entry_id)
+        return
 
     # Set up the entry again
     await async_setup_entry(hass, entry)
