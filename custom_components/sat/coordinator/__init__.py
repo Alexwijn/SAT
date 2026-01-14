@@ -36,8 +36,8 @@ class ControlLoopSample:
     pwm: "PWMState"
     state: "BoilerState"
     intent: "BoilerControlIntent"
-    outside_temperature: Optional[float] = None
     requested_setpoint: Optional[float] = None
+    outside_temperature: Optional[float] = None
 
 
 class SatData(dict):
