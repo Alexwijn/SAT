@@ -115,9 +115,11 @@ number:
       name: t_dhw_set
       step: 1
       restore_value: true
+      initial_value: 45
     t_set:
       name: t_set
       restore_value: true
+      initial_value: 10
     max_t_set:
       name: max_t_set
       step: 1
@@ -153,6 +155,8 @@ binary_sensor:
   - platform: opentherm
     flame_on:
       name: flame_on
+    dhw_active:
+      name: dhw_active
 
 switch:
   - platform: opentherm

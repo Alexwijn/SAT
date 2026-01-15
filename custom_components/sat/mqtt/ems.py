@@ -125,10 +125,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: DeviceState) -> None:
-        # Do not send 'heatingoff' command, as this leads to EMS toggling the boiler between
-        # pre-set heating and selected flow temperature. Instead, control on/off solely by setting
-        # a low flow temperature (SAT already does this).
-        # (see https://github.com/emsesp/EMS-ESP32/discussions/2641#discussioncomment-14611481)
+        await self._publish_command(f'{{"cmd": "heatingactivated", "value": "{DATA_ON if state == DeviceState.ON else DATA_OFF}"}}')
 
         await super().async_set_heater_state(state)
 
