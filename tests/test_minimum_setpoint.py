@@ -23,6 +23,7 @@ def _make_metrics(setpoint: float, error: float) -> CycleMetrics:
         relative_modulation_level=Percentiles(p50=30.0, p90=30.0),
         flow_return_delta=Percentiles(p50=12.0, p90=12.0),
         flow_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_intent_setpoint_error=Percentiles(p50=error, p90=error),
         hot_water_active_fraction=0.0,
     )
 
@@ -62,6 +63,7 @@ def _make_stats() -> CycleStatistics:
         ),
         flow_return_delta=Percentiles(p50=5.0, p90=5.0),
         flow_setpoint_error=Percentiles(p50=0.0, p90=0.0),
+        flow_intent_setpoint_error=Percentiles(p50=0.0, p90=0.0),
     )
 
 

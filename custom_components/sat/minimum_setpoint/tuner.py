@@ -152,7 +152,7 @@ class MinimumSetpointTuner:
         #   - Long burn, but flow temperature remains below setpoint.
         #   - Indicates chronic underheating at this setpoint.
         if classification == CycleClassification.LONG_UNDERHEAT:
-            error = cycle.tail.flow_setpoint_error.p90
+            error = cycle.tail.flow_intent_setpoint_error.p90
             step = MinimumSetpointTuner._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
             step = MinimumSetpointTuner._scale_step_for_regime(regime_state, step)
 
@@ -169,7 +169,7 @@ class MinimumSetpointTuner:
                 _LOGGER.debug("Overshoot likely due to load drop; skipping minimum setpoint increase.")
                 return
 
-            error = cycle.tail.flow_setpoint_error.p90
+            error = cycle.tail.flow_intent_setpoint_error.p90
             step = MinimumSetpointTuner._compute_scaled_step(base=0.3, scale=0.1, value=abs(error) if error is not None else None, fallback=0.5)
             step = MinimumSetpointTuner._scale_step_for_regime(regime_state, step)
 

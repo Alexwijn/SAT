@@ -19,6 +19,7 @@ class CycleDeltaSample:
     end_time: float
     flow_return_delta: Optional[float]
     flow_setpoint_error: Optional[float]
+    flow_intent_setpoint_error: Optional[float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +102,16 @@ class CycleHistory:
         return percentile_interpolated(values, 0.90)
 
     @property
+    def flow_intent_setpoint_error_p50_4h(self) -> Optional[float]:
+        values = [sample.flow_intent_setpoint_error for sample in self._delta_window if sample.flow_intent_setpoint_error is not None]
+        return percentile_interpolated(values, 0.50)
+
+    @property
+    def flow_intent_setpoint_error_p90_4h(self) -> Optional[float]:
+        values = [sample.flow_intent_setpoint_error for sample in self._delta_window if sample.flow_intent_setpoint_error is not None]
+        return percentile_interpolated(values, 0.90)
+
+    @property
     def last_cycle(self) -> Optional[Cycle]:
         """Most recent completed cycle, or None if it is too old."""
         if self._last_cycle is None:
@@ -130,6 +141,10 @@ class CycleHistory:
                 p50=self.flow_setpoint_error_p50_4h,
                 p90=self.flow_setpoint_error_p90_4h,
             ),
+            flow_intent_setpoint_error=Percentiles(
+                p50=self.flow_intent_setpoint_error_p50_4h,
+                p90=self.flow_intent_setpoint_error_p90_4h,
+            ),
         )
 
     def record_cycle(self, cycle: Cycle) -> None:
@@ -146,6 +161,7 @@ class CycleHistory:
             end_time=end_time,
             flow_return_delta=cycle.metrics.flow_return_delta.p50,
             flow_setpoint_error=cycle.metrics.flow_setpoint_error.p50,
+            flow_intent_setpoint_error=cycle.metrics.flow_intent_setpoint_error.p50,
         ))
 
         self._prune_cycle_window(end_time)

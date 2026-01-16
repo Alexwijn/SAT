@@ -37,11 +37,11 @@ class CycleClassifier:
         is_short = duration_seconds < compute_short_threshold_seconds()
         is_ultra_short = duration_seconds < ULTRA_SHORT_MIN_ON_TIME_SECONDS
 
-        if tail_metrics.flow_setpoint_error.p90 is None:
+        if tail_metrics.flow_intent_setpoint_error.p90 is None:
             return CycleClassification.UNCERTAIN
 
-        overshoot = tail_metrics.flow_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
-        underheat = tail_metrics.flow_setpoint_error.p90 <= -UNDERSHOOT_MARGIN_CELSIUS
+        overshoot = tail_metrics.flow_intent_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
+        underheat = tail_metrics.flow_intent_setpoint_error.p90 <= -UNDERSHOOT_MARGIN_CELSIUS
 
         if is_ultra_short:
             if overshoot:

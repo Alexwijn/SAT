@@ -118,17 +118,14 @@ class CycleTracker:
 
         base_metrics = CycleTracker._build_metrics(samples=samples)
         tail_metrics = CycleTracker._build_metrics(samples=samples, tail_start=tail_start)
-        shape_metrics = CycleTracker._build_cycle_shape_metrics(
-            observation_start=observation_start,
-            start_time=start_time,
-            samples=samples,
-        )
+        shape_metrics = CycleTracker._build_cycle_shape_metrics(observation_start=observation_start, start_time=start_time, samples=samples)
+
         classification = CycleClassifier.classify(
-            boiler_state=boiler_state,
-            duration_seconds=duration_seconds,
             kind=kind,
             pwm_state=pwm_state,
+            boiler_state=boiler_state,
             tail_metrics=tail_metrics,
+            duration_seconds=duration_seconds,
         )
 
         return Cycle(
@@ -263,6 +260,9 @@ class CycleTracker:
         def get_flow_setpoint_error(sample: "ControlLoopSample") -> Optional[float]:
             return sample.state.flow_setpoint_error
 
+        def get_flow_intent_setpoint_error(sample: "ControlLoopSample") -> Optional[float]:
+            return sample.state.flow_temperature - sample.intent.setpoint
+
         def get_flow_temperature(sample: "ControlLoopSample") -> Optional[float]:
             return sample.state.flow_temperature
 
@@ -288,8 +288,11 @@ class CycleTracker:
             flow_temperature=build_percentiles(get_flow_temperature),
             return_temperature=build_percentiles(get_return_temperature),
             relative_modulation_level=build_percentiles(get_relative_modulation_level),
-            flow_setpoint_error=build_percentiles(get_flow_setpoint_error),
+
             flow_return_delta=build_percentiles(get_flow_return_delta),
+            flow_setpoint_error=build_percentiles(get_flow_setpoint_error),
+            flow_intent_setpoint_error=build_percentiles(get_flow_intent_setpoint_error),
+
             hot_water_active_fraction=hot_water_active_fraction,
         )
 

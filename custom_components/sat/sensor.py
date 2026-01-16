@@ -377,6 +377,7 @@ class SatCycleSensor(SatEntity, SensorEntity):
             "fraction_domestic_hot_water": cycle.fraction_domestic_hot_water,
             "tail_hot_water_active_fraction": cycle.tail.hot_water_active_fraction,
             "tail_flow_setpoint_error_p90": cycle.tail.flow_setpoint_error.p90,
+            "tail_flow_intent_setpoint_error_p90": cycle.tail.flow_intent_setpoint_error.p90,
             "tail_flow_temperature_p90": cycle.tail.flow_temperature.p90,
             "tail_setpoint_p50": cycle.tail.setpoint.p50,
         }

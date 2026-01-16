@@ -65,7 +65,7 @@ class AnchorCalculator:
             anchor = effective_setpoint
             anchor_source = ANCHOR_SOURCE_TAIL_SETPOINT
         else:
-            anchor = request.cycle.metrics.intent_setpoint.p90
+            anchor = request.cycle.metrics.setpoint.p90
             anchor_source = ANCHOR_SOURCE_INTENT_SETPOINT
 
         anchor = clamp(anchor, request.boiler_capabilities.minimum_setpoint, request.boiler_capabilities.maximum_setpoint)

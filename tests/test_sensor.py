@@ -33,6 +33,7 @@ def _metrics(error: float, *, hot_water_fraction: float = 0.0) -> CycleMetrics:
         relative_modulation_level=Percentiles(p50=30.0, p90=40.0),
         flow_return_delta=Percentiles(p50=6.0, p90=7.0),
         flow_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_intent_setpoint_error=Percentiles(p50=error, p90=error),
         hot_water_active_fraction=hot_water_fraction,
     )
 
@@ -111,6 +112,7 @@ async def test_cycle_sensor_extra_attributes(hass, coordinator, domains, data, o
     assert attrs["fraction_domestic_hot_water"] == 0.0
     assert attrs["tail_hot_water_active_fraction"] == 0.0
     assert attrs["tail_flow_setpoint_error_p90"] == 0.2
+    assert attrs["tail_flow_intent_setpoint_error_p90"] == 0.2
     assert attrs["tail_flow_temperature_p90"] == 47.0
     assert attrs["tail_setpoint_p50"] == 45.0
 

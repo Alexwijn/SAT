@@ -28,6 +28,8 @@ class CycleMetrics:
 
     flow_return_delta: Percentiles
     flow_setpoint_error: Percentiles
+    flow_intent_setpoint_error: Percentiles
+
     hot_water_active_fraction: float
 
 
@@ -61,6 +63,7 @@ class CycleStatistics:
     window: "CycleWindowStats"
     flow_return_delta: Percentiles
     flow_setpoint_error: Percentiles
+    flow_intent_setpoint_error: Percentiles
 
 
 @dataclass(frozen=True, slots=True)

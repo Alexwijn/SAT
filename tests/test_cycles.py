@@ -85,6 +85,7 @@ def _tail_metrics_for_error(error: Optional[float], *, hot_water_fraction: float
         relative_modulation_level=Percentiles(p50=None, p90=None),
         flow_return_delta=Percentiles(p50=10.0, p90=10.0),
         flow_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_intent_setpoint_error=Percentiles(p50=error, p90=error),
         hot_water_active_fraction=hot_water_fraction,
     )
 
