@@ -112,7 +112,7 @@ class CycleTracker:
         _, max_flow_temperature = min_max(flow_temperatures)
 
         duration = max(0.0, end_time - start_time)
-        effective_warmup = min(120.0, duration * 0.25)
+        effective_warmup = min(60.0, duration * 0.25)
         observation_start = start_time + effective_warmup
         tail_start = max(observation_start, end_time - 180.0)
 
@@ -170,13 +170,14 @@ class CycleTracker:
     def _build_cycle_shape_metrics(observation_start: float, start_time: float, samples: list["ControlLoopSample"]) -> CycleShapeMetrics:
         """Compute shape metrics using flow_setpoint_error over time."""
         relevant_samples = [sample for sample in samples if sample.timestamp >= observation_start]
+
         if len(relevant_samples) < 2:
             return CycleShapeMetrics(
-                max_flow_setpoint_error=None,
                 time_in_band_seconds=0.0,
+                total_overshoot_seconds=0.0,
+                max_flow_setpoint_error=None,
                 time_to_first_overshoot_seconds=None,
                 time_to_sustained_overshoot_seconds=None,
-                total_overshoot_seconds=0.0,
             )
 
         time_in_band_seconds = 0.0

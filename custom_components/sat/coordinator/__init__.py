@@ -521,17 +521,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         if (flow_temperature := self.boiler_temperature) is None:
             return intended_setpoint
 
+        self._flame_off_hold_setpoint = None
         suppressed_setpoint = flow_temperature - self._config.modulation_suppression_offset_celsius
-        if suppressed_setpoint <= self._control_intent.setpoint:
-            self._flame_off_hold_setpoint = None
-            return intended_setpoint
 
         _LOGGER.debug(
             "Setpoint override (suppression) : flow=%.1f°C offset=%.1f°C -> %.1f°C (min=%.1f°C, intended=%.1f°C)",
             flow_temperature, self._config.modulation_suppression_offset_celsius, suppressed_setpoint, self._control_intent.setpoint, intended_setpoint
         )
 
-        self._flame_off_hold_setpoint = None
         return suppressed_setpoint
 
 

@@ -743,12 +743,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             requested_setpoint = self.requested_setpoint
             requested_setpoint_delta = requested_setpoint - self._setpoint
 
-            # Track persistent decreases
-            if requested_setpoint_delta < -DECREASE_STEP_THRESHOLD_CELSIUS:
-                if self._last_requested_setpoint is not None and requested_setpoint < self._last_requested_setpoint:
-                    self._requested_setpoint_down_ticks += 1
-                else:
-                    self._requested_setpoint_down_ticks = 1
+            # Track persistent decreases below current setpoint (avoid steady flame-offs).
+            if requested_setpoint_delta <= -DECREASE_STEP_THRESHOLD_CELSIUS:
+                self._requested_setpoint_down_ticks += 1
             else:
                 self._requested_setpoint_down_ticks = 0
 
@@ -763,8 +760,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     requested_setpoint, self._setpoint, previous_setpoint, self._coordinator.boiler_temperature, NEAR_TARGET_MARGIN_CELSIUS
                 )
 
+            # Allow decreases freely while still below target flow temperature.
+            elif self._coordinator.flame_active and not is_near_target and requested_setpoint_delta < 0:
+                _LOGGER.info("Lowering boiler setpoint while still below target flow temperature (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C)", requested_setpoint, self._setpoint, self._coordinator.boiler_temperature)
+                self._setpoint = requested_setpoint
+
             # Allow meaningful increases immediately
-            elif requested_setpoint_delta > INCREASE_STEP_THRESHOLD_CELSIUS:
+            elif requested_setpoint_delta >= INCREASE_STEP_THRESHOLD_CELSIUS:
                 _LOGGER.info("Increasing boiler setpoint due to rising heat demand (requested=%.1f°C, previous=%.1f°C)", requested_setpoint, self._setpoint)
                 self._setpoint = requested_setpoint
 
@@ -910,8 +912,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.pwm.disable()
 
         self._coordinator.set_control_context(
-            requested_setpoint=self.requested_setpoint,
             pwm_state=self.pwm.state,
+            requested_setpoint=self.requested_setpoint,
             outside_temperature=self.current_outside_temperature,
         )
 

@@ -1,13 +1,12 @@
 """Tests focused on SAT climate setpoint and heating curve behavior."""
 
 from datetime import timedelta
-from itertools import chain, repeat
-
 import pytest
 from homeassistant.components.climate import HVACMode
 from homeassistant.util import dt as dt_util
 
 from custom_components.sat.climate import (
+    DECREASE_STEP_THRESHOLD_CELSIUS,
     INCREASE_STEP_THRESHOLD_CELSIUS,
     NEAR_TARGET_MARGIN_CELSIUS,
     SatClimate,
@@ -166,24 +165,43 @@ async def test_async_control_setpoint_increase_applies_immediately(monkeypatch, 
     assert climate.setpoint == new_requested
 
 
-async def test_async_control_setpoint_decrease_requires_persistence(monkeypatch, climate):
+async def test_async_control_setpoint_increase_applies_at_threshold(monkeypatch, climate):
+    climate._hvac_mode = HVACMode.HEAT
+    climate._setpoint = 50.0
+    _update_climate_config(climate, data={CONF_OVERSHOOT_PROTECTION: False})
+
+    new_requested = 50.0 + INCREASE_STEP_THRESHOLD_CELSIUS
+    monkeypatch.setattr(SatClimate, "requested_setpoint", property(lambda self: new_requested))
+    await climate._async_control_setpoint()
+
+    assert climate.setpoint == new_requested
+
+
+async def test_async_control_setpoint_decrease_applies_below_target(monkeypatch, climate):
     climate._hvac_mode = HVACMode.HEAT
     climate._setpoint = 50.0
     _update_climate_config(climate, data={CONF_OVERSHOOT_PROTECTION: False})
     await climate._coordinator.async_set_heater_state(DeviceState.ON)
+    await climate._coordinator.async_set_boiler_temperature(40.0)
 
-    requested_values = iter(chain([45.0, 44.0, 43.0], repeat(43.0)))
-
-    monkeypatch.setattr(SatClimate, "requested_setpoint", property(lambda self: next(requested_values)))
-
-    await climate._async_control_setpoint()
-    assert climate.setpoint == 50.0
+    monkeypatch.setattr(SatClimate, "requested_setpoint", property(lambda self: 45.0))
 
     await climate._async_control_setpoint()
-    assert climate.setpoint == 50.0
+    assert climate.setpoint == 45.0
+
+
+async def test_async_control_setpoint_decrease_applies_at_threshold_below_target(monkeypatch, climate):
+    climate._hvac_mode = HVACMode.HEAT
+    climate._setpoint = 50.0
+    _update_climate_config(climate, data={CONF_OVERSHOOT_PROTECTION: False})
+    await climate._coordinator.async_set_heater_state(DeviceState.ON)
+    await climate._coordinator.async_set_boiler_temperature(40.0)
+
+    new_requested = 50.0 - DECREASE_STEP_THRESHOLD_CELSIUS
+    monkeypatch.setattr(SatClimate, "requested_setpoint", property(lambda self: new_requested))
 
     await climate._async_control_setpoint()
-    assert climate.setpoint == 43.0
+    assert climate.setpoint == new_requested
 
 
 def test_pwm_disabled_without_setpoint(climate):
