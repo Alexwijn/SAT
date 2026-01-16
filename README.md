@@ -211,7 +211,7 @@ To be completed
 ## General tab:
 *Heating Curve Version*: Represents the 3 formulas of calculation. The available options are:
 
-Radiators or Mixed Syestems:
+Radiators or Mixed Systems:
 - [Precision Curve for Radiators or Mixed Systems](https://www.desmos.com/calculator/spfvsid4ds)
 
 Underfloor:
