@@ -211,15 +211,11 @@ To be completed
 ## General tab:
 *Heating Curve Version*: Represents the 3 formulas of calculation. The available options are:
 
-Radiators:
-- [Classic Curve](https://www.desmos.com/calculator/cy8gjiciny)
-- [Quantum Curve](https://www.desmos.com/calculator/hmrlrapnxz)
-- [Precision Curve](https://www.desmos.com/calculator/spfvsid4ds) ( Recommented )
+Radiators or Mixed Systems:
+- [Precision Curve for Radiators or Mixed Systems](https://www.desmos.com/calculator/spfvsid4ds)
 
 Underfloor:
-- [Classic Curve](https://www.desmos.com/calculator/exjth5qsoe)
-- [Quantum Curve](https://www.desmos.com/calculator/ke69ywalcz)
-- [Precision Curve](https://www.desmos.com/calculator/i7f7uuyaoz) ( Recommented )
+- [Precision Curve for UFH](https://www.desmos.com/calculator/i7f7uuyaoz)
 
 > [!NOTE]
 > Graph parameters:
