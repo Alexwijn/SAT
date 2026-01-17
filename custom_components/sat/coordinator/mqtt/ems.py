@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from . import SatMqttCoordinator
 from ...helpers import float_value
-from ...types import DeviceState
+from ...types import HeaterState
 
 DATA_ON = "on"
 DATA_OFF = "off"
@@ -32,7 +32,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using MQTT."""
 
     @property
-    def device_type(self) -> str:
+    def type(self) -> str:
         return "Energy Management System (via mqtt)"
 
     @property
@@ -52,7 +52,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         return True
 
     @property
-    def device_active(self) -> bool:
+    def active(self) -> bool:
         return self.data.get(DATA_CENTRAL_HEATING) == DATA_ON
 
     @property
@@ -121,8 +121,8 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         # Not supported (yet)
         await super().async_set_control_thermostat_setpoint(value)
 
-    async def async_set_heater_state(self, state: DeviceState) -> None:
-        await self._publish_command(f'{{"cmd": "heatingactivated", "value": "{DATA_ON if state == DeviceState.ON else DATA_OFF}"}}')
+    async def async_set_heater_state(self, state: HeaterState) -> None:
+        await self._publish_command(f'{{"cmd": "heatingactivated", "value": "{DATA_ON if state == HeaterState.ON else DATA_OFF}"}}')
 
         await super().async_set_heater_state(state)
 

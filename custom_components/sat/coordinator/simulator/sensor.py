@@ -9,6 +9,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import SatSimulatorCoordinator
 from ...entity import SatEntity
 from ...entry_data import SatConfig, get_entry_data
+from ...heating_control import SatHeatingControl
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -18,14 +19,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
     # Add all devices
     async_add_entities([
-        SatSetpointSensor(coordinator, entry_data.config),
-        SatBoilerTemperatureSensor(coordinator, entry_data.config),
+        SatSetpointSensor(coordinator, entry_data.config, entry_data.heating_control),
+        SatBoilerTemperatureSensor(coordinator, entry_data.config, entry_data.heating_control),
     ])
 
 
 class SatSetpointSensor(SatEntity, sensor.SensorEntity):
-    def __init__(self, coordinator: SatSimulatorCoordinator, config: SatConfig):
-        super().__init__(coordinator, config)
+    def __init__(self, coordinator: SatSimulatorCoordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
         self.entity_id = async_generate_entity_id(
             sensor.DOMAIN + ".{}", f"{self._config.name_lower}_setpoint", hass=coordinator.hass
         )
@@ -33,7 +34,7 @@ class SatSetpointSensor(SatEntity, sensor.SensorEntity):
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return f"Current Setpoint {self._config.name} (Boiler)"
+        return f"Current Setpoint {self._config.name} (Device)"
 
     @property
     def device_class(self) -> sensor.SensorDeviceClass:
@@ -62,8 +63,8 @@ class SatSetpointSensor(SatEntity, sensor.SensorEntity):
 
 
 class SatBoilerTemperatureSensor(SatEntity, sensor.SensorEntity):
-    def __init__(self, coordinator: SatSimulatorCoordinator, config: SatConfig):
-        super().__init__(coordinator, config)
+    def __init__(self, coordinator: SatSimulatorCoordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
         self.entity_id = async_generate_entity_id(
             sensor.DOMAIN + ".{}", f"{self._config.name_lower}_boiler_temperature", hass=coordinator.hass
         )
@@ -71,7 +72,7 @@ class SatBoilerTemperatureSensor(SatEntity, sensor.SensorEntity):
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return f"Current Temperature {self._config.name} (Boiler)"
+        return f"Current Temperature {self._config.name} (Device)"
 
     @property
     def device_class(self) -> sensor.SensorDeviceClass:

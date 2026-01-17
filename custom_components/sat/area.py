@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from datetime import timedelta, datetime
 from typing import Optional
@@ -18,7 +20,6 @@ from .heating_curve import HeatingCurve
 from .helpers import float_value, is_state_stale, state_age_seconds
 from .pid import PID
 from .temperature_state import TemperatureStates, TemperatureState
-from .util import create_pid_controller, create_heating_curve_controller
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,8 +47,8 @@ class Area:
         self._sensor_max_value_age: float = config.sensors.sensor_max_value_age_seconds
 
         # Create controllers.
-        self.heating_curve: HeatingCurve = create_heating_curve_controller(config)
-        self.pid: PID = create_pid_controller(self.heating_curve, config)
+        self.heating_curve: HeatingCurve = HeatingCurve.from_config(config)
+        self.pid: PID = PID.from_config(self.heating_curve, config)
 
         # Per-room influence scaling for demand calculations.
         raw_value = config.presets.room_weights.get(entity_id, 1.0)
@@ -211,7 +212,12 @@ class Area:
         else:
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.update)
 
-        self._time_interval = async_track_time_interval(self._hass, self.update, timedelta(seconds=30))
+        self._time_interval = async_track_time_interval(
+            self._hass,
+            self.update,
+            timedelta(seconds=30),
+            cancel_on_shutdown=True,
+        )
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when the area is about to be removed."""
@@ -235,10 +241,13 @@ class Area:
 class Areas:
     """Container for multiple Area instances."""
 
-    def __init__(self, config: SatConfig) -> None:
+    def __init__(self, areas: list[Area]) -> None:
         """Initialize Areas with multiple Area instances using shared config data."""
-        self._entity_ids: list[str] = config.rooms
-        self._areas: list[Area] = [Area(config, entity_id) for entity_id in self._entity_ids]
+        self._areas: list[Area] = areas
+
+    @staticmethod
+    def from_config(config: SatConfig) -> "Areas":
+        return Areas([Area(config, entity_id) for entity_id in config.rooms])
 
     @property
     def errors(self) -> TemperatureStates:
@@ -266,7 +275,7 @@ class Areas:
 
     def ids(self) -> list[str]:
         """Return all configured entity ids."""
-        return list(self._entity_ids)
+        return [area.id for area in self._areas]
 
     def items(self) -> list[Area]:
         """Return all Area instances."""

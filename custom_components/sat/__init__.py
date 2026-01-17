@@ -1,7 +1,6 @@
 import logging
 import traceback
 
-from homeassistant.components import binary_sensor, climate, number, sensor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
@@ -11,10 +10,11 @@ from sentry_sdk import Client, Hub
 from .const import DOMAIN, OPTIONS_DEFAULTS
 from .coordinator import SatDataUpdateCoordinatorFactory
 from .entry_data import SatConfig, SatEntryData
+from .heating_control import SatHeatingControl
 from .services import async_register_services
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-PLATFORMS = [climate.DOMAIN, sensor.DOMAIN, number.DOMAIN, binary_sensor.DOMAIN]
+PLATFORMS = ["climate", "sensor", "number", "binary_sensor"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -25,7 +25,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_migrate_identifiers(hass, entry, config)
 
     coordinator = SatDataUpdateCoordinatorFactory().resolve(hass=hass, config=config)
-    hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(coordinator=coordinator, config=config)
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=config)
+    
+    hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(
+        config=config,
+        coordinator=coordinator,
+        heating_control=heating_control,
+    )
 
     try:
         if config.error_monitoring_enabled:
@@ -37,6 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Error during Sentry initialization: %s", error)
 
     await coordinator.async_setup()
+    await coordinator.async_added_to_hass(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_register_services(hass)
 
@@ -52,6 +59,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return True
 
     try:
+        if getattr(entry_data, "coordinator", None) is not None:
+            await entry_data.coordinator.async_will_remove_from_hass()
         unload_successful = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     except ValueError:
         _LOGGER.debug("Platforms already unloaded for entry %s.", entry.entry_id)

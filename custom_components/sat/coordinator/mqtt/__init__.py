@@ -27,7 +27,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         self._store: Store = Store(hass, STORAGE_VERSION, f"sat.mqtt.{self._device_id}")
 
     @property
-    def device_id(self) -> str:
+    def id(self) -> str:
         return self._device_id
 
     @staticmethod
@@ -66,6 +66,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     async def async_will_remove_from_hass(self) -> None:
         # Save the updated data to persistent storage
         await self._save_data()
+        await super().async_will_remove_from_hass()
 
     async def _load_stored_data(self) -> None:
         """Load the data from persistent storage."""

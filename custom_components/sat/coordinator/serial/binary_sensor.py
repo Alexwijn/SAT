@@ -14,6 +14,7 @@ from pyotgw.vars import *
 from . import TRANSLATE_SOURCE, SatSerialCoordinator
 from ...entity import SatEntity
 from ...entry_data import SatConfig, get_entry_data
+from ...heating_control import SatHeatingControl
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,25 +40,25 @@ BINARY_SENSOR_INFO: dict[str, SatBinarySensorInfo] = {
     DATA_MASTER_OTC_ENABLED: SatBinarySensorInfo(None, "Thermostat Outside Temperature Correction {}", [BOILER, THERMOSTAT]),
     DATA_MASTER_CH2_ENABLED: SatBinarySensorInfo(None, "Thermostat Central Heating 2 {}", [BOILER, THERMOSTAT]),
 
-    DATA_SLAVE_FAULT_IND: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Boiler Fault {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_CH_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Boiler Central Heating {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_DHW_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Boiler Hot Water {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_FLAME_ON: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Boiler Flame {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_COOLING_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.COLD, "Boiler Cooling {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_CH2_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Boiler Central Heating 2 {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_DIAG_IND: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Boiler Diagnostics {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_DHW_PRESENT: SatBinarySensorInfo(None, "Boiler Hot Water Present {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_CONTROL_TYPE: SatBinarySensorInfo(None, "Boiler Control Type {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_COOLING_SUPPORTED: SatBinarySensorInfo(None, "Boiler Cooling Support {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_DHW_CONFIG: SatBinarySensorInfo(None, "Boiler Hot Water Configuration {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_MASTER_LOW_OFF_PUMP: SatBinarySensorInfo(None, "Boiler Pump Commands Support {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_CH2_PRESENT: SatBinarySensorInfo(None, "Boiler Central Heating 2 Present {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_SERVICE_REQ: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Boiler Service Required {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_REMOTE_RESET: SatBinarySensorInfo(None, "Boiler Remote Reset Support {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_LOW_WATER_PRESS: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Boiler Low Water Pressure {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_GAS_FAULT: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Boiler Gas Fault {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_AIR_PRESS_FAULT: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Boiler Air Pressure Fault {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_WATER_OVERTEMP: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Boiler Water Over-temperature {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_FAULT_IND: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Device Fault {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CH_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Device Central Heating {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_DHW_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Device Hot Water {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_FLAME_ON: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Device Flame {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_COOLING_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.COLD, "Device Cooling {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CH2_ACTIVE: SatBinarySensorInfo(BinarySensorDeviceClass.HEAT, "Device Central Heating 2 {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_DIAG_IND: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Device Diagnostics {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_DHW_PRESENT: SatBinarySensorInfo(None, "Device Hot Water Present {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CONTROL_TYPE: SatBinarySensorInfo(None, "Device Control Type {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_COOLING_SUPPORTED: SatBinarySensorInfo(None, "Device Cooling Support {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_DHW_CONFIG: SatBinarySensorInfo(None, "Device Hot Water Configuration {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MASTER_LOW_OFF_PUMP: SatBinarySensorInfo(None, "Device Pump Commands Support {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CH2_PRESENT: SatBinarySensorInfo(None, "Device Central Heating 2 Present {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_SERVICE_REQ: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Device Service Required {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_REMOTE_RESET: SatBinarySensorInfo(None, "Device Remote Reset Support {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_LOW_WATER_PRESS: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Device Low Water Pressure {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_GAS_FAULT: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Device Gas Fault {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_AIR_PRESS_FAULT: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Device Air Pressure Fault {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_WATER_OVERTEMP: SatBinarySensorInfo(BinarySensorDeviceClass.PROBLEM, "Device Water Over-temperature {}", [BOILER, THERMOSTAT]),
     DATA_REMOTE_TRANSFER_DHW: SatBinarySensorInfo(None, "Remote Hot Water Setpoint Transfer Support {}", [BOILER, THERMOSTAT]),
     DATA_REMOTE_TRANSFER_MAX_CH: SatBinarySensorInfo(None, "Remote Maximum Central Heating Setpoint Write Support {}", [BOILER, THERMOSTAT]),
     DATA_REMOTE_RW_DHW: SatBinarySensorInfo(None, "Remote Hot Water Setpoint Write Support {}", [BOILER, THERMOSTAT]),
@@ -94,7 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
                     info=info,
                     source=source,
                 )
-                entities.append(SatBinarySensor(coordinator, entry_data.config, definition))
+                entities.append(SatBinarySensor(coordinator, entry_data.config, entry_data.heating_control, definition))
 
     # Add all devices
     async_add_entities(entities)
@@ -103,8 +104,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 class SatBinarySensor(SatEntity, BinarySensorEntity):
     _attr_should_poll = False
 
-    def __init__(self, coordinator: SatSerialCoordinator, config: SatConfig, definition: SatSerialBinarySensorDefinition) -> None:
-        super().__init__(coordinator, config)
+    def __init__(
+            self,
+            coordinator: SatSerialCoordinator,
+            config: SatConfig,
+            heating_control: SatHeatingControl,
+            definition: SatSerialBinarySensorDefinition,
+    ) -> None:
+        super().__init__(coordinator, config, heating_control)
 
         self.entity_id = async_generate_entity_id(
             ENTITY_ID_FORMAT, f"{self._config.name_lower}_{definition.source}_{definition.key}", hass=coordinator.hass

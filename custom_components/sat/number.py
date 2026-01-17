@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .entry_data import SatConfig, get_entry_data
+from .heating_control import SatHeatingControl
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
@@ -14,20 +15,20 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     coordinator = entry_data.coordinator
 
     if coordinator.supports_maximum_setpoint_management:
-        async_add_entities([SatMaximumSetpointEntity(coordinator, entry_data.config)])
+        async_add_entities([SatMaximumSetpointEntity(coordinator, entry_data.config, entry_data.heating_control)])
 
     if coordinator.supports_hot_water_setpoint_management:
-        async_add_entities([SatHotWaterSetpointEntity(coordinator, entry_data.config)])
+        async_add_entities([SatHotWaterSetpointEntity(coordinator, entry_data.config, entry_data.heating_control)])
 
 
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig):
-        super().__init__(coordinator, config)
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
         self._name = self._config.name
 
     @property
     def name(self) -> Optional[str]:
-        return f"Hot Water Setpoint {self._name} (Boiler)"
+        return f"Hot Water Setpoint {self._name} (Device)"
 
     @property
     def device_class(self):
@@ -74,13 +75,13 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
 
 
 class SatMaximumSetpointEntity(SatEntity, NumberEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig):
-        super().__init__(coordinator, config)
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
         self._name = self._config.name
 
     @property
     def name(self) -> Optional[str]:
-        return f"Maximum Setpoint {self._name} (Boiler)"
+        return f"Maximum Setpoint {self._name} (Device)"
 
     @property
     def device_class(self):

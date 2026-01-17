@@ -5,6 +5,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import assert_setup_component, MockConfigEntry
 
+from custom_components.sat import SatHeatingControl
 from custom_components.sat.climate import SatClimate
 from custom_components.sat.const import DOMAIN
 from custom_components.sat.coordinator.fake import SatFakeCoordinator
@@ -45,3 +46,8 @@ async def climate(hass, entry: MockConfigEntry) -> SatClimate:
 @pytest.fixture
 async def coordinator(hass, entry: MockConfigEntry) -> SatFakeCoordinator:
     return hass.data[DOMAIN][entry.entry_id].coordinator
+
+
+@pytest.fixture
+async def heating_control(hass, entry: MockConfigEntry) -> SatHeatingControl:
+    return hass.data[DOMAIN][entry.entry_id].heating_control

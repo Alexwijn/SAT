@@ -2,7 +2,7 @@ from __future__ import annotations
 
 STORAGE_VERSION = 1
 
-# Boiler behavior thresholds.
+# Device behavior thresholds.
 BOILER_PREHEAT_DELTA = 6.0
 BOILER_SETPOINT_BAND = 1.5
 BOILER_OVERSHOOT_DELTA = 2.0

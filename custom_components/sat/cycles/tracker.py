@@ -12,12 +12,12 @@ from .history import CycleHistory
 from .types import Cycle, CycleMetrics, CycleShapeMetrics
 from ..const import EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED
 from ..helpers import min_max, percentile_interpolated
-from ..types import CycleKind, Percentiles
+from ..types import CycleControlMode, CycleKind, Percentiles
 
 if TYPE_CHECKING:
-    from ..boiler import BoilerState
+    from ..device import DeviceState
     from ..const import CycleClassification
-    from ..coordinator import ControlLoopSample
+    from ..heating_control import ControlLoopSample
     from ..pwm import PWMState
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,11 +55,11 @@ class CycleTracker:
     def update(self, sample: "ControlLoopSample") -> None:
         """Consume a new control-loop sample to update cycle tracking."""
         previously_active = self._last_flame_active
-        currently_active = sample.state.flame_active
+        currently_active = sample.device_state.flame_active
 
         if currently_active and not previously_active:
             self._history.record_off_with_demand_duration(self._compute_off_with_demand_duration(
-                state=sample.state,
+                state=sample.device_state,
                 timestamp=sample.timestamp,
             ))
 
@@ -75,7 +75,7 @@ class CycleTracker:
             _LOGGER.debug("Flame transition ON->OFF, finalizing cycle.")
             self._last_flame_off_timestamp = sample.timestamp
 
-            cycle = self._build_cycle_state(sample.state, sample.pwm, end_time=sample.timestamp)
+            cycle = self._build_cycle_state(sample.device_state, sample.pwm, end_time=sample.timestamp)
             if cycle is not None:
                 self._history.record_cycle(cycle)
                 self._hass.bus.fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle, "sample": sample})
@@ -85,7 +85,7 @@ class CycleTracker:
 
         self._last_flame_active = currently_active
 
-    def _build_cycle_state(self, boiler_state: "BoilerState", pwm_state: "PWMState", end_time: float) -> Optional[Cycle]:
+    def _build_cycle_state(self, boiler_state: "DeviceState", pwm_state: "PWMState", end_time: float) -> Optional[Cycle]:
         """Build a Cycle from the current sample buffer."""
         if self._current_cycle_start is None:
             _LOGGER.debug("No start time, ignoring cycle.")
@@ -100,16 +100,15 @@ class CycleTracker:
             return None
 
         samples = list(self._current_samples)
-        dhw_count = sum(1 for sample in samples if sample.state.hot_water_active)
-        heating_count = sum(1 for sample in samples if (not sample.state.hot_water_active) and sample.state.central_heating)
+        dhw_count = sum(1 for sample in samples if sample.device_state.hot_water_active)
+        heating_count = sum(1 for sample in samples if (not sample.device_state.hot_water_active) and sample.device_state.central_heating)
 
         fraction_domestic_hot_water = dhw_count / float(sample_count)
         fraction_space_heating = heating_count / float(sample_count)
         kind = CycleTracker._determine_cycle_kind(fraction_domestic_hot_water, fraction_space_heating)
 
-        flow_temperatures = [sample.state.flow_temperature for sample in samples]
-
-        _, max_flow_temperature = min_max(flow_temperatures)
+        flow_temperatures = [sample.device_state.flow_temperature for sample in samples]
+        min_flow_temperature, max_flow_temperature = min_max(flow_temperatures)
 
         duration = max(0.0, end_time - start_time)
         effective_warmup = min(60.0, duration * 0.25)
@@ -119,14 +118,7 @@ class CycleTracker:
         base_metrics = CycleTracker._build_metrics(samples=samples)
         tail_metrics = CycleTracker._build_metrics(samples=samples, tail_start=tail_start)
         shape_metrics = CycleTracker._build_cycle_shape_metrics(observation_start=observation_start, start_time=start_time, samples=samples)
-
-        classification = CycleClassifier.classify(
-            kind=kind,
-            pwm_state=pwm_state,
-            boiler_state=boiler_state,
-            tail_metrics=tail_metrics,
-            duration_seconds=duration_seconds,
-        )
+        classification = CycleClassifier.classify(kind=kind, pwm_state=pwm_state, device_state=boiler_state, tail_metrics=tail_metrics, duration_seconds=duration_seconds)
 
         return Cycle(
             kind=kind,
@@ -134,15 +126,20 @@ class CycleTracker:
             shape=shape_metrics,
             metrics=base_metrics,
             classification=classification,
+            control_mode=CycleControlMode.PWM if pwm_state.enabled else CycleControlMode.CONTINUOUS,
+
             end=end_time,
             start=start_time,
             sample_count=sample_count,
+
+            min_flow_temperature=min_flow_temperature,
             max_flow_temperature=max_flow_temperature,
+
             fraction_space_heating=fraction_space_heating,
             fraction_domestic_hot_water=fraction_domestic_hot_water,
         )
 
-    def _compute_off_with_demand_duration(self, state: "BoilerState", timestamp: float) -> Optional[float]:
+    def _compute_off_with_demand_duration(self, state: "DeviceState", timestamp: float) -> Optional[float]:
         """Compute OFF duration since the last flame OFF, but only if demand was present."""
         if self._last_flame_off_timestamp is None:
             return None
@@ -191,7 +188,7 @@ class CycleTracker:
             next_sample = relevant_samples[index + 1]
 
             interval_seconds = max(0.0, next_sample.timestamp - current_sample.timestamp)
-            flow_setpoint_error = current_sample.state.flow_setpoint_error
+            flow_setpoint_error = current_sample.device_state.flow_setpoint_error
 
             if flow_setpoint_error is None:
                 # No contribution when signal is missing.
@@ -221,10 +218,11 @@ class CycleTracker:
 
         return CycleShapeMetrics(
             max_flow_setpoint_error=max_flow_setpoint_error,
+            total_overshoot_seconds=total_overshoot_seconds,
+
             time_in_band_seconds=time_in_band_seconds,
             time_to_first_overshoot_seconds=time_to_first_overshoot_seconds,
             time_to_sustained_overshoot_seconds=time_to_sustained_overshoot_seconds,
-            total_overshoot_seconds=total_overshoot_seconds,
         )
 
     @staticmethod
@@ -255,43 +253,38 @@ class CycleTracker:
             )
 
         def get_flow_return_delta(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.state.flow_return_delta
+            return sample.device_state.flow_return_delta
 
         def get_flow_setpoint_error(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.state.flow_setpoint_error
+            if sample.control_setpoint is not None and sample.device_state.flow_temperature is not None:
+                return sample.device_state.flow_temperature - sample.control_setpoint
 
-        def get_flow_intent_setpoint_error(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.state.flow_temperature - sample.intent.setpoint
+            return sample.device_state.flow_setpoint_error
 
         def get_flow_temperature(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.state.flow_temperature
-
-        def get_intent_setpoint(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.intent.setpoint
+            return sample.device_state.flow_temperature
 
         def get_relative_modulation_level(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.state.relative_modulation_level
+            return sample.device_state.relative_modulation_level
 
         def get_return_temperature(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.state.return_temperature
+            return sample.device_state.return_temperature
 
-        def get_state_setpoint(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.state.setpoint
+        def get_control_setpoint(sample: "ControlLoopSample") -> Optional[float]:
+            return sample.control_setpoint
 
         hot_water_active_fraction = 0.0
         if relevant_samples:
-            hot_water_active_fraction = sum(1 for sample in relevant_samples if sample.state.hot_water_active) / float(len(relevant_samples))
+            hot_water_active_fraction = sum(1 for sample in relevant_samples if sample.device_state.hot_water_active) / float(len(relevant_samples))
 
         return CycleMetrics(
-            setpoint=build_percentiles(get_state_setpoint),
-            intent_setpoint=build_percentiles(get_intent_setpoint),
+            control_setpoint=build_percentiles(get_control_setpoint),
             flow_temperature=build_percentiles(get_flow_temperature),
             return_temperature=build_percentiles(get_return_temperature),
             relative_modulation_level=build_percentiles(get_relative_modulation_level),
 
             flow_return_delta=build_percentiles(get_flow_return_delta),
             flow_setpoint_error=build_percentiles(get_flow_setpoint_error),
-            flow_intent_setpoint_error=build_percentiles(get_flow_intent_setpoint_error),
 
             hot_water_active_fraction=hot_water_active_fraction,
         )
@@ -310,11 +303,11 @@ class CycleTracker:
         return CycleKind.UNKNOWN
 
     @staticmethod
-    def _classify_cycle(boiler_state: "BoilerState", duration_seconds: float, kind: CycleKind, pwm_state: "PWMState", tail_metrics: CycleMetrics) -> "CycleClassification":
+    def _classify_cycle(boiler_state: "DeviceState", kind: CycleKind, pwm_state: "PWMState", tail_metrics: CycleMetrics, duration_seconds: float) -> "CycleClassification":
         return CycleClassifier.classify(
-            boiler_state=boiler_state,
-            duration_seconds=duration_seconds,
             kind=kind,
             pwm_state=pwm_state,
+            device_state=boiler_state,
             tail_metrics=tail_metrics,
+            duration_seconds=duration_seconds,
         )

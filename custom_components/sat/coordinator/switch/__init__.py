@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_registry import RegistryEntry
 
 from .. import SatDataUpdateCoordinator
 from ...entry_data import SatConfig
-from ...types import DeviceState
+from ...types import HeaterState
 
 DOMAIN_SERVICE = {
     SWITCH_DOMAIN: SWITCH_DOMAIN,
@@ -27,11 +27,11 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         self._entity: RegistryEntry = entity_registry.async_get(hass).async_get(self._config.device)
 
     @property
-    def device_id(self) -> str:
+    def id(self) -> str:
         return self._entity.name
 
     @property
-    def device_type(self) -> str:
+    def type(self) -> str:
         return "Switch"
 
     @property
@@ -43,7 +43,7 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         return self.minimum_setpoint
 
     @property
-    def device_active(self) -> bool:
+    def active(self) -> bool:
         if (state := self.hass.states.get(self._entity.id)) is None:
             return False
 
@@ -53,10 +53,10 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
     def member_id(self) -> Optional[int]:
         return -1
 
-    async def async_set_heater_state(self, state: DeviceState) -> None:
+    async def async_set_heater_state(self, state: HeaterState) -> None:
         if not self._config.simulation.enabled:
             domain_service = DOMAIN_SERVICE.get(self._entity.domain)
-            state_service = SERVICE_TURN_ON if state == DeviceState.ON else SERVICE_TURN_OFF
+            state_service = SERVICE_TURN_ON if state == HeaterState.ON else SERVICE_TURN_OFF
 
             if domain_service:
                 await self.hass.services.async_call(domain_service, state_service, {ATTR_ENTITY_ID: self._entity.entity_id}, blocking=True)

@@ -6,9 +6,9 @@ from custom_components.sat.const import (
     CONF_NAME,
     CONF_OUTSIDE_SENSOR_ENTITY_ID,
     CONF_OVERSHOOT_PROTECTION,
-    HeatingSystem,
     OPTIONS_DEFAULTS,
 )
+from custom_components.sat.types import HeatingSystem
 from custom_components.sat.entry_data import SatConfig, SatMode
 
 DEFAULT_USER_DATA = {

@@ -1,9 +1,7 @@
 # Core domain identifiers and shared defaults used across the integration.
 from __future__ import annotations
 
-from enum import StrEnum
-
-from .types import CycleClassification
+from .types import CycleClassification, HeatingSystem, HeatingMode
 
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
@@ -17,7 +15,6 @@ CONFIG_STORE = "config_store"
 # Control loop tolerances and timing thresholds.
 DEADBAND = 0.1
 BOILER_DEADBAND = 2
-FLAME_STARTUP_TIMEFRAME = 30
 HEATER_STARTUP_TIMEFRAME = 180
 PWM_ENABLE_MARGIN_CELSIUS = 0.5
 PWM_DISABLE_MARGIN_CELSIUS = 1.5
@@ -25,7 +22,7 @@ PWM_ENABLE_LOW_MODULATION_PERCENT = 10
 PWM_DISABLE_LOW_MODULATION_PERCENT = 30
 PWM_LOW_MODULATION_PERSISTENCE_TICKS = 6
 
-# Boiler temperature and modulation bounds.
+# Device temperature and modulation bounds.
 COLD_SETPOINT = 28.2
 MINIMUM_SETPOINT = 10.0
 MAXIMUM_SETPOINT = 65.0
@@ -95,19 +92,6 @@ CONF_HOME_TEMPERATURE = "home_temperature"
 CONF_SLEEP_TEMPERATURE = "sleep_temperature"
 CONF_COMFORT_TEMPERATURE = "comfort_temperature"
 CONF_ACTIVITY_TEMPERATURE = "activity_temperature"
-
-
-class HeatingSystem(StrEnum):
-    UNKNOWN = "unknown"
-    HEAT_PUMP = "heat_pump"
-    RADIATORS = "radiators"
-    UNDERFLOOR = "underfloor"
-
-
-class HeatingMode(StrEnum):
-    ECO = "eco"
-    COMFORT = "comfort"
-
 
 # Default values for integration options.
 OPTIONS_DEFAULTS = {
@@ -212,4 +196,16 @@ UNHEALTHY_CYCLES = (
     CycleClassification.FAST_UNDERHEAT,
     CycleClassification.TOO_SHORT_UNDERHEAT,
     CycleClassification.TOO_SHORT_OVERSHOOT,
+)
+
+OVERSHOOT_CYCLES = (
+    CycleClassification.LONG_OVERSHOOT,
+    CycleClassification.FAST_OVERSHOOT,
+    CycleClassification.TOO_SHORT_OVERSHOOT,
+)
+
+UNDERHEAT_CYCLES = (
+    CycleClassification.LONG_UNDERHEAT,
+    CycleClassification.FAST_UNDERHEAT,
+    CycleClassification.TOO_SHORT_UNDERHEAT,
 )

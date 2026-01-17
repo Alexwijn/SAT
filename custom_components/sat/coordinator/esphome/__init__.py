@@ -13,7 +13,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from .. import SatDataUpdateCoordinator, SatEntityCoordinator
 from ...entry_data import SatConfig
 from ...helpers import float_value, int_value
-from ...types import DeviceState
+from ...types import HeaterState
 
 # Sensors
 DATA_FLAME_ACTIVE = "flame_on"
@@ -54,11 +54,11 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         self._entities: list[RegistryEntry] = entity_registry.async_entries_for_device(self._entity_registry, self._device.id)
 
     @property
-    def device_id(self) -> str:
+    def id(self) -> str:
         return self._mac_address
 
     @property
-    def device_type(self) -> str:
+    def type(self) -> str:
         return "ESPHome"
 
     @property
@@ -78,16 +78,16 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         return True
 
     @property
-    def device_active(self) -> bool:
-        return self.get(switch.DOMAIN, DATA_CENTRAL_HEATING) == DeviceState.ON
+    def active(self) -> bool:
+        return self.get(switch.DOMAIN, DATA_CENTRAL_HEATING) == HeaterState.ON
 
     @property
     def flame_active(self) -> bool:
-        return self.get(binary_sensor.DOMAIN, DATA_FLAME_ACTIVE) == DeviceState.ON
+        return self.get(binary_sensor.DOMAIN, DATA_FLAME_ACTIVE) == HeaterState.ON
 
     @property
     def hot_water_active(self) -> bool:
-        return self.get(binary_sensor.DOMAIN, DATA_DHW_ACTIVE) == DeviceState.ON
+        return self.get(binary_sensor.DOMAIN, DATA_DHW_ACTIVE) == HeaterState.ON
 
     @property
     def setpoint(self) -> Optional[float]:
@@ -179,8 +179,8 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
         await super().async_set_control_hot_water_setpoint(value)
 
-    async def async_set_heater_state(self, state: DeviceState) -> None:
-        await self._send_command_state(DATA_CENTRAL_HEATING, state == DeviceState.ON)
+    async def async_set_heater_state(self, state: HeaterState) -> None:
+        await self._send_command_state(DATA_CENTRAL_HEATING, state == HeaterState.ON)
 
         await super().async_set_heater_state(state)
 

@@ -4,7 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from custom_components.sat.const import DEADBAND, HeatingSystem
+from custom_components.sat.const import DEADBAND
+from custom_components.sat.types import HeatingSystem
 from custom_components.sat.entry_data import PidConfig
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pid import (

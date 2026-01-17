@@ -1,6 +1,7 @@
 import pytest
 
-from custom_components.sat.const import CONF_MAXIMUM_SETPOINT, HeatingSystem
+from custom_components.sat.const import CONF_MAXIMUM_SETPOINT
+from custom_components.sat.types import HeatingSystem
 from custom_components.sat.coordinator.fake import SatFakeCoordinator
 from custom_components.sat.overshoot_protection import (
     MINIMUM_WARMUP_RISE,

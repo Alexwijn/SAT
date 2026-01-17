@@ -6,7 +6,7 @@ from typing import Optional
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .helpers import timestamp, seconds_since
-from .types import DeviceState
+from .types import HeaterState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class OvershootProtection:
 
     async def _trigger_heating_cycle(self, is_ready: bool) -> None:
         """Trigger a heating cycle with the coordinator."""
-        await self._coordinator.async_set_heater_state(DeviceState.ON)
+        await self._coordinator.async_set_heater_state(HeaterState.ON)
         await self._coordinator.async_set_control_setpoint(await self._get_setpoint(is_ready))
         await self._coordinator.async_set_control_max_relative_modulation(MAXIMUM_RELATIVE_MODULATION)
 
@@ -137,7 +137,7 @@ class OvershootProtection:
 
     async def _reset_heater_state(self) -> None:
         """Reset the heater state to default settings."""
-        await self._coordinator.async_set_heater_state(DeviceState.OFF)
+        await self._coordinator.async_set_heater_state(HeaterState.OFF)
         await self._coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)
 
     def _record_sample(self, time_value: float, temperature: float, modulation: Optional[float]) -> None:

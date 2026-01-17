@@ -5,29 +5,18 @@ from typing import Optional
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class BoilerControlIntent:
-    setpoint: Optional[float]
-    relative_modulation: Optional[float]
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class BoilerCapabilities:
+class DeviceCapabilities:
     # Setpoint limits
     maximum_setpoint: float
     minimum_setpoint: float
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class BoilerState:
+class DeviceState:
     # Activity state
     flame_active: bool
     hot_water_active: bool
     central_heating: bool
-    modulation_reliable: Optional[bool]
-
-    # Flame timing
-    flame_off_since: Optional[float]
-    flame_on_since: Optional[float]
 
     # Temperatures / modulation
     setpoint: Optional[float]

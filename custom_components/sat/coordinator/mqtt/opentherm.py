@@ -8,7 +8,7 @@ from ...manufacturers.ideal import Ideal
 from ...manufacturers.immergas import Immergas
 from ...manufacturers.intergas import Intergas
 from ...manufacturers.nefit import Nefit
-from ...types import DeviceState
+from ...types import HeaterState
 
 STATE_ON = "ON"
 
@@ -36,7 +36,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
 
     @property
-    def device_type(self) -> str:
+    def type(self) -> str:
         return "OpenThermGateway (via mqtt)"
 
     @property
@@ -56,7 +56,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         return True
 
     @property
-    def device_active(self) -> bool:
+    def active(self) -> bool:
         return self.data.get(DATA_CENTRAL_HEATING) == STATE_ON
 
     @property
@@ -199,8 +199,8 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
 
         await super().async_set_control_thermostat_setpoint(value)
 
-    async def async_set_heater_state(self, state: DeviceState) -> None:
-        await self._publish_command(f"CH={1 if state == DeviceState.ON else 0}")
+    async def async_set_heater_state(self, state: HeaterState) -> None:
+        await self._publish_command(f"CH={1 if state == HeaterState.ON else 0}")
 
         await super().async_set_heater_state(state)
 

@@ -6,7 +6,7 @@ from typing import Optional, Union, Iterable, Tuple
 from homeassistant.core import State
 from homeassistant.util import dt
 
-from .const import HeatingSystem
+from .types import HeatingSystem
 
 
 def timestamp() -> float:

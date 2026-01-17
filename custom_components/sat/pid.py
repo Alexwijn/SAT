@@ -8,10 +8,11 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 
 from .const import *
-from .entry_data import PidConfig
+from .entry_data import PidConfig, SatConfig
 from .heating_curve import HeatingCurve
 from .helpers import float_value, timestamp as _timestamp, clamp_to_range
 from .temperature_state import TemperatureState
+from .types import HeatingSystem
 
 _LOGGER = logging.getLogger(__name__)
 timestamp = _timestamp  # keep public name for tests
@@ -34,7 +35,7 @@ STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
 class PID:
     """A proportional-integral-derivative (PID) controller."""
 
-    def __init__(self, heating_system: HeatingSystem, config: PidConfig, heating_curve: HeatingCurve) -> None:
+    def __init__(self, heating_system: HeatingSystem, heating_curve: HeatingCurve, config: PidConfig) -> None:
         self._config = config
         self._heating_curve = heating_curve
         self._heating_system = heating_system
@@ -48,6 +49,11 @@ class PID:
         self._hass: Optional[HomeAssistant] = None
 
         self.reset()
+
+    @staticmethod
+    def from_config(heating_curve: HeatingCurve, config: SatConfig):
+        """Create an instance from configuration"""
+        return PID(heating_curve=heating_curve, heating_system=config.heating_system, config=config.pid, )
 
     @property
     def available(self):

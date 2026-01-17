@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Mapping, Optional, TYPE_CHECKING
 
 from sentry_sdk import Client
 
 from .const import *
 from .helpers import calculate_default_maximum_setpoint, convert_time_str_to_seconds, float_value
+from .types import HeatingSystem, HeatingMode
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .climate import SatClimate
+    from .heating_control import SatHeatingControl
     from .coordinator import SatDataUpdateCoordinator
 
 
@@ -261,6 +264,7 @@ class SatConfig:
 class SatEntryData:
     config: SatConfig
     coordinator: SatDataUpdateCoordinator
+    heating_control: "SatHeatingControl"
 
     sentry: Optional[Client] = None
     climate: Optional[SatClimate] = None

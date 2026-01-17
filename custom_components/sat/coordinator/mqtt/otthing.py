@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from . import SatMqttCoordinator
 from ...helpers import float_value
-from ...types import DeviceState
+from ...types import HeaterState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class SatOtthingMqttCoordinator(SatMqttCoordinator):
     """Coordinator that handles OTthing MQTT telemetry and commands."""
 
     @property
-    def device_type(self) -> str:
+    def type(self) -> str:
         return "OTthing (via mqtt)"
 
     @property
@@ -63,7 +63,7 @@ class SatOtthingMqttCoordinator(SatMqttCoordinator):
         return False
 
     @property
-    def device_active(self) -> bool:
+    def active(self) -> bool:
         return bool(
             self._thermostat_status().get(DATA_THERMOSTAT_CH_ENABLE)
             or self._slave_status().get(DATA_CENTRAL_HEATING)
@@ -168,9 +168,9 @@ class SatOtthingMqttCoordinator(SatMqttCoordinator):
 
         await super().async_set_control_hot_water_setpoint(value)
 
-    async def async_set_heater_state(self, state: DeviceState) -> None:
+    async def async_set_heater_state(self, state: HeaterState) -> None:
         await self._publish_command(
-            COMMAND_PAYLOAD_HEAT if state == DeviceState.ON else COMMAND_PAYLOAD_OFF,
+            COMMAND_PAYLOAD_HEAT if state == HeaterState.ON else COMMAND_PAYLOAD_OFF,
             suffix=COMMAND_SUFFIX_CH_MODE,
         )
 

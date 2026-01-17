@@ -11,6 +11,7 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from . import SatHeatingControl
 from .climate import SatClimate
 from .const import *
 from .coordinator.serial import binary_sensor as serial_binary_sensor
@@ -39,19 +40,19 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         await serial_binary_sensor.async_setup_entry(hass, config_entry, async_add_entities)
 
     sensors: list[BinarySensorEntity] = [
-        SatCycleHealthSensor(entry_data.coordinator, entry_data.config),
-        SatBoilerHealthSensor(entry_data.coordinator, entry_data.config),
-        SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.climate),
+        SatCycleHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatDeviceHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
 
+    if len(entry_data.config.window_sensors) > 0:
+        sensors.append(SatWindowSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
+
     if entry_data.coordinator.supports_setpoint_management:
-        sensors.append(SatControlSetpointSyncSensor(entry_data.coordinator, entry_data.config, entry_data.climate))
+        sensors.append(SatControlSetpointSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
 
     if entry_data.coordinator.supports_relative_modulation_management:
-        sensors.append(SatRelativeModulationSyncSensor(entry_data.coordinator, entry_data.config, entry_data.climate))
-
-    if len(entry_data.config.window_sensors) > 0:
-        sensors.append(SatWindowSensor(entry_data.coordinator, entry_data.config, entry_data.climate))
+        sensors.append(SatRelativeModulationSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
 
     async_add_entities(sensors)
 
@@ -79,10 +80,10 @@ class SatSyncSensor:
         return False
 
 
-class SatControlSetpointSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
-    def __init__(self, coordinator, config: SatConfig, climate: SatClimate):
+class SatControlSetpointSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
         SatSyncSensor.__init__(self)
-        SatClimateEntity.__init__(self, coordinator, config, climate)
+        SatEntity.__init__(self, coordinator, config, heating_control)
 
     @property
     def name(self) -> str:
@@ -97,12 +98,12 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensor
     @property
     def available(self) -> bool:
         """Return availability of the sensor."""
-        return self._climate.setpoint is not None and self._coordinator.setpoint is not None
+        return self._heating_control.setpoint is not None and self._coordinator.setpoint is not None
 
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        climate_setpoint = round(self._climate.setpoint, 1)
+        climate_setpoint = round(self._heating_control.setpoint, 1)
         coordinator_setpoint = round(self._coordinator.setpoint, 1)
 
         return self.state_delayed(climate_setpoint != coordinator_setpoint)
@@ -113,10 +114,10 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensor
         return f"{self._config.entry_id}-control-setpoint-synchro"
 
 
-class SatRelativeModulationSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
-    def __init__(self, coordinator, config: SatConfig, climate: SatClimate):
+class SatRelativeModulationSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
         SatSyncSensor.__init__(self)
-        SatClimateEntity.__init__(self, coordinator, config, climate)
+        SatEntity.__init__(self, coordinator, config, heating_control)
 
     @property
     def name(self) -> str:
@@ -131,7 +132,7 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatClimateEntity, BinarySen
     @property
     def available(self) -> bool:
         """Return availability of the sensor."""
-        climate_modulation = self._climate.relative_modulation_value
+        climate_modulation = self._heating_control.relative_modulation_value
         maximum_modulation = self._coordinator.maximum_relative_modulation_value
 
         return climate_modulation is not None and maximum_modulation is not None
@@ -139,7 +140,7 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatClimateEntity, BinarySen
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        climate_modulation = int(self._climate.relative_modulation_value)
+        climate_modulation = int(self._heating_control.relative_modulation_value)
         maximum_modulation = int(self._coordinator.maximum_relative_modulation_value)
 
         return self.state_delayed(climate_modulation != maximum_modulation)
@@ -151,9 +152,9 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatClimateEntity, BinarySen
 
 
 class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
-    def __init__(self, coordinator, config: SatConfig, climate: SatClimate):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, climate: SatClimate):
         SatSyncSensor.__init__(self)
-        SatClimateEntity.__init__(self, coordinator, config, climate)
+        SatClimateEntity.__init__(self, coordinator, config, heating_control, climate)
 
     @property
     def name(self) -> str:
@@ -173,7 +174,7 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        device_active = self._coordinator.device_active
+        device_active = self._coordinator.active
         climate_hvac_action = self._climate.state_attributes.get("hvac_action")
 
         should_be_off = climate_hvac_action == HVACAction.OFF and not device_active
@@ -188,12 +189,12 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
         return f"{self._config.entry_id}-central-heating-synchro"
 
 
-class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
+class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):
 
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return "Boiler Health"
+        return "Device Health"
 
     @property
     def device_class(self) -> BinarySensorDeviceClass:
@@ -203,7 +204,7 @@ class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        return self._coordinator.device_status == BoilerStatus.INSUFFICIENT_DATA
+        return self._heating_control.device_status == BoilerStatus.INSUFFICIENT_DATA
 
     @property
     def unique_id(self) -> str:
@@ -232,10 +233,10 @@ class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        if self._coordinator.last_cycle is None:
+        if self._heating_control is None or self._heating_control.last_cycle is None:
             return False
 
-        return self._coordinator.last_cycle.classification not in (
+        return self._heating_control.last_cycle.classification not in (
             CycleClassification.GOOD,
             CycleClassification.UNCERTAIN,
             CycleClassification.INSUFFICIENT_DATA,
@@ -247,9 +248,9 @@ class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
         return f"{self._config.entry_id}-cycle-health"
 
 
-class SatWindowSensor(SatClimateEntity, BinarySensorGroup):
-    def __init__(self, coordinator, config: SatConfig, climate: SatClimate):
-        super().__init__(coordinator, config, climate)
+class SatWindowSensor(SatEntity, BinarySensorGroup):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
 
         self.mode = any
         self._entity_ids = self._config.window_sensors

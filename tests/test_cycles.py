@@ -4,8 +4,7 @@ from typing import Optional
 
 import pytest
 
-from custom_components.sat.boiler import BoilerState, BoilerControlIntent
-from custom_components.sat.coordinator import ControlLoopSample
+from custom_components.sat.device import DeviceState
 from custom_components.sat.cycles import Cycle, CycleHistory, CycleMetrics, CycleShapeMetrics, CycleTracker
 from custom_components.sat.cycles.const import (
     OVERSHOOT_MARGIN_CELSIUS,
@@ -16,9 +15,10 @@ from custom_components.sat.cycles.const import (
     ULTRA_SHORT_MIN_ON_TIME_SECONDS,
 )
 from custom_components.sat.const import COLD_SETPOINT
+from custom_components.sat.heating_control import ControlLoopSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
-from custom_components.sat.types import CycleClassification, CycleKind, Percentiles, PWMStatus
+from custom_components.sat.types import CycleClassification, CycleControlMode, CycleKind, Percentiles, PWMStatus
 
 
 def _make_pwm_state(status: PWMStatus = PWMStatus.IDLE) -> PWMState:
@@ -37,19 +37,16 @@ def _make_boiler_state(
         flow_temperature: float = 40.0,
         hot_water_active: bool = False,
         central_heating: bool = True,
-) -> BoilerState:
-    return BoilerState(
+) -> DeviceState:
+    return DeviceState(
         flame_active=flame_active,
         central_heating=central_heating,
         hot_water_active=hot_water_active,
-        flame_on_since=None,
-        flame_off_since=None,
         setpoint=setpoint,
         flow_temperature=flow_temperature,
         return_temperature=flow_temperature - 10.0,
         relative_modulation_level=None,
         max_modulation_level=100,
-        modulation_reliable=True
     )
 
 
@@ -64,28 +61,27 @@ def _make_sample(
     return ControlLoopSample(
         timestamp=timestamp,
         pwm=_make_pwm_state(PWMStatus.IDLE),
-        state=_make_boiler_state(
+        device_state=_make_boiler_state(
             flame_active=flame_active,
             setpoint=setpoint,
             flow_temperature=flow_temperature,
             hot_water_active=hot_water_active,
         ),
-        intent=BoilerControlIntent(setpoint=setpoint, relative_modulation=None),
+        control_setpoint=setpoint,
+        relative_modulation=None,
         outside_temperature=5.0,
         requested_setpoint=setpoint,
     )
 
 
-def _tail_metrics_for_error(error: Optional[float], *, hot_water_fraction: float = 0.0) -> CycleMetrics:
+def _tail_metrics_for_error(error: Optional[float], *, setpoint: float = 40.0, hot_water_fraction: float = 0.0) -> CycleMetrics:
     return CycleMetrics(
-        setpoint=Percentiles(p50=40.0, p90=40.0),
-        intent_setpoint=Percentiles(p50=40.0, p90=40.0),
+        control_setpoint=Percentiles(p50=setpoint, p90=setpoint),
         flow_temperature=Percentiles(p50=40.0, p90=40.0),
         return_temperature=Percentiles(p50=30.0, p90=30.0),
         relative_modulation_level=Percentiles(p50=None, p90=None),
         flow_return_delta=Percentiles(p50=10.0, p90=10.0),
         flow_setpoint_error=Percentiles(p50=error, p90=error),
-        flow_intent_setpoint_error=Percentiles(p50=error, p90=error),
         hot_water_active_fraction=hot_water_fraction,
     )
 
@@ -104,6 +100,7 @@ def _make_cycle(end_time: float, duration: float) -> Cycle:
     metrics = _tail_metrics_for_error(0.0)
     return Cycle(
         kind=CycleKind.CENTRAL_HEATING,
+        control_mode=CycleControlMode.CONTINUOUS,
         tail=metrics,
         metrics=metrics,
         shape=_shape_metrics(duration),
@@ -111,6 +108,7 @@ def _make_cycle(end_time: float, duration: float) -> Cycle:
         start=end_time - duration,
         end=end_time,
         sample_count=3,
+        min_flow_temperature=35.0,
         max_flow_temperature=45.0,
         fraction_space_heating=1.0,
         fraction_domestic_hot_water=0.0,
@@ -200,7 +198,7 @@ def test_classify_long_underheat_below_cold_setpoint():
 def test_classify_short_underheat_below_cold_setpoint_uncertain():
     boiler_state = _make_boiler_state(flame_active=False, setpoint=COLD_SETPOINT - 5.0)
     pwm_state = _make_pwm_state(PWMStatus.IDLE)
-    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.2))
+    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.2), setpoint=COLD_SETPOINT - 5.0)
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,

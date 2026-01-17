@@ -6,7 +6,8 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import assert_setup_component, MockConfigEntry
 
-from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_WINDOW_SENSORS, DOMAIN, HeatingSystem
+from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_WINDOW_SENSORS, DOMAIN
+from custom_components.sat.types import HeatingSystem
 from tests.const import DEFAULT_USER_DATA
 
 pytestmark = pytest.mark.parametrize(

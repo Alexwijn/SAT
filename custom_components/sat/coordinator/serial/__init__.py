@@ -12,14 +12,14 @@ from serial import SerialException
 
 from .. import SatDataUpdateCoordinator
 from ...entry_data import SatConfig
-from ...types import DeviceState
+from ...types import HeaterState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 # Sensors
 TRANSLATE_SOURCE = {
     gw_vars.OTGW: None,
-    gw_vars.BOILER: "Boiler",
+    gw_vars.BOILER: "Device",
     gw_vars.THERMOSTAT: "Thermostat",
 }
 
@@ -43,15 +43,15 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         self._api.subscribe(self._publish_callback)
 
     @property
-    def device_id(self) -> str:
+    def id(self) -> str:
         return self._port
 
     @property
-    def device_type(self) -> str:
+    def type(self) -> str:
         return "OpenThermGateway (via serial)"
 
     @property
-    def device_active(self) -> bool:
+    def active(self) -> bool:
         return bool(self.get(DATA_MASTER_CH_ENABLED) or False)
 
     @property
@@ -180,6 +180,7 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
                 self._publish_callback = None
 
         await self._graceful_disconnect()
+        await super().async_will_remove_from_hass()
 
     async def async_set_control_setpoint(self, value: float) -> None:
         if not self._config.simulation.enabled:
@@ -199,9 +200,9 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_thermostat_setpoint(value)
 
-    async def async_set_heater_state(self, state: DeviceState) -> None:
+    async def async_set_heater_state(self, state: HeaterState) -> None:
         if not self._config.simulation.enabled:
-            await self._api.set_ch_enable_bit(1 if state == DeviceState.ON else 0)
+            await self._api.set_ch_enable_bit(1 if state == HeaterState.ON else 0)
 
         await super().async_set_heater_state(state)
 

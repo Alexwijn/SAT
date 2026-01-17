@@ -2,42 +2,26 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Any
+from typing import Optional, Any
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from ..boiler import Boiler, BoilerState, BoilerCapabilities, BoilerControlIntent
-from ..const import DOMAIN, COLD_SETPOINT, MINIMUM_SETPOINT
-from ..cycles import CycleTracker, CycleHistory, CycleStatistics, Cycle
+from ..const import DOMAIN, MINIMUM_SETPOINT
+from ..device import DeviceCapabilities, DeviceState
 from ..entry_data import SatConfig, SatMode
-from ..helpers import calculate_default_maximum_setpoint, event_timestamp, timestamp
+from ..helpers import calculate_default_maximum_setpoint
 from ..manufacturer import Manufacturer, ManufacturerFactory
 from ..manufacturers.geminox import Geminox
 from ..manufacturers.ideal import Ideal
 from ..manufacturers.intergas import Intergas
 from ..manufacturers.nefit import Nefit
-from ..types import BoilerStatus, DeviceState
-
-if TYPE_CHECKING:
-    from ..pwm import PWMState
+from ..types import HeaterState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True, slots=True)
-class ControlLoopSample:
-    timestamp: float
-
-    pwm: "PWMState"
-    state: "BoilerState"
-    intent: "BoilerControlIntent"
-    requested_setpoint: Optional[float] = None
-    outside_temperature: Optional[float] = None
 
 
 class SatData(dict):
@@ -111,19 +95,13 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=DOMAIN)
         self.data: SatData = SatData()
 
-        self._boiler: Boiler = Boiler()
-        self._cycles: CycleHistory = CycleHistory()
-        self._cycle_tracker: CycleTracker = CycleTracker(hass, self._cycles)
-
-        self._device_on_since: Optional[float] = None
-        self._flame_off_hold_setpoint: Optional[float] = None
-
-        self._control_pwm_state: Optional["PWMState"] = None
-        self._control_requested_setpoint: Optional[float] = None
-        self._control_outside_temperature: Optional[float] = None
-        self._control_intent: Optional[BoilerControlIntent] = None
-        self._hass_notify_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_listeners)
-        self._control_update_debouncer = Debouncer(hass=self.hass, logger=_LOGGER, cooldown=0.2, immediate=False, function=self.async_update_control)
+        self._hass_notify_debouncer = Debouncer(
+            hass=self.hass,
+            logger=_LOGGER,
+            cooldown=0.2,
+            immediate=False,
+            function=self.async_update_listeners,
+        )
 
         self._config: SatConfig = config
         self._manufacturer: Optional[Manufacturer] = None
@@ -133,40 +111,31 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     @abstractmethod
-    def device_id(self) -> str:
+    def id(self) -> str:
         """Expose the unique device identifier."""
         pass
 
     @property
     @abstractmethod
-    def device_type(self) -> str:
+    def type(self) -> str:
         """Expose the device backend type."""
         pass
 
     @property
-    def device_status(self) -> BoilerStatus:
-        """Report the current boiler status."""
-        return self._boiler.status
-
-    @property
-    def device_capabilities(self) -> BoilerCapabilities:
+    def capabilities(self) -> DeviceCapabilities:
         """Describe setpoint capabilities for this device."""
-        return BoilerCapabilities(
+        return DeviceCapabilities(
             minimum_setpoint=self.minimum_setpoint,
             maximum_setpoint=self.maximum_setpoint_value,
         )
 
     @property
-    def device_state(self) -> BoilerState:
-        """Snapshot the current boiler state for control logic."""
-        return BoilerState(
+    def state(self) -> DeviceState:
+        """Build a boiler state snapshot from coordinator signals."""
+        return DeviceState(
             flame_active=self.flame_active,
-            central_heating=self.device_active,
             hot_water_active=self.hot_water_active,
-            modulation_reliable=self._boiler.modulation_reliable,
-
-            flame_on_since=self._boiler.flame_on_since,
-            flame_off_since=self._boiler.flame_off_since,
+            central_heating=self.active,
 
             setpoint=self.setpoint,
             flow_temperature=self.boiler_temperature,
@@ -174,16 +143,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
             relative_modulation_level=self.relative_modulation_value,
             max_modulation_level=self.maximum_relative_modulation_value,
         )
-
-    @property
-    def cycles(self) -> CycleStatistics:
-        """Expose aggregated cycle statistics."""
-        return self._cycles.statistics
-
-    @property
-    def last_cycle(self) -> Optional[Cycle]:
-        """Expose the most recent completed cycle."""
-        return self._cycles.last_cycle
 
     @property
     def manufacturer(self) -> Optional[Manufacturer]:
@@ -198,7 +157,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     @abstractmethod
-    def device_active(self) -> bool:
+    def active(self) -> bool:
         """Whether the device is actively heating."""
         pass
 
@@ -210,13 +169,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def flame_active(self) -> bool:
-        """Expose flame activity; defaults to device_active."""
-        return self.device_active
-
-    @property
-    def heater_on_since(self) -> Optional[float]:
-        """Timestamp when the heater last turned on."""
-        return self._device_on_since
+        """Expose flame activity; defaults to active."""
+        return self.active
 
     @property
     def hot_water_active(self) -> bool:
@@ -383,42 +337,17 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when an entity is removed from hass."""
-        pass
+        self._hass_notify_debouncer.async_cancel()
 
-    def set_control_intent(self, intent: BoilerControlIntent) -> None:
-        """Store the latest control intent produced by a climate entity."""
-        self._control_intent = intent
-
-    def set_control_context(self, pwm_state: "PWMState", requested_setpoint: Optional[float] = None, outside_temperature: Optional[float] = None) -> None:
-        """Store the latest control context produced by a climate entity."""
-        self._control_pwm_state = pwm_state
-        self._control_requested_setpoint = requested_setpoint
-        self._control_outside_temperature = outside_temperature
-
-    async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
-        """Control the heating loop for the device."""
-        timestamp = event_timestamp(time)
-
-        # Track how long the device has been on.
-        if not self.device_active:
-            self._device_on_since = None
-        elif self._device_on_since is None:
-            self._device_on_since = timestamp
+    async def async_control_heating_loop(self, timestamp: float) -> None:
+        """Hook for device-specific loop updates."""
 
         # Backfill manufacturer from member_id when not set (deprecated path).
         if self._manufacturer is None and self.member_id is not None:
             manufacturers = ManufacturerFactory.resolve_by_member_id(self.member_id)
             self._manufacturer = manufacturers[0] if len(manufacturers) > 0 else None
 
-        if self._control_intent is not None:
-            if self._control_intent.setpoint is not None:
-                setpoint = self._apply_control_setpoint_override(self._control_intent.setpoint)
-                await self.async_set_control_setpoint(setpoint if setpoint > COLD_SETPOINT else MINIMUM_SETPOINT)
-
-            if self._control_intent.relative_modulation is not None:
-                await self.async_set_control_max_relative_modulation(int(self._control_intent.relative_modulation))
-
-    async def async_set_heater_state(self, state: DeviceState) -> None:
+    async def async_set_heater_state(self, state: HeaterState) -> None:
         """Set the state of the device heater."""
         _LOGGER.info("Set central heater state %s", state)
 
@@ -446,26 +375,14 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Control the setpoint temperature for the thermostat."""
         pass
 
-    async def async_update_control(self) -> None:
-        """Update the control state."""
-        self._boiler.update(state=self.device_state, last_cycle=self.last_cycle)
-
-        if self._control_intent is not None and self._control_pwm_state is not None:
-            self._cycle_tracker.update(ControlLoopSample(
-                timestamp=timestamp(),
-                state=self.device_state,
-                intent=self._control_intent,
-                pwm=self._control_pwm_state,
-                outside_temperature=self._control_outside_temperature,
-                requested_setpoint=self._control_requested_setpoint,
-            ))
-
     @callback
     def async_notify_listeners(self, force: bool = True) -> None:
         """Notify listeners that the data has changed."""
-        self.hass.async_create_task(self._control_update_debouncer.async_call())
-
         if not force and not self.data.is_dirty():
+            return
+
+        if not self._listeners:
+            self.data.reset_dirty()
             return
 
         self.data.reset_dirty()
@@ -476,60 +393,6 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Update the internal data store with new values."""
         self.data.update(data)
         self.async_notify_listeners(False)
-
-    def _apply_control_setpoint_override(self, intended_setpoint: float) -> float:
-        """Apply a setpoint override based on the current device state."""
-        if self._control_pwm_state is None or not self._control_pwm_state.enabled:
-            return intended_setpoint
-
-        if self.hot_water_active or self._control_intent.setpoint <= COLD_SETPOINT:
-            return intended_setpoint
-
-        if not self.flame_active:
-            if (return_temperature := self.return_temperature) is None:
-                return intended_setpoint
-
-            self._flame_off_hold_setpoint = return_temperature + self._config.flame_off_setpoint_offset_celsius
-
-            _LOGGER.debug(
-                "Setpoint override (flame off): return=%.1f°C offset=%.1f°C -> %.1f°C (intended=%.1f°C)",
-                return_temperature, self._config.flame_off_setpoint_offset_celsius, self._flame_off_hold_setpoint, intended_setpoint
-            )
-
-            return self._flame_off_hold_setpoint
-
-        if (flame_on_since := self._boiler.flame_on_since) is None:
-            return intended_setpoint
-
-        elapsed_since_flame_on = timestamp() - flame_on_since
-        if elapsed_since_flame_on < self._config.modulation_suppression_delay_seconds:
-            if self._flame_off_hold_setpoint is not None:
-                _LOGGER.debug(
-                    "Setpoint override hold: using flame-off setpoint %.1f°C for %.1fs more.",
-                    self._flame_off_hold_setpoint, self._config.modulation_suppression_delay_seconds - elapsed_since_flame_on
-                )
-
-                return self._flame_off_hold_setpoint
-
-            _LOGGER.debug(
-                "Setpoint override pending: waiting %.1fs more (elapsed=%.1fs, delay=%.1fs).",
-                self._config.modulation_suppression_delay_seconds - elapsed_since_flame_on, elapsed_since_flame_on, self._config.modulation_suppression_delay_seconds
-            )
-
-            return intended_setpoint
-
-        if (flow_temperature := self.boiler_temperature) is None:
-            return intended_setpoint
-
-        self._flame_off_hold_setpoint = None
-        suppressed_setpoint = flow_temperature - self._config.modulation_suppression_offset_celsius
-
-        _LOGGER.debug(
-            "Setpoint override (suppression) : flow=%.1f°C offset=%.1f°C -> %.1f°C (min=%.1f°C, intended=%.1f°C)",
-            flow_temperature, self._config.modulation_suppression_offset_celsius, suppressed_setpoint, self._control_intent.setpoint, intended_setpoint
-        )
-
-        return suppressed_setpoint
 
 
 class SatEntityCoordinator(DataUpdateCoordinator):

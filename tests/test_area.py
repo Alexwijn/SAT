@@ -3,7 +3,8 @@ from datetime import timedelta
 from homeassistant.util import dt as dt_util
 
 from custom_components.sat.area import Area, ATTR_SENSOR_TEMPERATURE_ID
-from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_SENSOR_MAX_VALUE_AGE, HeatingSystem, OPTIONS_DEFAULTS
+from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_SENSOR_MAX_VALUE_AGE, OPTIONS_DEFAULTS
+from custom_components.sat.types import HeatingSystem
 from tests.const import make_config
 
 

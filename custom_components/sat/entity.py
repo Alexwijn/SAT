@@ -15,13 +15,15 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 if typing.TYPE_CHECKING:
     from .climate import SatClimate
     from .coordinator import SatDataUpdateCoordinator
+    from .heating_control import SatHeatingControl
 
 
 class SatEntity(CoordinatorEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig):
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
         super().__init__(coordinator)
 
         self._coordinator: SatDataUpdateCoordinator = coordinator
+        self._heating_control = heating_control
         self._config = config
 
     @property
@@ -34,14 +36,14 @@ class SatEntity(CoordinatorEntity):
             name=NAME,
             manufacturer=manufacturer,
             suggested_area="Living Room",
-            model=self._coordinator.device_type,
+            model=self._coordinator.type,
             identifiers={(DOMAIN, self._config.entry_id)}
         )
 
 
 class SatClimateEntity(SatEntity):
-    def __init__(self, coordinator, config: SatConfig, climate: SatClimate):
-        super().__init__(coordinator, config)
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, climate: SatClimate):
+        super().__init__(coordinator, config, heating_control)
 
         self._climate = climate
 

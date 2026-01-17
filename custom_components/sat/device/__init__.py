@@ -8,9 +8,8 @@ from homeassistant.helpers.storage import Store
 
 from .const import *
 from .modulation import ModulationReliabilityTracker
-from .status import BoilerStatusEvaluator, BoilerStatusSnapshot
-from .types import BoilerCapabilities, BoilerControlIntent, BoilerState
-from ..helpers import timestamp
+from .status import DeviceStatusEvaluator, DeviceStatusSnapshot
+from .types import DeviceCapabilities, DeviceState
 from ..types import BoilerStatus
 
 if TYPE_CHECKING:
@@ -19,12 +18,12 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class Boiler:
+class DeviceTracker:
     def __init__(self) -> None:
         # Runtime state
         self._last_cycle: Optional["Cycle"] = None
-        self._current_state: Optional[BoilerState] = None
-        self._previous_state: Optional[BoilerState] = None
+        self._current_state: Optional[DeviceState] = None
+        self._previous_state: Optional[DeviceState] = None
         self._current_status: Optional[BoilerStatus] = None
 
         self._last_update_at: Optional[float] = None
@@ -47,11 +46,11 @@ class Boiler:
         return self._current_status
 
     @property
-    def current_state(self) -> Optional[BoilerState]:
+    def current_state(self) -> Optional[DeviceState]:
         return self._current_state
 
     @property
-    def previous_state(self) -> Optional[BoilerState]:
+    def previous_state(self) -> Optional[DeviceState]:
         return self._previous_state
 
     @property
@@ -67,11 +66,17 @@ class Boiler:
         return self._last_flame_off_at
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
-        """Restore boiler state from storage when the integration loads."""
+        """Restore device state from storage when the integration loads."""
         self._hass = hass
-        self._store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
+        self._store = Store(hass, STORAGE_VERSION, f"sat.device.{device_id}")
 
         data: Optional[Dict[str, Any]] = await self._store.async_load()
+        if not data:
+            legacy_store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
+            data = await legacy_store.async_load()
+            if data:
+                await self._store.async_save(data)
+                _LOGGER.debug("Migrated legacy boiler storage to device storage.")
         if not data:
             return
 
@@ -82,28 +87,30 @@ class Boiler:
 
         self._modulation_tracker.load(modulation_reliable)
 
-        _LOGGER.debug("Loaded boiler state from storage (modulation_reliable=%s).", modulation_reliable)
+        _LOGGER.debug("Loaded device state from storage (modulation_reliable=%s).", modulation_reliable)
 
     async def async_save_data(self) -> None:
         if self._store is None:
             return
 
         await self._store.async_save({"modulation_reliable": self._modulation_tracker.reliable})
-        _LOGGER.debug("Saved boiler state to storage (modulation_reliable=%s).", self._modulation_tracker.reliable)
+        _LOGGER.debug("Saved device state to storage (modulation_reliable=%s).", self._modulation_tracker.reliable)
 
-    def update(self, state: BoilerState, last_cycle: Optional["Cycle"]) -> None:
-        """Update the internal state and derive the current boiler status."""
-        previous = self._current_state
-        self._current_state = state
+    def update(self, state: DeviceState, last_cycle: Optional["Cycle"], timestamp: float) -> None:
+        """Update the internal state and derive the current device status."""
         self._last_cycle = last_cycle
-        self._previous_state = previous
-        self._previous_update_at = self._last_update_at
-        self._last_update_at = timestamp()
 
-        if not BoilerStatusEvaluator.has_demand(state):
+        self._previous_state = self._current_state
+        self._current_state = state
+
+        self._previous_update_at = self._last_update_at
+        self._last_update_at = timestamp
+
+        if not DeviceStatusEvaluator.has_demand(state):
             self._last_flame_off_at = None
 
-        self._record_flame_transitions(previous, state)
+        self._record_flame_transitions(self._previous_state, state)
+
         if self._modulation_tracker.update(state) and self._hass is not None:
             self._hass.create_task(self.async_save_data())
 
@@ -117,7 +124,7 @@ class Boiler:
             # Should not happen in normal usage; treat as inactive.
             return BoilerStatus.OFF
 
-        return BoilerStatusEvaluator.evaluate(BoilerStatusSnapshot(
+        return DeviceStatusEvaluator.evaluate(DeviceStatusSnapshot(
             last_cycle=self._last_cycle,
             last_flame_on_at=self._last_flame_on_at,
             last_flame_off_at=self._last_flame_off_at,
@@ -163,7 +170,7 @@ class Boiler:
 
         return 0
 
-    def _record_flame_transitions(self, previous: Optional[BoilerState], current: BoilerState) -> None:
+    def _record_flame_transitions(self, previous: Optional[DeviceState], current: DeviceState) -> None:
         """Track flame ON/OFF timestamps and overshoot at OFF."""
         if previous is None:
             if current.flame_active:
@@ -173,7 +180,7 @@ class Boiler:
         if previous.flame_active and not current.flame_active:
             # Flame ON -> OFF
             self._last_flame_off_at = self._last_update_at
-            self._last_flame_off_was_overshoot = BoilerStatusEvaluator.did_overshoot_at_flame_off(previous)
+            self._last_flame_off_was_overshoot = DeviceStatusEvaluator.did_overshoot_at_flame_off(previous)
 
         elif not previous.flame_active and current.flame_active:
             # Flame OFF -> ON
@@ -182,8 +189,7 @@ class Boiler:
 
 
 __all__ = [
-    "Boiler",
-    "BoilerState",
-    "BoilerCapabilities",
-    "BoilerControlIntent",
+    "DeviceTracker",
+    "DeviceState",
+    "DeviceCapabilities",
 ]

@@ -13,6 +13,7 @@ from pyotgw.vars import *
 from . import TRANSLATE_SOURCE, SatSerialCoordinator
 from ...entity import SatEntity
 from ...entry_data import SatConfig, get_entry_data
+from ...heating_control import SatHeatingControl
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,14 +36,14 @@ class SatSerialSensorDefinition:
 SENSOR_INFO: dict[str, SatSensorInfo] = {
     DATA_CONTROL_SETPOINT: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Control Setpoint {}", [BOILER, THERMOSTAT]),
     DATA_MASTER_MEMBERID: SatSensorInfo(None, None, "Thermostat Member ID {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_MEMBERID: SatSensorInfo(None, None, "Boiler Member ID {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_OEM_FAULT: SatSensorInfo(None, None, "Boiler OEM Fault Code {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MEMBERID: SatSensorInfo(None, None, "Device Member ID {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_OEM_FAULT: SatSensorInfo(None, None, "Device OEM Fault Code {}", [BOILER, THERMOSTAT]),
     DATA_COOLING_CONTROL: SatSensorInfo(None, PERCENTAGE, "Cooling Control Signal {}", [BOILER, THERMOSTAT]),
     DATA_CONTROL_SETPOINT_2: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Control Setpoint 2 {}", [BOILER, THERMOSTAT]),
     DATA_ROOM_SETPOINT_OVRD: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Room Setpoint Override {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_MAX_RELATIVE_MOD: SatSensorInfo(None, PERCENTAGE, "Boiler Maximum Relative Modulation {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_MAX_CAPACITY: SatSensorInfo(sensor.SensorDeviceClass.POWER, UnitOfPower.KILO_WATT, "Boiler Maximum Capacity {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_MIN_MOD_LEVEL: SatSensorInfo(None, PERCENTAGE, "Boiler Minimum Modulation Level {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MAX_RELATIVE_MOD: SatSensorInfo(None, PERCENTAGE, "Device Maximum Relative Modulation {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MAX_CAPACITY: SatSensorInfo(sensor.SensorDeviceClass.POWER, UnitOfPower.KILO_WATT, "Device Maximum Capacity {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_MIN_MOD_LEVEL: SatSensorInfo(None, PERCENTAGE, "Device Minimum Modulation Level {}", [BOILER, THERMOSTAT]),
     DATA_ROOM_SETPOINT: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Room Setpoint {}", [BOILER, THERMOSTAT]),
     DATA_REL_MOD_LEVEL: SatSensorInfo(None, PERCENTAGE, "Relative Modulation Level {}", [BOILER, THERMOSTAT], ),
     DATA_CH_WATER_PRESS: SatSensorInfo(sensor.SensorDeviceClass.PRESSURE, UnitOfPressure.BAR, "Central Heating Water Pressure {}", [BOILER, THERMOSTAT]),
@@ -60,8 +61,8 @@ SENSOR_INFO: dict[str, SatSensorInfo] = {
     DATA_EXHAUST_TEMP: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Exhaust Temperature {}", [BOILER, THERMOSTAT]),
     DATA_SLAVE_DHW_MAX_SETP: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Hot Water Maximum Setpoint {}", [BOILER, THERMOSTAT]),
     DATA_SLAVE_DHW_MIN_SETP: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Hot Water Minimum Setpoint {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_CH_MAX_SETP: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Boiler Maximum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_CH_MIN_SETP: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Boiler Minimum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CH_MAX_SETP: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Device Maximum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_CH_MIN_SETP: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Device Minimum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
     DATA_MAX_CH_SETPOINT: SatSensorInfo(sensor.SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Maximum Central Heating Setpoint {}", [BOILER, THERMOSTAT]),
     DATA_OEM_DIAG: SatSensorInfo(None, None, "OEM Diagnostic Code {}", [BOILER, THERMOSTAT]),
     DATA_TOTAL_BURNER_STARTS: SatSensorInfo(None, None, "Total Burner Starts {}", [BOILER, THERMOSTAT]),
@@ -73,11 +74,11 @@ SENSOR_INFO: dict[str, SatSensorInfo] = {
     DATA_DHW_PUMP_HOURS: SatSensorInfo(sensor.SensorDeviceClass.DURATION, UnitOfTime.HOURS, "Hot Water Pump Hours {}", [BOILER, THERMOSTAT]),
     DATA_DHW_BURNER_HOURS: SatSensorInfo(sensor.SensorDeviceClass.DURATION, UnitOfTime.HOURS, "Hot Water Burner Hours {}", [BOILER, THERMOSTAT]),
     DATA_MASTER_OT_VERSION: SatSensorInfo(None, None, "Thermostat OpenTherm Version {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_OT_VERSION: SatSensorInfo(None, None, "Boiler OpenTherm Version {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_OT_VERSION: SatSensorInfo(None, None, "Device OpenTherm Version {}", [BOILER, THERMOSTAT]),
     DATA_MASTER_PRODUCT_TYPE: SatSensorInfo(None, None, "Thermostat Product Type {}", [BOILER, THERMOSTAT]),
     DATA_MASTER_PRODUCT_VERSION: SatSensorInfo(None, None, "Thermostat Product Version {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_PRODUCT_TYPE: SatSensorInfo(None, None, "Boiler Product Type {}", [BOILER, THERMOSTAT]),
-    DATA_SLAVE_PRODUCT_VERSION: SatSensorInfo(None, None, "Boiler Product Version {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_PRODUCT_TYPE: SatSensorInfo(None, None, "Device Product Type {}", [BOILER, THERMOSTAT]),
+    DATA_SLAVE_PRODUCT_VERSION: SatSensorInfo(None, None, "Device Product Version {}", [BOILER, THERMOSTAT]),
 
     OTGW_MODE: SatSensorInfo(None, None, "Gateway/Monitor Mode {}", [OTGW]),
     OTGW_DHW_OVRD: SatSensorInfo(None, None, "Gateway Hot Water Override Mode {}", [OTGW]),
@@ -113,15 +114,21 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
                     info=info,
                     source=source,
                 )
-                entities.append(SatSensor(coordinator, entry_data.config, definition))
+                entities.append(SatSensor(coordinator, entry_data.config, entry_data.heating_control, definition))
 
     # Add all devices
     async_add_entities(entities)
 
 
 class SatSensor(SatEntity, sensor.SensorEntity):
-    def __init__(self, coordinator: SatSerialCoordinator, config: SatConfig, definition: SatSerialSensorDefinition) -> None:
-        super().__init__(coordinator, config)
+    def __init__(
+            self,
+            coordinator: SatSerialCoordinator,
+            config: SatConfig,
+            heating_control: SatHeatingControl,
+            definition: SatSerialSensorDefinition,
+    ) -> None:
+        super().__init__(coordinator, config, heating_control)
 
         self.entity_id = async_generate_entity_id(
             sensor.DOMAIN + ".{}", f"{self._config.name_lower}_{definition.source}_{definition.key}", hass=coordinator.hass

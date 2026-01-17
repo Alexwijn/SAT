@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Optional
 
 
@@ -13,7 +13,7 @@ class Percentiles:
 
 
 class BoilerStatus(Enum):
-    """Boiler operating status, grouped by idle, preheat, modulation, and cooling phases."""
+    """Device operating status, grouped by idle, preheat, modulation, and cooling phases."""
 
     # Idle/unknown
     OFF = "off"
@@ -44,8 +44,6 @@ class BoilerStatus(Enum):
 
 class CycleKind(str, Enum):
     """Cycle category for tracking heating vs hot water activity."""
-
-    # Core cycle kinds
     MIXED = "mixed"
     UNKNOWN = "unknown"
     CENTRAL_HEATING = "central_heating"
@@ -71,7 +69,7 @@ class CycleClassification(str, Enum):
     TOO_SHORT_OVERSHOOT = "too_short_overshoot"
 
 
-class DeviceState(str, Enum):
+class HeaterState(str, Enum):
     """Binary device on/off state."""
     ON = "on"
     OFF = "off"
@@ -82,6 +80,12 @@ class PWMStatus(str, Enum):
     ON = "on"
     OFF = "off"
     IDLE = "idle"
+
+
+class CycleControlMode(str, Enum):
+    """Control mode used during a cycle."""
+    PWM = "pwm"
+    CONTINUOUS = "continuous"
 
 
 class PWMDecision(str, Enum):
@@ -99,6 +103,8 @@ class PWMDecision(str, Enum):
     RETAIN_PWM_STATE = "retain_pwm_state"
     STALLED_IGNITION = "enabled_stalled_ignition"
     LAST_CYCLE_UNHEALTHY = "enabled_last_cycle_unhealthy"
+    CYCLE_OVERSHOOT = "enabled_cycle_overshoot"
+    TAIL_SETPOINT_BELOW_REQUESTED = "disabled_tail_setpoint_below_requested"
 
     @property
     def enabled(self) -> bool:
@@ -111,3 +117,19 @@ class RelativeModulationState(str, Enum):
     COLD = "cold"
     PWM_OFF = "pwm_off"
     HOT_WATER = "hot_water"
+
+
+class HeatingSystem(StrEnum):
+    UNKNOWN = "unknown"
+    HEAT_PUMP = "heat_pump"
+    RADIATORS = "radiators"
+    UNDERFLOOR = "underfloor"
+
+    @property
+    def base_offset(self) -> float:
+        return 20 if self == HeatingSystem.UNDERFLOOR else 27.2
+
+
+class HeatingMode(StrEnum):
+    ECO = "eco"
+    COMFORT = "comfort"

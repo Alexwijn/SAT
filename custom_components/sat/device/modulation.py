@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .const import BOILER_MODULATION_DELTA_THRESHOLD, BOILER_MODULATION_RELIABILITY_MIN_SAMPLES
-from .types import BoilerState
+from .types import DeviceState
 
 
 class ModulationReliabilityTracker:
@@ -18,7 +18,7 @@ class ModulationReliabilityTracker:
     def load(self, reliable: Optional[bool]) -> None:
         self._reliable = reliable
 
-    def update(self, state: BoilerState) -> bool:
+    def update(self, state: DeviceState) -> bool:
         """Track whether modulation readings show sustained, meaningful variation."""
         if not state.flame_active:
             return False

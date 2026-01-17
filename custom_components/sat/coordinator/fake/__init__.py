@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from .. import SatDataUpdateCoordinator
 from ...entry_data import SatConfig
-from ...types import DeviceState
+from ...types import HeaterState
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -22,11 +22,11 @@ class SatFakeConfig:
 
 class SatFakeCoordinator(SatDataUpdateCoordinator):
     @property
-    def device_id(self) -> str:
+    def id(self) -> str:
         return "Fake"
 
     @property
-    def device_type(self) -> str:
+    def type(self) -> str:
         return "Fake"
 
     @property
@@ -40,7 +40,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = None
         self._hot_water_setpoint = None
         self._boiler_temperature = None
-        self._device_state = DeviceState.OFF
+        self._device_state = HeaterState.OFF
         self._relative_modulation_value = 100
 
         super().__init__(hass, config)
@@ -54,8 +54,8 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         return self._boiler_temperature
 
     @property
-    def device_active(self) -> bool:
-        return self._device_state == DeviceState.ON
+    def active(self) -> bool:
+        return self._device_state == HeaterState.ON
 
     @property
     def relative_modulation_value(self):
@@ -96,7 +96,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
     async def async_set_boiler_temperature(self, value: float) -> None:
         self._boiler_temperature = value
 
-    async def async_set_heater_state(self, state: DeviceState) -> None:
+    async def async_set_heater_state(self, state: HeaterState) -> None:
         self._device_state = state
 
         await super().async_set_heater_state(state)

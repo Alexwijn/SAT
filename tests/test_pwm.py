@@ -5,46 +5,77 @@ from typing import Optional
 import pytest
 from homeassistant.core import State
 
-from custom_components.sat.boiler import BoilerState
-from custom_components.sat.const import HeatingSystem
-from custom_components.sat.heating_curve import HeatingCurve
-from custom_components.sat.pwm import PWM, PWMConfig
-from custom_components.sat.types import PWMStatus
+from custom_components.sat.device import DeviceState
+from custom_components.sat.entry_data import PwmConfig
+from custom_components.sat.pwm import PWM
+from custom_components.sat.types import CycleClassification, HeatingSystem, PWMStatus
+from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
+from custom_components.sat.types import CycleControlMode, CycleKind, Percentiles
 
 
-def _make_boiler_state(
+def _make_device_state(
     *,
     flame_active: bool = False,
     hot_water_active: bool = False,
-    flame_on_since: Optional[float] = None,
     setpoint: Optional[float] = 40.0,
     flow_temperature: Optional[float] = 50.0,
-) -> BoilerState:
-    return BoilerState(
+) -> DeviceState:
+    return DeviceState(
         flame_active=flame_active,
         central_heating=True,
         hot_water_active=hot_water_active,
-        flame_on_since=flame_on_since,
-        flame_off_since=None,
         setpoint=setpoint,
         flow_temperature=flow_temperature,
-        return_temperature=40.0,
+        return_temperature=40.0 if flow_temperature is not None else None,
         relative_modulation_level=None,
         max_modulation_level=100,
-        modulation_reliable=True
+    )
+
+
+def _make_cycle(classification: CycleClassification) -> Cycle:
+    metrics = CycleMetrics(
+        control_setpoint=Percentiles(p50=40.0, p90=40.0),
+        flow_temperature=Percentiles(p50=40.0, p90=40.0),
+        return_temperature=Percentiles(p50=30.0, p90=30.0),
+        relative_modulation_level=Percentiles(p50=None, p90=None),
+        flow_return_delta=Percentiles(p50=10.0, p90=10.0),
+        flow_setpoint_error=Percentiles(p50=0.0, p90=0.0),
+        hot_water_active_fraction=0.0,
+    )
+    shape = CycleShapeMetrics(
+        time_in_band_seconds=180.0,
+        time_to_first_overshoot_seconds=None,
+        time_to_sustained_overshoot_seconds=None,
+        total_overshoot_seconds=0.0,
+        max_flow_setpoint_error=0.0,
+    )
+    return Cycle(
+        kind=CycleKind.CENTRAL_HEATING,
+        control_mode=CycleControlMode.PWM,
+        tail=metrics,
+        metrics=metrics,
+        shape=shape,
+        classification=classification,
+        start=0.0,
+        end=180.0,
+        sample_count=5,
+        min_flow_temperature=35.0,
+        max_flow_temperature=45.0,
+        fraction_space_heating=1.0,
+        fraction_domestic_hot_water=0.0,
     )
 
 
 @pytest.fixture
-def heating_curve() -> HeatingCurve:
-    curve = HeatingCurve(HeatingSystem.RADIATORS, coefficient=1.0)
-    curve.update(20.0, 20.0)
-    return curve
-
-
-@pytest.fixture
-def pwm(heating_curve: HeatingCurve) -> PWM:
-    return PWM(PWMConfig(maximum_cycles=4, maximum_cycle_time=900), heating_curve)
+def pwm() -> PWM:
+    config = PwmConfig(
+        cycles_per_hour=4,
+        duty_cycle_seconds=4,
+        dynamic_minimum_setpoint=False,
+        force_pulse_width_modulation=False,
+        maximum_relative_modulation=100,
+    )
+    return PWM(config, HeatingSystem.RADIATORS)
 
 
 def test_initial_state_and_restore(pwm: PWM):
@@ -59,10 +90,14 @@ def test_initial_state_and_restore(pwm: PWM):
 
 
 def test_update_missing_values_sets_idle(pwm: PWM, caplog):
-    boiler_state = _make_boiler_state()
+    pwm.enable()
+    device_state = _make_device_state(setpoint=None, flow_temperature=None)
 
-    pwm._heating_curve._last_heating_curve_value = None
-    pwm.update(boiler_state, 40.0, 123.0)
+    pwm.update(
+        device_state=device_state,
+        requested_setpoint=40.0,
+        timestamp=123.0,
+    )
 
     assert pwm.enabled is True
     assert pwm.status is PWMStatus.IDLE
@@ -84,11 +119,11 @@ def test_calculate_duty_cycle_ranges(pwm: PWM, ratio, flame_active, hot_water_ac
     boiler_temperature = 50.0
     pwm._effective_on_temperature = boiler_temperature
 
-    base_offset = pwm._heating_curve.base_offset
+    base_offset = pwm._heating_system.base_offset
     setpoint = base_offset + ratio * (boiler_temperature - base_offset)
 
-    boiler_state = _make_boiler_state(flame_active=flame_active, hot_water_active=hot_water_active)
-    on_time, off_time = pwm._calculate_duty_cycle(setpoint, boiler_state)
+    device_state = _make_device_state(flame_active=flame_active, hot_water_active=hot_water_active)
+    on_time, off_time = pwm._calculate_duty_cycle(setpoint, device_state)
 
     if tolerance:
         assert on_time == pytest.approx(expected[0], abs=tolerance)
@@ -98,35 +133,53 @@ def test_calculate_duty_cycle_ranges(pwm: PWM, ratio, flame_active, hot_water_ac
 
 
 def test_update_transitions_and_cycle_limit(pwm: PWM):
-    base_offset = pwm._heating_curve.base_offset
+    pwm.enable()
+    base_offset = pwm._heating_system.base_offset
     setpoint = base_offset + 0.5 * (50.0 - base_offset)
-    boiler_state = _make_boiler_state(flow_temperature=50.0)
+    device_state = _make_device_state(flow_temperature=50.0)
 
     pwm._last_update = 0.0
-    pwm.update(boiler_state, setpoint, 0.0)
+    pwm.update(
+        device_state=device_state,
+        requested_setpoint=setpoint,
+        timestamp=0.0,
+    )
     assert pwm.status is PWMStatus.ON
     assert pwm._current_cycle == 1
 
-    pwm.update(boiler_state, setpoint, 450.0)
+    pwm.update(
+        device_state=device_state,
+        requested_setpoint=setpoint,
+        timestamp=450.0,
+    )
     assert pwm.status is PWMStatus.OFF
 
-    pwm._current_cycle = pwm._config.maximum_cycles
-    pwm.update(boiler_state, setpoint, 900.0)
+    pwm._current_cycle = pwm._config.duty_cycle_seconds
+    pwm.update(
+        device_state=device_state,
+        requested_setpoint=setpoint,
+        timestamp=900.0,
+    )
     assert pwm.status is PWMStatus.OFF
-    assert pwm._current_cycle == pwm._config.maximum_cycles
+    assert pwm._current_cycle == pwm._config.duty_cycle_seconds
 
 
 def test_cycle_count_resets_after_rolling_hour(pwm: PWM):
+    pwm.enable()
     pwm._status = PWMStatus.IDLE
     pwm._current_cycle = 4
     pwm._first_duty_cycle_start = 0.0
     pwm._last_update = 0.0
 
-    base_offset = pwm._heating_curve.base_offset
+    base_offset = pwm._heating_system.base_offset
     setpoint = base_offset + 0.05 * (50.0 - base_offset)
-    boiler_state = _make_boiler_state(flow_temperature=50.0)
+    device_state = _make_device_state(flow_temperature=50.0)
 
-    pwm.update(boiler_state, setpoint, 3701.0)
+    pwm.update(
+        device_state=device_state,
+        requested_setpoint=setpoint,
+        timestamp=3701.0,
+    )
 
     assert pwm._current_cycle == 0
     assert pwm._first_duty_cycle_start == 3701.0
@@ -134,7 +187,8 @@ def test_cycle_count_resets_after_rolling_hour(pwm: PWM):
 
 
 def test_effective_temperature_updates_when_flame_stable(pwm: PWM):
-    base_offset = pwm._heating_curve.base_offset
+    pwm.enable()
+    base_offset = pwm._heating_system.base_offset
     setpoint = base_offset + 0.5 * (50.0 - base_offset)
 
     pwm._status = PWMStatus.ON
@@ -142,13 +196,16 @@ def test_effective_temperature_updates_when_flame_stable(pwm: PWM):
     pwm._effective_on_temperature = 40.0
     pwm._first_duty_cycle_start = 100.0
 
-    boiler_state = _make_boiler_state(
+    device_state = _make_device_state(
         flame_active=True,
-        flame_on_since=100.0 - 40.0,
         flow_temperature=50.0,
     )
 
-    pwm.update(boiler_state, setpoint, 110.0)
+    pwm.update(
+        device_state=device_state,
+        requested_setpoint=setpoint,
+        timestamp=110.0,
+    )
 
     assert pwm.status is PWMStatus.ON
     assert pwm._effective_on_temperature == pytest.approx(43.0)
@@ -166,3 +223,17 @@ def test_disable_resets_state(pwm: PWM):
     assert pwm.status is PWMStatus.IDLE
     assert pwm.state.duty_cycle is None
     assert pwm.state.last_duty_cycle_percentage is None
+
+
+def test_cycle_end_enables_on_overshoot(pwm: PWM):
+    cycle = _make_cycle(CycleClassification.LONG_OVERSHOOT)
+    pwm.disable()
+    pwm.on_cycle_end(cycle)
+    assert pwm.enabled is True
+
+
+def test_cycle_end_disables_on_underheat(pwm: PWM):
+    cycle = _make_cycle(CycleClassification.LONG_UNDERHEAT)
+    pwm.enable()
+    pwm.on_cycle_end(cycle)
+    assert pwm.enabled is False

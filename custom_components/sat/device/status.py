@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
 from .const import *
-from .types import BoilerState
+from .types import DeviceState
 from ..const import UNHEALTHY_CYCLES
 from ..types import BoilerStatus
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
-class BoilerStatusSnapshot:
+class DeviceStatusSnapshot:
     last_cycle: Optional["Cycle"]
     last_flame_on_at: Optional[float]
     last_flame_off_at: Optional[float]
@@ -21,13 +21,13 @@ class BoilerStatusSnapshot:
     last_update_at: Optional[float]
     previous_update_at: Optional[float]
     modulation_direction: int
-    previous_state: Optional[BoilerState]
-    state: BoilerState
+    previous_state: Optional[DeviceState]
+    state: DeviceState
 
 
-class BoilerStatusEvaluator:
+class DeviceStatusEvaluator:
     @staticmethod
-    def evaluate(snapshot: BoilerStatusSnapshot) -> BoilerStatus:
+    def evaluate(snapshot: DeviceStatusSnapshot) -> BoilerStatus:
         state = snapshot.state
         previous = snapshot.previous_state
 
@@ -37,15 +37,15 @@ class BoilerStatusEvaluator:
 
         if not state.flame_active:
             # Overshoot cooling: flame off due to overshoot, still above setpoint.
-            if BoilerStatusEvaluator.is_overshoot_cooling(state, snapshot.last_flame_off_was_overshoot):
+            if DeviceStatusEvaluator.is_overshoot_cooling(state, snapshot.last_flame_off_was_overshoot):
                 return BoilerStatus.OVERSHOOT_COOLING
 
             # Anti-cycling: off despite demand, within minimum off time.
-            if BoilerStatusEvaluator.is_in_anti_cycling(state, snapshot.last_update_at, snapshot.last_flame_off_at):
+            if DeviceStatusEvaluator.is_in_anti_cycling(state, snapshot.last_update_at, snapshot.last_flame_off_at):
                 return BoilerStatus.ANTI_CYCLING
 
             # Stalled ignition: OFF for much longer than expected, with demand present.
-            if BoilerStatusEvaluator.is_ignition_stalled(
+            if DeviceStatusEvaluator.is_ignition_stalled(
                     last_cycle=snapshot.last_cycle,
                     last_flame_off_at=snapshot.last_flame_off_at,
                     last_flame_off_was_overshoot=snapshot.last_flame_off_was_overshoot,
@@ -59,18 +59,18 @@ class BoilerStatusEvaluator:
                 return BoilerStatus.COOLING
 
             # Just became active → pump starting phase.
-            if BoilerStatusEvaluator.is_pump_start_phase(state, previous, snapshot.last_flame_on_at):
+            if DeviceStatusEvaluator.is_pump_start_phase(state, previous, snapshot.last_flame_on_at):
                 return BoilerStatus.PUMP_STARTING
 
             if snapshot.last_cycle is not None and snapshot.last_cycle.classification in UNHEALTHY_CYCLES:
                 return BoilerStatus.SHORT_CYCLING
 
             # Waiting for flame: active, demand present, not anti cycling, not stalled.
-            if BoilerStatusEvaluator.has_demand(state):
+            if DeviceStatusEvaluator.has_demand(state):
                 return BoilerStatus.WAITING_FOR_FLAME
 
             # Post-cycle settling: shortly after last off, no demand yet.
-            if BoilerStatusEvaluator.is_in_post_cycle_settling(state, snapshot.last_update_at, snapshot.last_flame_off_at):
+            if DeviceStatusEvaluator.is_in_post_cycle_settling(state, snapshot.last_update_at, snapshot.last_flame_off_at):
                 return BoilerStatus.POST_CYCLE_SETTLING
 
             # Otherwise, simply idle.
@@ -84,7 +84,7 @@ class BoilerStatusEvaluator:
             # Without temperatures, we cannot distinguish phases well.
             return BoilerStatus.CENTRAL_HEATING
 
-        if BoilerStatusEvaluator.is_ramping_up(state, previous, snapshot.last_flame_on_at, snapshot.last_update_at, snapshot.previous_update_at):
+        if DeviceStatusEvaluator.is_ramping_up(state, previous, snapshot.last_flame_on_at, snapshot.last_update_at, snapshot.previous_update_at):
             return BoilerStatus.IGNITION_SURGE
 
         delta_to_setpoint = state.setpoint - state.flow_temperature
@@ -108,7 +108,7 @@ class BoilerStatusEvaluator:
         return BoilerStatus.CENTRAL_HEATING
 
     @staticmethod
-    def did_overshoot_at_flame_off(state: BoilerState) -> bool:
+    def did_overshoot_at_flame_off(state: DeviceState) -> bool:
         """Return True if the flame turned off because of overshoot."""
         if state.setpoint is None or state.flow_temperature is None:
             return False
@@ -116,7 +116,7 @@ class BoilerStatusEvaluator:
         return state.flow_temperature >= state.setpoint + BOILER_OVERSHOOT_DELTA
 
     @staticmethod
-    def has_demand(state: BoilerState) -> bool:
+    def has_demand(state: DeviceState) -> bool:
         """Return True if space-heating demand is present."""
         if state.setpoint is None or state.flow_temperature is None:
             return False
@@ -124,7 +124,7 @@ class BoilerStatusEvaluator:
         return state.setpoint > state.flow_temperature + BOILER_DEMAND_HYSTERESIS
 
     @staticmethod
-    def is_ignition_stalled(last_cycle: Optional["Cycle"], last_flame_off_at: Optional[float], last_flame_off_was_overshoot: bool, last_update_at: Optional[float], state: BoilerState) -> bool:
+    def is_ignition_stalled(last_cycle: Optional["Cycle"], last_flame_off_at: Optional[float], last_flame_off_was_overshoot: bool, last_update_at: Optional[float], state: DeviceState) -> bool:
         """Detect stalled ignition when demand persists for too long."""
         if last_flame_off_at is None or last_update_at is None:
             return False
@@ -132,14 +132,14 @@ class BoilerStatusEvaluator:
         if state.flame_active:
             return False
 
-        if not BoilerStatusEvaluator.has_demand(state):
+        if not DeviceStatusEvaluator.has_demand(state):
             return False
 
         # If we are still in anti-cycling or overshoot cooling, do not call this stalled.
-        if BoilerStatusEvaluator.is_in_anti_cycling(state, last_update_at, last_flame_off_at):
+        if DeviceStatusEvaluator.is_in_anti_cycling(state, last_update_at, last_flame_off_at):
             return False
 
-        if BoilerStatusEvaluator.is_overshoot_cooling(state, last_flame_off_was_overshoot):
+        if DeviceStatusEvaluator.is_overshoot_cooling(state, last_flame_off_was_overshoot):
             return False
 
         time_since_off = last_update_at - last_flame_off_at
@@ -160,7 +160,7 @@ class BoilerStatusEvaluator:
         return time_since_off >= threshold
 
     @staticmethod
-    def is_in_anti_cycling(state: BoilerState, last_update_at: Optional[float], last_flame_off_at: Optional[float]) -> bool:
+    def is_in_anti_cycling(state: DeviceState, last_update_at: Optional[float], last_flame_off_at: Optional[float]) -> bool:
         """Return True when boiler is in enforced anti-cycling off-time with demand."""
         if last_flame_off_at is None or last_update_at is None:
             return False
@@ -168,7 +168,7 @@ class BoilerStatusEvaluator:
         if state.flame_active:
             return False
 
-        if not BoilerStatusEvaluator.has_demand(state):
+        if not DeviceStatusEvaluator.has_demand(state):
             return False
 
         time_since_off = last_update_at - last_flame_off_at
@@ -178,19 +178,19 @@ class BoilerStatusEvaluator:
         return time_since_off < BOILER_ANTI_CYCLING_MIN_OFF_SECONDS
 
     @staticmethod
-    def is_in_post_cycle_settling(state: BoilerState, last_update_at: Optional[float], last_flame_off_at: Optional[float]) -> bool:
+    def is_in_post_cycle_settling(state: DeviceState, last_update_at: Optional[float], last_flame_off_at: Optional[float]) -> bool:
         """Return True during a short settling period when there is no demand."""
         if last_flame_off_at is None or last_update_at is None:
             return False
 
-        if BoilerStatusEvaluator.has_demand(state):
+        if DeviceStatusEvaluator.has_demand(state):
             return False
 
         time_since_off = last_update_at - last_flame_off_at
         return 0.0 <= time_since_off <= BOILER_POST_CYCLE_SETTLING_SECONDS
 
     @staticmethod
-    def is_overshoot_cooling(state: BoilerState, last_flame_off_was_overshoot: bool) -> bool:
+    def is_overshoot_cooling(state: DeviceState, last_flame_off_was_overshoot: bool) -> bool:
         """Return True when overshoot cooling keeps the flame off above setpoint."""
         if not last_flame_off_was_overshoot:
             return False
@@ -201,7 +201,7 @@ class BoilerStatusEvaluator:
         return (not state.flame_active) and state.flow_temperature > state.setpoint
 
     @staticmethod
-    def is_pump_start_phase(state: BoilerState, previous: Optional[BoilerState], last_flame_on_at: Optional[float]) -> bool:
+    def is_pump_start_phase(state: DeviceState, previous: Optional[DeviceState], last_flame_on_at: Optional[float]) -> bool:
         """Detect the initial pump-start phase when the system is newly active."""
         # Once we have had a flame in this active session, we no longer call it pump start.
         if last_flame_on_at is not None:
@@ -222,7 +222,7 @@ class BoilerStatusEvaluator:
         return state.flow_temperature - previous.flow_temperature <= 0.0
 
     @staticmethod
-    def is_ramping_up(state: BoilerState, previous: Optional[BoilerState], last_flame_on_at: Optional[float], last_update_at: Optional[float], previous_update_at: Optional[float]) -> bool:
+    def is_ramping_up(state: DeviceState, previous: Optional[DeviceState], last_flame_on_at: Optional[float], last_update_at: Optional[float], previous_update_at: Optional[float]) -> bool:
         """Detect rapid temperature rise shortly after flame-on."""
         if previous is None:
             return False

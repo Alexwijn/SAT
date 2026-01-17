@@ -7,14 +7,14 @@ from ..const import COLD_SETPOINT, CycleClassification
 from ..types import CycleKind, PWMStatus
 
 if TYPE_CHECKING:
-    from ..boiler import BoilerState
+    from ..device import DeviceState
     from ..pwm import PWMState
     from .types import CycleMetrics
 
 
 class CycleClassifier:
     @staticmethod
-    def classify(boiler_state: "BoilerState", duration_seconds: float, kind: CycleKind, pwm_state: "PWMState", tail_metrics: "CycleMetrics") -> CycleClassification:
+    def classify(device_state: "DeviceState", duration_seconds: float, kind: CycleKind, pwm_state: "PWMState", tail_metrics: "CycleMetrics") -> CycleClassification:
         """Classify a cycle based on duration, PWM state, and tail error metrics."""
         if duration_seconds <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
@@ -37,11 +37,11 @@ class CycleClassifier:
         is_short = duration_seconds < compute_short_threshold_seconds()
         is_ultra_short = duration_seconds < ULTRA_SHORT_MIN_ON_TIME_SECONDS
 
-        if tail_metrics.flow_intent_setpoint_error.p90 is None:
+        if tail_metrics.flow_setpoint_error.p90 is None:
             return CycleClassification.UNCERTAIN
 
-        overshoot = tail_metrics.flow_intent_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
-        underheat = tail_metrics.flow_intent_setpoint_error.p90 <= -UNDERSHOOT_MARGIN_CELSIUS
+        overshoot = tail_metrics.flow_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
+        underheat = tail_metrics.flow_setpoint_error.p90 <= -UNDERSHOOT_MARGIN_CELSIUS
 
         if is_ultra_short:
             if overshoot:
@@ -55,7 +55,11 @@ class CycleClassifier:
                 return CycleClassification.TOO_SHORT_OVERSHOOT
 
             if underheat:
-                if boiler_state.setpoint < COLD_SETPOINT:
+                effective_setpoint = device_state.setpoint
+                if tail_metrics.control_setpoint.p50 is not None:
+                    effective_setpoint = tail_metrics.control_setpoint.p50
+
+                if effective_setpoint is not None and effective_setpoint < COLD_SETPOINT:
                     return CycleClassification.UNCERTAIN
 
                 return CycleClassification.TOO_SHORT_UNDERHEAT
