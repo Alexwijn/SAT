@@ -11,15 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - ha-version: "2025.2.5"
-            python-version: "3.12"
-          - ha-version: "2025.11.3"
-            python-version: "3.12"
-          - ha-version: "2025.12.5"
-            python-version: "3.12"
-          - ha-version: "2026.1.2"
-            python-version: "3.13"
+        python-version: [ "3.13" ]
+        ha-version: [ "2025.2.5", "2025.11.3", "2025.12.5", "2026.1.2" ]
 
     steps:
       - uses: actions/checkout@v2
