@@ -162,14 +162,14 @@ class CycleTracker:
 
     @staticmethod
     def _build_cycle_shape_metrics(observation_start: float, start_time: float, samples: list["ControlLoopSample"]) -> CycleShapeMetrics:
-        """Compute shape metrics using flow_setpoint_error over time."""
+        """Compute shape metrics using flow_control_setpoint_error over time."""
         relevant_samples = [sample for sample in samples if sample.timestamp >= observation_start]
 
         if len(relevant_samples) < 2:
             return CycleShapeMetrics(
                 time_in_band_seconds=0.0,
                 total_overshoot_seconds=0.0,
-                max_flow_setpoint_error=None,
+                max_flow_control_setpoint_error=None,
                 time_to_first_overshoot_seconds=None,
                 time_to_sustained_overshoot_seconds=None,
             )
@@ -181,25 +181,31 @@ class CycleTracker:
         time_to_sustained_overshoot_seconds: Optional[float] = None
 
         current_overshoot_streak_seconds = 0.0
-        max_flow_setpoint_error: Optional[float] = None
+        max_flow_control_setpoint_error: Optional[float] = None
 
         for index in range(len(relevant_samples) - 1):
             current_sample = relevant_samples[index]
             next_sample = relevant_samples[index + 1]
 
             interval_seconds = max(0.0, next_sample.timestamp - current_sample.timestamp)
-            flow_setpoint_error = current_sample.device_state.flow_setpoint_error
+            control_setpoint = current_sample.control_setpoint
+            if control_setpoint is None:
+                control_setpoint = current_sample.device_state.setpoint
 
-            if flow_setpoint_error is None:
+            flow_control_setpoint_error = None
+            if control_setpoint is not None and current_sample.device_state.flow_temperature is not None:
+                flow_control_setpoint_error = current_sample.device_state.flow_temperature - control_setpoint
+
+            if flow_control_setpoint_error is None:
                 # No contribution when signal is missing.
                 current_overshoot_streak_seconds = 0.0
                 continue
 
-            if (max_flow_setpoint_error is None) or (flow_setpoint_error > max_flow_setpoint_error):
-                max_flow_setpoint_error = flow_setpoint_error
+            if (max_flow_control_setpoint_error is None) or (flow_control_setpoint_error > max_flow_control_setpoint_error):
+                max_flow_control_setpoint_error = flow_control_setpoint_error
 
-            in_band = abs(flow_setpoint_error) <= IN_BAND_MARGIN_CELSIUS
-            is_overshoot = flow_setpoint_error >= OVERSHOOT_MARGIN_CELSIUS
+            in_band = abs(flow_control_setpoint_error) <= IN_BAND_MARGIN_CELSIUS
+            is_overshoot = flow_control_setpoint_error >= OVERSHOOT_MARGIN_CELSIUS
 
             if in_band:
                 time_in_band_seconds += interval_seconds
@@ -217,8 +223,8 @@ class CycleTracker:
                 current_overshoot_streak_seconds = 0.0
 
         return CycleShapeMetrics(
-            max_flow_setpoint_error=max_flow_setpoint_error,
             total_overshoot_seconds=total_overshoot_seconds,
+            max_flow_control_setpoint_error=max_flow_control_setpoint_error,
 
             time_in_band_seconds=time_in_band_seconds,
             time_to_first_overshoot_seconds=time_to_first_overshoot_seconds,
@@ -253,13 +259,22 @@ class CycleTracker:
             )
 
         def get_flow_return_delta(sample: "ControlLoopSample") -> Optional[float]:
-            return sample.device_state.flow_return_delta
+            if sample.device_state.flow_temperature is None or sample.device_state.return_temperature is None:
+                return None
 
-        def get_flow_setpoint_error(sample: "ControlLoopSample") -> Optional[float]:
-            if sample.control_setpoint is not None and sample.device_state.flow_temperature is not None:
-                return sample.device_state.flow_temperature - sample.control_setpoint
+            return sample.device_state.flow_temperature - sample.device_state.return_temperature
 
-            return sample.device_state.flow_setpoint_error
+        def get_flow_control_setpoint_error(sample: "ControlLoopSample") -> Optional[float]:
+            if sample.device_state.flow_temperature is None or sample.control_setpoint is None:
+                return None
+
+            return sample.device_state.flow_temperature - sample.control_setpoint
+
+        def get_flow_requested_setpoint_error(sample: "ControlLoopSample") -> Optional[float]:
+            if sample.device_state.flow_temperature is None or sample.requested_setpoint is None:
+                return None
+
+            return sample.device_state.flow_temperature - sample.requested_setpoint
 
         def get_flow_temperature(sample: "ControlLoopSample") -> Optional[float]:
             return sample.device_state.flow_temperature
@@ -273,18 +288,24 @@ class CycleTracker:
         def get_control_setpoint(sample: "ControlLoopSample") -> Optional[float]:
             return sample.control_setpoint
 
+        def get_requested_setpoint(sample: "ControlLoopSample") -> Optional[float]:
+            return sample.requested_setpoint
+
         hot_water_active_fraction = 0.0
         if relevant_samples:
             hot_water_active_fraction = sum(1 for sample in relevant_samples if sample.device_state.hot_water_active) / float(len(relevant_samples))
 
         return CycleMetrics(
             control_setpoint=build_percentiles(get_control_setpoint),
+            requested_setpoint=build_percentiles(get_requested_setpoint),
+
             flow_temperature=build_percentiles(get_flow_temperature),
             return_temperature=build_percentiles(get_return_temperature),
             relative_modulation_level=build_percentiles(get_relative_modulation_level),
 
             flow_return_delta=build_percentiles(get_flow_return_delta),
-            flow_setpoint_error=build_percentiles(get_flow_setpoint_error),
+            flow_control_setpoint_error=build_percentiles(get_flow_control_setpoint_error),
+            flow_requested_setpoint_error=build_percentiles(get_flow_requested_setpoint_error),
 
             hot_water_active_fraction=hot_water_active_fraction,
         )

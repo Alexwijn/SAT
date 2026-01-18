@@ -81,7 +81,6 @@ CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
 # Dynamic minimum setpoint tuning keys.
-CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
 
 # Consumption bounds for energy/cost tracking.
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
@@ -107,7 +106,6 @@ OPTIONS_DEFAULTS = {
     CONF_AUTOMATIC_GAINS: True,
     CONF_AUTOMATIC_GAINS_VALUE: 2.0,
     CONF_OVERSHOOT_PROTECTION: False,
-    CONF_DYNAMIC_MINIMUM_SETPOINT: False,
 
     # Linked climates and weighting.
     CONF_RADIATORS: [],

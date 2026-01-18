@@ -4,7 +4,6 @@ import pytest
 from homeassistant.components.climate import HVACMode
 
 from custom_components.sat.const import (
-    CONF_DYNAMIC_MINIMUM_SETPOINT,
     CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS,
     CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
     CONF_HEATING_SYSTEM,
@@ -43,7 +42,6 @@ pytestmark = pytest.mark.parametrize(
 def _update_coordinator_config(coordinator) -> None:
     options = {
         **OPTIONS_DEFAULTS,
-        CONF_DYNAMIC_MINIMUM_SETPOINT: True,
     }
     config = SatConfig(
         entry_id="test",

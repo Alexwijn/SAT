@@ -215,7 +215,6 @@
         "data": {
           "error_monitoring": "Enable error monitoring",
           "climate_valve_offset": "Climate valve offset",
-          "dynamic_minimum_setpoint": "Dynamic Minimum Setpoint (Experimental)",
           "enable_flame_off_setpoint": "Enable flame-off setpoint",
           "enable_modulation_suppression": "Enable modulation suppression",
           "flame_off_setpoint_offset_celsius": "Flame-off setpoint offset",
@@ -233,7 +232,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Temperature gap (target vs current) required to treat a valve as open.",
-          "dynamic_minimum_setpoint": "Learns a dynamic minimum setpoint per regime from cycle behavior to keep burns stable and reduce short cycling.",
           "enable_flame_off_setpoint": "Apply a temporary setpoint offset while the flame is off (Pulse Width Modulation only).",
           "enable_modulation_suppression": "Reduce modulation by temporarily lowering the setpoint after flame-on (Pulse Width Modulation only).",
           "flame_off_setpoint_offset_celsius": "When the flame is off, hold a temporary setpoint at return temperature + offset (Pulse Width Modulation only).",
@@ -262,7 +260,6 @@
           "heating_curve_version": "Heating Curve Version",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximum Setpoint",
-          "dynamic_minimum_setpoint_version": "Minimum Setpoint Controller Version",
           "pid_controller_version": "PID Controller Version",
           "proportional": "Proportional (kP)",
           "window_sensors": "Contact Sensors",

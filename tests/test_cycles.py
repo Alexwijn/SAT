@@ -76,12 +76,14 @@ def _make_sample(
 
 def _tail_metrics_for_error(error: Optional[float], *, setpoint: float = 40.0, hot_water_fraction: float = 0.0) -> CycleMetrics:
     return CycleMetrics(
+        requested_setpoint=Percentiles(p50=setpoint, p90=setpoint),
         control_setpoint=Percentiles(p50=setpoint, p90=setpoint),
         flow_temperature=Percentiles(p50=40.0, p90=40.0),
         return_temperature=Percentiles(p50=30.0, p90=30.0),
         relative_modulation_level=Percentiles(p50=None, p90=None),
         flow_return_delta=Percentiles(p50=10.0, p90=10.0),
-        flow_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_control_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_requested_setpoint_error=Percentiles(p50=error, p90=error),
         hot_water_active_fraction=hot_water_fraction,
     )
 
@@ -89,7 +91,7 @@ def _tail_metrics_for_error(error: Optional[float], *, setpoint: float = 40.0, h
 def _shape_metrics(duration: float) -> CycleShapeMetrics:
     return CycleShapeMetrics(
         total_overshoot_seconds=0,
-        max_flow_setpoint_error=0,
+        max_flow_control_setpoint_error=0,
         time_in_band_seconds=duration,
         time_to_first_overshoot_seconds=None,
         time_to_sustained_overshoot_seconds=duration,
@@ -150,7 +152,7 @@ def test_classify_fast_overshoot():
 def test_classify_too_short_underheat():
     boiler_state = _make_boiler_state(flame_active=False)
     pwm_state = _make_pwm_state(PWMStatus.IDLE)
-    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.2))
+    tail_metrics = _tail_metrics_for_error(UNDERSHOOT_MARGIN_CELSIUS - 0.2)
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,
@@ -166,7 +168,7 @@ def test_classify_too_short_underheat():
 def test_classify_long_underheat():
     boiler_state = _make_boiler_state(flame_active=False)
     pwm_state = _make_pwm_state(PWMStatus.IDLE)
-    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.3))
+    tail_metrics = _tail_metrics_for_error(UNDERSHOOT_MARGIN_CELSIUS - 0.3)
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,
@@ -182,7 +184,7 @@ def test_classify_long_underheat():
 def test_classify_long_underheat_below_cold_setpoint():
     boiler_state = _make_boiler_state(flame_active=False, setpoint=COLD_SETPOINT - 5.0)
     pwm_state = _make_pwm_state(PWMStatus.IDLE)
-    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.3))
+    tail_metrics = _tail_metrics_for_error(UNDERSHOOT_MARGIN_CELSIUS - 0.3)
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,
@@ -198,7 +200,7 @@ def test_classify_long_underheat_below_cold_setpoint():
 def test_classify_short_underheat_below_cold_setpoint_uncertain():
     boiler_state = _make_boiler_state(flame_active=False, setpoint=COLD_SETPOINT - 5.0)
     pwm_state = _make_pwm_state(PWMStatus.IDLE)
-    tail_metrics = _tail_metrics_for_error(-(UNDERSHOOT_MARGIN_CELSIUS + 0.2), setpoint=COLD_SETPOINT - 5.0)
+    tail_metrics = _tail_metrics_for_error(UNDERSHOOT_MARGIN_CELSIUS - 0.2, setpoint=COLD_SETPOINT - 5.0)
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,

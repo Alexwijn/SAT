@@ -54,7 +54,6 @@ class PidConfig:
 class PwmConfig:
     cycles_per_hour: int
     duty_cycle_seconds: int
-    dynamic_minimum_setpoint: bool
     force_pulse_width_modulation: bool
     maximum_relative_modulation: int
 
@@ -205,7 +204,6 @@ class SatConfig:
             cycles_per_hour=int(self.options.get(CONF_CYCLES_PER_HOUR)),
             duty_cycle_seconds=int(convert_time_str_to_seconds(self.options.get(CONF_DUTY_CYCLE))),
 
-            dynamic_minimum_setpoint=bool(self.options.get(CONF_DYNAMIC_MINIMUM_SETPOINT)),
             force_pulse_width_modulation=bool(self.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION)),
             maximum_relative_modulation=int(self.options.get(CONF_MAXIMUM_RELATIVE_MODULATION)),
         )

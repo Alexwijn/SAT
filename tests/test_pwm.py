@@ -34,12 +34,14 @@ def _make_device_state(
 
 def _make_cycle(classification: CycleClassification) -> Cycle:
     metrics = CycleMetrics(
+        requested_setpoint=Percentiles(p50=40.0, p90=40.0),
         control_setpoint=Percentiles(p50=40.0, p90=40.0),
         flow_temperature=Percentiles(p50=40.0, p90=40.0),
         return_temperature=Percentiles(p50=30.0, p90=30.0),
         relative_modulation_level=Percentiles(p50=None, p90=None),
         flow_return_delta=Percentiles(p50=10.0, p90=10.0),
-        flow_setpoint_error=Percentiles(p50=0.0, p90=0.0),
+        flow_control_setpoint_error=Percentiles(p50=0.0, p90=0.0),
+        flow_requested_setpoint_error=Percentiles(p50=0.0, p90=0.0),
         hot_water_active_fraction=0.0,
     )
     shape = CycleShapeMetrics(
@@ -47,7 +49,7 @@ def _make_cycle(classification: CycleClassification) -> Cycle:
         time_to_first_overshoot_seconds=None,
         time_to_sustained_overshoot_seconds=None,
         total_overshoot_seconds=0.0,
-        max_flow_setpoint_error=0.0,
+        max_flow_control_setpoint_error=0.0,
     )
     return Cycle(
         kind=CycleKind.CENTRAL_HEATING,
@@ -71,7 +73,6 @@ def pwm() -> PWM:
     config = PwmConfig(
         cycles_per_hour=4,
         duty_cycle_seconds=4,
-        dynamic_minimum_setpoint=False,
         force_pulse_width_modulation=False,
         maximum_relative_modulation=100,
     )

@@ -9,7 +9,7 @@ ULTRA_SHORT_MIN_ON_TIME_SECONDS: float = 90.0
 
 # Flow vs. setpoint classification margins
 OVERSHOOT_MARGIN_CELSIUS: float = 3.0
-UNDERSHOOT_MARGIN_CELSIUS: float = 2.0
+UNDERSHOOT_MARGIN_CELSIUS: float = -3.0
 OVERSHOOT_SUSTAIN_SECONDS: float = 60.0
 
 # Timeouts

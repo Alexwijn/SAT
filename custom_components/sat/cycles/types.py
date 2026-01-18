@@ -11,7 +11,7 @@ from ..types import CycleControlMode, CycleKind, Percentiles
 class CycleShapeMetrics:
     """Shape metrics describing how a cycle behaved over time (beyond tail classification)."""
     total_overshoot_seconds: float
-    max_flow_setpoint_error: Optional[float]
+    max_flow_control_setpoint_error: Optional[float]
 
     time_in_band_seconds: float
     time_to_first_overshoot_seconds: Optional[float]
@@ -21,13 +21,15 @@ class CycleShapeMetrics:
 @dataclass(frozen=True, slots=True)
 class CycleMetrics:
     """Summary percentile statistics for cycle values."""
+    requested_setpoint: Percentiles
     control_setpoint: Percentiles
     flow_temperature: Percentiles
     return_temperature: Percentiles
     relative_modulation_level: Percentiles
 
     flow_return_delta: Percentiles
-    flow_setpoint_error: Percentiles
+    flow_control_setpoint_error: Percentiles
+    flow_requested_setpoint_error: Percentiles
 
     hot_water_active_fraction: float
 
@@ -63,7 +65,8 @@ class CycleStatistics:
     """Rolling statistics derived from recent completed cycles."""
     window: "CycleWindowStats"
     flow_return_delta: Percentiles
-    flow_setpoint_error: Percentiles
+    flow_control_setpoint_error: Percentiles
+    flow_requested_setpoint_error: Percentiles
 
 
 @dataclass(frozen=True, slots=True)

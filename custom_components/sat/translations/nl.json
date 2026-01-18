@@ -215,7 +215,6 @@
         "data": {
           "error_monitoring": "Foutbewaking inschakelen",
           "climate_valve_offset": "Offset van Klimaatklep",
-          "dynamic_minimum_setpoint": "Dynamisch Minimaal Setpoint (Experimenteel)",
           "force_pulse_width_modulation": "Dwing Pulsbreedtemodulatie af",
           "maximum_consumption": "Maximaal Verbruik",
           "maximum_relative_modulation": "Maximale Relatieve Modulatie",
@@ -229,7 +228,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Temperatuurverschil (doel vs. huidig) om een klep als open te beschouwen.",
-          "dynamic_minimum_setpoint": "Leert een dynamische minimale setpoint per regime op basis van cycli-gedrag om stabiele branderloops te behouden en kort cyclen te verminderen.",
           "maximum_consumption": "Gasverbruik bij maximale modulatie, gebruikt voor verbruiksschatting.",
           "maximum_relative_modulation": "Begrenst het modulatiepercentage van de ketel (0–100) om de maximale output te beperken.",
           "minimum_consumption": "Gasverbruik bij minimale modulatie, gebruikt voor verbruiksschatting.",
@@ -256,7 +254,6 @@
           "heating_curve_version": "Versie van de Verwarmingscurve",
           "integral": "Integraal (kI)",
           "maximum_setpoint": "Maximaal Setpoint",
-          "dynamic_minimum_setpoint_version": "Versie van de minimale setpoint-regelaar",
           "pid_controller_version": "Versie van de PID-regelaar",
           "proportional": "Proportioneel (kP)",
           "window_sensors": "Contact Sensoren",

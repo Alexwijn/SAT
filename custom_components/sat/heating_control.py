@@ -15,6 +15,7 @@ from .const import (
     MINIMUM_RELATIVE_MODULATION,
     MINIMUM_SETPOINT,
     OVERSHOOT_CYCLES,
+    UNDERHEAT_CYCLES,
 )
 from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
@@ -184,11 +185,7 @@ class SatHeatingControl:
             if self._cycles.last_cycle.classification in OVERSHOOT_CYCLES:
                 self._pwm.enable()
 
-            if (
-                    self._cycles.last_cycle.tail.control_setpoint
-                    and self._cycles.last_cycle.tail.control_setpoint.p90 is not None
-                    and self._cycles.last_cycle.tail.control_setpoint.p90 < demand.requested_setpoint
-            ):
+            if self._cycles.last_cycle.classification in UNDERHEAT_CYCLES:
                 self._pwm.disable()
 
         self._compute_relative_modulation_value()
@@ -236,10 +233,6 @@ class SatHeatingControl:
 
         if self._pwm.status == PWMStatus.OFF:
             self._control_setpoint = MINIMUM_SETPOINT
-            return
-
-        if not config.pwm.dynamic_minimum_setpoint:
-            self._control_setpoint = config.limits.minimum_setpoint
             return
 
         if not device_state.flame_active:

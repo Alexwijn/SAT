@@ -215,7 +215,6 @@
         "data": {
           "error_monitoring": "Povoliť monitorovanie chýb",
           "climate_valve_offset": "Offset klimatizačného ventilu",
-          "dynamic_minimum_setpoint": "Dynamická minimálna nastavená hodnota (experimentálna)",
           "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu ",
           "maximum_consumption": "Maximálna spotreba",
           "maximum_relative_modulation": "Maximálna relatívna modulácia",
@@ -229,7 +228,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Rozdiel teplôt (cieľ vs aktuálna) na považovanie ventilu za otvorený.",
-          "dynamic_minimum_setpoint": "Učí sa dynamickú minimálnu nastavenú hodnotu pre jednotlivé režimy podľa správania cyklov, aby boli horenia stabilné a znížilo sa krátke cyklovanie.",
           "maximum_consumption": "Spotreba plynu pri maximálnej modulácii, používa sa na odhad spotreby.",
           "maximum_relative_modulation": "Obmedzí percento modulácie kotla (0–100) na zníženie maximálneho výkonu.",
           "minimum_consumption": "Spotreba plynu pri minimálnej modulácii, používa sa na odhad spotreby.",
@@ -256,7 +254,6 @@
           "heating_curve_version": "Verzia vykurovacej krivky",
           "integral": "Integračná (kI)",
           "maximum_setpoint": "Maximálna požadovaná hodnota",
-          "dynamic_minimum_setpoint_version": "Verzia regulátora minimálnej požadovanej hodnoty",
           "pid_controller_version": "Verzia PID regulátora",
           "proportional": "Proporcionálna (kP)",
           "window_sensors": "Kontaktné senzory",

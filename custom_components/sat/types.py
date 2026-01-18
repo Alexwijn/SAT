@@ -88,29 +88,6 @@ class CycleControlMode(str, Enum):
     CONTINUOUS = "continuous"
 
 
-class PWMDecision(str, Enum):
-    """Describe PWM decision with built-in enabled/disabled meaning."""
-    FORCED_ON = "enabled_forced_on"
-    NO_SETPOINT = "disabled_no_setpoint"
-    OVERSHOOT_PROTECTION_DISABLED = "disabled_overshoot_protection_disabled"
-
-    BELOW_STATIC_MINIMUM = "enabled_below_static_minimum"
-    ABOVE_STATIC_HYSTERESIS = "disabled_above_static_hysteresis"
-
-    BELOW_DYNAMIC_MINIMUM = "enabled_below_dynamic_minimum"
-    ABOVE_DYNAMIC_HYSTERESIS = "disabled_above_dynamic_hysteresis"
-
-    RETAIN_PWM_STATE = "retain_pwm_state"
-    STALLED_IGNITION = "enabled_stalled_ignition"
-    LAST_CYCLE_UNHEALTHY = "enabled_last_cycle_unhealthy"
-    CYCLE_OVERSHOOT = "enabled_cycle_overshoot"
-    TAIL_SETPOINT_BELOW_REQUESTED = "disabled_tail_setpoint_below_requested"
-
-    @property
-    def enabled(self) -> bool:
-        return self.value.startswith("enabled_")
-
-
 class RelativeModulationState(str, Enum):
     """Relative modulation mode/state used for control decisions."""
     OFF = "off"

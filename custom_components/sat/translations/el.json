@@ -215,7 +215,6 @@
         "data": {
           "error_monitoring": "Ενεργοποίηση παρακολούθησης σφαλμάτων",
           "climate_valve_offset": "Μετατόπιση βαλβίδας κλιματισμού",
-          "dynamic_minimum_setpoint": "Δυναμικό Ελάχιστο Setpoint (Πειραματικό)",
           "force_pulse_width_modulation": "Επιβολή Διαμόρφωσης Πλάτους Παλμού ",
           "maximum_consumption": "Μέγιστη Κατανάλωση",
           "maximum_relative_modulation": "Μέγιστη Σχετική Διαμόρφωση",
@@ -229,7 +228,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Διαφορά θερμοκρασίας (στόχος έναντι τρέχουσας) για να θεωρείται ανοικτή μια βαλβίδα.",
-          "dynamic_minimum_setpoint": "Μαθαίνει ένα δυναμικό ελάχιστο setpoint ανά καθεστώς με βάση τη συμπεριφορά των κύκλων, ώστε να σταθεροποιεί τις καύσεις και να μειώνει τους σύντομους κύκλους.",
           "maximum_consumption": "Κατανάλωση αερίου στη μέγιστη διαμόρφωση, για εκτίμηση κατανάλωσης.",
           "maximum_relative_modulation": "Περιορίζει το ποσοστό διαμόρφωσης του λέβητα (0–100) για περιορισμό μέγιστης ισχύος.",
           "minimum_consumption": "Κατανάλωση αερίου στη χαμηλότερη διαμόρφωση, για εκτίμηση κατανάλωσης.",
@@ -256,7 +254,6 @@
           "heating_curve_version": "Έκδοση Καμπύλης Θέρμανσης",
           "integral": "Ολοκληρωτικός (kI)",
           "maximum_setpoint": "Μέγιστο Setpoint",
-          "dynamic_minimum_setpoint_version": "Έκδοση Ελεγκτή Ελάχιστου Setpoint",
           "pid_controller_version": "Έκδοση Ελεγκτή PID",
           "proportional": "Αναλογικός (kP)",
           "window_sensors": "Αισθητήρες Επαφής",

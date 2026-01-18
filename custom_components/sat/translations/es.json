@@ -215,7 +215,6 @@
         "data": {
           "error_monitoring": "Habilitar monitoreo de errores",
           "climate_valve_offset": "Compensación de la Válvula Climática",
-          "dynamic_minimum_setpoint": "Punto de Ajuste Mínimo Dinámico (Experimental)",
           "force_pulse_width_modulation": "Forzar Modulación de Ancho de Pulso ",
           "maximum_consumption": "Consumo Máximo",
           "maximum_relative_modulation": "Modulación Relativa Máxima",
@@ -229,7 +228,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Diferencia de temperatura (objetivo vs actual) para considerar una válvula abierta.",
-          "dynamic_minimum_setpoint": "Aprende un punto de consigna mínimo dinámico por régimen a partir del comportamiento de los ciclos para mantener combustiones estables y reducir ciclos cortos.",
           "maximum_consumption": "Consumo de gas a la modulación máxima, usado para estimar el consumo.",
           "maximum_relative_modulation": "Limita el porcentaje de modulación de la caldera (0–100) para restringir la potencia máxima.",
           "minimum_consumption": "Consumo de gas a la modulación mínima, usado para estimar el consumo.",
@@ -256,7 +254,6 @@
           "heating_curve_version": "Versión de la Curva de Calefacción",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Punto de Ajuste Máximo",
-          "dynamic_minimum_setpoint_version": "Versión del controlador de punto de consigna mínimo",
           "pid_controller_version": "Versión del controlador PID",
           "proportional": "Proporcional (kP)",
           "window_sensors": "Sensores de Contacto",

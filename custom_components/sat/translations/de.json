@@ -215,7 +215,6 @@
         "data": {
           "error_monitoring": "Fehlerüberwachung aktivieren",
           "climate_valve_offset": "Klimaventil-Offset",
-          "dynamic_minimum_setpoint": "Dynamischer Minimaler Sollwert (Experimentell)",
           "force_pulse_width_modulation": "Pulsweitenmodulation erzwingen",
           "maximum_consumption": "Maximalverbrauch",
           "maximum_relative_modulation": "Maximale relative Modulation",
@@ -229,7 +228,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Temperaturdifferenz (Soll vs. Ist), ab der ein Ventil als geöffnet gilt.",
-          "dynamic_minimum_setpoint": "Lernt einen dynamischen Minimal-Sollwert pro Regime aus dem Zyklusverhalten, um stabile Brennerläufe zu fördern und Kurzzyklen zu reduzieren.",
           "maximum_consumption": "Gasverbrauch bei maximaler Modulation, zur Verbrauchsschätzung.",
           "maximum_relative_modulation": "Begrenzt die Modulation des Kessels in Prozent (0–100), um die Maximalleistung zu begrenzen.",
           "minimum_consumption": "Gasverbrauch bei minimaler Modulation, zur Verbrauchsschätzung.",
@@ -256,7 +254,6 @@
           "heating_curve_version": "Version der Heizkurve",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximaler Sollwert",
-          "dynamic_minimum_setpoint_version": "Version des Minimum-Sollwert-Reglers",
           "pid_controller_version": "PID-Regler version",
           "proportional": "Proportional (kP)",
           "window_sensors": "Kontaktsensoren",

@@ -26,12 +26,14 @@ pytestmark = pytest.mark.parametrize(
 
 def _metrics(error: float, *, hot_water_fraction: float = 0.0) -> CycleMetrics:
     return CycleMetrics(
+        requested_setpoint=Percentiles(p50=45.0, p90=45.0),
         control_setpoint=Percentiles(p50=45.0, p90=46.0),
         flow_temperature=Percentiles(p50=44.0, p90=47.0),
         return_temperature=Percentiles(p50=38.0, p90=39.0),
         relative_modulation_level=Percentiles(p50=30.0, p90=40.0),
         flow_return_delta=Percentiles(p50=6.0, p90=7.0),
-        flow_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_control_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_requested_setpoint_error=Percentiles(p50=error, p90=error),
         hot_water_active_fraction=hot_water_fraction,
     )
 
@@ -42,7 +44,7 @@ def _shape_metrics(duration: float) -> CycleShapeMetrics:
         time_to_first_overshoot_seconds=None,
         time_to_sustained_overshoot_seconds=None,
         total_overshoot_seconds=0.0,
-        max_flow_setpoint_error=0.0,
+        max_flow_control_setpoint_error=0.0,
     )
 
 
@@ -109,10 +111,11 @@ async def test_cycle_sensor_extra_attributes(hass, climate, coordinator, domains
     assert attrs["fraction_space_heating"] == 1.0
     assert attrs["fraction_domestic_hot_water"] == 0.0
     assert attrs["tail_hot_water_active_fraction"] == 0.0
-    assert attrs["tail_flow_setpoint_error_p90"] == 0.2
+    assert attrs["tail_flow_control_setpoint_error_p90"] == 0.2
+    assert attrs["tail_flow_requested_setpoint_error_p90"] == 0.2
     assert attrs["tail_flow_temperature_p90"] == 47.0
     assert attrs["tail_control_setpoint_p50"] == 45.0
-    assert attrs["tail_setpoint_p50"] == 45.0
+    assert attrs["tail_requested_setpoint_p50"] == 45.0
 
 
 async def test_core_sensors_registered(hass, climate, entry, domains, data, options, config):

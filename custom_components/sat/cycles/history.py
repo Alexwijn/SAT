@@ -18,7 +18,8 @@ _LOGGER = logging.getLogger(__name__)
 class CycleDeltaSample:
     end_time: float
     flow_return_delta: Optional[float]
-    flow_setpoint_error: Optional[float]
+    flow_control_setpoint_error: Optional[float]
+    flow_requested_setpoint_error: Optional[float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,13 +92,23 @@ class CycleHistory:
         return percentile_interpolated(values, 0.90)
 
     @property
-    def flow_setpoint_error_p50_4h(self) -> Optional[float]:
-        values = [sample.flow_setpoint_error for sample in self._delta_window if sample.flow_setpoint_error is not None]
+    def flow_control_setpoint_error_p50_4h(self) -> Optional[float]:
+        values = [sample.flow_control_setpoint_error for sample in self._delta_window if sample.flow_control_setpoint_error is not None]
         return percentile_interpolated(values, 0.50)
 
     @property
-    def flow_setpoint_error_p90_4h(self) -> Optional[float]:
-        values = [sample.flow_setpoint_error for sample in self._delta_window if sample.flow_setpoint_error is not None]
+    def flow_control_setpoint_error_p90_4h(self) -> Optional[float]:
+        values = [sample.flow_control_setpoint_error for sample in self._delta_window if sample.flow_control_setpoint_error is not None]
+        return percentile_interpolated(values, 0.90)
+
+    @property
+    def flow_requested_setpoint_error_p50_4h(self) -> Optional[float]:
+        values = [sample.flow_requested_setpoint_error for sample in self._delta_window if sample.flow_requested_setpoint_error is not None]
+        return percentile_interpolated(values, 0.50)
+
+    @property
+    def flow_requested_setpoint_error_p90_4h(self) -> Optional[float]:
+        values = [sample.flow_requested_setpoint_error for sample in self._delta_window if sample.flow_requested_setpoint_error is not None]
         return percentile_interpolated(values, 0.90)
 
     @property
@@ -126,9 +137,13 @@ class CycleHistory:
                 p50=self.flow_return_delta_p50_4h,
                 p90=self.flow_return_delta_p90_4h,
             ),
-            flow_setpoint_error=Percentiles(
-                p50=self.flow_setpoint_error_p50_4h,
-                p90=self.flow_setpoint_error_p90_4h,
+            flow_control_setpoint_error=Percentiles(
+                p50=self.flow_control_setpoint_error_p50_4h,
+                p90=self.flow_control_setpoint_error_p90_4h,
+            ),
+            flow_requested_setpoint_error=Percentiles(
+                p50=self.flow_requested_setpoint_error_p50_4h,
+                p90=self.flow_requested_setpoint_error_p90_4h,
             ),
         )
 
@@ -145,7 +160,8 @@ class CycleHistory:
         self._delta_window.append(CycleDeltaSample(
             end_time=end_time,
             flow_return_delta=cycle.metrics.flow_return_delta.p50,
-            flow_setpoint_error=cycle.metrics.flow_setpoint_error.p50,
+            flow_control_setpoint_error=cycle.metrics.flow_control_setpoint_error.p50,
+            flow_requested_setpoint_error=cycle.metrics.flow_requested_setpoint_error.p50,
         ))
 
         self._prune_cycle_window(end_time)
@@ -181,7 +197,7 @@ class CycleHistory:
                     else "none"
                 ),
                 cycle.shape.total_overshoot_seconds,
-                cycle.shape.max_flow_setpoint_error,
+                cycle.shape.max_flow_control_setpoint_error,
                 cycle.classification.name,
             )
 

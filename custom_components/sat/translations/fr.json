@@ -215,7 +215,6 @@
         "data": {
           "error_monitoring": "Activer la surveillance des erreurs",
           "climate_valve_offset": "Décalage de la vanne climatique",
-          "dynamic_minimum_setpoint": "Point de Consigne Minimum Dynamique (Expérimental)",
           "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion ",
           "maximum_consumption": "Consommation Maximale",
           "maximum_relative_modulation": "Modulation Relative Maximale",
@@ -229,7 +228,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Écart de température (cible vs actuelle) pour considérer une vanne ouverte.",
-          "dynamic_minimum_setpoint": "Apprend un point de consigne minimum dynamique par régime à partir du comportement des cycles pour stabiliser les cycles de chauffe et réduire les cycles courts.",
           "maximum_consumption": "Consommation de gaz à la modulation maximale, utilisée pour estimer la consommation.",
           "maximum_relative_modulation": "Limite le pourcentage de modulation de la chaudière (0–100) pour plafonner la puissance.",
           "minimum_consumption": "Consommation de gaz à la modulation minimale, utilisée pour estimer la consommation.",
@@ -256,7 +254,6 @@
           "heating_curve_version": "Version de la Courbe de Chauffage",
           "integral": "Intégral (kI)",
           "maximum_setpoint": "Point de consigne maximal",
-          "dynamic_minimum_setpoint_version": "Version du contrôleur de consigne minimale",
           "pid_controller_version": "Version du contrôleur PID",
           "proportional": "Proportionnel (kP)",
           "window_sensors": "Capteurs de Contact",
