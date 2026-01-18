@@ -24,8 +24,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           CONSTRAINTS_URL="https://raw.githubusercontent.com/home-assistant/core/${{ matrix.ha-version }}/homeassistant/package_constraints.txt"
-          grep -vE '^(homeassistant([=~><].*)?|-c )' requirements_test.txt > /tmp/requirements_test_no_ha.txt
-          pip install -r /tmp/requirements_test_no_ha.txt -c "${CONSTRAINTS_URL}"
+          pip install -r requirements_test.txt -c "${CONSTRAINTS_URL}"
           pip install "homeassistant==${{ matrix.ha-version }}" -c "${CONSTRAINTS_URL}"
       - name: Test with pytest
         run: |
