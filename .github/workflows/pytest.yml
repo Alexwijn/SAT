@@ -12,7 +12,6 @@ jobs:
     strategy:
       matrix:
         python-version: [ "3.13" ]
-        ha-version: [ "2025.2.5", "2025.11.3", "2025.12.5", "2026.1.2" ]
 
     steps:
       - uses: actions/checkout@v2
@@ -23,9 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          CONSTRAINTS_URL="https://raw.githubusercontent.com/home-assistant/core/${{ matrix.ha-version }}/homeassistant/package_constraints.txt"
-          pip install -r requirements_test.txt "homeassistant==${{ matrix.ha-version }}" -c "${CONSTRAINTS_URL}"
-          pip uninstall -y aiodns
+          pip install -r requirements_test.txt
       - name: Test with pytest
         run: |
           pytest

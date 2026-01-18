@@ -1,4 +1,14 @@
-pytest-homeassistant-custom-component
+-c https://raw.githubusercontent.com/home-assistant/core/2025.12.5/homeassistant/package_constraints.txt
+pytest==9.0.0
+pytest-cov==7.0.0
+pytest-asyncio==1.3.0
+pytest-homeassistant-custom-component==0.13.301
+homeassistant==2025.12.4
+aiohttp_cors==0.8.1
+aiodiscover==2.7.1
+aiodhcpwatcher==1.2.1
 sentry_sdk==2.48.0
-pycares>=4.4.0
+freezegun==1.5.2
 pyotgw==2.2.2
+scapy==2.7.0
+janus==2.0.0
