@@ -188,7 +188,7 @@
           "minimum_setpoint": "Température de chaudière pour l’eau chaude ; utilisez 100 pour le chauffage électrique."
         },
         "description": "Choisissez l’entité de contrôle et définissez la température. Pour une chaudière eau chaude, utilisez la température de chaudière ; pour chauffage électrique, utilisez 100.",
-        "title": "Thermostat PID avec PWM (ON/OFF)"
+        "title": "Thermostat PID avec Modulation de Largeur d'Impulsion (ON/OFF)"
       },
       "user": {
         "description": "SAT est un thermostat intelligent capable de s'auto-ajuster pour optimiser le contrôle de la température. Sélectionnez le mode correspondant à votre système de chauffage.",
@@ -197,7 +197,7 @@
           "serial": "Passerelle série (ex. : OpenTherm)",
           "esphome": "ESPHome (Services et capteurs système)",
           "simulator": "Passerelle simulée (Réservé aux développeurs)",
-          "switch": "Thermostat PID (Mode PWM Marche/Arrêt)"
+          "switch": "Thermostat PID (Mode Modulation de Largeur d'Impulsion Marche/Arrêt)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -216,10 +216,12 @@
           "error_monitoring": "Activer la surveillance des erreurs",
           "climate_valve_offset": "Décalage de la vanne climatique",
           "dynamic_minimum_setpoint": "Point de Consigne Minimum Dynamique (Expérimental)",
-          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion",
+          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion ",
           "maximum_consumption": "Consommation Maximale",
           "maximum_relative_modulation": "Modulation Relative Maximale",
           "minimum_consumption": "Consommation Minimale",
+          "modulation_suppression_offset_celsius": "Décalage de suppression de modulation",
+          "flow_setpoint_offset_celsius": "Décalage du setpoint de départ",
           "sample_time": "Temps d'Échantillonnage",
           "simulation": "Simulation",
           "target_temperature_step": "Pas de Température Cible",
@@ -236,10 +238,11 @@
           "thermal_comfort": "Activer l'utilisation de l'Indice de Simmer pour ajuster le confort thermique.",
           "simulation": "Activer le mode simulation (aucune commande réelle n'est envoyée à la chaudière).",
           "error_monitoring": "Envoie les erreurs liées à SAT à Sentry pour aider au diagnostic.",
-          "force_pulse_width_modulation": "Forcer le PWM même si la modulation est disponible (utile pour un relais).",
-          "flame_off_setpoint_offset_celsius": "Quand la flamme est éteinte, maintient un setpoint temporaire à retour + offset (PWM uniquement).",
-          "modulation_suppression_delay_seconds": "Délai après l'allumage avant suppression (PWM uniquement).",
-          "modulation_suppression_offset_celsius": "Réduction du setpoint de départ pendant la suppression (PWM uniquement)."
+          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion même si la modulation est disponible (utile pour un relais).",
+          "flame_off_setpoint_offset_celsius": "Quand la flamme est éteinte, maintient un setpoint temporaire à retour + offset (Modulation de Largeur d'Impulsion uniquement).",
+          "modulation_suppression_delay_seconds": "Délai après l'allumage avant suppression (Modulation de Largeur d'Impulsion uniquement).",
+          "modulation_suppression_offset_celsius": "Réduction du setpoint de départ pendant la suppression (Modulation de Largeur d'Impulsion uniquement).",
+          "flow_setpoint_offset_celsius": "Écart minimal sous la température de la chaudière lors du bridage du setpoint (mode continu)."
         },
         "title": "Avancé"
       },
@@ -263,7 +266,7 @@
           "automatic_gains_value": "La valeur utilisée pour les gains automatiques dans le régulateur PID.",
           "derivative": "Le terme dérivé (kD) dans le régulateur PID, responsable de l'atténuation des dépassements.",
           "derivative_time_weight": "Un paramètre pour ajuster l'influence du terme dérivé au fil du temps, particulièrement utile pour réduire le dépassement lors de la phase de montée en température lorsque le coefficient de la courbe de chauffage est correctement réglé.",
-          "duty_cycle": "Le cycle de fonctionnement maximum pour la Modulation de Largeur d'Impulsion (PWM), contrôlant les cycles de marche/arrêt de la chaudière.",
+          "duty_cycle": "Le cycle de fonctionnement maximum pour la Modulation de Largeur d'Impulsion , contrôlant les cycles de marche/arrêt de la chaudière.",
           "heating_curve_coefficient": "Le coefficient utilisé pour ajuster la courbe de chauffage.",
           "integral": "Le terme intégral (kI) dans le régulateur PID, responsable de la réduction de l'erreur en régime permanent.",
           "maximum_setpoint": "La température optimale pour un fonctionnement efficace de la chaudière.",
@@ -308,14 +311,14 @@
           "cycles_per_hour": "Cycles par heure",
           "automatic_duty_cycle": "Cycle de fonctionnement automatique",
           "sync_climates_with_mode": "Synchroniser les climats avec le mode",
-          "overshoot_protection": "Protection contre le dépassement (avec PWM)",
+          "overshoot_protection": "Protection contre le dépassement (avec Modulation de Largeur d'Impulsion )",
           "sensor_max_value_age": "Âge maximal de la valeur du capteur de température",
           "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre"
         },
         "data_description": {
           "cycles_per_hour": "Le nombre maximal de cycles par heure.",
-          "automatic_duty_cycle": "Activer ou désactiver le cycle de fonctionnement automatique pour la Modulation de Largeur d'Impulsion (PWM).",
-          "overshoot_protection": "Activer la protection contre le dépassement avec la Modulation de Largeur d'Impulsion (PWM) pour prévenir les dépassements de température de la chaudière.",
+          "automatic_duty_cycle": "Activer ou désactiver le cycle de fonctionnement automatique pour la Modulation de Largeur d'Impulsion .",
+          "overshoot_protection": "Activer la protection contre le dépassement avec la Modulation de Largeur d'Impulsion pour prévenir les dépassements de température de la chaudière.",
           "sensor_max_value_age": "L'âge maximum de la valeur du capteur de température avant de la considérer comme stagnante.",
           "window_minimum_open_time": "Le temps minimum qu'une fenêtre doit être ouverte avant que le système ne réagisse.",
           "sync_climates_with_mode": "Applique aussi le mode HVAC aux climats des pièces lorsqu'il change ici."
@@ -331,8 +334,8 @@
       "description": "Ce service réinitialise la partie intégrale du contrôleur PID pour l’entité climate spécifiée. Cela peut être utile si la valeur intégrale est devenue trop grande ou si les performances du PID se sont dégradées."
     },
     "pulse_width_modulation": {
-      "name": "Modulation de largeur d’impulsion",
-      "description": "Forcer l’activation ou la désactivation de la modulation de largeur d’impulsion. Notez qu’elle peut être réactivée ou désactivée automatiquement juste après.",
+      "name": "Modulation de largeur d’impulsion ",
+      "description": "Forcer l’activation ou la désactivation de la modulation de largeur d’impulsion . Notez qu’elle peut être réactivée ou désactivée automatiquement juste après.",
       "fields": {
         "enabled": {
           "name": "Activé",

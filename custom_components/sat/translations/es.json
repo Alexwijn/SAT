@@ -188,7 +188,7 @@
           "minimum_setpoint": "Temperatura de caldera para sistemas de agua caliente; use 100 para calefacción eléctrica."
         },
         "description": "Elija la entidad de control y establezca la temperatura. Para calderas de agua caliente, use la temperatura de la caldera; para calefacción eléctrica, use 100.",
-        "title": "Termostato PID con PWM (ON/OFF)"
+        "title": "Termostato PID con Modulación de Ancho de Pulso (ON/OFF)"
       },
       "user": {
         "description": "SAT es un termostato inteligente capaz de autoajustarse para optimizar el control de temperatura. Seleccione el modo que se ajuste a su sistema de calefacción.",
@@ -197,7 +197,7 @@
           "serial": "Puerta de enlace serial (p. ej., OpenTherm)",
           "esphome": "ESPHome (Servicios y sensores del sistema)",
           "simulator": "Puerta de enlace simulada (Solo para desarrolladores)",
-          "switch": "Termostato PID (Modo PWM Encendido/Apagado)"
+          "switch": "Termostato PID (Modo Modulación de Ancho de Pulso Encendido/Apagado)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -216,10 +216,12 @@
           "error_monitoring": "Habilitar monitoreo de errores",
           "climate_valve_offset": "Compensación de la Válvula Climática",
           "dynamic_minimum_setpoint": "Punto de Ajuste Mínimo Dinámico (Experimental)",
-          "force_pulse_width_modulation": "Forzar Modulación de Ancho de Pulso",
+          "force_pulse_width_modulation": "Forzar Modulación de Ancho de Pulso ",
           "maximum_consumption": "Consumo Máximo",
           "maximum_relative_modulation": "Modulación Relativa Máxima",
           "minimum_consumption": "Consumo Mínimo",
+          "modulation_suppression_offset_celsius": "Desfase de supresión de modulación",
+          "flow_setpoint_offset_celsius": "Desfase del setpoint de impulsión",
           "sample_time": "Tiempo de Muestreo",
           "simulation": "Simulación",
           "target_temperature_step": "Paso de Temperatura Objetivo",
@@ -236,10 +238,11 @@
           "thermal_comfort": "Habilitar el uso del Índice de Simmer para ajuste de confort térmico.",
           "simulation": "Activar modo de simulación (no se envían comandos reales a la caldera).",
           "error_monitoring": "Envía errores relacionados con SAT a Sentry para ayudar a diagnosticar problemas.",
-          "force_pulse_width_modulation": "Forzar PWM aunque haya control de modulación disponible (útil para control por relé).",
-          "flame_off_setpoint_offset_celsius": "Con la llama apagada, mantiene un setpoint temporal en retorno + offset (solo PWM).",
-          "modulation_suppression_delay_seconds": "Tiempo tras encender la llama antes de aplicar la supresión (solo PWM).",
-          "modulation_suppression_offset_celsius": "Cuánto se reduce el setpoint de impulsión durante la supresión (solo PWM)."
+          "force_pulse_width_modulation": "Forzar la Modulación de Ancho de Pulso aunque haya control de modulación disponible (útil para control por relé).",
+          "flame_off_setpoint_offset_celsius": "Con la llama apagada, mantiene un setpoint temporal en retorno + offset (solo Modulación de Ancho de Pulso).",
+          "modulation_suppression_delay_seconds": "Tiempo tras encender la llama antes de aplicar la supresión (solo Modulación de Ancho de Pulso).",
+          "modulation_suppression_offset_celsius": "Cuánto se reduce el setpoint de impulsión durante la supresión (solo Modulación de Ancho de Pulso).",
+          "flow_setpoint_offset_celsius": "Separación mínima por debajo de la temperatura de la caldera al limitar el setpoint (modo continuo)."
         },
         "title": "Avanzadas"
       },
@@ -263,7 +266,7 @@
           "automatic_gains_value": "El valor utilizado para las ganancias automáticas en el controlador PID.",
           "derivative": "El término derivativo (kD) en el controlador PID, responsable de mitigar el sobre impulso.",
           "derivative_time_weight": "Un parámetro para ajustar la influencia del término derivativo a lo largo del tiempo, especialmente útil para reducir el infra impulso durante la fase de calentamiento cuando el coeficiente de la curva de calefacción está correctamente ajustado.",
-          "duty_cycle": "El ciclo de trabajo máximo para la Modulación de Ancho de Pulso (PWM), controlando los ciclos de encendido/apagado de la caldera.",
+          "duty_cycle": "El ciclo de trabajo máximo para la Modulación de Ancho de Pulso , controlando los ciclos de encendido/apagado de la caldera.",
           "heating_curve_coefficient": "El coeficiente utilizado para ajustar la curva de calefacción.",
           "integral": "El término integral (kI) en el controlador PID, responsable de reducir el error en estado estacionario.",
           "maximum_setpoint": "La temperatura óptima para una operación eficiente de la caldera.",
@@ -308,14 +311,14 @@
           "cycles_per_hour": "Ciclos por hora",
           "automatic_duty_cycle": "Ciclo de trabajo automático",
           "sync_climates_with_mode": "Sincronizar climas con el modo",
-          "overshoot_protection": "Protección contra Sobrepasos (con PWM)",
+          "overshoot_protection": "Protección contra Sobrepasos (con Modulación de Ancho de Pulso )",
           "sensor_max_value_age": "Edad máxima del valor del sensor de temperatura",
           "window_minimum_open_time": "Tiempo mínimo de apertura de ventana"
         },
         "data_description": {
           "cycles_per_hour": "La cantidad máxima de ciclos por hora.",
-          "automatic_duty_cycle": "Habilitar o deshabilitar el ciclo de trabajo automático para la Modulación de Ancho de Pulso (PWM).",
-          "overshoot_protection": "Habilitar protección contra sobrepasos con Modulación de Ancho de Pulso (PWM) para prevenir excesos de temperatura de la caldera.",
+          "automatic_duty_cycle": "Habilitar o deshabilitar el ciclo de trabajo automático para la Modulación de Ancho de Pulso .",
+          "overshoot_protection": "Habilitar protección contra sobrepasos con Modulación de Ancho de Pulso para prevenir excesos de temperatura de la caldera.",
           "sensor_max_value_age": "La edad máxima del valor del sensor de temperatura antes de considerarlo como obsoleto.",
           "window_minimum_open_time": "El tiempo mínimo que una ventana debe estar abierta antes de que el sistema reaccione.",
           "sync_climates_with_mode": "También aplica el modo HVAC a los climas de las habitaciones cuando se cambia aquí."
@@ -331,8 +334,8 @@
       "description": "Este servicio restablece la parte integral del controlador PID para la entidad climate especificada. Puede ser útil si el valor integral se ha vuelto demasiado grande o si el rendimiento del PID se ha degradado."
     },
     "pulse_width_modulation": {
-      "name": "Modulación por ancho de pulso",
-      "description": "Forzar activar o desactivar la Modulación por Ancho de Pulso. Tenga en cuenta que puede activarse o desactivarse automáticamente poco después.",
+      "name": "Modulación por ancho de pulso ",
+      "description": "Forzar activar o desactivar la Modulación por Ancho de Pulso . Tenga en cuenta que puede activarse o desactivarse automáticamente poco después.",
       "fields": {
         "enabled": {
           "name": "Habilitado",

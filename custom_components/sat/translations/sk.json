@@ -188,7 +188,7 @@
           "minimum_setpoint": "Teplota kotla pre systémy s teplou vodou; pre elektrické kúrenie použite 100."
         },
         "description": "Vyberte riadiacu entitu a nastavte teplotu. Pre kotly na teplú vodu použite teplotu kotla; pre elektrické kúrenie použite 100.",
-        "title": "PID termostat s PWM (ON/OFF)"
+        "title": "PID termostat s moduláciou šírky impulzu (ON/OFF)"
       },
       "user": {
         "description": "SAT je inteligentný termostat schopný samonastavenia na optimalizáciu regulácie teploty. Vyberte režim, ktorý zodpovedá vášmu vykurovaciemu systému.",
@@ -197,7 +197,7 @@
           "serial": "Sériová brána (napr. OpenTherm)",
           "esphome": "ESPHome (Systémové služby a senzory)",
           "simulator": "Simulovaná brána (Len pre vývojárov)",
-          "switch": "PID Termostat (PWM režim Zap/Vyp)"
+          "switch": "PID Termostat (modulácia šírky impulzu režim Zap/Vyp)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -216,10 +216,12 @@
           "error_monitoring": "Povoliť monitorovanie chýb",
           "climate_valve_offset": "Offset klimatizačného ventilu",
           "dynamic_minimum_setpoint": "Dynamická minimálna nastavená hodnota (experimentálna)",
-          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu",
+          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu ",
           "maximum_consumption": "Maximálna spotreba",
           "maximum_relative_modulation": "Maximálna relatívna modulácia",
           "minimum_consumption": "Minimálna spotreba",
+          "modulation_suppression_offset_celsius": "Offset potlačenia modulácie",
+          "flow_setpoint_offset_celsius": "Offset setpointu prívodu",
           "sample_time": "Čas vzorky",
           "simulation": "Simulácia",
           "target_temperature_step": "Krok cieľovej teploty",
@@ -236,10 +238,11 @@
           "thermal_comfort": "Povoľte používanie indexu Simmer na nastavenie tepelného komfortu.",
           "simulation": "Zapne režim simulácie (neodosielajú sa reálne príkazy kotlu).",
           "error_monitoring": "Odosiela chyby súvisiace so SAT do Sentry na diagnostiku.",
-          "force_pulse_width_modulation": "Vynúti PWM aj pri dostupnej modulácii (užitočné pre relé).",
-          "flame_off_setpoint_offset_celsius": "Pri vypnutej plameni drží dočasný setpoint na spiatočke + offset (len PWM).",
-          "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len PWM).",
-          "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len PWM)."
+          "force_pulse_width_modulation": "Vynúti moduláciu šírky impulzu aj pri dostupnej modulácii (užitočné pre relé).",
+          "flame_off_setpoint_offset_celsius": "Pri vypnutej plameni drží dočasný setpoint na spiatočke + offset (len modulácia šírky impulzu).",
+          "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len modulácia šírky impulzu).",
+          "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len modulácia šírky impulzu).",
+          "flow_setpoint_offset_celsius": "Minimálny rozdiel pod teplotou kotla pri obmedzení setpointu (kontinuálny režim)."
         },
         "title": "Rozšírené"
       },
@@ -263,7 +266,7 @@
           "automatic_gains_value": "Hodnota používaná pre automatické zosilnenie v PID regulátore.",
           "derivative": "Odvodený člen (kD) v PID regulátore, zodpovedný za zmiernenie prekročenia.",
           "derivative_time_weight": "Parameter na úpravu vplyvu derivačného členu v priebehu času, obzvlášť užitočný na zníženie podkmitu počas zahrievacej fázy, keď je koeficient vykurovacej krivky správne nastavený.",
-          "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu (PWM), ktorá riadi cykly zapnutia a vypnutia kotla.",
+          "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu , ktorá riadi cykly zapnutia a vypnutia kotla.",
           "heating_curve_coefficient": "Koeficient použitý na úpravu vykurovacej krivky.",
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",
           "maximum_setpoint": "Optimálna teplota pre efektívnu prevádzku kotla.",
@@ -308,14 +311,14 @@
           "cycles_per_hour": "Pracovné cykly za hodinu",
           "automatic_duty_cycle": "Automatický pracovný cyklus",
           "sync_climates_with_mode": "Synchronizujte klímu s režimom",
-          "overshoot_protection": "Ochrana proti prekročeniu (s PWM)",
+          "overshoot_protection": "Ochrana proti prekročeniu (s moduláciou šírky impulzu )",
           "sensor_max_value_age": "Vek maximálnej hodnoty snímača teploty",
           "window_minimum_open_time": "Minimálny čas na otvorenie okna"
         },
         "data_description": {
           "cycles_per_hour": "Maximálny počet pracovných cyklov za hodinu.",
-          "automatic_duty_cycle": "Povoliť alebo zakázať automatický pracovný cyklus pre moduláciu šírky impulzu (PWM).",
-          "overshoot_protection": "Aktivujte ochranu proti prekročeniu pomocou modulácie šírky impulzov (PWM), aby ste zabránili prekročeniu teploty kotla.",
+          "automatic_duty_cycle": "Povoliť alebo zakázať automatický pracovný cyklus pre moduláciu šírky impulzu .",
+          "overshoot_protection": "Aktivujte ochranu proti prekročeniu pomocou modulácie šírky impulzov , aby ste zabránili prekročeniu teploty kotla.",
           "sensor_max_value_age": "Maximálny vek hodnoty teplotného snímača pred tým, než sa považuje za prerušenie.",
           "window_minimum_open_time": "Minimálny čas, počas ktorého musí byť okno otvorené, kým systém zareaguje.",
           "sync_climates_with_mode": "Pri zmene tu nastaví režim HVAC aj na klímach miestností."
@@ -331,8 +334,8 @@
       "description": "Táto služba resetuje integračnú časť PID regulátora pre zadanú entitu klimatizácie. Toto môže byť užitočné, ak sa integračná hodnota stala príliš veľkou alebo ak sa znížil výkon PID regulátora."
     },
     "pulse_width_modulation": {
-      "name": "Pulzne šírková modulácia",
-      "description": "Vynútené povolenie alebo zakázanie modulácie šírky impulzu. Upozorňujeme, že sa môže hneď potom automaticky zapnúť alebo vypnúť.",
+      "name": "Modulácia šírky impulzu ",
+      "description": "Vynútené povolenie alebo zakázanie modulácie šírky impulzu . Upozorňujeme, že sa môže hneď potom automaticky zapnúť alebo vypnúť.",
       "fields": {
         "enabled": {
           "name": "Povolené",

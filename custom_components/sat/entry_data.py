@@ -169,6 +169,10 @@ class SatConfig:
         return float_value(self.options.get(CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS))
 
     @property
+    def flow_setpoint_offset_celsius(self) -> float:
+        return float_value(self.options.get(CONF_FLOW_SETPOINT_OFFSET_CELSIUS))
+
+    @property
     def sensors(self) -> SensorsConfig:
         return SensorsConfig(
             inside_sensor_entity_id=self.data[CONF_INSIDE_SENSOR_ENTITY_ID],

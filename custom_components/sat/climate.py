@@ -7,7 +7,6 @@ from datetime import timedelta, datetime
 from typing import Callable, Optional, Union, Any, Mapping
 
 from homeassistant.components import sensor, weather
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
@@ -25,7 +24,6 @@ from homeassistant.components.climate import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, HassJob
-from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -35,7 +33,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .entry_data import SatConfig, get_entry_data
-from .heating_control import SatHeatingControl
+from .heating_control import HeatingDemand, SatHeatingControl
 from .heating_curve import HeatingCurve
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp
 from .pid import PID
@@ -144,6 +142,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_will_remove_from_hass(self, event: Optional[Event] = None) -> None:
         """Run when entity about to be removed."""
+        self._cancel_scheduled_heating_control_loop()
+
+        if self._window_sensor_handle is not None:
+            self._window_sensor_handle.cancel()
+            self._window_sensor_handle = None
+
         await self._heating_control.async_will_remove_from_hass()
         await self._coordinator.async_will_remove_from_hass()
 
@@ -171,7 +175,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             "rooms": self._rooms,
             "current_humidity": self.current_humidity,
-            "setpoint": self._heating_control.setpoint,
+            "setpoint": self._heating_control.control_setpoint,
 
             "summer_simmer_index": SummerSimmer.index(self.current_temperature, self.current_humidity),
             "summer_simmer_perception": SummerSimmer.perception(self.current_temperature, self.current_humidity),
@@ -187,9 +191,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "relative_modulation_value": self._heating_control.relative_modulation_value,
             "relative_modulation_state": self._heating_control.relative_modulation_state.name,
 
-            "pulse_width_modulation_enabled": self._heating_control.pwm.enabled if self._heating_control.pwm is not None else False,
-            "pulse_width_modulation_duty_cycle": self._heating_control.pwm.state.duty_cycle if self._heating_control.pwm is not None else None,
-            "pulse_width_modulation_state": self._heating_control.pwm.status.name if self._heating_control.pwm is not None else PWMStatus.IDLE.name,
+            "pulse_width_modulation_enabled": self._heating_control.pwm_state.enabled if self._heating_control.pwm_state is not None else False,
+            "pulse_width_modulation_duty_cycle": self._heating_control.pwm_state.duty_cycle if self._heating_control.pwm_state is not None else None,
+            "pulse_width_modulation_state": self._heating_control.pwm_state.status.name if self._heating_control.pwm_state is not None else PWMStatus.IDLE.name,
         }
 
     @property
@@ -360,7 +364,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     @property
     def pwm(self):
-        return self._heating_control.pwm
+        return self._heating_control.pwm_state
 
     def reset_control_state(self) -> None:
         """Reset control state when major changes occur."""
@@ -413,6 +417,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         self._control_heating_loop_unsub = async_call_later(self.hass, 1, HassJob(self.async_control_heating_loop))
+        self.async_on_remove(self._cancel_scheduled_heating_control_loop)
+
+    def _cancel_scheduled_heating_control_loop(self) -> None:
+        if self._control_heating_loop_unsub is None:
+            return
+
+        self._control_heating_loop_unsub()
+        self._control_heating_loop_unsub = None
 
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
@@ -424,11 +436,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Apply the computed controls.
         await self._heating_control.update(
-            timestamp=event_timestamp(time),
-
-            hvac_mode=self.hvac_mode,
-            requested_setpoint=self.requested_setpoint,
-            outside_temperature=self.current_outside_temperature,
+            HeatingDemand(
+                hvac_mode=self.hvac_mode,
+                requested_setpoint=self.requested_setpoint,
+                outside_temperature=self.current_outside_temperature,
+                timestamp=event_timestamp(time),
+            )
         )
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
@@ -618,12 +631,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         )
 
         if len(self._config.window_sensors) > 0:
-            entities = entity_registry.async_get(self.hass)
-            window_id = entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, f"{self._config.entry_id}-window-sensor")
-
             self.async_on_remove(
                 async_track_state_change_event(
-                    self.hass, [window_id], self._async_window_sensor_changed
+                    self.hass, ensure_list(self._config.window_sensors), self._async_window_sensor_changed
                 )
             )
 
@@ -636,7 +646,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if self._target_temperature is None:
                 if old_state.attributes.get(ATTR_TEMPERATURE) is None:
-                    self.pid.setpoint = self.min_temp
+                    self.pid.control_setpoint = self.min_temp
                     self._target_temperature = self.min_temp
                     _LOGGER.warning("Undefined target temperature, falling back to %s", self._target_temperature, )
                 else:
@@ -669,7 +679,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 await self._async_update_rooms_from_climates()
 
             if self._target_temperature is None:
-                self.pid.setpoint = self.min_temp
+                self.pid.control_setpoint = self.min_temp
                 self._target_temperature = self.min_temp
                 _LOGGER.warning("No previously saved temperature, setting to %s", self._target_temperature)
 

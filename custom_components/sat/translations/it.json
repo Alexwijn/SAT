@@ -188,7 +188,7 @@
           "minimum_setpoint": "Temperatura caldaia per sistemi ad acqua calda; usa 100 per riscaldamento elettrico."
         },
         "description": "Scegli l'entità di controllo e imposta la temperatura. Per caldaie ad acqua calda usa la temperatura della caldaia; per riscaldamento elettrico usa 100.",
-        "title": "Termostato PID con PWM (ON/OFF)"
+        "title": "Termostato PID con Modulazione di Larghezza di Impulso (ON/OFF)"
       },
       "user": {
         "description": "SAT è un termostato intelligente in grado di auto-regolarsi per ottimizzare il controllo della temperatura. Seleziona la modalità che corrisponde al tuo sistema di riscaldamento.",
@@ -197,7 +197,7 @@
           "serial": "Gateway seriale (es. OpenTherm)",
           "esphome": "ESPHome (Servizi e sensori di sistema)",
           "simulator": "Gateway simulato (Solo per sviluppatori)",
-          "switch": "Termostato PID (Modalità PWM Acceso/Spento)"
+          "switch": "Termostato PID (Modalità Modulazione di Larghezza di Impulso Acceso/Spento)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -216,10 +216,12 @@
           "error_monitoring": "Abilita monitoraggio errori",
           "climate_valve_offset": "Offset della Valvola Climatica",
           "dynamic_minimum_setpoint": "Setpoint Minimo Dinamico (Sperimentale)",
-          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso",
+          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso ",
           "maximum_consumption": "Consumo Massimo",
           "maximum_relative_modulation": "Modulazione Relativa Massima",
           "minimum_consumption": "Consumo Minimo",
+          "modulation_suppression_offset_celsius": "Offset della soppressione di modulazione",
+          "flow_setpoint_offset_celsius": "Offset del setpoint di mandata",
           "sample_time": "Tempo di Campionamento",
           "simulation": "Simulazione",
           "target_temperature_step": "Passo della Temperatura Target",
@@ -236,10 +238,11 @@
           "thermal_comfort": "Abilitare l'uso dell Indice di Simmer per l'aggiustamento del comfort termico.",
           "simulation": "Abilita la modalità simulazione (non vengono inviati comandi reali alla caldaia).",
           "error_monitoring": "Invia gli errori relativi a SAT a Sentry per aiutare la diagnosi.",
-          "force_pulse_width_modulation": "Forza il PWM anche quando è disponibile la modulazione (utile per controllo a relè).",
-          "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo a ritorno + offset (solo PWM).",
-          "modulation_suppression_delay_seconds": "Tempo dopo l'accensione della fiamma prima della soppressione (solo PWM).",
-          "modulation_suppression_offset_celsius": "Riduzione del setpoint di mandata durante la soppressione (solo PWM)."
+          "force_pulse_width_modulation": "Forza la Modulazione di Larghezza di Impulso anche quando è disponibile la modulazione (utile per controllo a relè).",
+          "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo a ritorno + offset (solo Modulazione di Larghezza di Impulso).",
+          "modulation_suppression_delay_seconds": "Tempo dopo l'accensione della fiamma prima della soppressione (solo Modulazione di Larghezza di Impulso).",
+          "modulation_suppression_offset_celsius": "Riduzione del setpoint di mandata durante la soppressione (solo Modulazione di Larghezza di Impulso).",
+          "flow_setpoint_offset_celsius": "Scarto minimo sotto la temperatura della caldaia durante il limite del setpoint (modalità continua)."
         },
         "title": "Avanzate"
       },
@@ -263,7 +266,7 @@
           "automatic_gains_value": "Il valore utilizzato per i guadagni automatici nel controllore PID.",
           "derivative": "Il termine derivato (kD) nel controllore PID, responsabile della mitigazione del superamento.",
           "derivative_time_weight": "Un parametro per regolare l'influenza del termine derivato nel tempo, particolarmente utile per ridurre il sotto scavo durante la fase di riscaldamento quando il coefficiente della curva di riscaldamento è correttamente impostato.",
-          "duty_cycle": "Il ciclo di lavoro massimo per la Modulazione di Larghezza di Impulso (PWM), controllando i cicli di accensione/spegnimento della caldaia.",
+          "duty_cycle": "Il ciclo di lavoro massimo per la Modulazione di Larghezza di Impulso , controllando i cicli di accensione/spegnimento della caldaia.",
           "heating_curve_coefficient": "Il coefficiente utilizzato per regolare la curva di riscaldamento.",
           "integral": "Il termine integrale (kI) nel controllore PID, responsabile della riduzione dell'errore in stato stazionario.",
           "maximum_setpoint": "La temperatura ottimale per un funzionamento efficiente della caldaia.",
@@ -308,14 +311,14 @@
           "cycles_per_hour": "Cicli per ora",
           "automatic_duty_cycle": "Ciclo di lavoro automatico",
           "sync_climates_with_mode": "Sincronizza climi con la modalità",
-          "overshoot_protection": "Protezione dal Superamento (con PWM)",
+          "overshoot_protection": "Protezione dal Superamento (con Modulazione di Larghezza di Impulso )",
           "sensor_max_value_age": "Età massima del valore del sensore di temperatura",
           "window_minimum_open_time": "Tempo minimo di apertura della finestra"
         },
         "data_description": {
           "cycles_per_hour": "Il numero massimo di cicli per ora.",
-          "automatic_duty_cycle": "Abilitare o disabilitare il ciclo di lavoro automatico per la Modulazione di Larghezza di Impulso (PWM).",
-          "overshoot_protection": "Abilitare la protezione dal superamento con la Modulazione di Larghezza di Impulso (PWM) per prevenire il superamento della temperatura della caldaia.",
+          "automatic_duty_cycle": "Abilitare o disabilitare il ciclo di lavoro automatico per la Modulazione di Larghezza di Impulso .",
+          "overshoot_protection": "Abilitare la protezione dal superamento con la Modulazione di Larghezza di Impulso per prevenire il superamento della temperatura della caldaia.",
           "sensor_max_value_age": "L'età massima del valore del sensore di temperatura prima di considerarlo stazionario.",
           "window_minimum_open_time": "Il tempo minimo che una finestra deve essere aperta prima che il sistema reagisca.",
           "sync_climates_with_mode": "Applica anche la modalità HVAC ai climi delle stanze quando cambia qui."
@@ -331,8 +334,8 @@
       "description": "Questo servizio reimposta la parte integrale del controller PID per l’entità climate specificata. Può essere utile se il valore integrale è diventato troppo grande o se le prestazioni del PID sono peggiorate."
     },
     "pulse_width_modulation": {
-      "name": "Modulazione a larghezza d’impulso",
-      "description": "Forza l’attivazione o la disattivazione della modulazione a larghezza d’impulso. Nota che può essere riattivata o disattivata automaticamente subito dopo.",
+      "name": "Modulazione a larghezza d’impulso ",
+      "description": "Forza l’attivazione o la disattivazione della modulazione a larghezza d’impulso . Nota che può essere riattivata o disattivata automaticamente subito dopo.",
       "fields": {
         "enabled": {
           "name": "Abilitato",

@@ -188,7 +188,7 @@
           "minimum_setpoint": "Boiler temp for hot water systems; use 100 for electric heating."
         },
         "description": "Choose the control entity and set the temperature. For hot water boilers, use the boiler temperature; for electric heating, use 100.",
-        "title": "PID Thermostat with PWM ( ON/OFF )"
+        "title": "PID Thermostat with Pulse Width Modulation (ON/OFF)"
       },
       "user": {
         "description": "SAT is a smart thermostat capable of auto-tuning itself to optimize temperature control. Select the mode that matches your heating system.",
@@ -197,7 +197,7 @@
           "serial": "Serial Gateway (e.g., OpenTherm)",
           "esphome": "ESPHome (System services and sensors)",
           "simulator": "Simulated Gateway (Developer use only)",
-          "switch": "PID Thermostat (PWM On/Off mode)"
+          "switch": "PID Thermostat (Pulse Width Modulation On/Off mode)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -219,12 +219,13 @@
           "enable_flame_off_setpoint": "Enable flame-off setpoint",
           "enable_modulation_suppression": "Enable modulation suppression",
           "flame_off_setpoint_offset_celsius": "Flame-off setpoint offset",
-          "force_pulse_width_modulation": "Force Pulse Width Modulation",
+          "force_pulse_width_modulation": "Force Pulse Width Modulation ",
           "maximum_consumption": "Maximum Consumption",
           "maximum_relative_modulation": "Maximum Relative Modulation",
           "minimum_consumption": "Minimum Consumption",
           "modulation_suppression_delay_seconds": "Modulation suppression delay",
           "modulation_suppression_offset_celsius": "Modulation suppression offset",
+          "flow_setpoint_offset_celsius": "Flow setpoint offset",
           "sample_time": "Sample Time",
           "simulation": "Simulation",
           "target_temperature_step": "Target Temperature Step",
@@ -233,20 +234,21 @@
         "data_description": {
           "climate_valve_offset": "Temperature gap (target vs current) required to treat a valve as open.",
           "dynamic_minimum_setpoint": "Learns a dynamic minimum setpoint per regime from cycle behavior to keep burns stable and reduce short cycling.",
-          "enable_flame_off_setpoint": "Apply a temporary setpoint offset while the flame is off (PWM only).",
-          "enable_modulation_suppression": "Reduce modulation by temporarily lowering the setpoint after flame-on (PWM only).",
-          "flame_off_setpoint_offset_celsius": "When the flame is off, hold a temporary setpoint at return temperature + offset (PWM only).",
+          "enable_flame_off_setpoint": "Apply a temporary setpoint offset while the flame is off (Pulse Width Modulation only).",
+          "enable_modulation_suppression": "Reduce modulation by temporarily lowering the setpoint after flame-on (Pulse Width Modulation only).",
+          "flame_off_setpoint_offset_celsius": "When the flame is off, hold a temporary setpoint at return temperature + offset (Pulse Width Modulation only).",
           "maximum_consumption": "Gas use at maximum modulation, used for consumption estimation.",
           "maximum_relative_modulation": "Cap the boiler modulation percentage (0–100) to limit maximum output.",
           "minimum_consumption": "Gas use at minimum modulation, used for consumption estimation.",
-          "modulation_suppression_delay_seconds": "Time after flame-on before suppression can apply (PWM only).",
-          "modulation_suppression_offset_celsius": "How much to lower the flow setpoint during suppression (PWM only).",
+          "modulation_suppression_delay_seconds": "Time after flame-on before suppression can apply (Pulse Width Modulation only).",
+          "modulation_suppression_offset_celsius": "How much to lower the flow setpoint during suppression (Pulse Width Modulation only).",
+          "flow_setpoint_offset_celsius": "Minimum offset below boiler temperature when clamping setpoint (continuous mode).",
           "sample_time": "The minimum time interval between updates to the PID controller.",
           "target_temperature_step": "Step size for target temperature adjustments in the UI.",
           "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment.",
           "simulation": "Enable simulation mode (no real boiler commands are sent).",
           "error_monitoring": "Send SAT-related errors to the developer via Sentry to help diagnose issues.",
-          "force_pulse_width_modulation": "Force PWM even when modulation control is available (useful for relay-style control)."
+          "force_pulse_width_modulation": "Force Pulse Width Modulation even when modulation control is available (useful for relay-style control)."
         },
         "title": "Advanced"
       },
@@ -270,7 +272,7 @@
           "automatic_gains_value": "The value used for automatic gains in the PID controller.",
           "derivative": "The derivative term (kD) in the PID controller, responsible for mitigating overshooting.",
           "derivative_time_weight": "A parameter to adjust the influence of the derivative term over time, particularly useful for reducing undershoot during the warm-up phase when the heating curve coefficient is correctly set.",
-          "duty_cycle": "The maximum duty cycle for Pulse Width Modulation (PWM), controlling the boiler's on-off cycles.",
+          "duty_cycle": "The maximum duty cycle for Pulse Width Modulation , controlling the boiler's on-off cycles.",
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
           "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
           "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
@@ -315,14 +317,14 @@
           "cycles_per_hour": "Duty Cycles per hour",
           "automatic_duty_cycle": "Automatic duty cycle",
           "sync_climates_with_mode": "Synchronize climates with mode",
-          "overshoot_protection": "Overshoot Protection (with PWM)",
+          "overshoot_protection": "Overshoot Protection (with Pulse Width Modulation )",
           "sensor_max_value_age": "Temperature Sensor maximum value age",
           "window_minimum_open_time": "Minimum time for window to be open"
         },
         "data_description": {
           "cycles_per_hour": "The maximum amount of duty cycles per hour.",
-          "automatic_duty_cycle": "Enable or disable automatic duty cycle for Pulse Width Modulation (PWM).",
-          "overshoot_protection": "Enable overshoot protection with Pulse Width Modulation (PWM) to prevent boiler temperature overshooting.",
+          "automatic_duty_cycle": "Enable or disable automatic duty cycle for Pulse Width Modulation .",
+          "overshoot_protection": "Enable overshoot protection with Pulse Width Modulation to prevent boiler temperature overshooting.",
           "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall.",
           "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
           "sync_climates_with_mode": "Also set HVAC mode on room climates when it changes here."
@@ -338,7 +340,7 @@
       "description": "This service resets the integrating part of the PID controller for the specified climate entity. This may be useful if the integral value has become too large or if the PID controller's performance has degraded."
     },
     "pulse_width_modulation": {
-      "name": "Pulse Width Modulation",
+      "name": "Pulse Width Modulation ",
       "description": "Force enable or disable the Pulse Width Modulation, do note that it may be turned on or off automatically right after again.",
       "fields": {
         "enabled": {

@@ -98,12 +98,12 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity)
     @property
     def available(self) -> bool:
         """Return availability of the sensor."""
-        return self._heating_control.setpoint is not None and self._coordinator.setpoint is not None
+        return self._heating_control.control_setpoint is not None and self._coordinator.setpoint is not None
 
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        climate_setpoint = round(self._heating_control.setpoint, 1)
+        climate_setpoint = round(self._heating_control.control_setpoint, 1)
         coordinator_setpoint = round(self._coordinator.setpoint, 1)
 
         return self.state_delayed(climate_setpoint != coordinator_setpoint)

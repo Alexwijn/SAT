@@ -1,8 +1,6 @@
 """Tests for window sensor listener registration."""
 
 import pytest
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import assert_setup_component, MockConfigEntry
 
@@ -54,20 +52,8 @@ async def climate(hass, entry):
     return hass.data[DOMAIN][entry.entry_id].climate
 
 
-async def test_window_listener_uses_entry_id(monkeypatch, hass, climate):
-    entities = er.async_get(hass)
-    entry_id = climate._config.entry_id
-
-    window_id = entities.async_get_entity_id(BINARY_SENSOR_DOMAIN, DOMAIN, f"{entry_id}-window-sensor")
-    assert window_id is not None
-
-    legacy_window_id = entities.async_get_entity_id(
-        BINARY_SENSOR_DOMAIN,
-        DOMAIN,
-        f"{climate._config.name_lower}-window-sensor",
-    )
-    assert legacy_window_id is None
-
+async def test_window_listener_uses_configured_entities(monkeypatch, hass, climate):
+    expected_entity = "binary_sensor.kitchen_window"
     captured = []
 
     def _capture(_hass, entity_ids, _action):
@@ -78,4 +64,4 @@ async def test_window_listener_uses_entry_id(monkeypatch, hass, climate):
 
     climate._register_event_listeners()
 
-    assert any(window_id in (entity_ids or []) for entity_ids in captured)
+    assert any(expected_entity in (entity_ids or []) for entity_ids in captured)

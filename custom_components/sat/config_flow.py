@@ -874,6 +874,10 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=100, step=1)),
         ))
         schema_entries.append((
+            vol.Required(CONF_FLOW_SETPOINT_OFFSET_CELSIUS, default=options[CONF_FLOW_SETPOINT_OFFSET_CELSIUS]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=10, step=0.1)),
+        ))
+        schema_entries.append((
             vol.Required(CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS, default=options[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]),
             selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=30, step=0.5)),
         ))

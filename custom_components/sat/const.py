@@ -73,6 +73,7 @@ CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
 CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS = "flame_off_setpoint_offset_celsius"
 CONF_MODULATION_SUPPRESSION_DELAY_SECONDS = "modulation_suppression_delay_seconds"
 CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS = "modulation_suppression_offset_celsius"
+CONF_FLOW_SETPOINT_OFFSET_CELSIUS = "flow_setpoint_offset_celsius"
 
 # Heating system configuration keys.
 CONF_HEATING_MODE = "heating_mode"
@@ -134,6 +135,7 @@ OPTIONS_DEFAULTS = {
     CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS: 18.0,
     CONF_MODULATION_SUPPRESSION_DELAY_SECONDS: 20,
     CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS: 1.0,
+    CONF_FLOW_SETPOINT_OFFSET_CELSIUS: 1.0,
 
     # Consumption bounds.
     CONF_MINIMUM_CONSUMPTION: 0,

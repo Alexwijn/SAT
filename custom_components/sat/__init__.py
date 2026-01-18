@@ -7,7 +7,12 @@ from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.storage import Store
 from sentry_sdk import Client, Hub
 
-from .const import DOMAIN, OPTIONS_DEFAULTS
+from .const import (
+    CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
+    CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS,
+    DOMAIN,
+    OPTIONS_DEFAULTS,
+)
 from .coordinator import SatDataUpdateCoordinatorFactory
 from .entry_data import SatConfig, SatEntryData
 from .heating_control import SatHeatingControl

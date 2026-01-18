@@ -188,7 +188,7 @@
           "minimum_setpoint": "Keteltemperatuur voor warmwatersystemen; gebruik 100 voor elektrische verwarming."
         },
         "description": "Kies de besturingsentiteit en stel de temperatuur in. Voor warmwaterketels gebruik je de keteltemperatuur; voor elektrische verwarming 100.",
-        "title": "PID Thermostaat met PWM ( AAN/UIT )"
+        "title": "PID Thermostaat met Pulsbreedtemodulatie (AAN/UIT)"
       },
       "user": {
         "description": "SAT is een slimme thermostaat die zichzelf kan optimaliseren om de temperatuurregeling te verbeteren. Kies de modus die past bij uw verwarmingssysteem.",
@@ -197,7 +197,7 @@
           "serial": "Seriële Gateway (bijv. OpenTherm)",
           "esphome": "ESPHome (Systeemservices en sensoren)",
           "simulator": "Gesimuleerde Gateway (Alleen voor ontwikkelaars)",
-          "switch": "PID-Thermostaat (PWM Aan/Uit-modus)"
+          "switch": "PID-Thermostaat (Pulsbreedtemodulatie Aan/Uit-modus)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -220,6 +220,8 @@
           "maximum_consumption": "Maximaal Verbruik",
           "maximum_relative_modulation": "Maximale Relatieve Modulatie",
           "minimum_consumption": "Minimaal Verbruik",
+          "modulation_suppression_offset_celsius": "Offset voor modulatie-onderdrukking",
+          "flow_setpoint_offset_celsius": "Aanvoer-setpoint-offset",
           "sample_time": "Sampletijd",
           "simulation": "Simulatie",
           "target_temperature_step": "Stap van Doeltemperatuur",
@@ -236,10 +238,11 @@
           "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen.",
           "simulation": "Simulatiemodus inschakelen (er worden geen echte ketelcommando's verzonden).",
           "error_monitoring": "Stuurt SAT-gerelateerde fouten naar Sentry om problemen te diagnosticeren.",
-          "force_pulse_width_modulation": "PWM forceren, ook als modulatieregeling beschikbaar is (handig voor relaisbediening).",
-          "flame_off_setpoint_offset_celsius": "Bij uitgeschakelde vlam een tijdelijk setpoint op retourtemp + offset (alleen PWM).",
-          "modulation_suppression_delay_seconds": "Tijd na vlam-aan voordat onderdrukking start (alleen PWM).",
-          "modulation_suppression_offset_celsius": "Hoeveel de aanvoer-setpoint wordt verlaagd tijdens onderdrukking (alleen PWM)."
+          "force_pulse_width_modulation": "Pulsbreedtemodulatie forceren, ook als modulatieregeling beschikbaar is (handig voor relaisbediening).",
+          "flame_off_setpoint_offset_celsius": "Bij uitgeschakelde vlam een tijdelijk setpoint op retourtemp + offset (alleen Pulsbreedtemodulatie).",
+          "modulation_suppression_delay_seconds": "Tijd na vlam-aan voordat onderdrukking start (alleen Pulsbreedtemodulatie).",
+          "modulation_suppression_offset_celsius": "Hoeveel de aanvoer-setpoint wordt verlaagd tijdens onderdrukking (alleen Pulsbreedtemodulatie).",
+          "flow_setpoint_offset_celsius": "Minimale marge onder de keteltemperatuur bij het begrenzen van het setpoint (continue modus)."
         },
         "title": "Geavanceerd"
       },
@@ -263,7 +266,7 @@
           "automatic_gains_value": "De waarde die wordt gebruikt voor automatische versterkingen in de PID-regelaar.",
           "derivative": "De afgeleide term (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
           "derivative_time_weight": "Een parameter om de invloed van de afgeleide term over tijd aan te passen, vooral nuttig om undershoot te verminderen tijdens de opwarmfase wanneer de coëfficiënt van de verwarmingscurve correct is ingesteld.",
-          "duty_cycle": "De maximale inschakelduur voor Pulsbreedtemodulatie (PWM), die de aan/uit-cycli van de ketel regelt.",
+          "duty_cycle": "De maximale inschakelduur voor Pulsbreedtemodulatie , die de aan/uit-cycli van de ketel regelt.",
           "heating_curve_coefficient": "De coëfficiënt die wordt gebruikt om de verwarmingscurve aan te passen.",
           "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
           "maximum_setpoint": "De optimale temperatuur voor efficiënte werking van de ketel.",
@@ -307,15 +310,15 @@
         "data": {
           "cycles_per_hour": "Cycli per uur",
           "automatic_duty_cycle": "Automatische inschakelduur",
-          "overshoot_protection": "Overshoot Bescherming (met PWM)",
+          "overshoot_protection": "Overshoot Bescherming (met Pulsbreedtemodulatie )",
           "sync_climates_with_mode": "Synchroniseer klimaten met modus",
           "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor",
           "window_minimum_open_time": "Minimale open tijd van het raam"
         },
         "data_description": {
           "cycles_per_hour": "Het maximale aantal cycli per uur.",
-          "automatic_duty_cycle": "Automatische inschakelduur voor Pulsbreedtemodulatie (PWM) in- of uitschakelen.",
-          "overshoot_protection": "Overshoot Bescherming inschakelen met Pulsbreedtemodulatie (PWM) om temperatuur-overshoot van de ketel te voorkomen.",
+          "automatic_duty_cycle": "Automatische inschakelduur voor Pulsbreedtemodulatie in- of uitschakelen.",
+          "overshoot_protection": "Overshoot Bescherming inschakelen met Pulsbreedtemodulatie om temperatuur-overshoot van de ketel te voorkomen.",
           "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd.",
           "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert.",
           "sync_climates_with_mode": "Stel ook de HVAC-modus in op kamerklimaten wanneer die hier verandert."
@@ -331,7 +334,7 @@
       "description": "Deze service reset het integrale deel van de PID-regelaar voor de opgegeven climate-entiteit. Dit kan nuttig zijn als de integrale waarde te groot is geworden of als de PID-prestaties zijn verslechterd."
     },
     "pulse_width_modulation": {
-      "name": "Pulsbreedtemodulatie",
+      "name": "Pulsbreedtemodulatie ",
       "description": "Pulsbreedtemodulatie geforceerd aan of uit zetten. Let op dat deze kort daarna automatisch weer aan of uit kan worden gezet.",
       "fields": {
         "enabled": {

@@ -1,3 +1,5 @@
+"""Heating control logic for SAT climate entities."""
+
 from __future__ import annotations
 
 import logging
@@ -11,27 +13,24 @@ from homeassistant.core import HomeAssistant, State
 from .const import (
     COLD_SETPOINT,
     MINIMUM_RELATIVE_MODULATION,
-    MINIMUM_SETPOINT, OVERSHOOT_CYCLES, )
+    MINIMUM_SETPOINT,
+    OVERSHOOT_CYCLES,
+)
 from .coordinator import SatDataUpdateCoordinator
-from .cycles import CycleHistory, CycleStatistics, CycleTracker, Cycle
+from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
 from .device import DeviceState, DeviceTracker
 from .entry_data import SatConfig
-from .helpers import float_value, int_value, timestamp, event_timestamp
+from .helpers import event_timestamp, float_value, int_value, timestamp
 from .manufacturers.geminox import Geminox
-from .pwm import PWMState, PWM
-from .types import BoilerStatus, HeaterState, PWMStatus, RelativeModulationState
+from .pwm import PWM, PWMState
+from .types import BoilerStatus, CycleControlMode, HeaterState, PWMStatus, RelativeModulationState
 
 _LOGGER = logging.getLogger(__name__)
-
-DECREASE_PERSISTENCE_TICKS = 3
-NEAR_TARGET_MARGIN_CELSIUS = 2.0
-CONTROL_LOOP_INTERVAL_SECONDS = 10
-INCREASE_STEP_THRESHOLD_CELSIUS = 0.5
-DECREASE_STEP_THRESHOLD_CELSIUS = 0.5
 
 
 @dataclass(frozen=True, slots=True)
 class ControlLoopSample:
+    """Snapshot used by the control loop tracker."""
     timestamp: float
 
     pwm: PWMState
@@ -43,7 +42,19 @@ class ControlLoopSample:
     outside_temperature: Optional[float]
 
 
+@dataclass(frozen=True, slots=True)
+class HeatingDemand:
+    """Heating control update."""
+    timestamp: float
+
+    hvac_mode: HVACMode
+    requested_setpoint: float
+    outside_temperature: float
+
+
 class SatHeatingControl:
+    """Coordinate PWM, setpoint, and modulation decisions."""
+
     def __init__(self, hass: HomeAssistant, coordinator: SatDataUpdateCoordinator, config: SatConfig) -> None:
         self._hass = hass
         self._config = config
@@ -55,7 +66,7 @@ class SatHeatingControl:
         self._pwm: PWM = PWM(config.pwm, config.heating_system)
         self._cycle_tracker: CycleTracker = CycleTracker(self._hass, self._cycles)
 
-        self._setpoint: float = MINIMUM_SETPOINT
+        self._control_setpoint: float = MINIMUM_SETPOINT
         self._relative_modulation_value: int = config.pwm.maximum_relative_modulation
 
         self._last_requested_setpoint: Optional[float] = None
@@ -73,6 +84,11 @@ class SatHeatingControl:
         return self._device_tracker.status
 
     @property
+    def pwm_state(self) -> PWMState:
+        """Expose the current PWM state."""
+        return self._pwm.state
+
+    @property
     def cycles(self) -> CycleStatistics:
         """Expose aggregated cycle statistics."""
         return self._cycles.statistics
@@ -83,15 +99,13 @@ class SatHeatingControl:
         return self._cycles.last_cycle
 
     @property
-    def pwm(self) -> Optional["PWM"]:
-        return self._pwm
+    def control_setpoint(self) -> Optional[float]:
+        """Expose the last computed control setpoint."""
+        return self._control_setpoint
 
     @property
-    def setpoint(self) -> Optional[float]:
-        return self._setpoint
-
-    @property
-    def relative_modulation_value(self) -> Optional[int]:
+    def relative_modulation_value(self) -> int:
+        """Expose the last computed relative modulation value."""
         return self._relative_modulation_value
 
     @property
@@ -110,13 +124,18 @@ class SatHeatingControl:
 
         return RelativeModulationState.OFF
 
+    @property
+    def control_mode(self) -> CycleControlMode:
+        if self._pwm.enabled and self._pwm.status != PWMStatus.IDLE:
+            return CycleControlMode.PWM
+
+        return CycleControlMode.CONTINUOUS
+
     async def async_added_to_hass(self) -> None:
         """Register listeners and initialize the control loop."""
         await self._device_tracker.async_added_to_hass(self._hass, self._coordinator.id)
 
-        self._coordinator_listener_remove = self._coordinator.async_add_listener(
-            self._handle_coordinator_update
-        )
+        self._coordinator_listener_remove = self._coordinator.async_add_listener(self._handle_coordinator_update)
 
     async def async_will_remove_from_hass(self) -> None:
         """Persist state when the integration unloads."""
@@ -132,7 +151,7 @@ class SatHeatingControl:
             self._pwm.restore(old_state)
 
         if old_state.attributes.get("setpoint") is not None:
-            self._setpoint = float_value(old_state.attributes.get("setpoint"))
+            self._control_setpoint = float_value(old_state.attributes.get("setpoint"))
 
         if old_state.attributes.get("relative_modulation_value") is not None:
             self._relative_modulation_value = int_value(old_state.attributes.get("relative_modulation_value"))
@@ -144,20 +163,21 @@ class SatHeatingControl:
 
         self._pwm.reset()
 
-    async def update(self, hvac_mode: HVACMode, requested_setpoint: float, outside_temperature: float, timestamp: float) -> None:
-        self._last_requested_setpoint = requested_setpoint
-        self._last_outside_temperature = outside_temperature
+    async def update(self, demand: HeatingDemand) -> None:
+        """Apply a new demand update and push commands to the coordinator."""
+        self._last_requested_setpoint = demand.requested_setpoint
+        self._last_outside_temperature = demand.outside_temperature
 
-        if hvac_mode != HVACMode.HEAT:
-            self._setpoint = MINIMUM_SETPOINT
-            self._relative_modulation_value = None
+        if demand.hvac_mode != HVACMode.HEAT:
+            self._control_setpoint = MINIMUM_SETPOINT
+            self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
             self._pwm.disable()
             return
 
         self._pwm.update(
-            timestamp=timestamp,
+            timestamp=demand.timestamp,
             device_state=self._coordinator.state,
-            requested_setpoint=requested_setpoint
+            requested_setpoint=demand.requested_setpoint,
         )
 
         if self._cycles.last_cycle is not None:
@@ -165,123 +185,61 @@ class SatHeatingControl:
                 self._pwm.enable()
 
             if (
-                    self._cycles.last_cycle.tail.control_setpoint is not None and
-                    self._cycles.last_cycle.tail.control_setpoint.p90 is not None and
-                    self._cycles.last_cycle.tail.control_setpoint.p90 < requested_setpoint
+                    self._cycles.last_cycle.tail.control_setpoint
+                    and self._cycles.last_cycle.tail.control_setpoint.p90 is not None
+                    and self._cycles.last_cycle.tail.control_setpoint.p90 < demand.requested_setpoint
             ):
                 self._pwm.disable()
 
         self._compute_relative_modulation_value()
-        self._compute_control_setpoint(requested_setpoint)
 
-        await self._coordinator.async_set_heater_state(HeaterState.ON if self._setpoint > COLD_SETPOINT else HeaterState.OFF)
+        if self.control_mode == CycleControlMode.PWM:
+            self._compute_pwm_control_setpoint(demand.requested_setpoint)
+
+        if self.control_mode == CycleControlMode.CONTINUOUS:
+            self._compute_continuous_control_setpoint(demand.requested_setpoint)
+
+        await self._coordinator.async_set_heater_state(HeaterState.ON if self._control_setpoint > COLD_SETPOINT else HeaterState.OFF)
         await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
-        await self._coordinator.async_set_control_setpoint(self._setpoint)
-        await self._coordinator.async_control_heating_loop(timestamp)
+        await self._coordinator.async_set_control_setpoint(self._control_setpoint)
+        await self._coordinator.async_control_heating_loop(demand.timestamp)
 
     def _handle_coordinator_update(self, time: Optional[datetime] = None) -> None:
+        """Track device and cycle state on coordinator updates."""
         timestamp = event_timestamp(time)
 
         self._device_tracker.update(
             timestamp=timestamp,
-
             last_cycle=self.last_cycle,
             state=self._coordinator.state,
         )
 
-        self._cycle_tracker.update(ControlLoopSample(
-            timestamp=timestamp,
-
-            pwm=self._pwm.state,
-            device_state=self._coordinator.state,
-
-            control_setpoint=self._setpoint,
-            relative_modulation=self._relative_modulation_value,
-
-            requested_setpoint=self._last_requested_setpoint,
-            outside_temperature=self._last_outside_temperature,
-        ))
-
-    def _compute_control_setpoint(self, requested_setpoint: float) -> None:
-        """Control the setpoint of the heating system based on the current mode and PWM state."""
-        if self._pwm.enabled and self._pwm.status != PWMStatus.IDLE:
-            self._compute_pwm_control_setpoint(requested_setpoint)
-        else:
-            self._compute_continuous_control_setpoint(requested_setpoint)
-
-    def _compute_continuous_control_setpoint(self, requested_setpoint):
-        _LOGGER.info("Using continuous heating control.")
-
-        requested_setpoint_delta = requested_setpoint - self._setpoint
-        if requested_setpoint_delta <= -DECREASE_STEP_THRESHOLD_CELSIUS:
-            self._requested_setpoint_down_ticks += 1
-        else:
-            self._requested_setpoint_down_ticks = 0
-
-        is_near_target = (
-                self._coordinator.boiler_temperature is not None
-                and self._coordinator.boiler_temperature >= (self._setpoint - NEAR_TARGET_MARGIN_CELSIUS)
+        self._cycle_tracker.update(
+            ControlLoopSample(
+                timestamp=timestamp,
+                pwm=self._pwm.state,
+                device_state=self._coordinator.state,
+                control_setpoint=self._control_setpoint,
+                relative_modulation=self._relative_modulation_value,
+                requested_setpoint=self._last_requested_setpoint,
+                outside_temperature=self._last_outside_temperature,
+            )
         )
 
-        if self._coordinator.flame_active and is_near_target:
-            previous_setpoint = self._setpoint
-            self._setpoint = max(self._setpoint, requested_setpoint)
-
-            _LOGGER.info(
-                "Holding boiler setpoint near target to avoid premature flame-off (requested=%.1f°C, held=%.1f°C, previous=%.1f°C, boiler=%.1f°C, margin=%.1f°C)",
-                requested_setpoint, self._setpoint, previous_setpoint, self._coordinator.boiler_temperature, NEAR_TARGET_MARGIN_CELSIUS,
-            )
-
-        elif self._coordinator.flame_active and not is_near_target and requested_setpoint_delta < 0:
-            _LOGGER.info(
-                "Lowering boiler setpoint while still below target flow temperature (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C)",
-                requested_setpoint, self._setpoint, self._coordinator.boiler_temperature,
-            )
-
-            self._setpoint = requested_setpoint
-
-        elif requested_setpoint_delta >= INCREASE_STEP_THRESHOLD_CELSIUS:
-            _LOGGER.info(
-                "Increasing boiler setpoint due to rising heat demand (requested=%.1f°C, previous=%.1f°C)",
-                requested_setpoint, self._setpoint,
-            )
-
-            self._setpoint = requested_setpoint
-
-        elif self._requested_setpoint_down_ticks >= DECREASE_PERSISTENCE_TICKS:
-            _LOGGER.info(
-                "Lowering boiler setpoint after sustained lower demand (requested=%.1f°C persisted for %d cycles)",
-                requested_setpoint, self._requested_setpoint_down_ticks,
-            )
-
-            self._setpoint = requested_setpoint
-
-        elif not self._coordinator.flame_active:
-            _LOGGER.info(
-                "Updating boiler setpoint while flame is off (requested=%.1f°)",
-                requested_setpoint
-            )
-
-            self._setpoint = requested_setpoint
-            self._requested_setpoint_up_ticks = 0
-            self._requested_setpoint_down_ticks = 0
-
     def _compute_pwm_control_setpoint(self, requested_setpoint: float) -> None:
-        """Apply a setpoint override based on the current device state."""
+        """Apply the PWM setpoint override based on the current device state."""
+        config = self._config
         device_state = self._coordinator.state
 
+        if device_state.hot_water_active or requested_setpoint <= COLD_SETPOINT or not config.overshoot_protection:
+            return
+
         if self._pwm.status == PWMStatus.OFF:
-            self._setpoint = MINIMUM_SETPOINT
+            self._control_setpoint = MINIMUM_SETPOINT
             return
 
-        if device_state.hot_water_active or requested_setpoint <= COLD_SETPOINT:
-            return
-
-        if not self._config.overshoot_protection:
-            return
-
-        if not self._config.pwm.dynamic_minimum_setpoint:
-            self._setpoint = self._config.limits.minimum_setpoint
+        if not config.pwm.dynamic_minimum_setpoint:
+            self._control_setpoint = config.limits.minimum_setpoint
             return
 
         if not device_state.flame_active:
@@ -289,12 +247,13 @@ class SatHeatingControl:
                 _LOGGER.warning("Setpoint override (flame off): no return temperature found.")
                 return
 
-            self._flame_off_hold_setpoint = return_temperature + self._config.flame_off_setpoint_offset_celsius
-            self._setpoint = self._flame_off_hold_setpoint
+            flame_off_offset = config.flame_off_setpoint_offset_celsius
+            self._flame_off_hold_setpoint = return_temperature + flame_off_offset
+            self._control_setpoint = self._flame_off_hold_setpoint
 
             _LOGGER.debug(
                 "Setpoint override (flame off): return=%.1f°C offset=%.1f°C -> %.1f°C (intended=%.1f°C)",
-                return_temperature, self._config.flame_off_setpoint_offset_celsius, self._flame_off_hold_setpoint, requested_setpoint,
+                return_temperature, flame_off_offset, self._flame_off_hold_setpoint, requested_setpoint,
             )
 
             return
@@ -304,19 +263,22 @@ class SatHeatingControl:
             return
 
         elapsed_since_flame_on = timestamp() - flame_on_since
-        if elapsed_since_flame_on < self._config.modulation_suppression_delay_seconds:
+        suppression_delay = config.modulation_suppression_delay_seconds
+
+        if elapsed_since_flame_on < suppression_delay:
+            remaining_hold = suppression_delay - elapsed_since_flame_on
             if self._flame_off_hold_setpoint is not None:
                 _LOGGER.debug(
                     "Setpoint override hold: using flame-off setpoint %.1f°C for %.1fs more.",
-                    self._flame_off_hold_setpoint, self._config.modulation_suppression_delay_seconds - elapsed_since_flame_on,
+                    self._flame_off_hold_setpoint, remaining_hold,
                 )
 
-                self._setpoint = self._flame_off_hold_setpoint
+                self._control_setpoint = self._flame_off_hold_setpoint
                 return
 
             _LOGGER.debug(
                 "Setpoint override pending: waiting %.1fs more (elapsed=%.1fs, delay=%.1fs).",
-                self._config.modulation_suppression_delay_seconds - elapsed_since_flame_on, elapsed_since_flame_on, self._config.modulation_suppression_delay_seconds,
+                remaining_hold, elapsed_since_flame_on, suppression_delay,
             )
 
             return
@@ -326,14 +288,56 @@ class SatHeatingControl:
             return
 
         self._flame_off_hold_setpoint = None
-        suppressed_setpoint = flow_temperature - self._config.modulation_suppression_offset_celsius
+        flow_offset = config.modulation_suppression_offset_celsius
+        suppressed_setpoint = flow_temperature - flow_offset
 
         _LOGGER.debug(
-            "Setpoint override (suppression) : flow=%.1f°C offset=%.1f°C -> %.1f°C (min=%.1f°C, intended=%.1f°C)",
-            flow_temperature, self._config.modulation_suppression_offset_celsius, suppressed_setpoint, requested_setpoint, requested_setpoint,
+            "Setpoint override (suppression): flow=%.1f°C offset=%.1f°C -> %.1f°C (requested=%.1f°C)",
+            flow_temperature, flow_offset, suppressed_setpoint, requested_setpoint,
         )
 
-        self._setpoint = suppressed_setpoint
+        self._control_setpoint = suppressed_setpoint
+
+    def _compute_continuous_control_setpoint(self, requested_setpoint: float) -> None:
+        """Apply the continuous setpoint update based on boiler temperature."""
+        _LOGGER.debug("Using continuous heating control.")
+
+        previous_setpoint = self._control_setpoint
+        offset = self._config.flow_setpoint_offset_celsius
+        boiler_temperature = self._coordinator.boiler_temperature
+
+        if boiler_temperature is None:
+            self._control_setpoint = requested_setpoint
+
+            _LOGGER.debug(
+                "Setpoint update skipped boiler clamp due to missing boiler temperature (requested=%.1f°C, previous=%.1f°C)",
+                requested_setpoint, previous_setpoint,
+            )
+            return
+
+        if boiler_temperature <= requested_setpoint:
+            self._control_setpoint = requested_setpoint
+
+            _LOGGER.debug(
+                "Setpoint followed request at/above boiler temperature (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C)",
+                requested_setpoint, previous_setpoint, boiler_temperature,
+            )
+            return
+
+        minimum_allowed_setpoint = boiler_temperature - offset
+        self._control_setpoint = max(requested_setpoint, minimum_allowed_setpoint)
+
+        if requested_setpoint < minimum_allowed_setpoint:
+            _LOGGER.debug(
+                "Setpoint clamped to offset minimum (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C, offset=%.1f°C, applied=%.1f°C)",
+                requested_setpoint, previous_setpoint, boiler_temperature, offset, self._control_setpoint,
+            )
+            return
+
+        _LOGGER.debug(
+            "Setpoint followed request below boiler temperature (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C, offset=%.1f°C)",
+            requested_setpoint, previous_setpoint, boiler_temperature, offset,
+        )
 
     def _compute_relative_modulation_value(self) -> None:
         """Control the relative modulation value based on the conditions."""
@@ -342,19 +346,10 @@ class SatHeatingControl:
             _LOGGER.debug("Relative modulation management is not supported. Skipping control.")
             return
 
-        requested_value = self._requested_relative_modulation_value()
+        if self.relative_modulation_state == RelativeModulationState.OFF:
+            self._relative_modulation_value = MINIMUM_RELATIVE_MODULATION
+        else:
+            self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
 
         if isinstance(self._coordinator.manufacturer, Geminox):
-            requested_value = max(10, requested_value)
-
-        self._relative_modulation_value = requested_value
-
-        if self._coordinator.maximum_relative_modulation_value == self._relative_modulation_value:
-            _LOGGER.debug("Relative modulation value unchanged (%d%%). No update necessary.", self._relative_modulation_value)
-
-    def _requested_relative_modulation_value(self) -> int:
-        """Return the capped maximum relative modulation value."""
-        if not self._coordinator.supports_relative_modulation_management or self.relative_modulation_state != RelativeModulationState.OFF:
-            return self._config.pwm.maximum_relative_modulation
-
-        return MINIMUM_RELATIVE_MODULATION
+            self._relative_modulation_value = max(10, self._relative_modulation_value)
