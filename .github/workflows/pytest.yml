@@ -25,6 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           CONSTRAINTS_URL="https://raw.githubusercontent.com/home-assistant/core/${{ matrix.ha-version }}/homeassistant/package_constraints.txt"
           pip install -r requirements_test.txt "homeassistant==${{ matrix.ha-version }}" -c "${CONSTRAINTS_URL}"
+          pip uninstall -y aiodns
       - name: Test with pytest
         run: |
           pytest
