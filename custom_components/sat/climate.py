@@ -430,11 +430,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         self._control_heating_loop_unsub = None
 
-        # Abort early if required inputs are missing.
-        if self.current_outside_temperature is None:
+        if self.current_outside_temperature is None or self._hvac_mode == HVACMode.OFF:
             return
 
-        # Apply the computed controls.
         await self._heating_control.update(
             HeatingDemand(
                 hvac_mode=self.hvac_mode,

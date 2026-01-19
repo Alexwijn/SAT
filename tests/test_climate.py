@@ -1,7 +1,10 @@
 """Tests focused on SAT climate setpoint and heating curve behavior."""
 
 from datetime import timedelta
+from unittest.mock import AsyncMock
+
 import pytest
+from homeassistant.components.climate import HVACMode
 from homeassistant.util import dt as dt_util
 
 from custom_components.sat.entry_data import SatConfig
@@ -113,3 +116,15 @@ def test_control_pid_resets_on_stale_inside_sensor(monkeypatch, climate):
     climate.control_pid()
 
     assert reset_called["value"] is True
+
+
+async def test_control_loop_skips_when_hvac_off(monkeypatch, climate):
+    climate.hass.states.async_set("sensor.test_outside_sensor", "5")
+    climate._hvac_mode = HVACMode.OFF
+
+    update_mock = AsyncMock()
+    monkeypatch.setattr(climate._heating_control, "update", update_mock)
+
+    await climate.async_control_heating_loop()
+
+    update_mock.assert_not_called()

@@ -52,6 +52,13 @@ class HeatingDemand:
     requested_setpoint: float
     outside_temperature: float
 
+    @property
+    def heater_state(self) -> HeaterState:
+        if self.hvac_mode != HVACMode.HEAT:
+            return HeaterState.OFF
+
+        return HeaterState.ON if self.requested_setpoint > COLD_SETPOINT else HeaterState.OFF
+
 
 class SatHeatingControl:
     """Coordinate PWM, setpoint, and modulation decisions."""
@@ -169,36 +176,36 @@ class SatHeatingControl:
         self._last_requested_setpoint = demand.requested_setpoint
         self._last_outside_temperature = demand.outside_temperature
 
-        if demand.hvac_mode != HVACMode.HEAT:
+        if demand.heater_state == HeaterState.ON:
+            self._pwm.update(
+                timestamp=demand.timestamp,
+                device_state=self._coordinator.state,
+                requested_setpoint=demand.requested_setpoint,
+            )
+
+            if self._cycles.last_cycle is not None:
+                if self._cycles.last_cycle.classification in OVERSHOOT_CYCLES:
+                    self._pwm.enable()
+
+                if self._cycles.last_cycle.classification in UNDERHEAT_CYCLES:
+                    self._pwm.disable()
+
+            self._compute_relative_modulation_value()
+
+            if self.control_mode == CycleControlMode.PWM:
+                self._compute_pwm_control_setpoint(demand.requested_setpoint)
+
+            if self.control_mode == CycleControlMode.CONTINUOUS:
+                self._compute_continuous_control_setpoint(demand.requested_setpoint)
+        else:
+            self._pwm.disable()
             self._control_setpoint = MINIMUM_SETPOINT
             self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
-            self._pwm.disable()
-            return
 
-        self._pwm.update(
-            timestamp=demand.timestamp,
-            device_state=self._coordinator.state,
-            requested_setpoint=demand.requested_setpoint,
-        )
-
-        if self._cycles.last_cycle is not None:
-            if self._cycles.last_cycle.classification in OVERSHOOT_CYCLES:
-                self._pwm.enable()
-
-            if self._cycles.last_cycle.classification in UNDERHEAT_CYCLES:
-                self._pwm.disable()
-
-        self._compute_relative_modulation_value()
-
-        if self.control_mode == CycleControlMode.PWM:
-            self._compute_pwm_control_setpoint(demand.requested_setpoint)
-
-        if self.control_mode == CycleControlMode.CONTINUOUS:
-            self._compute_continuous_control_setpoint(demand.requested_setpoint)
-
-        await self._coordinator.async_set_heater_state(HeaterState.ON if self._control_setpoint > COLD_SETPOINT else HeaterState.OFF)
         await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
         await self._coordinator.async_set_control_setpoint(self._control_setpoint)
+        await self._coordinator.async_set_heater_state(demand.heater_state)
+
         await self._coordinator.async_control_heating_loop(demand.timestamp)
 
     def _handle_coordinator_update(self, time: Optional[datetime] = None) -> None:

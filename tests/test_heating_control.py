@@ -4,6 +4,7 @@ import pytest
 from homeassistant.components.climate import HVACMode
 
 from custom_components.sat.const import (
+    COLD_SETPOINT,
     CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS,
     CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
     CONF_HEATING_SYSTEM,
@@ -77,6 +78,18 @@ async def test_hvac_off_forces_minimum(heating_control):
     await heating_control.update(_make_demand(45.0, hvac_mode=HVACMode.OFF))
 
     assert heating_control.control_setpoint == MINIMUM_SETPOINT
+    assert heating_control._coordinator.active is False
+
+
+async def test_setpoint_below_cold_disables_pwm_and_forces_minimum(heating_control, coordinator):
+    _enable_pwm(heating_control, PWMStatus.ON)
+
+    await heating_control.update(_make_demand(COLD_SETPOINT - 0.1))
+
+    assert heating_control.control_setpoint == MINIMUM_SETPOINT
+    assert heating_control.relative_modulation_value == heating_control._config.pwm.maximum_relative_modulation
+    assert heating_control.pwm_state.enabled is False
+    assert coordinator.active is False
 
 
 async def test_continuous_uses_requested_without_boiler_temperature(heating_control):
