@@ -131,7 +131,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         self.async_set_updated_data(update)
 
-    async def _publish_command(self, payload: str, wait_time: float = 1.0, suffix: Optional[str] = None):
+    async def _publish_command(self, payload: str, wait_time: float = 0.2, suffix: Optional[str] = None):
         """Publish a command to the MQTT topic."""
         topic = self._build_publish_topic(suffix)
 
