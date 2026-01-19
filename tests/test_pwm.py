@@ -5,20 +5,20 @@ from typing import Optional
 import pytest
 from homeassistant.core import State
 
+from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.device import DeviceState
 from custom_components.sat.entry_data import PwmConfig
 from custom_components.sat.pwm import PWM
 from custom_components.sat.types import CycleClassification, HeatingSystem, PWMStatus
-from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.types import CycleControlMode, CycleKind, Percentiles
 
 
 def _make_device_state(
-    *,
-    flame_active: bool = False,
-    hot_water_active: bool = False,
-    setpoint: Optional[float] = 40.0,
-    flow_temperature: Optional[float] = 50.0,
+        *,
+        flame_active: bool = False,
+        hot_water_active: bool = False,
+        setpoint: Optional[float] = 40.0,
+        flow_temperature: Optional[float] = 50.0,
 ) -> DeviceState:
     return DeviceState(
         flame_active=flame_active,
@@ -233,36 +233,8 @@ def test_cycle_end_enables_on_overshoot(pwm: PWM):
     assert pwm.enabled is True
 
 
-def test_cycle_end_disables_on_underheat(pwm: PWM):
-    cycle = _make_cycle(CycleClassification.UNDERHEAT, control_mode=CycleControlMode.CONTINUOUS)
-    pwm.enable()
-    pwm.on_cycle_end(cycle)
-    assert pwm.enabled is False
-
-
 def test_cycle_end_pwm_underheat_disables(pwm: PWM):
     cycle = _make_cycle(CycleClassification.UNDERHEAT, control_mode=CycleControlMode.PWM)
     pwm.disable()
     pwm.on_cycle_end(cycle)
     assert pwm.enabled is False
-
-
-def test_cycle_end_pwm_overshoot_disables(pwm: PWM):
-    cycle = _make_cycle(CycleClassification.OVERSHOOT, control_mode=CycleControlMode.PWM)
-    pwm.enable()
-    pwm.on_cycle_end(cycle)
-    assert pwm.enabled is False
-
-
-def test_cycle_end_pwm_good_disables(pwm: PWM):
-    cycle = _make_cycle(CycleClassification.GOOD, control_mode=CycleControlMode.PWM)
-    pwm.enable()
-    pwm.on_cycle_end(cycle)
-    assert pwm.enabled is False
-
-
-def test_cycle_end_pwm_short_cycling_enables(pwm: PWM):
-    cycle = _make_cycle(CycleClassification.SHORT_CYCLING, control_mode=CycleControlMode.PWM)
-    pwm.disable()
-    pwm.on_cycle_end(cycle)
-    assert pwm.enabled is True
