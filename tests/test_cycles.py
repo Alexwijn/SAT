@@ -12,7 +12,7 @@ from custom_components.sat.cycles.const import (
     DEFAULT_DUTY_WINDOW_SECONDS,
     DEFAULT_CYCLES_WINDOW_SECONDS,
     TARGET_MIN_ON_TIME_SECONDS,
-    ULTRA_SHORT_MIN_ON_TIME_SECONDS,
+    MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS,
 )
 from custom_components.sat.const import COLD_SETPOINT
 from custom_components.sat.heating_control import ControlLoopSample
@@ -21,9 +21,9 @@ from custom_components.sat.pwm import PWMState
 from custom_components.sat.types import CycleClassification, CycleControlMode, CycleKind, Percentiles, PWMStatus
 
 
-def _make_pwm_state(status: PWMStatus = PWMStatus.IDLE) -> PWMState:
+def _make_pwm_state(status: PWMStatus = PWMStatus.IDLE, *, enabled: bool = False) -> PWMState:
     return PWMState(
-        enabled=True,
+        enabled=enabled,
         status=status,
         duty_cycle=None,
         last_duty_cycle_percentage=None,
@@ -74,7 +74,13 @@ def _make_sample(
     )
 
 
-def _tail_metrics_for_error(error: Optional[float], *, setpoint: float = 40.0, hot_water_fraction: float = 0.0) -> CycleMetrics:
+def _tail_metrics_for_errors(
+        control_error: Optional[float],
+        requested_error: Optional[float],
+        *,
+        setpoint: float = 40.0,
+        hot_water_fraction: float = 0.0,
+) -> CycleMetrics:
     return CycleMetrics(
         requested_setpoint=Percentiles(p50=setpoint, p90=setpoint),
         control_setpoint=Percentiles(p50=setpoint, p90=setpoint),
@@ -82,9 +88,18 @@ def _tail_metrics_for_error(error: Optional[float], *, setpoint: float = 40.0, h
         return_temperature=Percentiles(p50=30.0, p90=30.0),
         relative_modulation_level=Percentiles(p50=None, p90=None),
         flow_return_delta=Percentiles(p50=10.0, p90=10.0),
-        flow_control_setpoint_error=Percentiles(p50=error, p90=error),
-        flow_requested_setpoint_error=Percentiles(p50=error, p90=error),
+        flow_control_setpoint_error=Percentiles(p50=control_error, p90=control_error),
+        flow_requested_setpoint_error=Percentiles(p50=requested_error, p90=requested_error),
         hot_water_active_fraction=hot_water_fraction,
+    )
+
+
+def _tail_metrics_for_error(error: Optional[float], *, setpoint: float = 40.0, hot_water_fraction: float = 0.0) -> CycleMetrics:
+    return _tail_metrics_for_errors(
+        error,
+        error,
+        setpoint=setpoint,
+        hot_water_fraction=hot_water_fraction,
     )
 
 
@@ -117,9 +132,9 @@ def _make_cycle(end_time: float, duration: float) -> Cycle:
     )
 
 
-def test_classify_premature_off_when_pwm_on():
+def test_classify_short_cycling_when_pwm_on():
     boiler_state = _make_boiler_state(flame_active=False)
-    pwm_state = _make_pwm_state(PWMStatus.ON)
+    pwm_state = _make_pwm_state(PWMStatus.ON, enabled=True)
     tail_metrics = _tail_metrics_for_error(0.0)
 
     classification = CycleTracker._classify_cycle(
@@ -130,23 +145,103 @@ def test_classify_premature_off_when_pwm_on():
         tail_metrics=tail_metrics,
     )
 
-    assert classification is CycleClassification.PREMATURE_OFF
+    assert classification is CycleClassification.SHORT_CYCLING
 
 
-def test_classify_fast_overshoot():
+def test_classify_pwm_enabled_idle_uncertain():
+    boiler_state = _make_boiler_state(flame_active=False)
+    pwm_state = _make_pwm_state(PWMStatus.IDLE, enabled=True)
+    tail_metrics = _tail_metrics_for_error(0.0)
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS + 1.0,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.UNCERTAIN
+
+
+def test_classify_insufficient_data_ultra_short():
+    boiler_state = _make_boiler_state(flame_active=False)
+    pwm_state = _make_pwm_state(PWMStatus.IDLE)
+    tail_metrics = _tail_metrics_for_error(0.0)
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS - 1.0,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.INSUFFICIENT_DATA
+
+
+def test_classify_overshoot():
     boiler_state = _make_boiler_state(flame_active=False)
     pwm_state = _make_pwm_state(PWMStatus.IDLE)
     tail_metrics = _tail_metrics_for_error(OVERSHOOT_MARGIN_CELSIUS + 0.1)
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,
-        duration_seconds=ULTRA_SHORT_MIN_ON_TIME_SECONDS - 1.0,
+        duration_seconds=MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS + 1.0,
         kind=CycleKind.CENTRAL_HEATING,
         pwm_state=pwm_state,
         tail_metrics=tail_metrics,
     )
 
-    assert classification is CycleClassification.FAST_OVERSHOOT
+    assert classification is CycleClassification.OVERSHOOT
+
+
+def test_classify_pwm_uses_requested_error():
+    boiler_state = _make_boiler_state(flame_active=False)
+    pwm_state = _make_pwm_state(PWMStatus.OFF, enabled=True)
+    tail_metrics = _tail_metrics_for_errors(0.2, OVERSHOOT_MARGIN_CELSIUS + 0.3)
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=TARGET_MIN_ON_TIME_SECONDS + 10.0,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.GOOD
+
+
+def test_classify_pwm_ignores_control_setpoint_overshoot():
+    boiler_state = _make_boiler_state(flame_active=False)
+    pwm_state = _make_pwm_state(PWMStatus.OFF, enabled=True)
+    tail_metrics = _tail_metrics_for_errors(OVERSHOOT_MARGIN_CELSIUS + 0.3, 0.1)
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=TARGET_MIN_ON_TIME_SECONDS + 10.0,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.GOOD
+
+
+def test_classify_pwm_underheat():
+    boiler_state = _make_boiler_state(flame_active=False)
+    pwm_state = _make_pwm_state(PWMStatus.OFF, enabled=True)
+    tail_metrics = _tail_metrics_for_errors(0.1, UNDERSHOOT_MARGIN_CELSIUS - 0.2)
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=TARGET_MIN_ON_TIME_SECONDS + 10.0,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.UNDERHEAT
 
 
 def test_classify_too_short_underheat():
@@ -162,7 +257,7 @@ def test_classify_too_short_underheat():
         tail_metrics=tail_metrics,
     )
 
-    assert classification is CycleClassification.TOO_SHORT_UNDERHEAT
+    assert classification is CycleClassification.UNDERHEAT
 
 
 def test_classify_long_underheat():
@@ -178,7 +273,7 @@ def test_classify_long_underheat():
         tail_metrics=tail_metrics,
     )
 
-    assert classification is CycleClassification.LONG_UNDERHEAT
+    assert classification is CycleClassification.UNDERHEAT
 
 
 def test_classify_long_underheat_below_cold_setpoint():
@@ -194,7 +289,7 @@ def test_classify_long_underheat_below_cold_setpoint():
         tail_metrics=tail_metrics,
     )
 
-    assert classification is CycleClassification.LONG_UNDERHEAT
+    assert classification is CycleClassification.UNDERHEAT
 
 
 def test_classify_short_underheat_below_cold_setpoint_uncertain():

@@ -8,7 +8,7 @@ from .const import HEATER_STARTUP_TIMEFRAME, OVERSHOOT_CYCLES, UNDERHEAT_CYCLES
 from .device import DeviceState
 from .entry_data import PwmConfig
 from .helpers import timestamp
-from .types import PWMStatus, HeatingSystem
+from .types import CycleClassification, CycleControlMode, HeatingSystem, PWMStatus
 
 if TYPE_CHECKING:
     from .cycles import Cycle
@@ -23,6 +23,20 @@ class PWMState:
     status: PWMStatus
     duty_cycle: Optional[Tuple[int, int]]
     last_duty_cycle_percentage: Optional[float]
+
+    @property
+    def on_time_seconds(self) -> Optional[int]:
+        if self.duty_cycle is None:
+            return None
+
+        return self.duty_cycle[0]
+
+    @property
+    def off_time_seconds(self) -> Optional[int]:
+        if self.duty_cycle is None:
+            return None
+
+        return self.duty_cycle[1]
 
 
 class PWM:
@@ -167,6 +181,20 @@ class PWM:
 
     def on_cycle_end(self, cycle: "Cycle") -> None:
         """Adjust PWM enablement based on the last completed cycle classification."""
+        if cycle.control_mode == CycleControlMode.PWM:
+            if cycle.classification == CycleClassification.UNDERHEAT:
+                self.disable()
+                return
+
+            if cycle.classification == CycleClassification.SHORT_CYCLING:
+                self.enable()
+                return
+
+            if cycle.classification in (CycleClassification.GOOD, CycleClassification.OVERSHOOT):
+                self.disable()
+                return
+            return
+
         if cycle.classification in OVERSHOOT_CYCLES:
             self.enable()
             return

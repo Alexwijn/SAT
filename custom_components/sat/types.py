@@ -55,18 +55,14 @@ class CycleClassification(str, Enum):
     # Good/unknown
     GOOD = "good"
     UNCERTAIN = "uncertain"
-    PREMATURE_OFF = "premature_off"
-
-    # Overshoot/underheat timing
-    LONG_OVERSHOOT = "long_overshoot"
-    LONG_UNDERHEAT = "long_underheat"
-    FAST_OVERSHOOT = "fast_overshoot"
-    FAST_UNDERHEAT = "fast_underheat"
     INSUFFICIENT_DATA = "insufficient_data"
 
-    # Minimum duration constraints
-    TOO_SHORT_UNDERHEAT = "too_short_underheat"
-    TOO_SHORT_OVERSHOOT = "too_short_overshoot"
+    # Overshoot/underheat outcomes
+    OVERSHOOT = "overshoot"
+    UNDERHEAT = "underheat"
+
+    # PWM short cycling
+    SHORT_CYCLING = "short_cycling"
 
 
 class HeaterState(str, Enum):

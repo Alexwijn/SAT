@@ -190,22 +190,15 @@ SIGNAL_PID_UPDATED = "sat_pid_updated"
 
 # Classification thresholds/sets for cycle health.
 UNHEALTHY_CYCLES = (
-    CycleClassification.LONG_OVERSHOOT,
-    CycleClassification.LONG_UNDERHEAT,
-    CycleClassification.FAST_OVERSHOOT,
-    CycleClassification.FAST_UNDERHEAT,
-    CycleClassification.TOO_SHORT_UNDERHEAT,
-    CycleClassification.TOO_SHORT_OVERSHOOT,
+    CycleClassification.OVERSHOOT,
+    CycleClassification.UNDERHEAT,
+    CycleClassification.SHORT_CYCLING,
 )
 
 OVERSHOOT_CYCLES = (
-    CycleClassification.LONG_OVERSHOOT,
-    CycleClassification.FAST_OVERSHOOT,
-    CycleClassification.TOO_SHORT_OVERSHOOT,
+    CycleClassification.OVERSHOOT,
 )
 
 UNDERHEAT_CYCLES = (
-    CycleClassification.LONG_UNDERHEAT,
-    CycleClassification.FAST_UNDERHEAT,
-    CycleClassification.TOO_SHORT_UNDERHEAT,
+    CycleClassification.UNDERHEAT,
 )

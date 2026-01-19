@@ -3,9 +3,9 @@ from __future__ import annotations
 IN_BAND_MARGIN_CELSIUS: float = 1.0
 MAX_ON_DURATION_SECONDS_FOR_ROLLING_WINDOWS: float = 1800.0
 
-# Below this, if we overshoot / underheat, we call it "too short".
+# Minimum cycle duration required for classification.
 TARGET_MIN_ON_TIME_SECONDS: float = 600.0
-ULTRA_SHORT_MIN_ON_TIME_SECONDS: float = 90.0
+MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS: float = 90.0
 
 # Flow vs. setpoint classification margins
 OVERSHOOT_MARGIN_CELSIUS: float = 3.0

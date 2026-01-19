@@ -32,7 +32,7 @@ def _make_device_state(
     )
 
 
-def _make_cycle(classification: CycleClassification) -> Cycle:
+def _make_cycle(classification: CycleClassification, *, control_mode: CycleControlMode = CycleControlMode.PWM) -> Cycle:
     metrics = CycleMetrics(
         requested_setpoint=Percentiles(p50=40.0, p90=40.0),
         control_setpoint=Percentiles(p50=40.0, p90=40.0),
@@ -53,7 +53,7 @@ def _make_cycle(classification: CycleClassification) -> Cycle:
     )
     return Cycle(
         kind=CycleKind.CENTRAL_HEATING,
-        control_mode=CycleControlMode.PWM,
+        control_mode=control_mode,
         tail=metrics,
         metrics=metrics,
         shape=shape,
@@ -227,14 +227,42 @@ def test_disable_resets_state(pwm: PWM):
 
 
 def test_cycle_end_enables_on_overshoot(pwm: PWM):
-    cycle = _make_cycle(CycleClassification.LONG_OVERSHOOT)
+    cycle = _make_cycle(CycleClassification.OVERSHOOT, control_mode=CycleControlMode.CONTINUOUS)
     pwm.disable()
     pwm.on_cycle_end(cycle)
     assert pwm.enabled is True
 
 
 def test_cycle_end_disables_on_underheat(pwm: PWM):
-    cycle = _make_cycle(CycleClassification.LONG_UNDERHEAT)
+    cycle = _make_cycle(CycleClassification.UNDERHEAT, control_mode=CycleControlMode.CONTINUOUS)
     pwm.enable()
     pwm.on_cycle_end(cycle)
     assert pwm.enabled is False
+
+
+def test_cycle_end_pwm_underheat_disables(pwm: PWM):
+    cycle = _make_cycle(CycleClassification.UNDERHEAT, control_mode=CycleControlMode.PWM)
+    pwm.disable()
+    pwm.on_cycle_end(cycle)
+    assert pwm.enabled is False
+
+
+def test_cycle_end_pwm_overshoot_disables(pwm: PWM):
+    cycle = _make_cycle(CycleClassification.OVERSHOOT, control_mode=CycleControlMode.PWM)
+    pwm.enable()
+    pwm.on_cycle_end(cycle)
+    assert pwm.enabled is False
+
+
+def test_cycle_end_pwm_good_disables(pwm: PWM):
+    cycle = _make_cycle(CycleClassification.GOOD, control_mode=CycleControlMode.PWM)
+    pwm.enable()
+    pwm.on_cycle_end(cycle)
+    assert pwm.enabled is False
+
+
+def test_cycle_end_pwm_short_cycling_enables(pwm: PWM):
+    cycle = _make_cycle(CycleClassification.SHORT_CYCLING, control_mode=CycleControlMode.PWM)
+    pwm.disable()
+    pwm.on_cycle_end(cycle)
+    assert pwm.enabled is True

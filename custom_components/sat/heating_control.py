@@ -14,8 +14,6 @@ from .const import (
     COLD_SETPOINT,
     MINIMUM_RELATIVE_MODULATION,
     MINIMUM_SETPOINT,
-    OVERSHOOT_CYCLES,
-    UNDERHEAT_CYCLES,
 )
 from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
@@ -184,11 +182,7 @@ class SatHeatingControl:
             )
 
             if self._cycles.last_cycle is not None:
-                if self._cycles.last_cycle.classification in OVERSHOOT_CYCLES:
-                    self._pwm.enable()
-
-                if self._cycles.last_cycle.classification in UNDERHEAT_CYCLES:
-                    self._pwm.disable()
+                self._pwm.on_cycle_end(self._cycles.last_cycle)
 
             self._compute_relative_modulation_value()
 

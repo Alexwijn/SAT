@@ -7,15 +7,15 @@ from ..const import COLD_SETPOINT, CycleClassification
 from ..types import CycleKind, PWMStatus
 
 if TYPE_CHECKING:
-    from ..device import DeviceState
     from ..pwm import PWMState
+    from ..device import DeviceState
     from .types import CycleMetrics
 
 
 class CycleClassifier:
     @staticmethod
     def classify(device_state: "DeviceState", duration_seconds: float, kind: CycleKind, pwm_state: "PWMState", tail_metrics: "CycleMetrics") -> CycleClassification:
-        """Classify a cycle based on duration, PWM state, and tail error metrics."""
+        """Classify a cycle based on its kind, setpoint, duration and some other metrics."""
         if duration_seconds <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
@@ -25,52 +25,69 @@ class CycleClassifier:
         if tail_metrics.hot_water_active_fraction > 0.0:
             return CycleClassification.UNCERTAIN
 
-        def compute_short_threshold_seconds() -> float:
-            if pwm_state.status == PWMStatus.IDLE or pwm_state.duty_cycle is None:
-                return TARGET_MIN_ON_TIME_SECONDS
+        if duration_seconds < MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS:
+            return CycleClassification.INSUFFICIENT_DATA
 
-            if (on_time_seconds := pwm_state.duty_cycle[0]) is None:
-                return TARGET_MIN_ON_TIME_SECONDS
+        if pwm_state.enabled and pwm_state.status == PWMStatus.IDLE:
+            return CycleClassification.UNCERTAIN
 
-            return float(min(on_time_seconds * 0.9, TARGET_MIN_ON_TIME_SECONDS))
+        if pwm_state.enabled and pwm_state.status != PWMStatus.IDLE:
+            return CycleClassifier._classify_pwm(duration_seconds, pwm_state, tail_metrics, device_state)
 
-        is_short = duration_seconds < compute_short_threshold_seconds()
-        is_ultra_short = duration_seconds < ULTRA_SHORT_MIN_ON_TIME_SECONDS
+        if (classification := CycleClassifier._classify_continuous(tail_metrics, device_state)) is not None:
+            return classification
 
-        if tail_metrics.flow_control_setpoint_error.p90 is None or tail_metrics.flow_requested_setpoint_error.p50 is None:
+        return CycleClassification.GOOD
+
+    @staticmethod
+    def _classify_pwm(duration_seconds: float, pwm_state: "PWMState", tail_metrics: "CycleMetrics", device_state: "DeviceState") -> CycleClassification:
+        """Classify a cycle based on its PWM state and some other metrics."""
+        if tail_metrics.flow_requested_setpoint_error.p50 is None or tail_metrics.flow_requested_setpoint_error.p90 is None:
+            return CycleClassification.UNCERTAIN
+
+        underheat = tail_metrics.flow_requested_setpoint_error.p90 <= UNDERSHOOT_MARGIN_CELSIUS
+
+        if underheat:
+            if (effective_setpoint := tail_metrics.requested_setpoint.p50) is None:
+                effective_setpoint = device_state.setpoint
+
+            if effective_setpoint is not None and effective_setpoint < COLD_SETPOINT:
+                return CycleClassification.UNCERTAIN
+
+            return CycleClassification.UNDERHEAT
+
+        if pwm_state.status == PWMStatus.ON:
+            if pwm_state.on_time_seconds is None:
+                return CycleClassification.SHORT_CYCLING
+
+            if pwm_state.on_time_seconds <= 0:
+                return CycleClassification.SHORT_CYCLING
+
+            if duration_seconds < pwm_state.on_time_seconds * 0.8:
+                return CycleClassification.SHORT_CYCLING
+
+        return CycleClassification.GOOD
+
+    @staticmethod
+    def _classify_continuous(tail_metrics: "CycleMetrics", device_state: "DeviceState") -> CycleClassification | None:
+        """Classify a cycle based on its flow control setpoint error and some other metrics."""
+        if tail_metrics.flow_control_setpoint_error.p90 is None or tail_metrics.flow_control_setpoint_error.p50 is None:
             return CycleClassification.UNCERTAIN
 
         overshoot = tail_metrics.flow_control_setpoint_error.p90 >= OVERSHOOT_MARGIN_CELSIUS
-        underheat = tail_metrics.flow_requested_setpoint_error.p50 <= UNDERSHOOT_MARGIN_CELSIUS
-
-        if is_ultra_short:
-            if overshoot:
-                return CycleClassification.FAST_OVERSHOOT
-
-            if underheat:
-                return CycleClassification.FAST_UNDERHEAT
-
-        if is_short:
-            if overshoot:
-                return CycleClassification.TOO_SHORT_OVERSHOOT
-
-            if underheat:
-                effective_setpoint = device_state.setpoint
-                if tail_metrics.control_setpoint.p50 is not None:
-                    effective_setpoint = tail_metrics.control_setpoint.p50
-
-                if effective_setpoint is not None and effective_setpoint < COLD_SETPOINT:
-                    return CycleClassification.UNCERTAIN
-
-                return CycleClassification.TOO_SHORT_UNDERHEAT
-
-        if underheat:
-            return CycleClassification.LONG_UNDERHEAT
+        underheat = tail_metrics.flow_control_setpoint_error.p50 <= UNDERSHOOT_MARGIN_CELSIUS
 
         if overshoot:
-            return CycleClassification.LONG_OVERSHOOT
+            return CycleClassification.OVERSHOOT
 
-        if pwm_state.status == PWMStatus.ON:
-            return CycleClassification.PREMATURE_OFF
+        if underheat:
+            effective_setpoint = tail_metrics.requested_setpoint.p50
+            if effective_setpoint is None:
+                effective_setpoint = device_state.setpoint
 
-        return CycleClassification.GOOD
+            if effective_setpoint is not None and effective_setpoint < COLD_SETPOINT:
+                return CycleClassification.UNCERTAIN
+
+            return CycleClassification.UNDERHEAT
+
+        return None
