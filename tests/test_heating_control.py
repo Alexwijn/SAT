@@ -100,6 +100,7 @@ async def test_continuous_uses_requested_without_boiler_temperature(heating_cont
 
 async def test_continuous_follows_requested_at_or_above_boiler_temperature(heating_control, coordinator):
     await coordinator.async_set_boiler_temperature(35.0)
+    await coordinator.async_set_heater_state(HeaterState.ON)
 
     await heating_control.update(_make_demand(40.0))
 
@@ -108,6 +109,7 @@ async def test_continuous_follows_requested_at_or_above_boiler_temperature(heati
 
 async def test_continuous_clamps_below_boiler_temperature(heating_control, coordinator):
     await coordinator.async_set_boiler_temperature(55.0)
+    await coordinator.async_set_heater_state(HeaterState.ON)
 
     await heating_control.update(_make_demand(40.0))
 
@@ -117,11 +119,43 @@ async def test_continuous_clamps_below_boiler_temperature(heating_control, coord
 
 async def test_continuous_allows_requested_above_offset(heating_control, coordinator):
     await coordinator.async_set_boiler_temperature(55.0)
+    await coordinator.async_set_heater_state(HeaterState.ON)
 
     requested = 55.0 - OPTIONS_DEFAULTS[CONF_FLOW_SETPOINT_OFFSET_CELSIUS] + 0.5
     await heating_control.update(_make_demand(requested))
 
     assert heating_control.control_setpoint == requested
+
+
+async def test_continuous_holds_previous_when_offset_rises(heating_control, coordinator):
+    heating_control._control_setpoint = 45.0
+    await coordinator.async_set_boiler_temperature(50.0)
+    await coordinator.async_set_heater_state(HeaterState.ON)
+
+    await heating_control.update(_make_demand(42.0))
+
+    assert heating_control.control_setpoint == 45.0
+
+
+async def test_continuous_allows_change_when_flame_off(heating_control, coordinator):
+    heating_control._control_setpoint = 45.0
+    await coordinator.async_set_boiler_temperature(50.0)
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+
+    await heating_control.update(_make_demand(42.0))
+
+    assert heating_control.control_setpoint == 42.0
+
+
+async def test_continuous_allows_increase_when_requested_increases(heating_control, coordinator):
+    heating_control._control_setpoint = 40.0
+    await coordinator.async_set_boiler_temperature(50.0)
+    await coordinator.async_set_heater_state(HeaterState.ON)
+
+    await heating_control.update(_make_demand(41.0))
+
+    expected = 50.0 - OPTIONS_DEFAULTS[CONF_FLOW_SETPOINT_OFFSET_CELSIUS]
+    assert heating_control.control_setpoint == expected
 
 
 async def test_pwm_suppression_applied(hass, coordinator, monkeypatch):

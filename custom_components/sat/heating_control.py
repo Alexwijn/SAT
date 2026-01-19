@@ -324,13 +324,32 @@ class SatHeatingControl:
             )
             return
 
-        minimum_allowed_setpoint = boiler_temperature - offset
-        self._control_setpoint = max(requested_setpoint, minimum_allowed_setpoint)
+        if not self._coordinator.state.flame_active:
+            self._control_setpoint = requested_setpoint
 
-        if requested_setpoint < minimum_allowed_setpoint:
+            _LOGGER.debug(
+                "Setpoint followed request while flame is off (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C)",
+                requested_setpoint, previous_setpoint, boiler_temperature,
+            )
+            return
+
+        minimum_allowed_setpoint = boiler_temperature - offset
+        if requested_setpoint > previous_setpoint:
+            self._control_setpoint = max(requested_setpoint, minimum_allowed_setpoint)
+        else:
+            self._control_setpoint = max(requested_setpoint, min(minimum_allowed_setpoint, previous_setpoint))
+
+        if requested_setpoint < minimum_allowed_setpoint and self._control_setpoint == minimum_allowed_setpoint:
             _LOGGER.debug(
                 "Setpoint clamped to offset minimum (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C, offset=%.1f°C, applied=%.1f°C)",
                 requested_setpoint, previous_setpoint, boiler_temperature, offset, self._control_setpoint,
+            )
+            return
+
+        if requested_setpoint < minimum_allowed_setpoint and self._control_setpoint == previous_setpoint:
+            _LOGGER.debug(
+                "Setpoint held to avoid increase despite offset minimum (requested=%.1f°C, previous=%.1f°C, boiler=%.1f°C, offset=%.1f°C, minimum=%.1f°C)",
+                requested_setpoint, previous_setpoint, boiler_temperature, offset, minimum_allowed_setpoint,
             )
             return
 
