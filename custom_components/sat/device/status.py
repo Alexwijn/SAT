@@ -5,7 +5,6 @@ from typing import Optional, TYPE_CHECKING
 
 from .const import *
 from .types import DeviceState
-from ..const import UNHEALTHY_CYCLES
 from ..types import BoilerStatus
 
 if TYPE_CHECKING:
@@ -61,9 +60,6 @@ class DeviceStatusEvaluator:
             # Just became active → pump starting phase.
             if DeviceStatusEvaluator.is_pump_start_phase(state, previous, snapshot.last_flame_on_at):
                 return BoilerStatus.PUMP_STARTING
-
-            if snapshot.last_cycle is not None and snapshot.last_cycle.classification in UNHEALTHY_CYCLES:
-                return BoilerStatus.SHORT_CYCLING
 
             # Waiting for flame: active, demand present, not anti cycling, not stalled.
             if DeviceStatusEvaluator.has_demand(state):

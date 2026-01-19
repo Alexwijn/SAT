@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .const import *
-from ..const import COLD_SETPOINT, CycleClassification
-from ..types import CycleKind, PWMStatus
+from ..const import COLD_SETPOINT
+from ..types import CycleClassification, CycleKind, PWMStatus
 
 if TYPE_CHECKING:
     from ..pwm import PWMState

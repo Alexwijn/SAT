@@ -16,7 +16,7 @@ from ..types import CycleControlMode, CycleKind, Percentiles
 
 if TYPE_CHECKING:
     from ..device import DeviceState
-    from ..const import CycleClassification
+    from ..types import CycleClassification
     from ..heating_control import ControlLoopSample
     from ..pwm import PWMState
 

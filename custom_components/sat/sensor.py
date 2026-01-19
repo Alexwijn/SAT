@@ -18,7 +18,7 @@ from .coordinator.simulator import sensor as simulator_sensor
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
-from .types import BoilerStatus
+from .types import BoilerStatus, CycleClassification
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:

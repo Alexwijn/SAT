@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from ..const import CycleClassification
-from ..types import CycleControlMode, CycleKind, Percentiles
+from ..types import CycleClassification, CycleControlMode, CycleKind, Percentiles
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,7 +4,7 @@ from typing import Optional, Tuple, TYPE_CHECKING
 
 from homeassistant.core import State
 
-from .const import HEATER_STARTUP_TIMEFRAME, OVERSHOOT_CYCLES, UNDERHEAT_CYCLES
+from .const import HEATER_STARTUP_TIMEFRAME
 from .device import DeviceState
 from .entry_data import PwmConfig
 from .helpers import timestamp
@@ -186,7 +186,7 @@ class PWM:
                 return self.disable()
 
         if cycle.control_mode == CycleControlMode.CONTINUOUS:
-            if cycle.classification in OVERSHOOT_CYCLES:
+            if cycle.classification in CycleClassification.OVERSHOOT:
                 return self.enable()
 
     def _calculate_duty_cycle(self, requested_setpoint: float, device_state: DeviceState) -> Tuple[int, int]:

@@ -1,7 +1,7 @@
 # Core domain identifiers and shared defaults used across the integration.
 from __future__ import annotations
 
-from .types import CycleClassification, HeatingSystem, HeatingMode
+from .types import HeatingSystem, HeatingMode
 
 NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
@@ -187,18 +187,3 @@ EVENT_SAT_CYCLE_ENDED = "sat_cycle_ended"
 
 # Dispatcher signals for internal updates.
 SIGNAL_PID_UPDATED = "sat_pid_updated"
-
-# Classification thresholds/sets for cycle health.
-UNHEALTHY_CYCLES = (
-    CycleClassification.OVERSHOOT,
-    CycleClassification.UNDERHEAT,
-    CycleClassification.SHORT_CYCLING,
-)
-
-OVERSHOOT_CYCLES = (
-    CycleClassification.OVERSHOOT,
-)
-
-UNDERHEAT_CYCLES = (
-    CycleClassification.UNDERHEAT,
-)

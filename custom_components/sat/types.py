@@ -36,7 +36,6 @@ class BoilerStatus(Enum):
     COOLING = "cooling"
     ANTI_CYCLING = "anti_cycling"
     PUMP_STARTING = "pump_starting"
-    SHORT_CYCLING = "short_cycling"
     WAITING_FOR_FLAME = "waiting_for_flame"
     OVERSHOOT_COOLING = "overshoot_cooling"
     POST_CYCLE_SETTLING = "post_cycle_settling"

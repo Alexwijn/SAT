@@ -18,7 +18,7 @@ from .coordinator.serial import binary_sensor as serial_binary_sensor
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .helpers import seconds_since, timestamp
-from .types import BoilerStatus
+from .types import BoilerStatus, CycleClassification
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
