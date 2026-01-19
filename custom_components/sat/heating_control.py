@@ -324,7 +324,7 @@ class SatHeatingControl:
             )
             return
 
-        if not self._coordinator.state.flame_active:
+        if not self._coordinator.flame_active:
             self._control_setpoint = requested_setpoint
 
             _LOGGER.debug(
