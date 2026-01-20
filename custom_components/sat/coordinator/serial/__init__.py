@@ -103,6 +103,13 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return super().return_temperature
 
     @property
+    def boiler_pressure(self) -> Optional[float]:
+        if (value := self.get(DATA_CH_WATER_PRESS)) is not None:
+            return float(value)
+
+        return super().boiler_pressure
+
+    @property
     def minimum_hot_water_setpoint(self) -> float:
         if (setpoint := self.get(DATA_SLAVE_DHW_MIN_SETP)) is not None:
             return float(setpoint)

@@ -221,6 +221,10 @@
           "minimum_consumption": "Minimálna spotreba",
           "modulation_suppression_offset_celsius": "Offset potlačenia modulácie",
           "flow_setpoint_offset_celsius": "Offset setpointu prívodu",
+          "minimum_boiler_pressure": "Minimum boiler pressure",
+          "maximum_boiler_pressure": "Maximum boiler pressure",
+          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
+          "pressure_max_value_age": "Pressure max value age",
           "sample_time": "Čas vzorky",
           "simulation": "Simulácia",
           "target_temperature_step": "Krok cieľovej teploty",
@@ -240,7 +244,11 @@
           "flame_off_setpoint_offset_celsius": "Pri vypnutej plameni drží dočasný setpoint na spiatočke + offset (len modulácia šírky impulzu).",
           "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len modulácia šírky impulzu).",
           "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len modulácia šírky impulzu).",
-          "flow_setpoint_offset_celsius": "Minimálny rozdiel pod teplotou kotla pri obmedzení setpointu (kontinuálny režim)."
+          "flow_setpoint_offset_celsius": "Minimálny rozdiel pod teplotou kotla pri obmedzení setpointu (kontinuálny režim).",
+          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
+          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
+          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
         },
         "title": "Rozšírené"
       },

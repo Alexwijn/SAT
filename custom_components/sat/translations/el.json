@@ -221,6 +221,10 @@
           "minimum_consumption": "Ελάχιστη Κατανάλωση",
           "modulation_suppression_offset_celsius": "Μετατόπιση καταστολής διαμόρφωσης",
           "flow_setpoint_offset_celsius": "Μετατόπιση setpoint προσαγωγής",
+          "minimum_boiler_pressure": "Minimum boiler pressure",
+          "maximum_boiler_pressure": "Maximum boiler pressure",
+          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
+          "pressure_max_value_age": "Pressure max value age",
           "sample_time": "Χρόνος Δειγματοληψίας",
           "simulation": "Προσομοίωση",
           "target_temperature_step": "Βήμα Στόχου Θερμοκρασίας",
@@ -240,7 +244,11 @@
           "flame_off_setpoint_offset_celsius": "Όταν η φλόγα είναι σβηστή, κρατά προσωρινό setpoint στο επιστροφής + offset (μόνο Διαμόρφωση Πλάτους Παλμού).",
           "modulation_suppression_delay_seconds": "Χρόνος μετά την έναυση πριν εφαρμοστεί η καταστολή (μόνο Διαμόρφωση Πλάτους Παλμού).",
           "modulation_suppression_offset_celsius": "Μείωση του setpoint προσαγωγής κατά την καταστολή (μόνο Διαμόρφωση Πλάτους Παλμού).",
-          "flow_setpoint_offset_celsius": "Ελάχιστη απόσταση κάτω από τη θερμοκρασία του λέβητα κατά τον περιορισμό του setpoint (συνεχής λειτουργία)."
+          "flow_setpoint_offset_celsius": "Ελάχιστη απόσταση κάτω από τη θερμοκρασία του λέβητα κατά τον περιορισμό του setpoint (συνεχής λειτουργία).",
+          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
+          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
+          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
         },
         "title": "Για προχωρημένους"
       },

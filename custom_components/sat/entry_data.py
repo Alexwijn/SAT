@@ -69,6 +69,14 @@ class LimitsConfig:
 
 
 @dataclass(frozen=True)
+class PressureHealthConfig:
+    minimum_pressure_bar: float
+    maximum_pressure_bar: float
+    maximum_drop_rate_bar_per_hour: float
+    maximum_age_seconds: float
+
+
+@dataclass(frozen=True)
 class PresetConfig:
     heating_mode: HeatingMode
     thermal_comfort: bool
@@ -228,6 +236,15 @@ class SatConfig:
 
             climate_valve_offset=float(self.options.get(CONF_CLIMATE_VALVE_OFFSET)),
             target_temperature_step=float(self.options.get(CONF_TARGET_TEMPERATURE_STEP)),
+        )
+
+    @property
+    def pressure_health(self) -> PressureHealthConfig:
+        return PressureHealthConfig(
+            minimum_pressure_bar=float(self.options.get(CONF_MINIMUM_BOILER_PRESSURE)),
+            maximum_pressure_bar=float(self.options.get(CONF_MAXIMUM_BOILER_PRESSURE)),
+            maximum_drop_rate_bar_per_hour=float(self.options.get(CONF_MAXIMUM_PRESSURE_DROP_RATE)),
+            maximum_age_seconds=convert_time_str_to_seconds(self.options.get(CONF_PRESSURE_MAX_VALUE_AGE)),
         )
 
     @property

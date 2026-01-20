@@ -71,7 +71,7 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Requested Setpoint {self._config.name}"
+        return "Requested Setpoint"
 
     @property
     def device_class(self) -> SensorDeviceClass:
@@ -127,9 +127,9 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
     @property
     def name(self) -> str:
         if self._area_id is None:
-            return f"PID {self._config.name}"
+            return f"PID"
 
-        return f"PID {self._config.name} ({self._area_id})"
+        return f"PID ({self._area_id})"
 
     @property
     def device_class(self) -> SensorDeviceClass:
@@ -178,7 +178,7 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Current Power {self._config.name} (Device)"
+        return "Current Power (Device)"
 
     @property
     def device_class(self):
@@ -219,7 +219,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Current Consumption {self._config.name} (Device)"
+        return "Current Consumption (Device)"
 
     @property
     def device_class(self):
@@ -261,7 +261,7 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Heating Curve {self._config.name}"
+        return "Heating Curve"
 
     @property
     def device_class(self):
@@ -293,7 +293,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Error Value {self._config.name}"
+        return "Error Value"
 
     @property
     def device_class(self):
@@ -327,7 +327,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 class SatManufacturerSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return f"Device Manufacturer {self._config.name}"
+        return "Device Manufacturer"
 
     @property
     def native_value(self) -> Optional[str]:
@@ -354,7 +354,7 @@ class SatCycleSensor(SatEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Cycle Status {self._config.name}"
+        return "Cycle Status"
 
     @property
     def native_value(self) -> str:
@@ -395,7 +395,7 @@ class SatCycleSensor(SatEntity, SensorEntity):
 class SatDeviceSensor(SatEntity, SensorEntity):
     @property
     def name(self) -> str:
-        return f"Device Status {self._config.name}"
+        return "Device Status"
 
     @property
     def native_value(self) -> str:

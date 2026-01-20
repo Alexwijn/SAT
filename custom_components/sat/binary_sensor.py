@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from typing import Optional
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
@@ -10,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from . import SatHeatingControl
 from .climate import SatClimate
@@ -17,7 +19,7 @@ from .const import *
 from .coordinator.serial import binary_sensor as serial_binary_sensor
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
-from .helpers import seconds_since, timestamp
+from .helpers import float_value, seconds_since, timestamp
 from .types import BoilerStatus, CycleClassification
 
 
@@ -42,6 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     sensors: list[BinarySensorEntity] = [
         SatCycleHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatDeviceHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatPressureHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
 
@@ -187,6 +190,130 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-central-heating-synchro"
+
+
+class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
+        self._pressure_config = self._config.pressure_health
+
+        self._last_pressure: Optional[float] = None
+        self._last_drop_rate: Optional[float] = None
+        self._last_seen_pressure: Optional[float] = None
+        self._last_pressure_timestamp: Optional[float] = None
+        self._pressure_samples: deque[tuple[float, float]] = deque()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+
+        last_state = await self.async_get_last_state()
+        if last_state is None:
+            return
+
+        attributes = last_state.attributes or {}
+        self._last_pressure = float_value(attributes.get("last_pressure"))
+        self._last_pressure_timestamp = float_value(attributes.get("last_pressure_timestamp"))
+        self._last_seen_pressure = float_value(attributes.get("last_seen_pressure_timestamp"))
+
+        if self._last_pressure is not None and self._last_pressure_timestamp is not None:
+            self._pressure_samples.append((self._last_pressure_timestamp, self._last_pressure))
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Pressure Health"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def available(self) -> bool:
+        """Return availability of the sensor."""
+        if self._coordinator.boiler_pressure is not None:
+            return True
+
+        if self._last_seen_pressure is None:
+            return False
+
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        now = timestamp()
+        pressure = self._coordinator.boiler_pressure
+        minimum_pressure = self._pressure_config.minimum_pressure_bar
+        maximum_pressure = self._pressure_config.maximum_pressure_bar
+        maximum_age_seconds = self._pressure_config.maximum_age_seconds
+        maximum_drop_rate = self._pressure_config.maximum_drop_rate_bar_per_hour
+
+        if pressure is None:
+            if self._last_seen_pressure is None:
+                return False
+
+            if maximum_age_seconds <= 0:
+                return False
+
+            return (now - self._last_seen_pressure) > maximum_age_seconds
+
+        self._last_seen_pressure = now
+        self._record_pressure_sample(now, pressure, maximum_age_seconds)
+
+        drop_rate = self._calculate_drop_rate()
+
+        self._last_pressure = pressure
+        self._last_pressure_timestamp = now
+
+        pressure_low = pressure < minimum_pressure
+        pressure_high = pressure > maximum_pressure
+        if drop_rate is not None:
+            self._last_drop_rate = round(drop_rate, 3)
+
+        drop_rate_high = drop_rate is not None and drop_rate > maximum_drop_rate
+
+        return pressure_low or pressure_high or drop_rate_high
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Optional[float]]:
+        """Return extra attributes for debugging pressure health decisions."""
+        return {
+            "pressure": self._coordinator.boiler_pressure,
+            "pressure_drop_rate_bar_per_hour": self._last_drop_rate,
+
+            "last_pressure": self._last_pressure,
+            "last_pressure_timestamp": self._last_pressure_timestamp,
+            "last_seen_pressure_timestamp": self._last_seen_pressure,
+        }
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-pressure-health"
+
+    def _record_pressure_sample(self, timestamp_seconds: float, pressure: float, maximum_age_seconds: float) -> None:
+        if maximum_age_seconds <= 0:
+            maximum_age_seconds = 3600
+
+        drop_window_seconds = max(maximum_age_seconds, 3600)
+        self._pressure_samples.append((timestamp_seconds, pressure))
+
+        while self._pressure_samples and (timestamp_seconds - self._pressure_samples[0][0]) > drop_window_seconds:
+            self._pressure_samples.popleft()
+
+    def _calculate_drop_rate(self) -> Optional[float]:
+        if len(self._pressure_samples) < 2:
+            return None
+
+        oldest_time, oldest_pressure = self._pressure_samples[0]
+        newest_time, newest_pressure = self._pressure_samples[-1]
+        elapsed = newest_time - oldest_time
+
+        if elapsed <= 0:
+            return None
+
+        return ((oldest_pressure - newest_pressure) / elapsed) * 3600
 
 
 class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):

@@ -40,6 +40,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = None
         self._hot_water_setpoint = None
         self._boiler_temperature = None
+        self._boiler_pressure = None
         self._device_state = HeaterState.OFF
         self._relative_modulation_value = 100
 
@@ -52,6 +53,10 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
     @property
     def boiler_temperature(self) -> Optional[float]:
         return self._boiler_temperature
+
+    @property
+    def boiler_pressure(self) -> Optional[float]:
+        return self._boiler_pressure
 
     @property
     def active(self) -> bool:
@@ -95,6 +100,9 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
 
     async def async_set_boiler_temperature(self, value: float) -> None:
         self._boiler_temperature = value
+
+    async def async_set_boiler_pressure(self, value: float) -> None:
+        self._boiler_pressure = value
 
     async def async_set_heater_state(self, state: HeaterState) -> None:
         self._device_state = state

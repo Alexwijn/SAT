@@ -907,6 +907,21 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_FLOW_SETPOINT_OFFSET_CELSIUS, default=options[CONF_FLOW_SETPOINT_OFFSET_CELSIUS]),
             selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=10, step=0.1)),
         ))
+        schema_entries.append((
+            vol.Required(CONF_MINIMUM_BOILER_PRESSURE, default=options[CONF_MINIMUM_BOILER_PRESSURE]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=4, step=0.1, unit_of_measurement="bar")),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_MAXIMUM_BOILER_PRESSURE, default=options[CONF_MAXIMUM_BOILER_PRESSURE]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=4, step=0.1, unit_of_measurement="bar")),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_MAXIMUM_PRESSURE_DROP_RATE, default=options[CONF_MAXIMUM_PRESSURE_DROP_RATE]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=3, step=0.05, unit_of_measurement="bar/h")),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_PRESSURE_MAX_VALUE_AGE, default=options[CONF_PRESSURE_MAX_VALUE_AGE]), selector.TimeSelector()
+        ))
 
         schema: dict[Marker, Any] = {key: value for key, value in schema_entries}
 

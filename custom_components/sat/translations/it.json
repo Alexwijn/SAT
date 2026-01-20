@@ -221,6 +221,10 @@
           "minimum_consumption": "Consumo Minimo",
           "modulation_suppression_offset_celsius": "Offset della soppressione di modulazione",
           "flow_setpoint_offset_celsius": "Offset del setpoint di mandata",
+          "minimum_boiler_pressure": "Minimum boiler pressure",
+          "maximum_boiler_pressure": "Maximum boiler pressure",
+          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
+          "pressure_max_value_age": "Pressure max value age",
           "sample_time": "Tempo di Campionamento",
           "simulation": "Simulazione",
           "target_temperature_step": "Passo della Temperatura Target",
@@ -240,7 +244,11 @@
           "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo a ritorno + offset (solo Modulazione di Larghezza di Impulso).",
           "modulation_suppression_delay_seconds": "Tempo dopo l'accensione della fiamma prima della soppressione (solo Modulazione di Larghezza di Impulso).",
           "modulation_suppression_offset_celsius": "Riduzione del setpoint di mandata durante la soppressione (solo Modulazione di Larghezza di Impulso).",
-          "flow_setpoint_offset_celsius": "Scarto minimo sotto la temperatura della caldaia durante il limite del setpoint (modalità continua)."
+          "flow_setpoint_offset_celsius": "Scarto minimo sotto la temperatura della caldaia durante il limite del setpoint (modalità continua).",
+          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
+          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
+          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
         },
         "title": "Avanzate"
       },

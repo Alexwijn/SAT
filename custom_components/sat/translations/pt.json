@@ -221,6 +221,10 @@
           "minimum_consumption": "Consumo Mínimo",
           "modulation_suppression_offset_celsius": "Deslocamento da supressão de modulação",
           "flow_setpoint_offset_celsius": "Deslocamento do setpoint de ida",
+          "minimum_boiler_pressure": "Minimum boiler pressure",
+          "maximum_boiler_pressure": "Maximum boiler pressure",
+          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
+          "pressure_max_value_age": "Pressure max value age",
           "sample_time": "Tempo de Amostragem",
           "simulation": "Simulação",
           "target_temperature_step": "Passo da Temperatura Alvo",
@@ -240,7 +244,11 @@
           "flame_off_setpoint_offset_celsius": "Com a chama desligada, mantém um setpoint temporário em retorno + offset (somente Modulação por Largura de Pulso).",
           "modulation_suppression_delay_seconds": "Tempo após a chama ligar antes de aplicar a supressão (somente Modulação por Largura de Pulso).",
           "modulation_suppression_offset_celsius": "Quanto reduzir o setpoint de ida durante a supressão (somente Modulação por Largura de Pulso).",
-          "flow_setpoint_offset_celsius": "Diferença mínima abaixo da temperatura da caldeira ao limitar o setpoint (modo contínuo)."
+          "flow_setpoint_offset_celsius": "Diferença mínima abaixo da temperatura da caldeira ao limitar o setpoint (modo contínuo).",
+          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
+          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
+          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
         },
         "title": "Avançado"
       },

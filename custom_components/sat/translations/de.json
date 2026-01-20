@@ -221,6 +221,10 @@
           "minimum_consumption": "Mindestverbrauch",
           "modulation_suppression_offset_celsius": "Offset der Modulationsunterdrückung",
           "flow_setpoint_offset_celsius": "Vorlauf-Sollwert-Offset",
+          "minimum_boiler_pressure": "Minimum boiler pressure",
+          "maximum_boiler_pressure": "Maximum boiler pressure",
+          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
+          "pressure_max_value_age": "Pressure max value age",
           "sample_time": "Abtastzeit",
           "simulation": "Simulation",
           "target_temperature_step": "Schrittweite der Zieltemperatur",
@@ -240,7 +244,11 @@
           "flame_off_setpoint_offset_celsius": "Bei ausgeschalteter Flamme wird ein temporärer Sollwert auf Rücklauf + Offset gehalten (nur Pulsweitenmodulation).",
           "modulation_suppression_delay_seconds": "Zeit nach dem Flammenstart, bevor die Unterdrückung greift (nur Pulsweitenmodulation).",
           "modulation_suppression_offset_celsius": "Absenkung des Vorlauf-Sollwerts während der Unterdrückung (nur Pulsweitenmodulation).",
-          "flow_setpoint_offset_celsius": "Minimaler Abstand unter der Kesseltemperatur beim Begrenzen des Sollwerts (kontinuierlicher Modus)."
+          "flow_setpoint_offset_celsius": "Minimaler Abstand unter der Kesseltemperatur beim Begrenzen des Sollwerts (kontinuierlicher Modus).",
+          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
+          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
+          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
         },
         "title": "Erweitert"
       },

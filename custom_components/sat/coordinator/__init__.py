@@ -193,6 +193,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     @property
+    def boiler_pressure(self) -> Optional[float]:
+        """Current boiler pressure."""
+        return None
+
+    @property
     def minimum_hot_water_setpoint(self) -> float:
         """Minimum supported hot water setpoint."""
         return 30

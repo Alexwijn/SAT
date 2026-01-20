@@ -221,6 +221,10 @@
           "minimum_consumption": "Minimaal Verbruik",
           "modulation_suppression_offset_celsius": "Offset voor modulatie-onderdrukking",
           "flow_setpoint_offset_celsius": "Aanvoer-setpoint-offset",
+          "minimum_boiler_pressure": "Minimum boiler pressure",
+          "maximum_boiler_pressure": "Maximum boiler pressure",
+          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
+          "pressure_max_value_age": "Pressure max value age",
           "sample_time": "Sampletijd",
           "simulation": "Simulatie",
           "target_temperature_step": "Stap van Doeltemperatuur",
@@ -240,7 +244,11 @@
           "flame_off_setpoint_offset_celsius": "Bij uitgeschakelde vlam een tijdelijk setpoint op retourtemp + offset (alleen Pulsbreedtemodulatie).",
           "modulation_suppression_delay_seconds": "Tijd na vlam-aan voordat onderdrukking start (alleen Pulsbreedtemodulatie).",
           "modulation_suppression_offset_celsius": "Hoeveel de aanvoer-setpoint wordt verlaagd tijdens onderdrukking (alleen Pulsbreedtemodulatie).",
-          "flow_setpoint_offset_celsius": "Minimale marge onder de keteltemperatuur bij het begrenzen van het setpoint (continue modus)."
+          "flow_setpoint_offset_celsius": "Minimale marge onder de keteltemperatuur bij het begrenzen van het setpoint (continue modus).",
+          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
+          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
+          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
         },
         "title": "Geavanceerd"
       },

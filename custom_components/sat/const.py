@@ -74,6 +74,10 @@ CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS = "flame_off_setpoint_offset_celsius"
 CONF_MODULATION_SUPPRESSION_DELAY_SECONDS = "modulation_suppression_delay_seconds"
 CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS = "modulation_suppression_offset_celsius"
 CONF_FLOW_SETPOINT_OFFSET_CELSIUS = "flow_setpoint_offset_celsius"
+CONF_MINIMUM_BOILER_PRESSURE = "minimum_boiler_pressure"
+CONF_MAXIMUM_BOILER_PRESSURE = "maximum_boiler_pressure"
+CONF_MAXIMUM_PRESSURE_DROP_RATE = "maximum_pressure_drop_rate"
+CONF_PRESSURE_MAX_VALUE_AGE = "pressure_max_value_age"
 
 # Heating system configuration keys.
 CONF_HEATING_MODE = "heating_mode"
@@ -134,6 +138,12 @@ OPTIONS_DEFAULTS = {
     CONF_MODULATION_SUPPRESSION_DELAY_SECONDS: 20,
     CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS: 1.0,
     CONF_FLOW_SETPOINT_OFFSET_CELSIUS: 1.0,
+
+    # Pressure health thresholds.
+    CONF_MINIMUM_BOILER_PRESSURE: 0.8,
+    CONF_MAXIMUM_BOILER_PRESSURE: 2.5,
+    CONF_MAXIMUM_PRESSURE_DROP_RATE: 0.3,
+    CONF_PRESSURE_MAX_VALUE_AGE: "00:30:00",
 
     # Consumption bounds.
     CONF_MINIMUM_CONSUMPTION: 0,

@@ -74,7 +74,7 @@ def _make_sample(sample_time: float) -> ControlLoopSample:
     )
 
 
-async def test_cycle_sensor_extra_attributes(hass, climate, coordinator, domains, data, options, config):
+async def test_cycle_sensor_extra_attributes(hass, climate, coordinator, entry, domains, data, options, config):
     end_time = timestamp()
     duration = 240.0
     metrics = _metrics(0.2)
@@ -99,7 +99,10 @@ async def test_cycle_sensor_extra_attributes(hass, climate, coordinator, domains
     hass.bus.async_fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle})
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.cycle_status_test")
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-cycle-status")
+    assert entity_id is not None
+    state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == CycleClassification.GOOD.name
 
