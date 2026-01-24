@@ -5,7 +5,7 @@ from homeassistant.core import State
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.sat.const import CONF_HEATING_SYSTEM, DOMAIN
-from custom_components.sat.types import HeatingSystem
+from custom_components.sat.types import HeaterState, HeatingSystem
 import custom_components.sat.binary_sensor as sat_binary_sensor
 
 pytestmark = pytest.mark.parametrize(
@@ -73,6 +73,33 @@ async def test_pressure_health_drop_rate(hass, coordinator, entry, domains, data
     assert state is not None
     assert state.state == "on"
     assert state.attributes["pressure_drop_rate_bar_per_hour"] is not None
+
+
+async def test_pressure_health_ignores_drop_rate_after_shutdown(hass, coordinator, entry, domains, data, options, config, monkeypatch):
+    current_time = 0.0
+
+    def fake_timestamp():
+        return current_time
+
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", fake_timestamp)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_pressure(1.8)
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    current_time = 10.0
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+    await coordinator.async_set_boiler_pressure(1.7)
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("binary_sensor", "sat", f"{entry.entry_id}-pressure-health")
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "off"
+    assert state.attributes["pressure_drop_rate_bar_per_hour"] is None
 
 
 async def test_pressure_health_stale_pressure(hass, coordinator, entry, domains, data, options, config, monkeypatch):

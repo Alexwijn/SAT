@@ -22,6 +22,8 @@ from .entry_data import SatConfig, SatMode, get_entry_data
 from .helpers import float_value, seconds_since, timestamp
 from .types import BoilerStatus, CycleClassification
 
+PRESSURE_DROP_RATE_SETTLE_SECONDS = 600
+
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Add SAT binary sensors based on the configured integration mode."""
@@ -197,6 +199,8 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         super().__init__(coordinator, config, heating_control)
         self._pressure_config = self._config.pressure_health
 
+        self._last_active: Optional[bool] = None
+        self._drop_rate_suspended_until: Optional[float] = None
         self._last_pressure: Optional[float] = None
         self._last_drop_rate: Optional[float] = None
         self._last_seen_pressure: Optional[float] = None
@@ -249,6 +253,8 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         maximum_age_seconds = self._pressure_config.maximum_age_seconds
         maximum_drop_rate = self._pressure_config.maximum_drop_rate_bar_per_hour
 
+        self._track_active_state(now)
+
         if pressure is None:
             if self._last_seen_pressure is None:
                 return False
@@ -268,7 +274,12 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
 
         pressure_low = pressure < minimum_pressure
         pressure_high = pressure > maximum_pressure
-        if drop_rate is not None:
+        drop_rate_allowed = self._drop_rate_allowed(now)
+
+        if not drop_rate_allowed:
+            drop_rate = None
+            self._last_drop_rate = None
+        elif drop_rate is not None:
             self._last_drop_rate = round(drop_rate, 3)
 
         drop_rate_high = drop_rate is not None and drop_rate > maximum_drop_rate
@@ -291,6 +302,28 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-pressure-health"
+
+    def _track_active_state(self, timestamp_seconds: float) -> None:
+        active = self._coordinator.active
+        if self._last_active is None:
+            self._last_active = active
+            return
+
+        if self._last_active and not active:
+            self._drop_rate_suspended_until = timestamp_seconds + PRESSURE_DROP_RATE_SETTLE_SECONDS
+            self._pressure_samples.clear()
+
+        self._last_active = active
+
+    def _drop_rate_allowed(self, timestamp_seconds: float) -> bool:
+        if self._drop_rate_suspended_until is None:
+            return True
+
+        if timestamp_seconds >= self._drop_rate_suspended_until:
+            self._drop_rate_suspended_until = None
+            return True
+
+        return False
 
     def _record_pressure_sample(self, timestamp_seconds: float, pressure: float, maximum_age_seconds: float) -> None:
         if maximum_age_seconds <= 0:
