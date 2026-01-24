@@ -127,7 +127,7 @@ class PWM:
 
             return
 
-        if self._effective_on_temperature is None and device_state.flame_active:
+        if self._effective_on_temperature is None:
             self._effective_on_temperature = device_state.flow_temperature
             _LOGGER.debug("Initialized effective boiler temperature to %.1f°C", device_state.flow_temperature)
 
