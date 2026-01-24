@@ -127,7 +127,7 @@ class PWM:
 
             return
 
-        if self._effective_on_temperature is None:
+        if self._effective_on_temperature is None and device_state.flame_active:
             self._effective_on_temperature = device_state.flow_temperature
             _LOGGER.debug("Initialized effective boiler temperature to %.1f°C", device_state.flow_temperature)
 
@@ -225,7 +225,7 @@ class PWM:
     def _calculate_duty_cycle(self, requested_setpoint: float, device_state: DeviceState) -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_system.base_offset
-        boiler_temperature = self._effective_on_temperature
+        boiler_temperature = self._effective_on_temperature or device_state.flow_temperature
 
         # Ensure the boiler temperature is above the base offset
         boiler_temperature = max(boiler_temperature, base_offset + 1)
