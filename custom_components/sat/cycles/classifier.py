@@ -19,14 +19,11 @@ class CycleClassifier:
         if duration_seconds <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
-        if kind in (CycleKind.DOMESTIC_HOT_WATER, CycleKind.UNKNOWN):
+        if kind == CycleKind.UNKNOWN:
             return CycleClassification.UNCERTAIN
 
         if tail_metrics.hot_water_active_fraction > 0.0:
             return CycleClassification.UNCERTAIN
-
-        if duration_seconds < MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS:
-            return CycleClassification.INSUFFICIENT_DATA
 
         if pwm_state.enabled and pwm_state.status == PWMStatus.IDLE:
             return CycleClassification.UNCERTAIN

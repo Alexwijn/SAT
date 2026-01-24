@@ -12,7 +12,6 @@ from custom_components.sat.cycles.const import (
     DEFAULT_DUTY_WINDOW_SECONDS,
     DEFAULT_CYCLES_WINDOW_SECONDS,
     TARGET_MIN_ON_TIME_SECONDS,
-    MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS,
 )
 from custom_components.sat.const import COLD_SETPOINT
 from custom_components.sat.heating_control import ControlLoopSample
@@ -155,7 +154,7 @@ def test_classify_pwm_enabled_idle_uncertain():
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,
-        duration_seconds=MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS + 1.0,
+        duration_seconds=300,
         kind=CycleKind.CENTRAL_HEATING,
         pwm_state=pwm_state,
         tail_metrics=tail_metrics,
@@ -163,21 +162,6 @@ def test_classify_pwm_enabled_idle_uncertain():
 
     assert classification is CycleClassification.UNCERTAIN
 
-
-def test_classify_insufficient_data_ultra_short():
-    boiler_state = _make_boiler_state(flame_active=False)
-    pwm_state = _make_pwm_state(PWMStatus.IDLE)
-    tail_metrics = _tail_metrics_for_error(0.0)
-
-    classification = CycleTracker._classify_cycle(
-        boiler_state=boiler_state,
-        duration_seconds=MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS - 1.0,
-        kind=CycleKind.CENTRAL_HEATING,
-        pwm_state=pwm_state,
-        tail_metrics=tail_metrics,
-    )
-
-    assert classification is CycleClassification.INSUFFICIENT_DATA
 
 
 def test_classify_overshoot():
@@ -187,7 +171,7 @@ def test_classify_overshoot():
 
     classification = CycleTracker._classify_cycle(
         boiler_state=boiler_state,
-        duration_seconds=MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS + 1.0,
+        duration_seconds=300,
         kind=CycleKind.CENTRAL_HEATING,
         pwm_state=pwm_state,
         tail_metrics=tail_metrics,

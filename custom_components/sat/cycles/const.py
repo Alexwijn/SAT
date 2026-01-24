@@ -5,7 +5,6 @@ MAX_ON_DURATION_SECONDS_FOR_ROLLING_WINDOWS: float = 1800.0
 
 # Minimum cycle duration required for classification.
 TARGET_MIN_ON_TIME_SECONDS: float = 600.0
-MIN_CLASSIFIABLE_CYCLE_DURATION_SECONDS: float = 90.0
 
 # Flow vs. setpoint classification margins
 OVERSHOOT_MARGIN_CELSIUS: float = 3.0
