@@ -47,6 +47,7 @@ class PWM:
         self._config: PwmConfig = config
         self._heating_system: HeatingSystem = heating_system
         self._effective_on_temperature: Optional[float] = None
+        self._effective_on_temperature_update_window: float = HEATER_STARTUP_TIMEFRAME
 
         # Timing thresholds for duty cycle management
         self._on_time_lower_threshold: float = 180
@@ -91,8 +92,11 @@ class PWM:
         self._status: PWMStatus = PWMStatus.IDLE
         self._duty_cycle: Optional[Tuple[int, int]] = None
 
+        self._waiting_for_flame_on: bool = False
         self._first_duty_cycle_start: Optional[float] = None
         self._last_duty_cycle_percentage: Optional[float] = None
+        self._flame_on_at: Optional[float] = None
+
         self._effective_on_temperature: Optional[float] = None
 
     def enable(self) -> None:
@@ -123,7 +127,7 @@ class PWM:
 
             return
 
-        if self._effective_on_temperature is None:
+        if self._effective_on_temperature is None and device_state.flame_active:
             self._effective_on_temperature = device_state.flow_temperature
             _LOGGER.debug("Initialized effective boiler temperature to %.1f°C", device_state.flow_temperature)
 
@@ -138,7 +142,11 @@ class PWM:
 
         # Update boiler temperature if heater has just started up
         if self._status == PWMStatus.ON and device_state.flame_active:
-            self._effective_on_temperature = (0.3 * device_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
+            if self._flame_on_at is None:
+                self._flame_on_at = timestamp
+
+            if (timestamp - self._flame_on_at) <= self._effective_on_temperature_update_window:
+                self._effective_on_temperature = (0.3 * device_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
         # -------------------------
         # Start ON phase (OFF/IDLE -> ON)
@@ -152,12 +160,20 @@ class PWM:
                 self._current_cycle += 1
                 self._status = PWMStatus.ON
                 self._last_update = timestamp
-                self._effective_on_temperature = device_state.flow_temperature
+                self._waiting_for_flame_on = not device_state.flame_active
+                self._flame_on_at = timestamp if device_state.flame_active else None
+
+                if device_state.flame_active:
+                    self._effective_on_temperature = device_state.flow_temperature
 
                 _LOGGER.info(
                     "Starting PWM Cycle (OFF->ON): elapsed=%.0fs active_on=%ds flow=%.1f active_off=%ds",
                     elapsed, on_time_seconds, device_state.flow_temperature, off_time_seconds
                 )
+
+                if self._waiting_for_flame_on:
+                    _LOGGER.debug("PWM ON phase waiting for flame ignition.")
+
                 return
 
             if self._status == PWMStatus.IDLE:
@@ -167,9 +183,26 @@ class PWM:
         # End ON phase (ON -> OFF)
         # -------------------------
         if self._status == PWMStatus.ON:
+            if self._waiting_for_flame_on:
+                if device_state.flame_active:
+                    self._last_update = timestamp
+                    self._flame_on_at = timestamp
+                    self._waiting_for_flame_on = False
+                    self._effective_on_temperature = device_state.flow_temperature
+                    _LOGGER.info("PWM ON phase synced to flame ignition.")
+                    return
+                elif elapsed < HEATER_STARTUP_TIMEFRAME:
+                    _LOGGER.debug("PWM ON phase still waiting for flame ignition (elapsed=%.0fs).", elapsed)
+                    return
+                else:
+                    self._waiting_for_flame_on = False
+                    _LOGGER.warning("PWM ON phase did not detect flame within %ds; starting timer anyway.", HEATER_STARTUP_TIMEFRAME)
+
             if on_time_seconds < HEATER_STARTUP_TIMEFRAME or elapsed >= on_time_seconds:
-                self._last_update = timestamp
+                self._flame_on_at = None
                 self._status = PWMStatus.OFF
+                self._last_update = timestamp
+                self._waiting_for_flame_on = False
 
                 _LOGGER.info(
                     "Ending PWM Cycle (ON->OFF): elapsed=%.0fs active_on=%ds flow=%.1f active_off=%ds",
