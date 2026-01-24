@@ -25,7 +25,7 @@ class ModulationReliabilityTracker:
 
         max_modulation = state.max_modulation_level
         current_modulation = state.relative_modulation_level
-        if current_modulation is None or max_modulation < BOILER_MODULATION_DELTA_THRESHOLD:
+        if current_modulation is None or max_modulation is None or max_modulation < BOILER_MODULATION_DELTA_THRESHOLD:
             return False
 
         self._values_when_flame_on.append(current_modulation)
