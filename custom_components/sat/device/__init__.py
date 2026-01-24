@@ -28,6 +28,7 @@ class DeviceTracker:
 
         self._last_update_at: Optional[float] = None
         self._previous_update_at: Optional[float] = None
+
         self._last_flame_on_at: Optional[float] = None
         self._last_flame_off_at: Optional[float] = None
         self._last_flame_off_was_overshoot: bool = False
@@ -73,10 +74,11 @@ class DeviceTracker:
         data: Optional[Dict[str, Any]] = await self._store.async_load()
         if not data:
             legacy_store = Store(hass, STORAGE_VERSION, f"sat.boiler.{device_id}")
-            data = await legacy_store.async_load()
-            if data:
+
+            if data := await legacy_store.async_load():
                 await self._store.async_save(data)
                 _LOGGER.debug("Migrated legacy boiler storage to device storage.")
+
         if not data:
             return
 
@@ -125,15 +127,17 @@ class DeviceTracker:
             return BoilerStatus.OFF
 
         return DeviceStatusEvaluator.evaluate(DeviceStatusSnapshot(
+            state=state,
+            previous_state=previous,
+            previous_update_at=self._previous_update_at,
+            last_flame_off_was_overshoot=self._last_flame_off_was_overshoot,
+
             last_cycle=self._last_cycle,
             last_flame_on_at=self._last_flame_on_at,
             last_flame_off_at=self._last_flame_off_at,
-            last_flame_off_was_overshoot=self._last_flame_off_was_overshoot,
             last_update_at=self._last_update_at,
-            previous_update_at=self._previous_update_at,
+
             modulation_direction=self._determine_modulation_direction(),
-            previous_state=previous,
-            state=state,
         ))
 
     def _determine_modulation_direction(self) -> int:
@@ -151,7 +155,7 @@ class DeviceTracker:
             if cur_mod is not None and prev_mod is not None:
                 delta_mod = cur_mod - prev_mod
                 if delta_mod > BOILER_MODULATION_DELTA_THRESHOLD:
-                    return 1
+                    return +1
 
                 if delta_mod < -BOILER_MODULATION_DELTA_THRESHOLD:
                     return -1
@@ -175,6 +179,7 @@ class DeviceTracker:
         if previous is None:
             if current.flame_active:
                 self._last_flame_on_at = self._last_update_at
+
             return
 
         if previous.flame_active and not current.flame_active:

@@ -5,6 +5,7 @@ from typing import Optional, TYPE_CHECKING
 
 from .const import *
 from .types import DeviceState
+from ..const import COLD_SETPOINT
 from ..types import BoilerStatus
 
 if TYPE_CHECKING:
@@ -13,15 +14,17 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class DeviceStatusSnapshot:
+    state: DeviceState
+
     last_cycle: Optional["Cycle"]
+    last_update_at: Optional[float]
     last_flame_on_at: Optional[float]
     last_flame_off_at: Optional[float]
     last_flame_off_was_overshoot: bool
-    last_update_at: Optional[float]
-    previous_update_at: Optional[float]
+
     modulation_direction: int
+    previous_update_at: Optional[float]
     previous_state: Optional[DeviceState]
-    state: DeviceState
 
 
 class DeviceStatusEvaluator:
@@ -36,20 +39,27 @@ class DeviceStatusEvaluator:
 
         if not state.flame_active:
             # Overshoot cooling: flame off due to overshoot, still above setpoint.
-            if DeviceStatusEvaluator.is_overshoot_cooling(state, snapshot.last_flame_off_was_overshoot):
+            if DeviceStatusEvaluator.is_overshoot_cooling(
+                    state=state,
+                    last_flame_off_was_overshoot=snapshot.last_flame_off_was_overshoot
+            ):
                 return BoilerStatus.OVERSHOOT_COOLING
 
             # Anti-cycling: off despite demand, within minimum off time.
-            if DeviceStatusEvaluator.is_in_anti_cycling(state, snapshot.last_update_at, snapshot.last_flame_off_at):
+            if DeviceStatusEvaluator.is_in_anti_cycling(
+                    state=state,
+                    last_update_at=snapshot.last_update_at,
+                    last_flame_off_at=snapshot.last_flame_off_at
+            ):
                 return BoilerStatus.ANTI_CYCLING
 
             # Stalled ignition: OFF for much longer than expected, with demand present.
             if DeviceStatusEvaluator.is_ignition_stalled(
+                    state=state,
                     last_cycle=snapshot.last_cycle,
+                    last_update_at=snapshot.last_update_at,
                     last_flame_off_at=snapshot.last_flame_off_at,
                     last_flame_off_was_overshoot=snapshot.last_flame_off_was_overshoot,
-                    last_update_at=snapshot.last_update_at,
-                    state=state,
             ):
                 return BoilerStatus.STALLED_IGNITION
 
@@ -106,7 +116,7 @@ class DeviceStatusEvaluator:
     @staticmethod
     def did_overshoot_at_flame_off(state: DeviceState) -> bool:
         """Return True if the flame turned off because of overshoot."""
-        if state.setpoint is None or state.flow_temperature is None:
+        if state.setpoint is None or state.flow_temperature is None or state.setpoint < COLD_SETPOINT:
             return False
 
         return state.flow_temperature >= state.setpoint + BOILER_OVERSHOOT_DELTA
@@ -194,7 +204,7 @@ class DeviceStatusEvaluator:
         if state.setpoint is None or state.flow_temperature is None:
             return False
 
-        return (not state.flame_active) and state.flow_temperature > state.setpoint
+        return not state.flame_active and state.flow_temperature > state.setpoint
 
     @staticmethod
     def is_pump_start_phase(state: DeviceState, previous: Optional[DeviceState], last_flame_on_at: Optional[float]) -> bool:
