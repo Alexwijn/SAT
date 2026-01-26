@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant, State
 from .const import (
     COLD_SETPOINT,
     MINIMUM_RELATIVE_MODULATION,
-    MINIMUM_SETPOINT,
+    MINIMUM_SETPOINT, EVENT_SAT_CYCLE_ENDED,
 )
 from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
@@ -142,12 +142,17 @@ class SatHeatingControl:
         await self._device_tracker.async_added_to_hass(self._hass, self._coordinator.id)
 
         self._coordinator_listener_remove = self._coordinator.async_add_listener(self._handle_coordinator_update)
+        self._pwm_cycle_listener_remove = self._hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda event: self._pwm.on_cycle_end(cycle=event.data.get("cycle")))
 
     async def async_will_remove_from_hass(self) -> None:
         """Persist state when the integration unloads."""
         if self._coordinator_listener_remove is not None:
             self._coordinator_listener_remove()
             self._coordinator_listener_remove = None
+
+        if self._pwm_cycle_listener_remove is not None:
+            self._pwm_cycle_listener_remove()
+            self._pwm_cycle_listener_remove = None
 
         await self._device_tracker.async_save_data()
 
@@ -180,9 +185,6 @@ class SatHeatingControl:
                 device_state=self._coordinator.state,
                 requested_setpoint=demand.requested_setpoint,
             )
-
-            if self._cycles.last_cycle is not None:
-                self._pwm.on_cycle_end(self._cycles.last_cycle)
 
             self._compute_relative_modulation_value()
 
