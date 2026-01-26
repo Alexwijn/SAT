@@ -128,15 +128,15 @@ class DeviceTracker:
 
         return DeviceStatusEvaluator.evaluate(DeviceStatusSnapshot(
             state=state,
-            previous_state=previous,
-            previous_update_at=self._previous_update_at,
-            last_flame_off_was_overshoot=self._last_flame_off_was_overshoot,
 
             last_cycle=self._last_cycle,
+            last_update_at=self._last_update_at,
             last_flame_on_at=self._last_flame_on_at,
             last_flame_off_at=self._last_flame_off_at,
-            last_update_at=self._last_update_at,
+            last_flame_off_was_overshoot=self._last_flame_off_was_overshoot,
 
+            previous_state=previous,
+            previous_update_at=self._previous_update_at,
             modulation_direction=self._determine_modulation_direction(),
         ))
 
