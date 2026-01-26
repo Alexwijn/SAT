@@ -19,7 +19,7 @@ from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
 from .device import DeviceState, DeviceTracker
 from .entry_data import SatConfig
-from .helpers import event_timestamp, float_value, int_value, timestamp
+from .helpers import event_timestamp, float_value, int_value, timestamp, clamp
 from .manufacturers.geminox import Geminox
 from .pwm import PWM, PWMState
 from .types import BoilerStatus, CycleControlMode, HeaterState, PWMStatus, RelativeModulationState
@@ -247,8 +247,10 @@ class SatHeatingControl:
                 return
 
             flame_off_offset = config.flame_off_setpoint_offset_celsius
-            self._flame_off_hold_setpoint = return_temperature + flame_off_offset
-            self._control_setpoint = self._flame_off_hold_setpoint
+            flame_off_hold_setpoint = clamp(return_temperature + flame_off_offset, COLD_SETPOINT, self._config.limits.maximum_setpoint)
+
+            self._control_setpoint = flame_off_hold_setpoint
+            self._flame_off_hold_setpoint = flame_off_hold_setpoint
 
             _LOGGER.debug(
                 "Setpoint override (flame off): return=%.1f°C offset=%.1f°C -> %.1f°C (intended=%.1f°C)",
