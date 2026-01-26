@@ -28,7 +28,7 @@ STORAGE_KEY_INTEGRAL = "integral"
 STORAGE_KEY_LAST_ERROR = "last_error"
 STORAGE_KEY_RAW_DERIVATIVE = "raw_derivative"
 STORAGE_KEY_LAST_TEMPERATURE = "last_temperature"
-STORAGE_KEY_LAST_INTERVAL_UPDATED = "last_interval_updated"
+STORAGE_KEY_LAST_INTEGRAL_UPDATED = "last_integral_updated"
 STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
 
 
@@ -131,7 +131,7 @@ class PID:
         """Reset the PID controller to a clean state."""
         self._integral: float = 0.0
         self._last_error: Optional[float] = None
-        self._last_interval_updated: Optional[float] = None
+        self._last_integral_updated: Optional[float] = None
 
     async def async_added_to_hass(self, hass: HomeAssistant, entity_id: str, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
@@ -147,9 +147,9 @@ class PID:
         self._last_temperature = float_value(data.get(STORAGE_KEY_LAST_TEMPERATURE))
         self._raw_derivative = float(data.get(STORAGE_KEY_RAW_DERIVATIVE, self._raw_derivative))
 
-        if STORAGE_KEY_LAST_INTERVAL_UPDATED in data:
-            value = data[STORAGE_KEY_LAST_INTERVAL_UPDATED]
-            self._last_interval_updated = float(value) if value is not None else None
+        if STORAGE_KEY_LAST_INTEGRAL_UPDATED in data:
+            value = data[STORAGE_KEY_LAST_INTEGRAL_UPDATED]
+            self._last_integral_updated = float(value) if value is not None else None
 
         if STORAGE_KEY_LAST_DERIVATIVE_UPDATED in data:
             value = data[STORAGE_KEY_LAST_DERIVATIVE_UPDATED]
@@ -191,12 +191,12 @@ class PID:
 
         # Start a fresh time base when we enter the deadband.
         if self._last_error is not None and abs(self._last_error) > DEADBAND >= error_abs:
-            self._last_interval_updated = state_timestamp
+            self._last_integral_updated = state_timestamp
 
         # Reset integral outside the deadband so it only accumulates inside.
         if error_abs > DEADBAND:
             self._integral = 0.0
-            self._last_interval_updated = state_timestamp
+            self._last_integral_updated = state_timestamp
             return
 
         # Skip integration when integral gain is disabled.
@@ -204,12 +204,12 @@ class PID:
             return
 
         # Ignore non-forward timestamps.
-        if self._last_interval_updated is None:
-            self._last_interval_updated = state_timestamp
+        if self._last_integral_updated is None:
+            self._last_integral_updated = state_timestamp
             return
 
-        if (delta_time := state_timestamp - self._last_interval_updated) <= 0:
-            self._last_interval_updated = state_timestamp
+        if (delta_time := state_timestamp - self._last_integral_updated) <= 0:
+            self._last_integral_updated = state_timestamp
             return
 
         # Cap the integration interval so long gaps don't over-accumulate.
@@ -220,7 +220,7 @@ class PID:
         self._integral = clamp_to_range(self._integral, self._heating_curve.value)
 
         # Record the timestamp used for this integration step.
-        self._last_interval_updated = state_timestamp
+        self._last_integral_updated = state_timestamp
 
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
@@ -269,7 +269,7 @@ class PID:
             STORAGE_KEY_LAST_ERROR: self._last_error,
             STORAGE_KEY_RAW_DERIVATIVE: self._raw_derivative,
             STORAGE_KEY_LAST_TEMPERATURE: self._last_temperature,
-            STORAGE_KEY_LAST_INTERVAL_UPDATED: self._last_interval_updated,
+            STORAGE_KEY_LAST_INTEGRAL_UPDATED: self._last_integral_updated,
             STORAGE_KEY_LAST_DERIVATIVE_UPDATED: self._last_derivative_updated,
         }
 
