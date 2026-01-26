@@ -68,6 +68,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
+    async def async_added_to_hass(self) -> None:
+        def on_pid_updated(entity_id: str) -> None:
+            self.schedule_update_ha_state()
+
+        await super().async_added_to_hass()
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
 
     @property
     def name(self) -> str:
