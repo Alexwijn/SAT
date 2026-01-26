@@ -180,6 +180,9 @@ class SatHeatingControl:
         self._last_outside_temperature = demand.outside_temperature
 
         if demand.heater_state == HeaterState.ON:
+            if demand.requested_setpoint >= self._config.limits.maximum_setpoint:
+                self._pwm.disable()
+
             self._pwm.update(
                 timestamp=demand.timestamp,
                 device_state=self._coordinator.state,
