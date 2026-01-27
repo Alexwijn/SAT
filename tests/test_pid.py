@@ -15,7 +15,7 @@ from custom_components.sat.pid import (
     PID,
     SENSOR_MAX_INTERVAL,
 )
-from custom_components.sat.temperature_state import TemperatureState
+from custom_components.sat.temperature.state import TemperatureState
 
 
 def _state_for_error(error, timestamp_value, current=20.0):
@@ -58,13 +58,13 @@ def _make_pid(
 ) -> PID:
     heating_curve = HeatingCurve(heating_system, config.heating_curve_coefficient)
     if heating_curve_value is not None:
-        heating_curve._last_heating_curve_value = heating_curve_value
+        heating_curve._value = heating_curve_value
 
     return PID(heating_system=heating_system, config=config, heating_curve=heating_curve)
 
 
 def _set_heating_curve_value(pid: PID, value: float) -> None:
-    pid._heating_curve._last_heating_curve_value = value
+    pid._heating_curve._value = value
 
 
 def test_initial_state_and_availability():

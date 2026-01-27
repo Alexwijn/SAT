@@ -9,8 +9,7 @@ from custom_components.sat.cycles import Cycle, CycleHistory, CycleMetrics, Cycl
 from custom_components.sat.cycles.const import (
     OVERSHOOT_MARGIN_CELSIUS,
     UNDERSHOOT_MARGIN_CELSIUS,
-    DEFAULT_DUTY_WINDOW_SECONDS,
-    DEFAULT_CYCLES_WINDOW_SECONDS,
+    DAILY_WINDOW_SECONDS,
     TARGET_MIN_ON_TIME_SECONDS,
 )
 from custom_components.sat.const import COLD_SETPOINT
@@ -392,5 +391,29 @@ def test_cycle_history_rates():
     history.record_cycle(_make_cycle(base + 300.0, 100.0))
     history.record_cycle(_make_cycle(base + 600.0, 100.0))
 
-    assert history.cycles_last_hour == pytest.approx(3.0 * 3600.0 / DEFAULT_CYCLES_WINDOW_SECONDS, abs=0.01)
-    assert history.duty_ratio_last_15m == pytest.approx(300.0 / DEFAULT_DUTY_WINDOW_SECONDS, abs=0.01)
+    statistics = history.statistics
+    assert statistics.window.recent.sample_count == 3
+    assert statistics.window.daily.sample_count == 3
+    assert statistics.window.recent.duty_ratio == pytest.approx(300.0 / (4 * 3600.0), abs=0.0001)
+    assert statistics.window.daily.duty_ratio == pytest.approx(300.0 / DAILY_WINDOW_SECONDS, abs=0.0001)
+
+
+def test_cycle_history_daily_window_prunes():
+    history = CycleHistory()
+    base = timestamp()
+
+    history.record_cycle(_make_cycle(base - DAILY_WINDOW_SECONDS - 20.0, 100.0))
+    history.record_cycle(_make_cycle(base - 10.0, 100.0))
+
+    assert history.window_statistics.daily.sample_count == 1
+
+
+def test_cycle_history_daily_statistics():
+    history = CycleHistory()
+    base = timestamp()
+
+    history.record_cycle(_make_cycle(base, 100.0))
+
+    statistics = history.statistics
+    assert statistics.flow_return_delta.daily.p50 == 10.0
+    assert statistics.flow_control_setpoint_error.daily.p50 == 0.0

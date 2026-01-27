@@ -38,15 +38,15 @@ from .heating_curve import HeatingCurve
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp
 from .pid import PID
 from .summer_simmer import SummerSimmer
-from .temperature_state import TemperatureState
+from .temperature.history import TemperatureHistory
+from .temperature.history import TemperatureStatistics
+from .temperature.state import TemperatureState
 from .types import PWMStatus, HeatingMode
 
 ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
-ATTR_OPTIMAL_COEFFICIENT = "optimal_coefficient"
 ATTR_RELATIVE_MODULATION_VALUE = "relative_modulation_value"
 
-ATTR_COEFFICIENT_DERIVATIVE = "coefficient_derivative"
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
 
@@ -110,6 +110,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.pid = PID.from_config(self.heating_curve, self._config)
 
         self._heating_control = heating_control
+        self._temperature_history = TemperatureHistory()
 
         if self._config.simulation.enabled:
             _LOGGER.warning("Simulation mode!")
@@ -186,10 +187,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
             "requested_setpoint": self.requested_setpoint,
-
             "outside_temperature": self.current_outside_temperature,
-            "optimal_coefficient": self.heating_curve.optimal_coefficient,
-            "coefficient_derivative": self.heating_curve.coefficient_derivative,
 
             "relative_modulation_value": self._heating_control.relative_modulation_value,
             "relative_modulation_state": self._heating_control.relative_modulation_state.name,
@@ -222,6 +220,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return None
 
         return self._get_entity_state_float(self._config.sensors.humidity_sensor_entity_id)
+
+    @property
+    def temperature_statistics(self) -> TemperatureStatistics:
+        """Return temperature error statistics."""
+        return self._temperature_history.statistics
 
     @property
     def error(self) -> Optional[TemperatureState]:
@@ -323,6 +326,29 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
     @property
+    def weighted_error(self) -> Optional[float]:
+        errors: list[tuple[float, float]] = []
+
+        if (primary_error := self.error) is not None:
+            errors.append((primary_error.error, 1.0))
+
+        for area in self.areas.items():
+            if (area_error := area.error) is None:
+                continue
+
+            errors.append((area_error.error, area.room_weight))
+
+        if not errors:
+            return None
+
+        weight_sum = sum(weight for _, weight in errors)
+        if weight_sum <= 0.0:
+            return None
+
+        weighted_error = sum(error * weight for error, weight in errors)
+        return weighted_error / weight_sum
+
+    @property
     def valves_open(self) -> bool:
         """Determine if any of the controlled climates have open valves."""
         # Get the list of all controlled climates
@@ -382,7 +408,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if sensor_max_value_age > 0:
             state = self.hass.states.get(self._config.sensors.inside_sensor_entity_id)
             if is_state_stale(state, sensor_max_value_age):
-                _LOGGER.debug("Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)", self.entity_id, self._config.sensors.inside_sensor_entity_id, state_age_seconds(state), sensor_max_value_age)
+                _LOGGER.debug(
+                    "Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)",
+                    self.entity_id, self._config.sensors.inside_sensor_entity_id, state_age_seconds(state), sensor_max_value_age
+                )
                 self.pid.reset()
                 return
 
@@ -390,17 +419,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Skipping control loop for %s because error value is not available.", self.entity_id)
             return
 
-        # Calculate an optimal heating curve when we are in the deadband
-        if (
-                self.target_temperature is not None
-                and self.current_outside_temperature is not None
-                and -DEADBAND <= error.error <= DEADBAND
-        ):
-            self.heating_curve.autotune(
-                self.requested_setpoint,
-                self.target_temperature,
-                self.current_outside_temperature,
-            )
+        if self.hvac_mode == HVACMode.HEAT and self.valves_open:
+            if (weighted_error := self.weighted_error) is not None:
+                self._temperature_history.record(weighted_error, event_timestamp(_time))
 
         self.pid.update(error)
 
@@ -671,12 +692,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE):
                 self._pre_custom_temperature = old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE)
 
-            if old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT):
-                self.heating_curve.restore_autotune(
-                    old_state.attributes.get(ATTR_OPTIMAL_COEFFICIENT),
-                    old_state.attributes.get(ATTR_COEFFICIENT_DERIVATIVE)
-                )
-
             if old_state.attributes.get(ATTR_ROOMS):
                 self._rooms = old_state.attributes.get(ATTR_ROOMS)
             else:
@@ -722,12 +737,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Thermostat state changed.")
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
-    async def _async_outside_entity_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Handle changes to the outside entity."""
+    async def _async_entity_changed(self, event: Event[EventStateChangedData]) -> None:
+        """Handle changes to an entity."""
         if event.data.get("new_state") is None or event.data.get("new_state") in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
         self._update_heating_curves()
+        self.async_write_ha_state()
 
     async def _async_climate_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to a climate entity."""

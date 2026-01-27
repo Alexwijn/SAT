@@ -11,7 +11,7 @@ from .const import *
 from .entry_data import PidConfig, SatConfig
 from .heating_curve import HeatingCurve
 from .helpers import float_value, timestamp as _timestamp, clamp_to_range
-from .temperature_state import TemperatureState
+from .temperature.state import TemperatureState
 from .types import HeatingSystem
 
 _LOGGER = logging.getLogger(__name__)

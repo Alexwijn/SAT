@@ -19,7 +19,7 @@ from .entry_data import SatConfig
 from .heating_curve import HeatingCurve
 from .helpers import float_value, is_state_stale, state_age_seconds
 from .pid import PID
-from .temperature_state import TemperatureStates, TemperatureState
+from .temperature.state import TemperatureStates, TemperatureState
 
 _LOGGER = logging.getLogger(__name__)
 

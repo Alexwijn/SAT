@@ -62,17 +62,33 @@ class Cycle:
 @dataclass(frozen=True, slots=True)
 class CycleStatistics:
     """Rolling statistics derived from recent completed cycles."""
-    window: "CycleWindowStats"
-    flow_return_delta: Percentiles
-    flow_control_setpoint_error: Percentiles
-    flow_requested_setpoint_error: Percentiles
+    window: "CycleWindowStatistics"
+    flow_return_delta: "CycleWindowedPercentiles"
+    flow_control_setpoint_error: "CycleWindowedPercentiles"
+    flow_requested_setpoint_error: "CycleWindowedPercentiles"
 
 
 @dataclass(frozen=True, slots=True)
-class CycleWindowStats:
+class CycleWindowStatistics:
     """Grouped cycle-rate and duty metrics over recent windows."""
-    sample_count_4h: int
-    last_hour_count: float
-    duty_ratio_last_15m: float
+    daily: "CycleWindowSnapshot"
+    recent: "CycleWindowSnapshot"
     off_with_demand_duration: Optional[float]
-    median_on_duration_seconds_4h: Optional[float]
+
+
+@dataclass(frozen=True, slots=True)
+class CycleWindowSnapshot:
+    """Windowed summary of recent cycles."""
+    sample_count: int
+    duty_ratio: float
+    overshoot_fraction: float
+    underheat_fraction: float
+    long_cycle_fraction: float
+    median_on_duration_seconds: Optional[float]
+
+
+@dataclass(frozen=True, slots=True)
+class CycleWindowedPercentiles:
+    """Percentile statistics across multiple rolling windows."""
+    recent: Percentiles
+    daily: Percentiles

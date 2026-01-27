@@ -4,12 +4,12 @@ import logging
 from collections import deque
 from dataclasses import dataclass
 from statistics import median
-from typing import Deque, Optional
+from typing import Callable, Deque, Optional
 
 from .const import *
-from .types import Cycle, CycleStatistics, CycleWindowStats
+from .types import Cycle, CycleStatistics, CycleWindowSnapshot, CycleWindowStatistics, CycleWindowedPercentiles
 from ..helpers import clamp, percentile_interpolated, seconds_since
-from ..types import Percentiles
+from ..types import CycleClassification, Percentiles
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,88 +28,22 @@ class CycleDurationSample:
     end_time: float
 
 
+@dataclass(frozen=True, slots=True)
+class CycleClassificationSample:
+    end_time: float
+    classification: CycleClassification
+
+
 class CycleHistory:
     """Rolling history of completed flame cycles for statistical analysis."""
 
     def __init__(self) -> None:
         self._delta_window: Deque[CycleDeltaSample] = deque()
         self._cycle_durations_window: Deque[CycleDurationSample] = deque()
+        self._classification_window: Deque[CycleClassificationSample] = deque()
 
         self._last_cycle: Optional[Cycle] = None
         self._off_with_demand_duration: Optional[float] = None
-
-    @property
-    def sample_count_4h(self) -> int:
-        """Number of ON-duration samples in the median window."""
-        return len(self._cycle_durations_window)
-
-    @property
-    def cycles_last_hour(self) -> float:
-        """Cycles per hour, extrapolated from the cycles window."""
-        now = self._current_time_hint()
-        cutoff = now - DEFAULT_CYCLES_WINDOW_SECONDS if now is not None else None
-        cycle_count = (
-            sum(1 for sample in self._cycle_durations_window if sample.end_time >= cutoff)
-            if cutoff is not None
-            else len(self._cycle_durations_window)
-        )
-
-        return cycle_count * 3600.0 / DEFAULT_CYCLES_WINDOW_SECONDS
-
-    @property
-    def duty_ratio_last_15m(self) -> float:
-        """Duty ratio (0.0–1.0) over the duty window, derived from recorded cycles."""
-        now = self._current_time_hint()
-        if now is None:
-            return 0.0
-
-        cutoff = now - DEFAULT_DUTY_WINDOW_SECONDS
-        on_seconds = sum(sample.duration_seconds for sample in self._cycle_durations_window if sample.end_time >= cutoff)
-
-        if on_seconds <= 0.0:
-            return 0.0
-
-        ratio = on_seconds / DEFAULT_DUTY_WINDOW_SECONDS
-        return clamp(ratio, 0.0, 1.0)
-
-    @property
-    def median_on_duration_seconds_4h(self) -> Optional[float]:
-        """Median ON duration of completed cycles in the median window."""
-        if not self._cycle_durations_window:
-            return None
-
-        durations = [sample.duration_seconds for sample in self._cycle_durations_window]
-        return float(median(durations))
-
-    @property
-    def flow_return_delta_p50_4h(self) -> Optional[float]:
-        values = [sample.flow_return_delta for sample in self._delta_window if sample.flow_return_delta is not None]
-        return percentile_interpolated(values, 0.50)
-
-    @property
-    def flow_return_delta_p90_4h(self) -> Optional[float]:
-        values = [sample.flow_return_delta for sample in self._delta_window if sample.flow_return_delta is not None]
-        return percentile_interpolated(values, 0.90)
-
-    @property
-    def flow_control_setpoint_error_p50_4h(self) -> Optional[float]:
-        values = [sample.flow_control_setpoint_error for sample in self._delta_window if sample.flow_control_setpoint_error is not None]
-        return percentile_interpolated(values, 0.50)
-
-    @property
-    def flow_control_setpoint_error_p90_4h(self) -> Optional[float]:
-        values = [sample.flow_control_setpoint_error for sample in self._delta_window if sample.flow_control_setpoint_error is not None]
-        return percentile_interpolated(values, 0.90)
-
-    @property
-    def flow_requested_setpoint_error_p50_4h(self) -> Optional[float]:
-        values = [sample.flow_requested_setpoint_error for sample in self._delta_window if sample.flow_requested_setpoint_error is not None]
-        return percentile_interpolated(values, 0.50)
-
-    @property
-    def flow_requested_setpoint_error_p90_4h(self) -> Optional[float]:
-        values = [sample.flow_requested_setpoint_error for sample in self._delta_window if sample.flow_requested_setpoint_error is not None]
-        return percentile_interpolated(values, 0.90)
 
     @property
     def last_cycle(self) -> Optional[Cycle]:
@@ -126,25 +60,43 @@ class CycleHistory:
     def statistics(self) -> CycleStatistics:
         """Snapshot of rolling metrics."""
         return CycleStatistics(
-            window=CycleWindowStats(
-                last_hour_count=self.cycles_last_hour,
-                duty_ratio_last_15m=self.duty_ratio_last_15m,
-                sample_count_4h=self.sample_count_4h,
-                off_with_demand_duration=self._off_with_demand_duration,
-                median_on_duration_seconds_4h=self.median_on_duration_seconds_4h,
-            ),
-            flow_return_delta=Percentiles(
-                p50=self.flow_return_delta_p50_4h,
-                p90=self.flow_return_delta_p90_4h,
-            ),
-            flow_control_setpoint_error=Percentiles(
-                p50=self.flow_control_setpoint_error_p50_4h,
-                p90=self.flow_control_setpoint_error_p90_4h,
-            ),
-            flow_requested_setpoint_error=Percentiles(
-                p50=self.flow_requested_setpoint_error_p50_4h,
-                p90=self.flow_requested_setpoint_error_p90_4h,
-            ),
+            window=self.window_statistics,
+            flow_return_delta=self.flow_return_delta,
+            flow_control_setpoint_error=self.flow_control_setpoint_error,
+            flow_requested_setpoint_error=self.flow_requested_setpoint_error,
+        )
+
+    @property
+    def window_statistics(self) -> CycleWindowStatistics:
+        """Snapshot of rolling window statistics."""
+        return CycleWindowStatistics(
+            recent=self._window_snapshot(DEFAULT_MEDIAN_WINDOW_SECONDS),
+            daily=self._window_snapshot(DAILY_WINDOW_SECONDS),
+            off_with_demand_duration=self._off_with_demand_duration,
+        )
+
+    @property
+    def flow_return_delta(self) -> CycleWindowedPercentiles:
+        """Snapshot of flow/return delta percentiles over rolling windows."""
+        return CycleWindowedPercentiles(
+            recent=self._delta_percentiles(DEFAULT_MEDIAN_WINDOW_SECONDS, lambda sample: sample.flow_return_delta),
+            daily=self._delta_percentiles(DAILY_WINDOW_SECONDS, lambda sample: sample.flow_return_delta),
+        )
+
+    @property
+    def flow_control_setpoint_error(self) -> CycleWindowedPercentiles:
+        """Snapshot of flow/control setpoint error percentiles over rolling windows."""
+        return CycleWindowedPercentiles(
+            recent=self._delta_percentiles(DEFAULT_MEDIAN_WINDOW_SECONDS, lambda sample: sample.flow_control_setpoint_error),
+            daily=self._delta_percentiles(DAILY_WINDOW_SECONDS, lambda sample: sample.flow_control_setpoint_error),
+        )
+
+    @property
+    def flow_requested_setpoint_error(self) -> CycleWindowedPercentiles:
+        """Snapshot of flow/requested setpoint error percentiles over rolling windows."""
+        return CycleWindowedPercentiles(
+            recent=self._delta_percentiles(DEFAULT_MEDIAN_WINDOW_SECONDS, lambda sample: sample.flow_requested_setpoint_error),
+            daily=self._delta_percentiles(DAILY_WINDOW_SECONDS, lambda sample: sample.flow_requested_setpoint_error),
         )
 
     def record_cycle(self, cycle: Cycle) -> None:
@@ -157,6 +109,7 @@ class CycleHistory:
             duration_seconds=capped_duration_seconds,
             end_time=end_time,
         ))
+
         self._delta_window.append(CycleDeltaSample(
             end_time=end_time,
             flow_return_delta=cycle.metrics.flow_return_delta.p50,
@@ -164,19 +117,25 @@ class CycleHistory:
             flow_requested_setpoint_error=cycle.metrics.flow_requested_setpoint_error.p50,
         ))
 
+        self._classification_window.append(CycleClassificationSample(
+            end_time=end_time,
+            classification=cycle.classification,
+        ))
+
         self._prune_cycle_window(end_time)
         self._prune_delta_window(end_time)
+        self._prune_classification_window(end_time)
 
         self._last_cycle = cycle
 
         _LOGGER.debug(
-            "Recorded cycle kind=%s classification=%s duration=%.1fs capped_duration=%.1fs cycles_last_hour=%.1f samples_4h=%d",
+            "Recorded cycle kind=%s classification=%s duration=%.1fs capped_duration=%.1fs samples_4h=%d samples_24h=%d",
             cycle.kind.name,
             cycle.classification.name,
             duration_seconds,
             capped_duration_seconds,
-            self.cycles_last_hour,
-            self.sample_count_4h,
+            len(self._recent_duration_samples(DEFAULT_MEDIAN_WINDOW_SECONDS)),
+            len(self._recent_duration_samples(DAILY_WINDOW_SECONDS)),
         )
 
         if cycle.shape is not None and cycle.duration >= MAX_ON_DURATION_SECONDS_FOR_ROLLING_WINDOWS:
@@ -205,25 +164,103 @@ class CycleHistory:
         """Record the OFF-with-demand duration (seconds) measured right before a cycle started."""
         self._off_with_demand_duration = duration_seconds
 
+    @staticmethod
+    def _classification_fraction(samples: list[CycleClassificationSample], classification: CycleClassification) -> float:
+        if not samples:
+            return 0.0
+
+        match_count = sum(1 for sample in samples if sample.classification is classification)
+        return match_count / len(samples)
+
+    @staticmethod
+    def _long_cycle_fraction(samples: list[CycleDurationSample]) -> float:
+        if not samples:
+            return 0.0
+
+        long_count = sum(1 for sample in samples if sample.duration_seconds >= TARGET_MIN_ON_TIME_SECONDS)
+        return long_count / len(samples)
+
+    def _recent_duration_samples(self, window_seconds: int) -> list[CycleDurationSample]:
+        now = self._current_time_hint()
+        if now is None:
+            return []
+
+        cutoff = now - window_seconds
+        return [sample for sample in self._cycle_durations_window if sample.end_time >= cutoff]
+
+    def _recent_delta_samples(self, window_seconds: int) -> list[CycleDeltaSample]:
+        if (now := self._current_time_hint()) is None:
+            return []
+
+        return [sample for sample in self._delta_window if sample.end_time >= now - window_seconds]
+
+    def _recent_classification_samples(self, window_seconds: int) -> list[CycleClassificationSample]:
+        if (now := self._current_time_hint()) is None:
+            return []
+
+        return [sample for sample in self._classification_window if sample.end_time >= now - window_seconds]
+
+    def _durations_since(self, window_seconds: int) -> list[float]:
+        return [sample.duration_seconds for sample in self._recent_duration_samples(window_seconds)]
+
+    def _delta_values_since(self, window_seconds: int, getter: Callable[[CycleDeltaSample], Optional[float]]) -> list[float]:
+        return [value for sample in self._recent_delta_samples(window_seconds) if (value := getter(sample)) is not None]
+
+    def _duty_ratio_since(self, window_seconds: int) -> float:
+        if (on_seconds := sum(self._durations_since(window_seconds))) <= 0.0:
+            return 0.0
+
+        return clamp(on_seconds / window_seconds, 0.0, 1.0)
+
+    def _median_duration_since(self, window_seconds: int) -> Optional[float]:
+        if not (durations := self._durations_since(window_seconds)):
+            return None
+
+        return float(median(durations))
+
+    def _window_snapshot(self, window_seconds: int) -> CycleWindowSnapshot:
+        duration_samples = self._recent_duration_samples(window_seconds)
+        classification_samples = self._recent_classification_samples(window_seconds)
+
+        return CycleWindowSnapshot(
+            sample_count=len(duration_samples),
+            duty_ratio=self._duty_ratio_since(window_seconds),
+            long_cycle_fraction=self._long_cycle_fraction(duration_samples),
+            median_on_duration_seconds=self._median_duration_since(window_seconds),
+            overshoot_fraction=self._classification_fraction(classification_samples, CycleClassification.OVERSHOOT),
+            underheat_fraction=self._classification_fraction(classification_samples, CycleClassification.UNDERHEAT),
+        )
+
+    def _delta_percentiles(self, window_seconds: int, getter: Callable[[CycleDeltaSample], Optional[float]], ) -> Percentiles:
+        values = self._delta_values_since(window_seconds, getter)
+        return Percentiles(p50=percentile_interpolated(values, 0.50), p90=percentile_interpolated(values, 0.90))
+
     def _current_time_hint(self) -> Optional[float]:
         """Return the latest timestamp observed in any rolling window."""
         latest_times: list[float] = []
-        if self._cycle_durations_window:
-            latest_times.append(self._cycle_durations_window[-1].end_time)
 
         if self._delta_window:
             latest_times.append(self._delta_window[-1].end_time)
 
+        if self._classification_window:
+            latest_times.append(self._classification_window[-1].end_time)
+
+        if self._cycle_durations_window:
+            latest_times.append(self._cycle_durations_window[-1].end_time)
+
         return max(latest_times) if latest_times else None
 
+    def _prune_delta_window(self, now: float) -> None:
+        """Drop delta samples older than the daily window."""
+        while self._delta_window and self._delta_window[0].end_time < (now - DAILY_WINDOW_SECONDS):
+            self._delta_window.popleft()
+
     def _prune_cycle_window(self, now: float) -> None:
-        """Drop ON-duration samples older than the median window."""
-        cutoff = now - DEFAULT_MEDIAN_WINDOW_SECONDS
-        while self._cycle_durations_window and self._cycle_durations_window[0].end_time < cutoff:
+        """Drop ON-duration samples older than the daily window."""
+        while self._cycle_durations_window and self._cycle_durations_window[0].end_time < (now - DAILY_WINDOW_SECONDS):
             self._cycle_durations_window.popleft()
 
-    def _prune_delta_window(self, now: float) -> None:
-        """Drop delta samples older than the median window."""
-        cutoff = now - DEFAULT_MEDIAN_WINDOW_SECONDS
-        while self._delta_window and self._delta_window[0].end_time < cutoff:
-            self._delta_window.popleft()
+    def _prune_classification_window(self, now: float) -> None:
+        """Drop classification samples older than the daily window."""
+        while self._classification_window and self._classification_window[0].end_time < (now - DAILY_WINDOW_SECONDS):
+            self._classification_window.popleft()

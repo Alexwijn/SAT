@@ -83,6 +83,14 @@ class CycleControlMode(str, Enum):
     CONTINUOUS = "continuous"
 
 
+class HeatingCurveRecommendation(str, Enum):
+    """Suggested heating curve adjustment."""
+    INCREASE = "increase"
+    DECREASE = "decrease"
+    HOLD = "hold"
+    INSUFFICIENT_SAMPLES = "insufficient_samples"
+
+
 class RelativeModulationState(str, Enum):
     """Relative modulation mode/state used for control decisions."""
     OFF = "off"

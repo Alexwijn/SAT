@@ -84,8 +84,6 @@ CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
-# Dynamic minimum setpoint tuning keys.
-
 # Consumption bounds for energy/cost tracking.
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
 CONF_MAXIMUM_CONSUMPTION = "maximum_consumption"
@@ -137,7 +135,7 @@ OPTIONS_DEFAULTS = {
     CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS: 18.0,
     CONF_MODULATION_SUPPRESSION_DELAY_SECONDS: 20,
     CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS: 1.0,
-    CONF_FLOW_SETPOINT_OFFSET_CELSIUS: 1.0,
+    CONF_FLOW_SETPOINT_OFFSET_CELSIUS: 2.0,
 
     # Pressure health thresholds.
     CONF_MINIMUM_BOILER_PRESSURE: 0.8,

@@ -214,13 +214,13 @@ class PWM:
 
     def on_cycle_end(self, cycle: "Cycle") -> None:
         """Adjust PWM enablement based on the last completed cycle classification."""
+        if cycle.control_mode == CycleControlMode.CONTINUOUS:
+            if cycle.classification == CycleClassification.OVERSHOOT:
+                return self.enable()
+
         if cycle.control_mode == CycleControlMode.PWM:
             if cycle.classification == CycleClassification.UNDERHEAT:
                 return self.disable()
-
-        if cycle.control_mode == CycleControlMode.CONTINUOUS:
-            if cycle.classification in CycleClassification.OVERSHOOT:
-                return self.enable()
 
     def _calculate_duty_cycle(self, requested_setpoint: float, device_state: DeviceState) -> Tuple[int, int]:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""

@@ -132,6 +132,7 @@ async def test_core_sensors_registered(hass, climate, entry, domains, data, opti
         f"{unique_id_prefix}-manufacturer",
         f"{unique_id_prefix}-cycle-status",
         f"{unique_id_prefix}-requested-setpoint",
+        f"{unique_id_prefix}-heating-curve-recommendation",
     )
 
     for unique_id in expected_unique_ids:

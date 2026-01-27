@@ -60,7 +60,7 @@ def test_requested_setpoint_without_heating_curve(climate):
 
 def test_requested_setpoint_eco_mode_ignores_secondary_and_caps(monkeypatch, climate):
     _update_climate_config(climate, options={CONF_HEATING_MODE: HeatingMode.ECO})
-    climate.heating_curve._last_heating_curve_value = 30.0
+    climate.heating_curve._value = 30.0
 
     monkeypatch.setattr(PID, "output", property(lambda self: 42.44))
     monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.output", property(lambda self: 55.0))
@@ -71,7 +71,7 @@ def test_requested_setpoint_eco_mode_ignores_secondary_and_caps(monkeypatch, cli
 
 def test_requested_setpoint_uses_secondary_and_cap(monkeypatch, climate):
     _update_climate_config(climate, options={CONF_HEATING_MODE: HeatingMode.COMFORT})
-    climate.heating_curve._last_heating_curve_value = 30.0
+    climate.heating_curve._value = 30.0
 
     monkeypatch.setattr(PID, "output", property(lambda self: 40.2))
     monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.output", property(lambda self: 45.6))

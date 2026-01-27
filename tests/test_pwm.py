@@ -73,8 +73,8 @@ def pwm() -> PWM:
     config = PwmConfig(
         cycles_per_hour=4,
         duty_cycle_seconds=4,
-        force_pulse_width_modulation=False,
         maximum_relative_modulation=100,
+        force_pulse_width_modulation=False,
     )
     return PWM(config, HeatingSystem.RADIATORS)
 

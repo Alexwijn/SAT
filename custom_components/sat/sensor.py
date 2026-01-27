@@ -18,7 +18,7 @@ from .coordinator.simulator import sensor as simulator_sensor
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
-from .types import BoilerStatus, CycleClassification
+from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -50,6 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
 
     for entity_id in entry_data.config.rooms:
@@ -293,6 +294,74 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-heating-curve"
+
+
+class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
+    _MINIMUM_DAILY_SAMPLES: int = 6
+    _ERROR_THRESHOLD: float = DEADBAND * 2
+
+    async def async_added_to_hass(self) -> None:
+        def on_pid_updated(entity_id: str) -> None:
+            if entity_id != self._climate.entity_id:
+                return
+
+            self.schedule_update_ha_state()
+
+        await super().async_added_to_hass()
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
+
+    @property
+    def name(self) -> str:
+        return "Heating Curve Recommendation"
+
+    @property
+    def native_value(self) -> Optional[str]:
+        daily = self._climate.temperature_statistics.window.daily
+
+        if daily.sample_count < self._MINIMUM_DAILY_SAMPLES:
+            return HeatingCurveRecommendation.INSUFFICIENT_SAMPLES
+
+        if daily.median_error is None:
+            return HeatingCurveRecommendation.HOLD
+
+        if daily.median_error > self._ERROR_THRESHOLD:
+            return HeatingCurveRecommendation.INCREASE
+
+        if daily.median_error < -self._ERROR_THRESHOLD:
+            return HeatingCurveRecommendation.DECREASE
+
+        return HeatingCurveRecommendation.HOLD
+
+    @property
+    def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
+        daily = self._climate.temperature_statistics.window.daily
+        recent = self._climate.temperature_statistics.window.recent
+
+        return {
+            "error_threshold": self._ERROR_THRESHOLD,
+            "minimum_daily_samples": self._MINIMUM_DAILY_SAMPLES,
+
+            "recent_mean_error": recent.mean_error,
+            "recent_sample_count": recent.sample_count,
+            "recent_median_error": recent.median_error,
+            "recent_mean_abs_error": recent.mean_abs_error,
+            "recent_in_band_fraction": recent.in_band_fraction,
+
+            "daily_mean_error": daily.mean_error,
+            "daily_sample_count": daily.sample_count,
+            "daily_median_error": daily.median_error,
+            "daily_mean_abs_error": daily.mean_abs_error,
+            "daily_in_band_fraction": daily.in_band_fraction,
+
+        }
+
+    @property
+    def available(self) -> bool:
+        return self._climate.temperature_statistics.window.daily.sample_count > 0
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.entry_id}-heating-curve-recommendation"
 
 
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):

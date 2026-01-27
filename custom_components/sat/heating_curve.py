@@ -1,10 +1,7 @@
 import logging
-from collections import deque
-from statistics import mean
 from typing import Optional
 
 from . import SatConfig
-from .const import MINIMUM_SETPOINT
 from .types import HeatingSystem
 
 _LOGGER = logging.getLogger(__name__)
@@ -12,80 +9,37 @@ _LOGGER = logging.getLogger(__name__)
 
 class HeatingCurve:
     def __init__(self, heating_system: HeatingSystem, coefficient: float):
-        self._coefficient = coefficient
-        self._heating_system = heating_system
-        self.reset()
+        self._heating_system: HeatingSystem = heating_system
+        self._coefficient: float = coefficient
+        self._value: Optional[float] = None
+        self._optimal_coefficient: Optional[float] = None
+
+    @property
+    def value(self) -> Optional[float]:
+        return self._value
 
     @staticmethod
     def from_config(config: SatConfig):
         """Create an instance from configuration"""
         return HeatingCurve(heating_system=config.heating_system, coefficient=config.pid.heating_curve_coefficient)
 
-    def reset(self):
-        """Reset the heating curve to a clean state."""
-        self._optimal_coefficient = None
-        self._coefficient_derivative = None
-        self._last_heating_curve_value = None
-        self._optimal_coefficients = deque(maxlen=5)
-
-    def update(self, target_temperature: float, outside_temperature: float) -> None:
-        """Calculate the heating curve based on the outside temperature."""
-        heating_curve_value = self.calculate(target_temperature, outside_temperature)
-        self._last_heating_curve_value = round(self._heating_system.base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
-
-    def calculate_coefficient(self, setpoint: float, target_temperature: float, outside_temperature: float) -> float:
-        """Convert a setpoint to a coefficient value"""
-        heating_curve_value = self.calculate(target_temperature, outside_temperature)
-        return round(4 * (setpoint - self._heating_system.base_offset) / heating_curve_value, 1)
-
-    def autotune(self, setpoint: float, target_temperature: float, outside_temperature: float):
-        """Calculate an optimal coefficient value."""
-        if setpoint <= MINIMUM_SETPOINT:
-            return
-
-        coefficient = self.calculate_coefficient(setpoint, target_temperature, outside_temperature)
-        self._coefficient_derivative = round(coefficient - self._optimal_coefficient, 1) if self._optimal_coefficient else coefficient
-
-        # Fuzzy logic for when the derivative is positive
-        if self._coefficient_derivative > 1:
-            coefficient -= 0.3
-        elif self._coefficient_derivative < 0.5:
-            coefficient -= 0.1
-        elif self._coefficient_derivative < 1:
-            coefficient -= 0.2
-
-        # Fuzzy logic for when the derivative is negative
-        if self._coefficient_derivative < -1:
-            coefficient += 0.3
-        elif self._coefficient_derivative > -0.5:
-            coefficient += 0.1
-        elif self._coefficient_derivative > -1:
-            coefficient += 0.2
-
-        # Store the results
-        self._optimal_coefficients.append(coefficient)
-        self._optimal_coefficient = round(mean(self._optimal_coefficients), 1)
-
-    def restore_autotune(self, coefficient: float, derivative: float):
-        """Restore a previous optimal coefficient value."""
-        self._optimal_coefficient = coefficient
-        self._coefficient_derivative = derivative
-
-        self._optimal_coefficients = deque([coefficient] * 5, maxlen=5)
-
     @staticmethod
     def calculate(target_temperature: float, outside_temperature: float) -> float:
         """Calculate the heating curve value based on the current outside temperature"""
         return 4 * (target_temperature - 20) + 0.03 * (outside_temperature - 20) ** 2 - 0.4 * (outside_temperature - 20)
 
-    @property
-    def optimal_coefficient(self) -> Optional[float]:
-        return self._optimal_coefficient
+    def reset(self):
+        """Reset the heating curve to a clean state."""
+        self._value = None
+        self._optimal_coefficient = None
+        self._coefficient_derivative = None
 
-    @property
-    def coefficient_derivative(self) -> Optional[float]:
-        return self._coefficient_derivative
+    def update(self, target_temperature: float, outside_temperature: float) -> None:
+        """Calculate the heating curve based on the outside temperature."""
+        heating_curve_value = self.calculate(target_temperature, outside_temperature)
+        self._value = round(self._heating_system.base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
 
-    @property
-    def value(self) -> Optional[float]:
-        return self._last_heating_curve_value
+    def calculate_coefficient(self, setpoint: float, target_temperature: float, outside_temperature: float) -> float:
+        """Convert a setpoint to a coefficient value"""
+        heating_curve_value = self.calculate(target_temperature, outside_temperature)
+        return round(4 * (setpoint - self._heating_system.base_offset) / heating_curve_value, 1)
