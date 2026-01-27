@@ -319,18 +319,18 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
         daily = self._climate.temperature_statistics.window.daily
 
         if daily.sample_count < self._MINIMUM_DAILY_SAMPLES:
-            return HeatingCurveRecommendation.INSUFFICIENT_SAMPLES
+            return HeatingCurveRecommendation.INSUFFICIENT_SAMPLES.name
 
         if daily.median_error is None:
-            return HeatingCurveRecommendation.HOLD
+            return HeatingCurveRecommendation.HOLD.name
 
         if daily.median_error > self._ERROR_THRESHOLD:
-            return HeatingCurveRecommendation.INCREASE
+            return HeatingCurveRecommendation.INCREASE.name
 
         if daily.median_error < -self._ERROR_THRESHOLD:
-            return HeatingCurveRecommendation.DECREASE
+            return HeatingCurveRecommendation.DECREASE.name
 
-        return HeatingCurveRecommendation.HOLD
+        return HeatingCurveRecommendation.HOLD.name
 
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
