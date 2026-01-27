@@ -17,6 +17,7 @@ from .const import (
 )
 from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
+from .cycles.const import OVERSHOOT_MARGIN_CELSIUS, OVERSHOOT_SUSTAIN_SECONDS
 from .device import DeviceState, DeviceTracker
 from .entry_data import SatConfig
 from .helpers import event_timestamp, float_value, int_value, timestamp, clamp
@@ -78,10 +79,8 @@ class SatHeatingControl:
         self._last_requested_setpoint: Optional[float] = None
         self._last_outside_temperature: Optional[float] = None
 
-        self._requested_setpoint_up_ticks: int = 0
-        self._requested_setpoint_down_ticks: int = 0
-
         self._flame_off_hold_setpoint: Optional[float] = None
+        self._sustained_overshoot_started_at: Optional[float] = None
         self._coordinator_listener_remove: Optional[Callable[[], None]] = None
 
     @property
@@ -169,9 +168,7 @@ class SatHeatingControl:
 
     def reset(self) -> None:
         """Reset heating control state on major changes."""
-        self._requested_setpoint_up_ticks = 0
-        self._requested_setpoint_down_ticks = 0
-
+        self._sustained_overshoot_started_at = None
         self._pwm.reset()
 
     async def update(self, demand: HeatingDemand) -> None:
@@ -183,6 +180,7 @@ class SatHeatingControl:
             if demand.requested_setpoint >= self._config.limits.maximum_setpoint:
                 self._pwm.disable()
 
+            self._maybe_enable_pwm_on_sustained_overshoot(demand, self._coordinator.state)
             self._pwm.update(
                 timestamp=demand.timestamp,
                 device_state=self._coordinator.state,
@@ -200,6 +198,7 @@ class SatHeatingControl:
             self._pwm.disable()
             self._control_setpoint = MINIMUM_SETPOINT
             self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
+            self._sustained_overshoot_started_at = None
 
         await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
         await self._coordinator.async_set_control_setpoint(self._control_setpoint)
@@ -209,17 +208,15 @@ class SatHeatingControl:
 
     def _handle_coordinator_update(self, time: Optional[datetime] = None) -> None:
         """Track device and cycle state on coordinator updates."""
-        timestamp = event_timestamp(time)
-
         self._device_tracker.update(
-            timestamp=timestamp,
+            timestamp=event_timestamp(time),
             last_cycle=self.last_cycle,
             state=self._coordinator.state,
         )
 
         self._cycle_tracker.update(
             ControlLoopSample(
-                timestamp=timestamp,
+                timestamp=event_timestamp(time),
                 pwm=self._pwm.state,
                 device_state=self._coordinator.state,
                 control_setpoint=self._control_setpoint,
@@ -228,6 +225,56 @@ class SatHeatingControl:
                 outside_temperature=self._last_outside_temperature,
             )
         )
+
+    def _maybe_enable_pwm_on_sustained_overshoot(self, demand: HeatingDemand, device_state: DeviceState) -> None:
+        """Enable PWM when the boiler stays in overshoot while flame is active."""
+        if self._pwm.enabled:
+            self._sustained_overshoot_started_at = None
+            return
+
+        if demand.heater_state != HeaterState.ON:
+            self._sustained_overshoot_started_at = None
+            return
+
+        if device_state.hot_water_active or not device_state.flame_active:
+            self._sustained_overshoot_started_at = None
+            return
+
+        if demand.requested_setpoint <= COLD_SETPOINT:
+            self._sustained_overshoot_started_at = None
+            return
+
+        if device_state.flow_temperature is None:
+            self._sustained_overshoot_started_at = None
+            return
+
+        overshoot_threshold = demand.requested_setpoint + OVERSHOOT_MARGIN_CELSIUS
+        if device_state.flow_temperature < overshoot_threshold:
+            self._sustained_overshoot_started_at = None
+            return
+
+        if self._sustained_overshoot_started_at is None:
+            self._sustained_overshoot_started_at = demand.timestamp
+            return
+
+        elapsed = demand.timestamp - self._sustained_overshoot_started_at
+        if elapsed < 0:
+            self._sustained_overshoot_started_at = demand.timestamp
+            return
+
+        if elapsed < OVERSHOOT_SUSTAIN_SECONDS:
+            return
+
+        _LOGGER.info(
+            "Sustained overshoot detected (flow=%.1f°C >= requested=%.1f°C + %.1f°C for %.0fs).",
+            device_state.flow_temperature,
+            demand.requested_setpoint,
+            OVERSHOOT_MARGIN_CELSIUS,
+            elapsed,
+        )
+
+        self._sustained_overshoot_started_at = None
+        self._pwm.enable()
 
     def _compute_pwm_control_setpoint(self, requested_setpoint: float) -> None:
         """Apply the PWM setpoint override based on the current device state."""

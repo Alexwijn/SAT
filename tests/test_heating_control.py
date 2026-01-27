@@ -16,6 +16,7 @@ from custom_components.sat.const import (
     MINIMUM_SETPOINT,
     OPTIONS_DEFAULTS,
 )
+from custom_components.sat.cycles.const import OVERSHOOT_SUSTAIN_SECONDS
 from custom_components.sat.entry_data import SatConfig, SatMode
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.heating_control import (
@@ -214,3 +215,29 @@ async def test_flame_off_setpoint_held_until_suppression_delay(hass, monkeypatch
     await heating_control.update(_make_demand(40.0))
 
     assert heating_control.control_setpoint == 30.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+
+
+async def test_enables_pwm_on_sustained_overshoot(heating_control, coordinator):
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(40.0)
+
+    requested = 30.0
+    start_time = timestamp()
+
+    await heating_control.update(HeatingDemand(
+        timestamp=start_time,
+        hvac_mode=HVACMode.HEAT,
+        requested_setpoint=requested,
+        outside_temperature=10.0,
+    ))
+
+    assert heating_control.pwm_state.enabled is False
+
+    await heating_control.update(HeatingDemand(
+        timestamp=start_time + OVERSHOOT_SUSTAIN_SECONDS + 1,
+        hvac_mode=HVACMode.HEAT,
+        requested_setpoint=requested,
+        outside_temperature=10.0,
+    ))
+
+    assert heating_control.pwm_state.enabled is True
