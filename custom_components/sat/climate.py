@@ -134,6 +134,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._update_heating_curves())
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
 
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.control_pid())
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.schedule_heating_control_loop())
+
         await self._register_services()
         await self._coordinator.async_added_to_hass(self.hass)
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
@@ -611,7 +614,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass, ensure_list(self._config.sensors.outside_sensor_entity_id), self._async_outside_entity_changed
+                self.hass, [self._config.sensors.inside_sensor_entity_id], self._async_entity_changed
+            )
+        )
+
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, ensure_list(self._config.sensors.outside_sensor_entity_id), self._async_entity_changed
             )
         )
 
