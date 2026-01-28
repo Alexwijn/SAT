@@ -5,7 +5,6 @@ from datetime import datetime
 import pytest
 
 from custom_components.sat.const import DEADBAND
-from custom_components.sat.types import HeatingSystem
 from custom_components.sat.entry_data import PidConfig
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pid import (
@@ -14,9 +13,11 @@ from custom_components.sat.pid import (
     DERIVATIVE_DECAY,
     DERIVATIVE_RAW_CAP,
     PID,
-    SENSOR_MAX_INTERVAL,
+    DERIVATIVE_MAX_INTERVAL,
+    INTEGRAL_MAX_INTERVAL,
 )
 from custom_components.sat.temperature.state import TemperatureState
+from custom_components.sat.types import HeatingSystem
 
 
 def _state_for_error(error, timestamp_value, current=20.0):
@@ -33,13 +34,13 @@ def _state_for_error(error, timestamp_value, current=20.0):
 
 
 def _pid_config(
-    *,
-    proportional: float = 1.0,
-    integral: float = 0.5,
-    derivative: float = 0.1,
-    automatic_gains: bool = False,
-    automatic_gains_value: float = 0.0,
-    heating_curve_coefficient: float = 2.0,
+        *,
+        proportional: float = 1.0,
+        integral: float = 0.5,
+        derivative: float = 0.1,
+        automatic_gains: bool = False,
+        automatic_gains_value: float = 0.0,
+        heating_curve_coefficient: float = 2.0,
 ) -> PidConfig:
     return PidConfig(
         integral=integral,
@@ -52,10 +53,10 @@ def _pid_config(
 
 
 def _make_pid(
-    heating_system: HeatingSystem,
-    *,
-    config: PidConfig,
-    heating_curve_value: float | None = None,
+        heating_system: HeatingSystem,
+        *,
+        config: PidConfig,
+        heating_curve_value: float | None = None,
 ) -> PID:
     heating_curve = HeatingCurve(heating_system, config.heating_curve_coefficient)
     if heating_curve_value is not None:
@@ -165,10 +166,10 @@ def test_integral_clamps_large_interval():
 
     _set_heating_curve_value(pid, 100.0)
     pid.update(_state_for_error(0.05, 0.0))
-    state = _state_for_error(0.05, SENSOR_MAX_INTERVAL + 600.0)
+    state = _state_for_error(0.05, INTEGRAL_MAX_INTERVAL + 600.0)
     pid.update(state)
 
-    expected = 0.05 * SENSOR_MAX_INTERVAL
+    expected = 0.05 * INTEGRAL_MAX_INTERVAL
     assert pid.integral == pytest.approx(expected, rel=1e-3)
 
 
@@ -215,9 +216,9 @@ def test_derivative_uses_sensor_timing():
 
     _set_heating_curve_value(pid, 10.0)
     pid.update(_state_for_error(1.0, 100.0, current=10.0))
-    pid.update(_state_for_error(1.0, 300.0, current=11.0))
+    pid.update(_state_for_error(1.0, 200.0, current=11.0))
 
-    derivative = -(11.0 - 10.0) / 200.0
+    derivative = -(11.0 - 10.0) / 100.0
     expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)
 
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
@@ -250,14 +251,14 @@ def test_derivative_decays_on_large_sensor_gap():
     previous = pid.raw_derivative
     assert previous != 0.0
 
-    late_state = _state_for_error(1.0, 20.0 + SENSOR_MAX_INTERVAL + 60.0, current=22.0)
+    late_state = _state_for_error(1.0, 20.0 + DERIVATIVE_MAX_INTERVAL + 60.0, current=22.0)
     pid.update(late_state)
 
     expected = round(previous * DERIVATIVE_DECAY, 3)
     assert pid.raw_derivative == pytest.approx(expected, rel=1e-3)
 
 
-def test_derivative_decays_when_delta_below_resolution():
+def test_derivative_freeze_when_delta_below_resolution():
     pid = _make_pid(
         HeatingSystem.RADIATORS,
         config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
@@ -271,4 +272,21 @@ def test_derivative_decays_when_delta_below_resolution():
     pid._raw_derivative = 3.0
     pid.update(_state_for_error(1.0, 30.0, current=20.25))
 
-    assert pid.raw_derivative == pytest.approx(3.0 * DERIVATIVE_DECAY, rel=1e-3)
+    assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)
+
+
+def test_derivative_freeze_when_delta_is_zero():
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
+    )
+
+    _set_heating_curve_value(pid, 10.0)
+    pid.update(_state_for_error(1.0, 0.0, current=20.0))
+    pid.update(_state_for_error(1.0, 10.0, current=20.1))
+    pid.update(_state_for_error(1.0, 20.0, current=20.2))
+
+    pid._raw_derivative = 3.0
+    pid.update(_state_for_error(1.0, 30.0, current=20.2))
+
+    assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)

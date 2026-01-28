@@ -22,7 +22,8 @@ DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
 DERIVATIVE_RAW_CAP = 5.0
 
-SENSOR_MAX_INTERVAL = 900.0
+INTEGRAL_MAX_INTERVAL = 900.0
+DERIVATIVE_MAX_INTERVAL = 180.0
 RESOLUTION_CANDIDATE_MAX = 0.5
 RESOLUTION_MATCH_TOLERANCE = 0.25
 RESOLUTION_HYSTERESIS_FACTOR = 0.5
@@ -228,7 +229,7 @@ class PID:
             return
 
         # Cap the integration interval so long gaps don't over-accumulate.
-        delta_time = min(delta_time, SENSOR_MAX_INTERVAL)
+        delta_time = min(delta_time, INTEGRAL_MAX_INTERVAL)
         self._integral += self.ki * state.error * delta_time
 
         # Clamp integral to the heating curve bounds.
@@ -253,7 +254,7 @@ class PID:
             return
 
         # Ignore updates when the sensor gap is too large.
-        if (delta_time := state_timestamp - last_derivative_updated) > SENSOR_MAX_INTERVAL:
+        if (delta_time := state_timestamp - last_derivative_updated) > DERIVATIVE_MAX_INTERVAL:
             self._decay_derivative()
             self._last_derivative_updated = state_timestamp
             return
@@ -263,7 +264,6 @@ class PID:
 
         # Ignore sub-resolution deltas to avoid derivative noise from coarse sensors.
         if self._temperature_resolution is not None and self._temperature_resolution > abs(temperature_delta):
-            self._decay_derivative()
             self._last_derivative_updated = state_timestamp
             return
 
@@ -288,8 +288,6 @@ class PID:
             return
 
         self._raw_derivative *= DERIVATIVE_DECAY
-        if abs(self._raw_derivative) < 1e-3:
-            self._raw_derivative = 0.0
 
     def _update_temperature_resolution(self, state: TemperatureState) -> None:
         if self._last_temperature is None:
