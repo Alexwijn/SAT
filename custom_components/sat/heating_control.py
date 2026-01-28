@@ -200,9 +200,9 @@ class SatHeatingControl:
             self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
             self._sustained_overshoot_started_at = None
 
-        await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
         await self._coordinator.async_set_control_setpoint(self._control_setpoint)
-        await self._coordinator.async_set_heater_state(demand.heater_state)
+        await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
+        await self._coordinator.async_set_heater_state(HeaterState.ON if self._control_setpoint > COLD_SETPOINT else HeaterState.OFF)
 
         await self._coordinator.async_control_heating_loop(demand.timestamp)
 
