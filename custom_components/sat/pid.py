@@ -239,9 +239,9 @@ class PID:
 
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
-        state_timestamp = state.last_reported.timestamp()
         error_abs = abs(state.error)
         effective_deadband = self._effective_deadband()
+        state_timestamp = state.last_reported.timestamp()
 
         last_derivative_updated = self._last_derivative_updated
         has_last_temperature = self._last_temperature is not None
@@ -260,6 +260,8 @@ class PID:
 
         # Convert the temperature delta into a time-based derivative.
         temperature_delta = state.current - self._last_temperature
+
+        # Ignore sub-resolution deltas to avoid derivative noise from coarse sensors.
         if self._temperature_resolution is not None and self._temperature_resolution > abs(temperature_delta):
             self._decay_derivative()
             self._last_derivative_updated = state_timestamp
