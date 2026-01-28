@@ -17,11 +17,15 @@ from .types import HeatingSystem
 _LOGGER = logging.getLogger(__name__)
 timestamp = _timestamp  # keep public name for tests
 
+DERIVATIVE_DECAY = 0.8
 DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
 DERIVATIVE_RAW_CAP = 5.0
 
 SENSOR_MAX_INTERVAL = 900.0
+RESOLUTION_CANDIDATE_MAX = 0.5
+RESOLUTION_MATCH_TOLERANCE = 0.25
+RESOLUTION_HYSTERESIS_FACTOR = 0.5
 
 STORAGE_VERSION = 1
 STORAGE_KEY_INTEGRAL = "integral"
@@ -39,6 +43,10 @@ class PID:
         self._config = config
         self._heating_curve = heating_curve
         self._heating_system = heating_system
+
+        self._in_deadband: bool = False
+        self._resolution_candidate: Optional[float] = None
+        self._temperature_resolution: Optional[float] = None
 
         self._raw_derivative: float = 0.0
         self._last_temperature: Optional[float] = None
@@ -129,6 +137,7 @@ class PID:
 
     def reset(self) -> None:
         """Reset the PID controller to a clean state."""
+        self._in_deadband = False
         self._integral: float = 0.0
         self._last_error: Optional[float] = None
         self._last_integral_updated: Optional[float] = None
@@ -167,8 +176,9 @@ class PID:
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self._entity_id)
             return
 
-        self._update_integral(state)
+        self._update_temperature_resolution(state)
         self._update_derivative(state)
+        self._update_integral(state)
 
         self._last_error = state.error
         self._last_temperature = state.current
@@ -187,14 +197,19 @@ class PID:
     def _update_integral(self, state: TemperatureState) -> None:
         """Update the integral value in the PID controller."""
         error_abs = abs(state.error)
+        effective_deadband = self._effective_deadband()
         state_timestamp = state.last_reported.timestamp()
+        exit_deadband = effective_deadband + self._deadband_hysteresis()
 
-        # Start a fresh time base when we enter the deadband.
-        if self._last_error is not None and abs(self._last_error) > DEADBAND >= error_abs:
+        if self._in_deadband:
+            if error_abs > exit_deadband:
+                self._in_deadband = False
+        elif error_abs <= effective_deadband:
+            self._in_deadband = True
             self._last_integral_updated = state_timestamp
 
         # Reset integral outside the deadband so it only accumulates inside.
-        if error_abs > DEADBAND:
+        if not self._in_deadband:
             self._integral = 0.0
             self._last_integral_updated = state_timestamp
             return
@@ -224,26 +239,32 @@ class PID:
 
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
-        error_abs = abs(state.error)
         state_timestamp = state.last_reported.timestamp()
+        error_abs = abs(state.error)
+        effective_deadband = self._effective_deadband()
 
-        in_deadband = error_abs <= DEADBAND
         last_derivative_updated = self._last_derivative_updated
         has_last_temperature = self._last_temperature is not None
         is_forward = last_derivative_updated is not None and state_timestamp > last_derivative_updated
 
         # Bail out when we are in the deadband or lack valid forward temperature data.
-        if in_deadband or not has_last_temperature or not is_forward:
+        if self._in_deadband or error_abs <= effective_deadband or not has_last_temperature or not is_forward:
             self._last_derivative_updated = state_timestamp
             return
 
         # Ignore updates when the sensor gap is too large.
         if (delta_time := state_timestamp - last_derivative_updated) > SENSOR_MAX_INTERVAL:
+            self._decay_derivative()
             self._last_derivative_updated = state_timestamp
             return
 
         # Convert the temperature delta into a time-based derivative.
         temperature_delta = state.current - self._last_temperature
+        if self._temperature_resolution is not None and self._temperature_resolution > abs(temperature_delta):
+            self._decay_derivative()
+            self._last_derivative_updated = state_timestamp
+            return
+
         derivative = -temperature_delta / delta_time
 
         # Apply the first low-pass filter.
@@ -259,6 +280,51 @@ class PID:
             "PID derivative update: entity=%s previous_temperature=%.2f raw_derivative=%.6f delta_time=%.3f",
             self._entity_id, self._last_temperature, self._raw_derivative, delta_time
         )
+
+    def _decay_derivative(self) -> None:
+        if self._raw_derivative == 0.0:
+            return
+
+        self._raw_derivative *= DERIVATIVE_DECAY
+        if abs(self._raw_derivative) < 1e-3:
+            self._raw_derivative = 0.0
+
+    def _update_temperature_resolution(self, state: TemperatureState) -> None:
+        if self._last_temperature is None:
+            return
+
+        if (temperature_delta := abs(state.current - self._last_temperature)) <= 0.0:
+            return
+
+        if temperature_delta > RESOLUTION_CANDIDATE_MAX:
+            return
+
+        if self._resolution_candidate is None:
+            self._resolution_candidate = temperature_delta
+            return
+
+        candidate = self._resolution_candidate
+        if abs(temperature_delta - candidate) <= candidate * RESOLUTION_MATCH_TOLERANCE:
+            if self._temperature_resolution is None:
+                self._temperature_resolution = min(temperature_delta, candidate)
+            else:
+                self._temperature_resolution = min(self._temperature_resolution, temperature_delta)
+
+            return
+
+        self._resolution_candidate = temperature_delta
+
+    def _effective_deadband(self) -> float:
+        if self._temperature_resolution is None:
+            return DEADBAND
+
+        return max(DEADBAND, self._temperature_resolution)
+
+    def _deadband_hysteresis(self) -> float:
+        if self._temperature_resolution is None:
+            return 0.0
+
+        return self._temperature_resolution * RESOLUTION_HYSTERESIS_FACTOR
 
     async def _async_save_state(self) -> None:
         if self._store is None:
