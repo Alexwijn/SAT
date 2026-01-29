@@ -11,7 +11,7 @@ from custom_components.sat.pid import (
     DERIVATIVE_ALPHA1,
     DERIVATIVE_ALPHA2,
     DERIVATIVE_RAW_CAP,
-    PID,
+    PID, PID_UPDATE_INTERVAL,
 )
 from custom_components.sat.temperature.state import TemperatureState
 from custom_components.sat.types import HeatingSystem
@@ -98,9 +98,9 @@ def test_manual_gains_output_and_availability():
     assert pid.ki == 1.0
     assert pid.kd == 0.5
     assert pid.proportional == 0.1
-    assert pid.integral == 0.5
+    assert pid.integral == 6.0
     assert pid.derivative == 0.0
-    assert pid.output == 30.6
+    assert pid.output == 36.1
 
 
 def test_automatic_gains_calculation():
@@ -136,10 +136,13 @@ def test_integral_timebase_reset_and_accumulation():
     assert pid.integral == 0.0
 
     pid.update(_state_for_error(DEADBAND / 2, 20.0))
-    assert pid.integral == 0.0
+    assert pid.integral == 3.0
 
     pid.update(_state_for_error(DEADBAND / 2, 30.0))
-    assert pid.integral == 0.5
+    assert pid.integral == 6.0
+
+    pid.update(_state_for_error(DEADBAND / 2, 20.0 + PID_UPDATE_INTERVAL))
+    assert pid.integral == 9.0
 
 
 def test_integral_clamped_to_heating_curve():

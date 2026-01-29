@@ -36,7 +36,7 @@ from .entry_data import SatConfig, get_entry_data
 from .heating_control import HeatingDemand, SatHeatingControl
 from .heating_curve import HeatingCurve
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp
-from .pid import PID
+from .pid import PID, PID_UPDATE_INTERVAL
 from .summer_simmer import SummerSimmer
 from .temperature.history import TemperatureHistory
 from .temperature.history import TemperatureStatistics
@@ -629,7 +629,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self.async_on_remove(
             async_track_time_interval(
-                self.hass, self.control_pid, timedelta(seconds=30)
+                self.hass, self.control_pid, timedelta(seconds=PID_UPDATE_INTERVAL), cancel_on_shutdown=True
             )
         )
 

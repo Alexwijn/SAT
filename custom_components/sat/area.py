@@ -18,7 +18,7 @@ from .const import COLD_SETPOINT, MINIMUM_SETPOINT
 from .entry_data import SatConfig
 from .heating_curve import HeatingCurve
 from .helpers import float_value, is_state_stale, state_age_seconds
-from .pid import PID
+from .pid import PID, PID_UPDATE_INTERVAL
 from .temperature.state import TemperatureStates, TemperatureState
 
 _LOGGER = logging.getLogger(__name__)
@@ -208,15 +208,12 @@ class Area:
         await self.pid.async_added_to_hass(hass, self._entity_id, device_id)
 
         if hass.state is CoreState.running:
-            self.update()
+            self.control_pid()
         else:
-            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.update)
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.control_pid)
 
         self._time_interval = async_track_time_interval(
-            self._hass,
-            self.update,
-            timedelta(seconds=30),
-            cancel_on_shutdown=True,
+            self._hass, self.control_pid, timedelta(seconds=PID_UPDATE_INTERVAL), cancel_on_shutdown=True
         )
 
     async def async_will_remove_from_hass(self) -> None:
@@ -229,7 +226,7 @@ class Area:
         """Handle changes to the outside entity."""
         self.heating_curve.update(self.target_temperature, self.current_temperature)
 
-    def update(self, _time: Optional[datetime] = None) -> None:
+    def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Update the PID controller with the current error and heating curve."""
         if (error := self.error) is None:
             _LOGGER.debug("Skipping control loop for %s because error could not be computed", self._entity_id)

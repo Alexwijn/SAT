@@ -10,23 +10,23 @@ from homeassistant.helpers.storage import Store
 from .const import *
 from .entry_data import PidConfig, SatConfig
 from .heating_curve import HeatingCurve
-from .helpers import float_value, timestamp as _timestamp, clamp_to_range
+from .helpers import float_value, clamp_to_range
 from .temperature.state import TemperatureState
 from .types import HeatingSystem
 
 _LOGGER = logging.getLogger(__name__)
-timestamp = _timestamp  # keep public name for tests
 
 DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
 DERIVATIVE_RAW_CAP = 5.0
+
+PID_UPDATE_INTERVAL = 60
 
 STORAGE_VERSION = 1
 STORAGE_KEY_INTEGRAL = "integral"
 STORAGE_KEY_LAST_ERROR = "last_error"
 STORAGE_KEY_RAW_DERIVATIVE = "raw_derivative"
 STORAGE_KEY_LAST_TEMPERATURE = "last_temperature"
-STORAGE_KEY_LAST_INTEGRAL_UPDATED = "last_integral_updated"
 STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
 
 
@@ -40,7 +40,6 @@ class PID:
 
         self._integral: float = 0.0
         self._last_error: Optional[float] = None
-        self._last_integral_updated: Optional[float] = None
 
         self._raw_derivative: float = 0.0
         self._last_temperature: Optional[float] = None
@@ -139,7 +138,6 @@ class PID:
         """Reset the PID controller to a clean state."""
         self._integral = 0.0
         self._last_error = None
-        self._last_integral_updated = None
 
     async def async_added_to_hass(self, hass: HomeAssistant, entity_id: str, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
@@ -155,7 +153,6 @@ class PID:
         self._last_derivative_updated = float_value(data.get(STORAGE_KEY_LAST_DERIVATIVE_UPDATED))
 
         self._integral = float(data.get(STORAGE_KEY_INTEGRAL, self._integral))
-        self._last_integral_updated = float_value(data.get(STORAGE_KEY_LAST_INTEGRAL_UPDATED))
         self._raw_derivative = float(data.get(STORAGE_KEY_RAW_DERIVATIVE, self._raw_derivative))
 
         _LOGGER.debug("Loaded PID state from storage for entity=%s", self._entity_id)
@@ -188,35 +185,13 @@ class PID:
         """Update the integral value in the PID controller."""
         if abs(state.error) > DEADBAND:
             self._integral = 0.0
-            self._last_integral_updated = None
             return
 
-        if self._last_integral_updated is None:
-            self._last_integral_updated = state.last_changed.timestamp()
-            return
-
-        delta_time = state.last_changed.timestamp() - self._last_integral_updated
-
-        # Ignore non-forward timestamps.
-        if delta_time <= 0:
-            self._last_integral_updated = state.last_changed.timestamp()
-            return
-
-        # Skip integration when integral gain is disabled.
-        if self.ki is None:
-            return
-
-        self._integral += self.ki * state.error * delta_time
+        self._integral += self.ki * state.error * PID_UPDATE_INTERVAL
         self._integral = clamp_to_range(self._integral, self._heating_curve.value)
-
-        # Record the timestamp used for this integration step.
-        self._last_integral_updated = state.last_changed.timestamp()
 
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
-        if self.kd is None:
-            return
-
         if self._last_temperature is None or self._last_derivative_updated is None:
             self._last_temperature = state.current
             self._last_derivative_updated = state.last_changed.timestamp()
@@ -228,6 +203,7 @@ class PID:
             return
 
         temperature_delta = state.current - self._last_temperature
+
         if temperature_delta == 0.0:
             self._last_temperature = state.current
             self._last_derivative_updated = state.last_changed.timestamp()
@@ -265,7 +241,6 @@ class PID:
             STORAGE_KEY_LAST_ERROR: self._last_error,
             STORAGE_KEY_RAW_DERIVATIVE: self._raw_derivative,
             STORAGE_KEY_LAST_TEMPERATURE: self._last_temperature,
-            STORAGE_KEY_LAST_INTEGRAL_UPDATED: self._last_integral_updated,
             STORAGE_KEY_LAST_DERIVATIVE_UPDATED: self._last_derivative_updated,
         }
 
