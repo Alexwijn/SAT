@@ -31,8 +31,6 @@ class HeatingCurve:
     def reset(self):
         """Reset the heating curve to a clean state."""
         self._value = None
-        self._optimal_coefficient = None
-        self._coefficient_derivative = None
 
     def update(self, target_temperature: float, outside_temperature: float) -> None:
         """Calculate the heating curve based on the outside temperature."""
