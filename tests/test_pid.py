@@ -224,20 +224,6 @@ def test_derivative_uses_sensor_timing():
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
 
 
-def test_temperature_resolution_infers_small_deltas():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=0.0),
-    )
-
-    _set_heating_curve_value(pid, 10.0)
-    pid.update(_state_for_error(0.0, 0.0, current=20.0))
-    pid.update(_state_for_error(0.0, 10.0, current=20.1))
-    pid.update(_state_for_error(0.0, 20.0, current=20.2))
-
-    assert pid._temperature_resolution == pytest.approx(0.1, rel=1e-3)
-
-
 def test_derivative_decays_on_large_sensor_gap():
     pid = _make_pid(
         HeatingSystem.RADIATORS,
@@ -256,23 +242,6 @@ def test_derivative_decays_on_large_sensor_gap():
 
     expected = round(previous * DERIVATIVE_DECAY, 3)
     assert pid.raw_derivative == pytest.approx(expected, rel=1e-3)
-
-
-def test_derivative_freeze_when_delta_below_resolution():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
-    )
-
-    _set_heating_curve_value(pid, 10.0)
-    pid.update(_state_for_error(1.0, 0.0, current=20.0))
-    pid.update(_state_for_error(1.0, 10.0, current=20.1))
-    pid.update(_state_for_error(1.0, 20.0, current=20.2))
-
-    pid._raw_derivative = 3.0
-    pid.update(_state_for_error(1.0, 30.0, current=20.25))
-
-    assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)
 
 
 def test_derivative_freeze_when_delta_is_zero():
