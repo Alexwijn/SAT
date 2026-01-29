@@ -7,7 +7,6 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import sensor, switch, valve, weather, binary_sensor, climate, input_boolean
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import callback
 from homeassistant.helpers import selector, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode, SelectOptionDict
@@ -22,7 +21,6 @@ from .coordinator import SatDataUpdateCoordinator
 from .entry_data import SatConfig, SatMode
 from .helpers import calculate_default_maximum_setpoint, snake_case
 from .manufacturer import ManufacturerFactory, MANUFACTURERS
-from .overshoot_protection import OvershootProtection
 from .types import HeatingSystem, HeatingMode
 from .validators import valid_serial_device
 
@@ -36,10 +34,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 10
     MINOR_VERSION = 0
 
-    calibration = None
-    previous_hvac_mode = None
-    overshoot_protection_value = None
-
     def __init__(self):
         """Initialize."""
         self.data = {}
@@ -50,11 +44,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry):
         return SatOptionsFlowHandler(config_entry)
-
-    @callback
-    def async_remove(self) -> None:
-        if self.calibration is not None:
-            self.calibration.cancel()
 
     async def async_step_user(self, _user_input: Optional[dict[str, Any]] = None):
         """Handle user flow."""
@@ -435,9 +424,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if _user_input.get(CONF_THERMOSTAT) is None:
                 self.data[CONF_THERMOSTAT] = None
 
-            if (await self.async_create_coordinator()).supports_setpoint_management:
-                return await self.async_step_calibrate_system()
-
             return await self.async_step_automatic_gains()
 
         return self.async_show_form(
@@ -472,106 +458,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="automatic_gains",
             data_schema=vol.Schema({vol.Required(CONF_AUTOMATIC_GAINS, default=True): bool})
-        )
-
-    async def async_step_calibrate_system(self, _user_input: Optional[dict[str, Any]] = None):
-        return self.async_show_menu(
-            step_id="calibrate_system",
-            menu_options=["calibrate", "overshoot_protection", "pid_controller"]
-        )
-
-    async def async_step_calibrate(self, _user_input: Optional[dict[str, Any]] = None):
-        # Let's see if we have already been configured before
-        entities = entity_registry.async_get(self.hass)
-        climate_id = entities.async_get_entity_id(climate.DOMAIN, DOMAIN, self.config_entry.entry_id)
-
-        async def start_calibration():
-            try:
-                coordinator = await self.async_create_coordinator()
-                await coordinator.async_setup()
-
-                overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
-                self.overshoot_protection_value = await overshoot_protection.calculate()
-
-                await coordinator.async_will_remove_from_hass()
-            except asyncio.TimeoutError:
-                _LOGGER.warning("Timed out during overshoot protection calculation.")
-            except asyncio.CancelledError:
-                _LOGGER.warning("Cancelled overshoot protection calculation.")
-
-        if not self.calibration:
-            self.calibration = self.hass.async_create_task(
-                start_calibration()
-            )
-
-            # Make sure to turn off the existing climate if we found one
-            if climate_id is not None:
-                self.previous_hvac_mode = self.hass.states.get(climate_id).state
-                data = {ATTR_ENTITY_ID: climate_id, climate.ATTR_HVAC_MODE: climate.HVACMode.OFF}
-                await self.hass.services.async_call(climate.DOMAIN, climate.SERVICE_SET_HVAC_MODE, data, blocking=True)
-
-            # Make sure all climate valves are open
-            for entity_id in self.data.get(CONF_RADIATORS, []) + self.data.get(CONF_ROOMS, []):
-                data = {ATTR_ENTITY_ID: entity_id, climate.ATTR_HVAC_MODE: climate.HVACMode.HEAT}
-                await self.hass.services.async_call(climate.DOMAIN, climate.SERVICE_SET_HVAC_MODE, data, blocking=True)
-
-            return self.async_show_progress(
-                step_id="calibrate",
-                progress_task=self.calibration,
-                progress_action="calibration",
-            )
-
-        if self.overshoot_protection_value is None:
-            return self.async_abort(reason="unable_to_calibrate")
-
-        self._enable_overshoot_protection(
-            self.overshoot_protection_value
-        )
-
-        self.calibration = None
-        self.overshoot_protection_value = None
-
-        # Make sure to restore the mode after we are done
-        if climate_id is not None:
-            data = {ATTR_ENTITY_ID: climate_id, climate.ATTR_HVAC_MODE: self.previous_hvac_mode}
-            await self.hass.services.async_call(climate.DOMAIN, climate.SERVICE_SET_HVAC_MODE, data, blocking=True)
-
-        return self.async_show_progress_done(next_step_id="calibrated")
-
-    async def async_step_calibrated(self, _user_input: Optional[dict[str, Any]] = None):
-        return self.async_show_menu(
-            step_id="calibrated",
-            description_placeholders=self.data,
-            menu_options=["calibrate", "finish"],
-        )
-
-    async def async_step_overshoot_protection(self, _user_input: Optional[dict[str, Any]] = None):
-        if _user_input is not None:
-            self._enable_overshoot_protection(
-                _user_input[CONF_MINIMUM_SETPOINT]
-            )
-
-            if self.data[CONF_MODE] == SatMode.SIMULATOR:
-                return await self.async_step_finish()
-
-            return await self.async_step_manufacturer()
-
-        return self.async_show_form(
-            last_step=False,
-            step_id="overshoot_protection",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_MINIMUM_SETPOINT,
-                    default=self.data.get(CONF_MINIMUM_SETPOINT, OPTIONS_DEFAULTS[CONF_MINIMUM_SETPOINT]),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=MINIMUM_SETPOINT,
-                        max=MAXIMUM_SETPOINT,
-                        step=1,
-                        unit_of_measurement="°C",
-                    )
-                ),
-            })
         )
 
     async def async_step_pid_controller(self, _user_input: Optional[dict[str, Any]] = None):
@@ -670,11 +556,6 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=description_placeholders,
             data_schema=vol.Schema(schema),
         )
-
-    def _enable_overshoot_protection(self, overshoot_protection_value: float):
-        """Store the value and enable overshoot protection."""
-        self.data[CONF_OVERSHOOT_PROTECTION] = True
-        self.data[CONF_MINIMUM_SETPOINT] = overshoot_protection_value
 
 
 class SatOptionsFlowHandler(config_entries.OptionsFlow):
