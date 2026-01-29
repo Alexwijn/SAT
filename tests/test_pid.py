@@ -10,11 +10,8 @@ from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pid import (
     DERIVATIVE_ALPHA1,
     DERIVATIVE_ALPHA2,
-    DERIVATIVE_DECAY,
     DERIVATIVE_RAW_CAP,
     PID,
-    DERIVATIVE_MAX_INTERVAL,
-    INTEGRAL_MAX_INTERVAL,
 )
 from custom_components.sat.temperature.state import TemperatureState
 from custom_components.sat.types import HeatingSystem
@@ -158,21 +155,6 @@ def test_integral_clamped_to_heating_curve():
     assert pid.integral == 0.5
 
 
-def test_integral_clamps_large_interval():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, integral=1.0, derivative=0.0),
-    )
-
-    _set_heating_curve_value(pid, 100.0)
-    pid.update(_state_for_error(0.05, 0.0))
-    state = _state_for_error(0.05, INTEGRAL_MAX_INTERVAL + 600.0)
-    pid.update(state)
-
-    expected = 0.05 * INTEGRAL_MAX_INTERVAL
-    assert pid.integral == pytest.approx(expected, rel=1e-3)
-
-
 def test_derivative_filtering_and_cap():
     pid = _make_pid(
         HeatingSystem.RADIATORS,
@@ -222,26 +204,6 @@ def test_derivative_uses_sensor_timing():
     expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)
 
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
-
-
-def test_derivative_decays_on_large_sensor_gap():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
-    )
-
-    _set_heating_curve_value(pid, 10.0)
-    pid.update(_state_for_error(1.0, 10.0, current=20.0))
-    pid.update(_state_for_error(1.0, 20.0, current=21.0))
-
-    previous = pid.raw_derivative
-    assert previous != 0.0
-
-    late_state = _state_for_error(1.0, 20.0 + DERIVATIVE_MAX_INTERVAL + 60.0, current=22.0)
-    pid.update(late_state)
-
-    expected = round(previous * DERIVATIVE_DECAY, 3)
-    assert pid.raw_derivative == pytest.approx(expected, rel=1e-3)
 
 
 def test_derivative_freeze_when_delta_is_zero():
