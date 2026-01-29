@@ -192,14 +192,14 @@ class PID:
             return
 
         if self._last_integral_updated is None:
-            self._last_integral_updated = state.last_reported.timestamp()
+            self._last_integral_updated = state.last_changed.timestamp()
             return
 
-        delta_time = state.last_reported.timestamp() - self._last_integral_updated
+        delta_time = state.last_changed.timestamp() - self._last_integral_updated
 
         # Ignore non-forward timestamps.
         if delta_time <= 0:
-            self._last_integral_updated = state.last_reported.timestamp()
+            self._last_integral_updated = state.last_changed.timestamp()
             return
 
         # Skip integration when integral gain is disabled.
@@ -210,7 +210,7 @@ class PID:
         self._integral = clamp_to_range(self._integral, self._heating_curve.value)
 
         # Record the timestamp used for this integration step.
-        self._last_integral_updated = state.last_reported.timestamp()
+        self._last_integral_updated = state.last_changed.timestamp()
 
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
