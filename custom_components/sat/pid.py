@@ -17,12 +17,9 @@ from .types import HeatingSystem
 _LOGGER = logging.getLogger(__name__)
 timestamp = _timestamp  # keep public name for tests
 
-DERIVATIVE_DECAY = 0.8
 DERIVATIVE_ALPHA1 = 0.8
 DERIVATIVE_ALPHA2 = 0.6
 DERIVATIVE_RAW_CAP = 5.0
-INTEGRAL_MAX_INTERVAL = 900.0
-DERIVATIVE_MAX_INTERVAL = 180.0
 
 STORAGE_VERSION = 1
 STORAGE_KEY_INTEGRAL = "integral"
@@ -209,11 +206,7 @@ class PID:
         if self.ki is None:
             return
 
-        # Cap the integration interval so long gaps don't over-accumulate.
-        delta_time = min(delta_time, INTEGRAL_MAX_INTERVAL)
         self._integral += self.ki * state.error * delta_time
-
-        # Clamp integral to the heating curve bounds.
         self._integral = clamp_to_range(self._integral, self._heating_curve.value)
 
         # Record the timestamp used for this integration step.
@@ -243,12 +236,6 @@ class PID:
         delta_time = state.last_changed.timestamp() - self._last_derivative_updated
 
         if delta_time <= 0:
-            self._last_temperature = state.current
-            self._last_derivative_updated = state.last_changed.timestamp()
-            return
-
-        if delta_time > DERIVATIVE_MAX_INTERVAL:
-            self._raw_derivative *= DERIVATIVE_DECAY
             self._last_temperature = state.current
             self._last_derivative_updated = state.last_changed.timestamp()
             return
