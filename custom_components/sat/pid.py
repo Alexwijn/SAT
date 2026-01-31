@@ -191,7 +191,7 @@ class PID:
         self._integral = clamp_to_range(self._integral, self._heating_curve.value)
 
         _LOGGER.debug(
-            "PID integral update: entity=%s current_temperature=%.3f target_temperature=%.3 error=%.3f value=%.6f",
+            "PID integral update: entity=%s current_temperature=%.3f target_temperature=%.3f error=%.3f value=%.6f",
             self._entity_id, state.current, state.setpoint, state.error, self._integral
         )
 
