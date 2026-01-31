@@ -190,6 +190,11 @@ class PID:
         self._integral += self.ki * state.error * PID_UPDATE_INTERVAL
         self._integral = clamp_to_range(self._integral, self._heating_curve.value)
 
+        _LOGGER.debug(
+            "PID integral update: entity=%s current_temperature=%.3f target_temperature=%.3 error=%.3f value=%.6f",
+            self._entity_id, state.current, state.setpoint, state.error, self._integral
+        )
+
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
         if self._last_temperature is None or self._last_derivative_updated is None:
@@ -224,8 +229,8 @@ class PID:
         self._last_derivative_updated = state.last_changed.timestamp()
 
         _LOGGER.debug(
-            "PID derivative update: entity=%s previous_temperature=%.3f current_temperature=%.3f raw_derivative=%.6f delta_time=%.3f",
-            self._entity_id, self._last_temperature, state.current, self._raw_derivative, delta_time,
+            "PID derivative update: entity=%s previous_temperature=%.3f current_temperature=%.3f delta_time=%.3f raw_value=%.6f",
+            self._entity_id, self._last_temperature, state.current, delta_time, self._raw_derivative,
         )
 
     async def _async_save_state(self) -> None:

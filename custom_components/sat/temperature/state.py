@@ -46,5 +46,5 @@ class TemperatureState:
 
     @property
     def error(self) -> float:
-        """Return the temperature error (setpoint - current)."""
-        return round(self.setpoint - self.current, 2)
+        """Return the temperature error."""
+        return self.setpoint - self.current
