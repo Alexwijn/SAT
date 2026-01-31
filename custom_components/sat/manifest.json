@@ -19,6 +19,7 @@
   "issue_tracker": "https://github.com/Alexwijn/SAT/issues",
   "mqtt": [
     "ems-esp/#",
+    "otthing/+",
     "OTGW/value/+"
   ],
   "requirements": [
