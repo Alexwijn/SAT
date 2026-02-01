@@ -196,7 +196,6 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
 
     def _get_entity_id(self, domain: str, key: str):
         unique_id = f"{self._mac_address.upper()}-{domain}-{key}"
-        _LOGGER.debug(f"Attempting to find the unique_id of {unique_id}")
         return self._entity_registry.async_get_entity_id(domain, esphome.DOMAIN, unique_id)
 
     async def _send_command(self, domain: str, service: str, _key: str, payload: dict):
