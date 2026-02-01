@@ -139,6 +139,8 @@ class PID:
         self._integral = 0.0
         self._last_error = None
 
+        _LOGGER.info("Reset PID controller for %s", self._entity_id)
+
     async def async_added_to_hass(self, hass: HomeAssistant, entity_id: str, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
         self._hass = hass
