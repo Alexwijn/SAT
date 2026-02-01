@@ -19,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 DERIVATIVE_ALPHA1 = 0.2
 DERIVATIVE_ALPHA2 = 0.1
 DERIVATIVE_RAW_CAP = 5.0
+DEADBAND_EPSILON = 1e-6
 
 PID_UPDATE_INTERVAL = 60
 
@@ -183,7 +184,7 @@ class PID:
 
     def _update_integral(self, state: TemperatureState) -> None:
         """Update the integral value in the PID controller."""
-        if abs(state.error) > DEADBAND:
+        if abs(state.error) > (DEADBAND + DEADBAND_EPSILON):
             self._integral = 0.0
             return
 
@@ -218,6 +219,11 @@ class PID:
             return
 
         derivative = -temperature_delta / delta_time
+
+        if abs(derivative) >= DERIVATIVE_RAW_CAP:
+            self._raw_derivative = max(-DERIVATIVE_RAW_CAP, min(derivative, DERIVATIVE_RAW_CAP))
+            self._last_derivative_updated = state.last_changed.timestamp()
+            return
 
         # Apply the first low-pass filter.
         filtered_derivative = DERIVATIVE_ALPHA1 * derivative + (1 - DERIVATIVE_ALPHA1) * self._raw_derivative
