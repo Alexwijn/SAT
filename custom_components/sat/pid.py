@@ -16,8 +16,8 @@ from .types import HeatingSystem
 
 _LOGGER = logging.getLogger(__name__)
 
-DERIVATIVE_ALPHA1 = 0.8
-DERIVATIVE_ALPHA2 = 0.6
+DERIVATIVE_ALPHA1 = 0.2
+DERIVATIVE_ALPHA2 = 0.1
 DERIVATIVE_RAW_CAP = 5.0
 
 PID_UPDATE_INTERVAL = 60
@@ -34,9 +34,9 @@ class PID:
     """A proportional-integral-derivative (PID) controller."""
 
     def __init__(self, heating_system: HeatingSystem, heating_curve: HeatingCurve, config: PidConfig) -> None:
-        self._config = config
-        self._heating_curve = heating_curve
-        self._heating_system = heating_system
+        self._config: PidConfig = config
+        self._heating_curve: HeatingCurve = heating_curve
+        self._heating_system: HeatingSystem = heating_system
 
         self._integral: float = 0.0
         self._last_error: Optional[float] = None
