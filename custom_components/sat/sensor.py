@@ -70,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
     async def async_added_to_hass(self) -> None:
-        def on_pid_updated(entity_id: str) -> None:
+        def on_pid_updated(_) -> None:
             self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
@@ -383,15 +383,15 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
     @property
     def native_value(self) -> Optional[float]:
         """Return the state of the device in native units."""
-        if (error := self._climate.error) is None:
+        if (temperature_state := self._climate.temperature_state) is None:
             return None
 
-        return error.error
+        return temperature_state.error
 
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._climate.error is not None
+        return self._climate.temperature_state is not None
 
     @property
     def unique_id(self) -> str:

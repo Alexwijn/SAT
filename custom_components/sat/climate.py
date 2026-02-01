@@ -227,7 +227,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return self._temperature_history.statistics
 
     @property
-    def error(self) -> Optional[TemperatureState]:
+    def temperature_state(self) -> Optional[TemperatureState]:
         """Return the error value."""
         if self._config.sensors.inside_sensor_entity_id is None:
             return None
@@ -329,24 +329,25 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def weighted_error(self) -> Optional[float]:
         errors: list[tuple[float, float]] = []
 
-        if (primary_error := self.error) is not None:
-            errors.append((primary_error.error, 1.0))
+        if (primary_temperature := self.temperature_state) is not None:
+            errors.append((primary_temperature.error, 1.0))
 
         for area in self.areas.items():
-            if (area_error := area.error) is None:
+            if (temperature := area.temperature_state) is None:
                 continue
 
-            errors.append((area_error.error, area.room_weight))
+            errors.append((temperature.error, area.room_weight))
 
         if not errors:
             return None
 
-        weight_sum = sum(weight for _, weight in errors)
-        if weight_sum <= 0.0:
+        total = sum(weight for _, weight in errors)
+
+        if total <= 0.0:
             return None
 
         weighted_error = sum(error * weight for error, weight in errors)
-        return weighted_error / weight_sum
+        return weighted_error / total
 
     @property
     def valves_open(self) -> bool:
@@ -415,15 +416,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self.pid.reset()
                 return
 
-        if (error := self.error) is None:
-            _LOGGER.debug("Skipping control loop for %s because error value is not available.", self.entity_id)
+        if (temperature_state := self.temperature_state) is None:
+            _LOGGER.debug("Skipping control loop for %s because temperature is not available.", self.entity_id)
             return
 
-        if self.hvac_mode == HVACMode.HEAT and self.valves_open:
-            if (weighted_error := self.weighted_error) is not None:
-                self._temperature_history.record(weighted_error, event_timestamp(_time))
+        if self.hvac_mode == HVACMode.HEAT and self.valves_open and (weighted_error := self.weighted_error) is not None:
+            self._temperature_history.record(weighted_error, event_timestamp(_time))
 
-        self.pid.update(error)
+        self.pid.update(temperature_state)
 
     def schedule_heating_control_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
         """Schedule a debounced execution of the heating control loop."""

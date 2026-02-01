@@ -19,15 +19,14 @@ from .entry_data import SatConfig
 from .heating_curve import HeatingCurve
 from .helpers import float_value, is_state_stale, state_age_seconds
 from .pid import PID, PID_UPDATE_INTERVAL
-from .temperature.state import TemperatureStates, TemperatureState
+from .temperature.state import TemperatureState
 
 _LOGGER = logging.getLogger(__name__)
 
 ATTR_TEMPERATURE = "temperature"
 ATTR_CURRENT_TEMPERATURE = "current_temperature"
-ATTR_CURRENT_VALVE_POSITION = "current_valve_position"
-
 ATTR_SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
+ATTR_CURRENT_VALVE_POSITION = "current_valve_position"
 
 COMFORT_BAND = 0.1
 COOLING_SLOPE = 4.0
@@ -81,7 +80,7 @@ class Area:
 
         return state if state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE] else None
 
-    def temperature_state(self) -> Optional[State]:
+    def sensor_state(self) -> Optional[State]:
         """Return the source state used to calculate the current temperature."""
         if (self._hass is None) or (climate_state := self.climate_state) is None:
             return None
@@ -105,7 +104,7 @@ class Area:
     @property
     def current_temperature(self) -> Optional[float]:
         """Retrieve the current temperature, overridden by a sensor if set."""
-        if (state := self.temperature_state()) is None:
+        if (state := self.sensor_state()) is None:
             return None
 
         if sensor.DOMAIN in state.entity_id:
@@ -125,10 +124,9 @@ class Area:
         return float_value(state.attributes.get("temperature"))
 
     @property
-    def error(self) -> Optional[TemperatureState]:
-        """Calculate the temperature error (target - current)."""
-        temperature_state = self.temperature_state()
-        if temperature_state is None:
+    def temperature_state(self) -> Optional[TemperatureState]:
+        """Calculate the temperature state."""
+        if (sensor_state := self.sensor_state()) is None:
             return None
 
         target_temperature = self.target_temperature
@@ -141,9 +139,9 @@ class Area:
             entity_id=self._entity_id,
             setpoint=target_temperature,
             current=current_temperature,
-            last_reported=temperature_state.last_reported,
-            last_updated=temperature_state.last_updated,
-            last_changed=temperature_state.last_changed,
+            last_reported=sensor_state.last_reported,
+            last_updated=sensor_state.last_updated,
+            last_changed=sensor_state.last_changed,
         )
 
     @property
@@ -228,11 +226,11 @@ class Area:
 
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Update the PID controller with the current error and heating curve."""
-        if (error := self.error) is None:
-            _LOGGER.debug("Skipping control loop for %s because error could not be computed", self._entity_id)
+        if (temperature_state := self.temperature_state) is None:
+            _LOGGER.debug("Skipping control loop for %s because the temperature is not available.", self._entity_id)
             return
 
-        self.pid.update(error)
+        self.pid.update(temperature_state)
 
 
 class Areas:
@@ -245,12 +243,6 @@ class Areas:
     @staticmethod
     def from_config(config: SatConfig) -> "Areas":
         return Areas([Area(config, entity_id) for entity_id in config.rooms])
-
-    @property
-    def errors(self) -> TemperatureStates:
-        """Return a collection of all the error values for all areas."""
-        error_list = [area.error for area in self._areas if area.error is not None]
-        return TemperatureStates(error_list)
 
     @property
     def pids(self) -> "Areas._PIDs":
@@ -342,15 +334,14 @@ class Areas:
                 if not area.pid.available or not area.requires_heat:
                     continue
 
-                error = area.error
-                if error is None:
+                if (temperature_state := area.temperature_state) is None:
                     continue
 
-                if error.error >= -OVERSHOOT_MARGIN:
+                if temperature_state.error >= -OVERSHOOT_MARGIN:
                     continue
 
                 # Degrees above target (positive number)
-                degrees_over = -error.error
+                degrees_over = -temperature_state.error
 
                 # Start from a “max allowed in cooling” and pull it down with overshoot severity.
                 caps.append(COLD_SETPOINT + COOLING_HEADROOM - COOLING_SLOPE * degrees_over)

@@ -19,7 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 DERIVATIVE_ALPHA1 = 0.2
 DERIVATIVE_ALPHA2 = 0.1
 DERIVATIVE_RAW_CAP = 5.0
-DEADBAND_EPSILON = 1e-6
 
 PID_UPDATE_INTERVAL = 60
 
@@ -184,7 +183,7 @@ class PID:
 
     def _update_integral(self, state: TemperatureState) -> None:
         """Update the integral value in the PID controller."""
-        if abs(state.error) > (DEADBAND + DEADBAND_EPSILON):
+        if abs(state.error) > DEADBAND:
             self._integral = 0.0
             return
 
