@@ -1,10 +1,12 @@
 """Tests focused on SAT climate setpoint and heating curve behavior."""
 
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.components.climate import HVACMode
+from homeassistant.core import State
 from homeassistant.util import dt as dt_util
 
 from custom_components.sat.entry_data import SatConfig
@@ -99,6 +101,24 @@ async def test_set_target_temperature_updates_heating_curve(climate):
     climate.hass.states.async_set("sensor.test_outside_sensor", "5")
 
     await climate.async_set_target_temperature(21.0, cascade=False)
+
+    base_offset = HeatingSystem.RADIATORS.base_offset
+    coefficient = float(OPTIONS_DEFAULTS[CONF_HEATING_CURVE_COEFFICIENT])
+    expected_curve = HeatingCurve.calculate(21.0, 5.0)
+    expected_value = round(base_offset + ((coefficient / 4) * expected_curve), 1)
+
+    assert climate.heating_curve.value == expected_value
+
+
+async def test_area_climate_change_updates_heating_curve(climate):
+    climate.hass.states.async_set("sensor.test_outside_sensor", "5")
+    climate._target_temperature = 21.0
+    climate._rooms = {"climate.room": 20.0}
+
+    new_state = State("climate.room", HVACMode.HEAT, {"temperature": 22.0})
+    event = SimpleNamespace(data={"new_state": new_state})
+
+    await climate._async_climate_changed(event)
 
     base_offset = HeatingSystem.RADIATORS.base_offset
     coefficient = float(OPTIONS_DEFAULTS[CONF_HEATING_CURVE_COEFFICIENT])

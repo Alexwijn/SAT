@@ -8,11 +8,12 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class HeatingCurve:
+    """Compute and store heating curve targets based on outdoor temperature."""
+
     def __init__(self, heating_system: HeatingSystem, coefficient: float):
-        self._heating_system: HeatingSystem = heating_system
-        self._coefficient: float = coefficient
         self._value: Optional[float] = None
-        self._optimal_coefficient: Optional[float] = None
+        self._coefficient: float = coefficient
+        self._heating_system: HeatingSystem = heating_system
 
     @property
     def value(self) -> Optional[float]:
@@ -20,24 +21,19 @@ class HeatingCurve:
 
     @staticmethod
     def from_config(config: SatConfig):
-        """Create an instance from configuration"""
+        """Build a heating curve using values from the integration config."""
         return HeatingCurve(heating_system=config.heating_system, coefficient=config.pid.heating_curve_coefficient)
 
     @staticmethod
     def calculate(target_temperature: float, outside_temperature: float) -> float:
-        """Calculate the heating curve value based on the current outside temperature"""
+        """Return the unscaled curve value for the given target and outdoor temperatures."""
         return 4 * (target_temperature - 20) + 0.03 * (outside_temperature - 20) ** 2 - 0.4 * (outside_temperature - 20)
 
     def reset(self):
-        """Reset the heating curve to a clean state."""
+        """Clear the cached curve value."""
         self._value = None
 
     def update(self, target_temperature: float, outside_temperature: float) -> None:
-        """Calculate the heating curve based on the outside temperature."""
+        """Recalculate and store the scaled curve value for the current conditions."""
         heating_curve_value = self.calculate(target_temperature, outside_temperature)
         self._value = round(self._heating_system.base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
-
-    def calculate_coefficient(self, setpoint: float, target_temperature: float, outside_temperature: float) -> float:
-        """Convert a setpoint to a coefficient value"""
-        heating_curve_value = self.calculate(target_temperature, outside_temperature)
-        return round(4 * (setpoint - self._heating_system.base_offset) / heating_curve_value, 1)

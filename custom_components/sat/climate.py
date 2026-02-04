@@ -400,7 +400,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Reset control state when major changes occur."""
         self.pid.reset()
         self.areas.pids.reset()
-        self._heating_control.reset()
 
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller."""
@@ -557,7 +556,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Set the new target temperature
         self._target_temperature = temperature
-        self._update_heating_curves()
 
         if cascade:
             # Set the target temperature for each main climate
@@ -573,6 +571,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.reset_control_state()
 
         # Update based on the new temperature setpoint
+        self._update_heating_curves()
         self.schedule_heating_control_loop()
 
         # Write the state to Home Assistant
@@ -767,6 +766,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug(f"Updated area preset temperature for {new_state.entity_id} to {target_temperature}")
 
         self.areas.pids.reset(new_state.entity_id)
+        self._update_heating_curves()
 
         self.async_write_ha_state()
 
