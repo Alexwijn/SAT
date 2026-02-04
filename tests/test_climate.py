@@ -95,6 +95,19 @@ def test_update_heating_curves_updates_value(climate):
     assert climate.heating_curve.value == expected_value
 
 
+async def test_set_target_temperature_updates_heating_curve(climate):
+    climate.hass.states.async_set("sensor.test_outside_sensor", "5")
+
+    await climate.async_set_target_temperature(21.0, cascade=False)
+
+    base_offset = HeatingSystem.RADIATORS.base_offset
+    coefficient = float(OPTIONS_DEFAULTS[CONF_HEATING_CURVE_COEFFICIENT])
+    expected_curve = HeatingCurve.calculate(21.0, 5.0)
+    expected_value = round(base_offset + ((coefficient / 4) * expected_curve), 1)
+
+    assert climate.heating_curve.value == expected_value
+
+
 def test_control_pid_resets_on_stale_inside_sensor(monkeypatch, climate):
     _update_climate_config(climate, options={CONF_SENSOR_MAX_VALUE_AGE: "00:01:00"})
     climate._target_temperature = 21.0

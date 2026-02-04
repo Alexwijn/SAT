@@ -557,6 +557,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Set the new target temperature
         self._target_temperature = temperature
+        self._update_heating_curves()
 
         if cascade:
             # Set the target temperature for each main climate
