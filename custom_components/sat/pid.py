@@ -16,10 +16,7 @@ from .types import HeatingSystem
 
 _LOGGER = logging.getLogger(__name__)
 
-DERIVATIVE_ALPHA1 = 0.2
-DERIVATIVE_ALPHA2 = 0.1
 DERIVATIVE_RAW_CAP = 5.0
-
 PID_UPDATE_INTERVAL = 60
 
 STORAGE_VERSION = 1
@@ -216,7 +213,6 @@ class PID:
         delta_time = state.last_changed.timestamp() - self._last_derivative_updated
 
         if delta_time <= PID_UPDATE_INTERVAL:
-            self._last_derivative_updated = state.last_changed.timestamp()
             return
 
         derivative = -temperature_delta / delta_time
@@ -226,12 +222,10 @@ class PID:
             self._last_derivative_updated = state.last_changed.timestamp()
             return
 
-        # Apply the first low-pass filter.
-        filtered_derivative = DERIVATIVE_ALPHA1 * derivative + (1 - DERIVATIVE_ALPHA1) * self._raw_derivative
-
-        # Apply the second low-pass filter and clamp the magnitude.
-        self._raw_derivative = DERIVATIVE_ALPHA2 * filtered_derivative + (1 - DERIVATIVE_ALPHA2) * self._raw_derivative
-        self._raw_derivative = max(-DERIVATIVE_RAW_CAP, min(self._raw_derivative, DERIVATIVE_RAW_CAP))
+        # Apply the low-pass filter and clamp the magnitude.
+        alpha = delta_time / (PID_UPDATE_INTERVAL + delta_time)
+        filtered_derivative = alpha * derivative + (1 - alpha) * self._raw_derivative
+        self._raw_derivative = clamp_to_range(filtered_derivative, DERIVATIVE_RAW_CAP)
 
         self._last_derivative_updated = state.last_changed.timestamp()
 

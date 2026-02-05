@@ -8,8 +8,6 @@ from custom_components.sat.const import DEADBAND
 from custom_components.sat.entry_data import PidConfig
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pid import (
-    DERIVATIVE_ALPHA1,
-    DERIVATIVE_ALPHA2,
     DERIVATIVE_RAW_CAP,
     PID, PID_UPDATE_INTERVAL,
 )
@@ -171,7 +169,8 @@ def test_derivative_filtering_and_cap():
     pid.update(_state_for_error(1.0, next_time, current=11.0))
 
     derivative = -(11.0 - 10.0) / (next_time - start_time)
-    expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)
+    alpha = (next_time - start_time) / (PID_UPDATE_INTERVAL + (next_time - start_time))
+    expected_raw = alpha * derivative
 
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
     assert pid.derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
@@ -206,7 +205,8 @@ def test_derivative_uses_sensor_timing():
     pid.update(_state_for_error(1.0, 200.0, current=11.0))
 
     derivative = -(11.0 - 10.0) / 100.0
-    expected_raw = DERIVATIVE_ALPHA2 * (DERIVATIVE_ALPHA1 * derivative)
+    alpha = 100.0 / (PID_UPDATE_INTERVAL + 100.0)
+    expected_raw = alpha * derivative
 
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
 
