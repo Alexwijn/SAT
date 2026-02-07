@@ -70,21 +70,19 @@ class LimitsConfig:
 
 @dataclass(frozen=True)
 class PressureHealthConfig:
+    maximum_age_seconds: float
     minimum_pressure_bar: float
     maximum_pressure_bar: float
     maximum_drop_rate_bar_per_hour: float
-    maximum_age_seconds: float
 
 
 @dataclass(frozen=True)
 class PresetConfig:
-    heating_mode: HeatingMode
     thermal_comfort: bool
+    heating_mode: HeatingMode
+    presets: Mapping[str, float]
     sync_climates_with_mode: bool
     sync_climates_with_preset: bool
-
-    presets: Mapping[str, float]
-    room_weights: Mapping[str, float]
 
 
 @dataclass(frozen=True)
@@ -266,7 +264,6 @@ class SatConfig:
             sync_climates_with_preset=bool(self.options.get(CONF_SYNC_CLIMATES_WITH_PRESET)),
 
             presets={key: float(value) for key, value in preset_values.items()},
-            room_weights=self.options.get(CONF_ROOM_WEIGHTS) or {},
         )
 
     @property

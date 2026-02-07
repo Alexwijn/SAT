@@ -49,28 +49,12 @@ class Area:
         self.heating_curve: HeatingCurve = HeatingCurve.from_config(config)
         self.pid: PID = PID.from_config(self.heating_curve, config)
 
-        # Per-room influence scaling for demand calculations.
-        raw_value = config.presets.room_weights.get(entity_id, 1.0)
-
-        try:
-            room_weight = float(raw_value)
-        except (TypeError, ValueError):
-            room_weight = 1.0
-
-        # Clamp for safety; keep consistent with your UI min/max (0.1..3.0)
-        self._room_weight: float = max(0.1, min(room_weight, 3.0))
-
-        _LOGGER.debug("Area %s initialized with room_weight=%.3f", self._entity_id, self._room_weight)
+        _LOGGER.debug("Area %s initialized", self._entity_id)
 
     @property
     def id(self) -> str:
         """Return the entity id of this area."""
         return self._entity_id
-
-    @property
-    def room_weight(self) -> float:
-        """User-defined influence scaling factor for this room."""
-        return self._room_weight
 
     @property
     def climate_state(self) -> Optional[State]:
@@ -179,15 +163,6 @@ class Area:
         return round(clamped_weight, 3)
 
     @property
-    def demand_weight(self) -> Optional[float]:
-        """Scaled demand weight, applying the user-defined room_weight."""
-        base = self.weight
-        if base is None:
-            return None
-
-        return round(base * self._room_weight, 3)
-
-    @property
     def requires_heat(self) -> bool:
         """Determine if this area should influence heating arbitration."""
         valve_position = self.valve_position
@@ -289,10 +264,10 @@ class Areas:
     class _PIDs:
         """Helper for interacting with PID controllers of all areas."""
 
-        def __init__(self, areas, percentile: float = 0.75, headroom: float = 5.0):
-            self._areas = areas
-            self._headroom = headroom
-            self._percentile = percentile
+        def __init__(self, areas: list[Area], percentile: float = 0.75, headroom: float = 5.0):
+            self._areas: list[Area] = areas
+            self._headroom: float = headroom
+            self._percentile: float = percentile
 
         @property
         def output(self) -> float:

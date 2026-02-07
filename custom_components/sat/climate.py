@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta, datetime
+from statistics import median
 from typing import Callable, Optional, Union, Any, Mapping
 
 from homeassistant.components import sensor, weather
@@ -323,31 +324,25 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if overshoot_cap is not None:
             setpoint = min(setpoint, overshoot_cap)
 
-        return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
+        return clamp(setpoint, MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
     @property
-    def weighted_error(self) -> Optional[float]:
-        errors: list[tuple[float, float]] = []
+    def median_error(self) -> Optional[float]:
+        errors: list[float] = []
 
         if (primary_temperature := self.temperature_state) is not None:
-            errors.append((primary_temperature.error, 1.0))
+            errors.append(primary_temperature.error)
 
         for area in self.areas.items():
             if (temperature := area.temperature_state) is None:
                 continue
 
-            errors.append((temperature.error, area.room_weight))
+            errors.append(temperature.error)
 
         if not errors:
             return None
 
-        total = sum(weight for _, weight in errors)
-
-        if total <= 0.0:
-            return None
-
-        weighted_error = sum(error * weight for error, weight in errors)
-        return weighted_error / total
+        return median(errors)
 
     @property
     def valves_open(self) -> bool:
@@ -419,8 +414,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             _LOGGER.debug("Skipping control loop for %s because temperature is not available.", self.entity_id)
             return
 
-        if self.hvac_mode == HVACMode.HEAT and self.valves_open and (weighted_error := self.weighted_error) is not None:
-            self._temperature_history.record(weighted_error, event_timestamp(_time))
+        if self.hvac_mode == HVACMode.HEAT and self.valves_open and (median_error := self.median_error) is not None:
+            self._temperature_history.record(median_error, event_timestamp(_time))
 
         self.pid.update(temperature_state)
 

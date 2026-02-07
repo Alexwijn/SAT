@@ -134,7 +134,7 @@ class PID:
     def reset(self) -> None:
         """Reset the PID controller to a clean state."""
         self._integral = 0.0
-        self._last_error = None
+        self._raw_derivative = 0.0
 
         _LOGGER.info("Reset PID controller for %s", self._entity_id)
 
