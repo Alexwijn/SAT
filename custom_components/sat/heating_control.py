@@ -180,7 +180,11 @@ class SatHeatingControl:
             if demand.requested_setpoint >= self._config.limits.maximum_setpoint:
                 self._pwm.disable()
 
-            self._maybe_enable_pwm_on_sustained_overshoot(demand, self._coordinator.state)
+            self._maybe_enable_pwm_on_sustained_overshoot(
+                demand=demand,
+                device_state=self._coordinator.state
+            )
+
             self._pwm.update(
                 timestamp=demand.timestamp,
                 device_state=self._coordinator.state,
@@ -232,11 +236,11 @@ class SatHeatingControl:
             self._sustained_overshoot_started_at = None
             return
 
-        if demand.heater_state != HeaterState.ON:
+        if device_state.hot_water_active:
             self._sustained_overshoot_started_at = None
             return
 
-        if device_state.hot_water_active or not device_state.flame_active:
+        if demand.heater_state != HeaterState.ON:
             self._sustained_overshoot_started_at = None
             return
 
