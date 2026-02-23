@@ -157,7 +157,8 @@
           "sample_time": "Tempo de Amostragem",
           "simulation": "Simulação",
           "target_temperature_step": "Passo da Temperatura Alvo",
-          "thermal_comfort": "Conforto Térmico"
+          "thermal_comfort": "Conforto Térmico",
+          "pump_post_circulation_time": "Pump Post-Circulation Time"
         },
         "data_description": {
           "climate_valve_offset": "Offset para ajustar o grau de abertura da válvula do clima.",
@@ -167,7 +168,8 @@
           "minimum_consumption": "O consumo mínimo de gás quando a caldeira está ativa.",
           "sample_time": "O intervalo de tempo mínimo entre atualizações do controlador PID.",
           "target_temperature_step": "Ajuste o passo da temperatura alvo para afinação do nível de conforto.",
-          "thermal_comfort": "Ativar o uso do Índice de Simmer para ajuste do conforto térmico."
+          "thermal_comfort": "Ativar o uso do Índice de Simmer para ajuste do conforto térmico.",
+          "pump_post_circulation_time": "Duration to keep the circulation pump running after heating demand ends, delivering residual heat to radiators. Set to 00:00:00 to disable."
         },
         "title": "Avançado"
       },

@@ -165,7 +165,8 @@
           "sample_time": "Sample Time",
           "simulation": "Simulation",
           "target_temperature_step": "Target Temperature Step",
-          "thermal_comfort": "Thermal Comfort"
+          "thermal_comfort": "Thermal Comfort",
+          "pump_post_circulation_time": "Pump Post-Circulation Time"
         },
         "data_description": {
           "climate_valve_offset": "Offset to adjust the opening degree of the climate valve.",
@@ -175,7 +176,8 @@
           "minimum_consumption": "The minimum gas consumption when the boiler is active.",
           "sample_time": "The minimum time interval between updates to the PID controller.",
           "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
-          "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment."
+          "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment.",
+          "pump_post_circulation_time": "Duration to keep the circulation pump running after heating demand ends, delivering residual heat to radiators. Set to 00:00:00 to disable."
         },
         "title": "Advanced"
       },

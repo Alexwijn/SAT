@@ -252,7 +252,7 @@ class Flame:
         median_on_seconds, sample_count = self._median_on_duration(now)
 
         domestic_hot_water_active = bool(state.hot_water_active)
-        heating_demand = bool(state.is_active) or (state.status in self._HEATING_STATUSES)
+        heating_demand = (bool(state.is_active) or (state.status in self._HEATING_STATUSES)) and state.status != BoilerStatus.IDLE
         modulating_boiler = (state.relative_modulation_level is not None and isinstance(state.relative_modulation_level, (int, float)))
 
         # Thin history: still allow stuck checks, avoid cycling judgments

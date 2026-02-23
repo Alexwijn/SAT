@@ -746,6 +746,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         schema[vol.Required(CONF_SAMPLE_TIME, default=options[CONF_SAMPLE_TIME])] = selector.TimeSelector()
 
+        if self._config_entry.data.get(CONF_MODE) != MODE_SWITCH:
+            schema[vol.Required(CONF_PUMP_POST_CIRCULATION_TIME, default=options[CONF_PUMP_POST_CIRCULATION_TIME])] = selector.TimeSelector()
+
         return self.async_show_form(
             step_id="advanced",
             data_schema=vol.Schema(schema)

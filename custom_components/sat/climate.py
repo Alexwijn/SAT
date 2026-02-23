@@ -165,6 +165,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._sensor_max_value_age = convert_time_str_to_seconds(config_options.get(CONF_SENSOR_MAX_VALUE_AGE))
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
 
+        # Pump post-circulation
+        self._mode = str(config_entry.data.get(CONF_MODE))
+        self._pump_post_circulation_time = convert_time_str_to_seconds(config_options.get(CONF_PUMP_POST_CIRCULATION_TIME))
+        self._heating_demand_ended_at: Optional[float] = None
+
         # Create a PID controller with given configuration options
         self.pid = create_pid_controller(config_options)
 
@@ -411,6 +416,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "pulse_width_modulation_enabled": self.pwm.enabled,
             "pulse_width_modulation_state": self.pwm.status.name,
             "pulse_width_modulation_duty_cycle": self.pwm.duty_cycle,
+
+            "pump_post_circulation_active": self._pump_post_circulation_active,
         }
 
     @property
@@ -566,6 +573,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return self.minimum_setpoint.current > self._calculated_setpoint
 
         return self.pwm.enabled
+
+    @property
+    def _is_opentherm_mode(self) -> bool:
+        """Return True if the mode is not MODE_SWITCH (i.e., supports separate setpoint control)."""
+        return self._mode != MODE_SWITCH
+
+    @property
+    def _pump_post_circulation_active(self) -> bool:
+        """Return True if pump post-circulation is currently active."""
+        if self._heating_demand_ended_at is None or self._pump_post_circulation_time <= 0:
+            return False
+
+        return (monotonic() - self._heating_demand_ended_at) < self._pump_post_circulation_time
 
     @property
     def relative_modulation_value(self) -> int:
@@ -932,6 +952,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # No need to do anything if we are not on
         if self.hvac_mode != HVACMode.HEAT:
+            if self._is_opentherm_mode and self._pump_post_circulation_active:
+                await self._async_control_setpoint(self.pwm.state)
+                await self.async_set_heater_state(DeviceState.ON)
+                self.async_write_ha_state()
+                self.schedule_control_heating_loop()
+            elif self._heating_demand_ended_at is not None:
+                self._heating_demand_ended_at = None
+                await self.async_set_heater_state(DeviceState.OFF)
+                self.async_write_ha_state()
             return
 
         # Control the heating through the coordinator
@@ -977,8 +1006,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Calculate the dynamic minimum setpoint
             self.minimum_setpoint.calculate(self._coordinator.boiler, self.pwm.status)
 
-        # If the setpoint is high, turn on the heater
-        await self.async_set_heater_state(DeviceState.ON if self._setpoint is not None and self._setpoint > COLD_SETPOINT else DeviceState.OFF)
+        # Determine if there is active heating demand
+        heater_demand = self._setpoint is not None and self._setpoint > COLD_SETPOINT
+
+        if not heater_demand and self._coordinator.device_active:
+            if self._heating_demand_ended_at is None:
+                self._heating_demand_ended_at = monotonic()
+        elif heater_demand:
+            self._heating_demand_ended_at = None
+
+        # For OpenTherm modes, keep ch_enable=true during PWM OFF and post-circulation
+        if not heater_demand and self._is_opentherm_mode and self._pump_post_circulation_time > 0:
+            pwm_off = self.pulse_width_modulation_enabled and self.pwm.status == PWMStatus.OFF
+            if pwm_off or self._pump_post_circulation_active:
+                heater_demand = True
+
+        await self.async_set_heater_state(DeviceState.ON if heater_demand else DeviceState.OFF)
 
         self.async_write_ha_state()
 
@@ -1020,9 +1063,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         # Only allow the hvac mode to be set to heat or off
         if hvac_mode == HVACMode.HEAT:
             self._hvac_mode = HVACMode.HEAT
+            self._heating_demand_ended_at = None
         elif hvac_mode == HVACMode.OFF:
             self._hvac_mode = HVACMode.OFF
-            await self.async_set_heater_state(DeviceState.OFF)
+            if self._is_opentherm_mode and self._pump_post_circulation_time > 0 and self._coordinator.device_active:
+                self._heating_demand_ended_at = monotonic()
+            else:
+                await self.async_set_heater_state(DeviceState.OFF)
         else:
             # If an unsupported mode is passed, log an error message
             _LOGGER.error("Unrecognized hvac mode: %s", hvac_mode)

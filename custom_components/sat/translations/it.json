@@ -157,7 +157,8 @@
           "sample_time": "Tempo di Campionamento",
           "simulation": "Simulazione",
           "target_temperature_step": "Passo della Temperatura Target",
-          "thermal_comfort": "Comfort Termico"
+          "thermal_comfort": "Comfort Termico",
+          "pump_post_circulation_time": "Pump Post-Circulation Time"
         },
         "data_description": {
           "climate_valve_offset": "Offset per regolare il grado di apertura della valvola climatica.",
@@ -167,7 +168,8 @@
           "minimum_consumption": "Il consumo minimo di gas quando la caldaia è attiva.",
           "sample_time": "L'intervallo di tempo minimo tra gli aggiornamenti del controllore PID.",
           "target_temperature_step": "Regolare il passo della temperatura target per un'accurata regolazione dei livelli di comfort.",
-          "thermal_comfort": "Abilitare l'uso dell'Indice di Simmer per l'aggiustamento del comfort termico."
+          "thermal_comfort": "Abilitare l'uso dell'Indice di Simmer per l'aggiustamento del comfort termico.",
+          "pump_post_circulation_time": "Duration to keep the circulation pump running after heating demand ends, delivering residual heat to radiators. Set to 00:00:00 to disable."
         },
         "title": "Avanzate"
       },

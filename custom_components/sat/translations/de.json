@@ -157,7 +157,8 @@
           "sample_time": "Abtastzeit",
           "simulation": "Simulation",
           "target_temperature_step": "Schrittweite der Zieltemperatur",
-          "thermal_comfort": "Thermischer Komfort"
+          "thermal_comfort": "Thermischer Komfort",
+          "pump_post_circulation_time": "Pump Post-Circulation Time"
         },
         "data_description": {
           "climate_valve_offset": "Offset zur Anpassung des Öffnungsgrads des Klimaventils.",
@@ -167,7 +168,8 @@
           "minimum_consumption": "Der minimale Gasverbrauch, wenn der Kessel aktiv ist.",
           "sample_time": "Das minimale Zeitintervall zwischen Aktualisierungen des PID-Reglers.",
           "target_temperature_step": "Die Schrittweite der Zieltemperatur zur Feinabstimmung der Komfortstufen anpassen.",
-          "thermal_comfort": "Verwendung des Simmer-Index für die Anpassung des thermischen Komforts aktivieren."
+          "thermal_comfort": "Verwendung des Simmer-Index für die Anpassung des thermischen Komforts aktivieren.",
+          "pump_post_circulation_time": "Duration to keep the circulation pump running after heating demand ends, delivering residual heat to radiators. Set to 00:00:00 to disable."
         },
         "title": "Erweitert"
       },

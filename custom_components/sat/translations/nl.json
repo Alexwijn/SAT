@@ -157,7 +157,8 @@
           "sample_time": "Sampletijd",
           "simulation": "Simulatie",
           "target_temperature_step": "Stap van Doeltemperatuur",
-          "thermal_comfort": "Thermisch Comfort"
+          "thermal_comfort": "Thermisch Comfort",
+          "pump_post_circulation_time": "Pump Post-Circulation Time"
         },
         "data_description": {
           "climate_valve_offset": "Offset om de openingsgraad van de klimaatklep aan te passen.",
@@ -167,7 +168,8 @@
           "minimum_consumption": "Het minimale gasverbruik wanneer de ketel actief is.",
           "sample_time": "Het minimale tijdsinterval tussen updates aan de PID-regelaar.",
           "target_temperature_step": "De stap van de doeltemperatuur aanpassen voor fijnafstemming van comfortniveaus.",
-          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen."
+          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen.",
+          "pump_post_circulation_time": "Duration to keep the circulation pump running after heating demand ends, delivering residual heat to radiators. Set to 00:00:00 to disable."
         },
         "title": "Geavanceerd"
       },

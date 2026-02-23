@@ -157,7 +157,8 @@
           "sample_time": "Temps d'Échantillonnage",
           "simulation": "Simulation",
           "target_temperature_step": "Pas de Température Cible",
-          "thermal_comfort": "Confort Thermique"
+          "thermal_comfort": "Confort Thermique",
+          "pump_post_circulation_time": "Pump Post-Circulation Time"
         },
         "data_description": {
           "climate_valve_offset": "Décalage pour ajuster le degré d'ouverture de la vanne climatique.",
@@ -167,7 +168,8 @@
           "minimum_consumption": "La consommation minimale de gaz lorsque la chaudière est active.",
           "sample_time": "L'intervalle de temps minimum entre les mises à jour du régulateur PID.",
           "target_temperature_step": "Ajuster le pas de température cible pour un réglage fin des niveaux de confort.",
-          "thermal_comfort": "Activer l'utilisation de l'Indice de Simmer pour ajuster le confort thermique."
+          "thermal_comfort": "Activer l'utilisation de l'Indice de Simmer pour ajuster le confort thermique.",
+          "pump_post_circulation_time": "Duration to keep the circulation pump running after heating demand ends, delivering residual heat to radiators. Set to 00:00:00 to disable."
         },
         "title": "Avancé"
       },
