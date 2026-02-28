@@ -987,12 +987,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         _LOGGER.debug("Attempting to set heater state to: %s", state)
 
         if state == DeviceState.ON:
-            if self._coordinator.device_active:
-                _LOGGER.info("Heater is already active. No action taken.")
+            if not self.valves_open:
+                if self._coordinator.device_active:
+                    _LOGGER.info("Valves closed while heater active. Turning off.")
+                    await self._coordinator.async_set_heater_state(DeviceState.OFF)
+                else:
+                    _LOGGER.warning("Cannot turn on heater: no valves are open.")
                 return
 
-            if not self.valves_open:
-                _LOGGER.warning("Cannot turn on heater: no valves are open.")
+            if self._coordinator.device_active:
+                _LOGGER.info("Heater is already active. No action taken.")
                 return
 
         elif state == DeviceState.OFF:
