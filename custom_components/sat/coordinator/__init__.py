@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from datetime import datetime
 from typing import Optional, Any
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN

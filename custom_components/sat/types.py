@@ -6,6 +6,14 @@ from typing import Optional
 
 
 @dataclass(frozen=True, slots=True)
+class SustainedRuntime:
+    """Normalized state for sustained-condition timers."""
+    started_at: float
+    initialized: bool
+    elapsed_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
 class Percentiles:
     """Summary percentiles for a sampled metric."""
     p50: Optional[float] = None

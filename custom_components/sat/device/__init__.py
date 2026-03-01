@@ -32,6 +32,8 @@ class DeviceTracker:
         self._last_flame_on_at: Optional[float] = None
         self._last_flame_off_at: Optional[float] = None
         self._last_flame_off_was_overshoot: bool = False
+        self._last_hot_water_on_at: Optional[float] = None
+        self._last_hot_water_off_at: Optional[float] = None
 
         self._modulation_tracker = ModulationReliabilityTracker()
 
@@ -59,12 +61,43 @@ class DeviceTracker:
         return self._modulation_tracker.reliable
 
     @property
-    def flame_on_since(self) -> Optional[int]:
+    def status_snapshot(self) -> Optional[DeviceStatusSnapshot]:
+        """Expose the latest status snapshot context used by status evaluation."""
+        if (state := self._current_state) is None:
+            return None
+
+        return DeviceStatusSnapshot(
+            state=state,
+            last_cycle=self._last_cycle,
+            last_update_at=self._last_update_at,
+
+            last_flame_on_at=self._last_flame_on_at,
+            last_flame_off_at=self._last_flame_off_at,
+            last_flame_off_was_overshoot=self._last_flame_off_was_overshoot,
+
+            last_hot_water_on_at=self.hot_water_on_since,
+            last_hot_water_off_at=self.hot_water_off_since,
+
+            previous_state=self._previous_state,
+            previous_update_at=self._previous_update_at,
+            modulation_direction=self._determine_modulation_direction(),
+        )
+
+    @property
+    def flame_on_since(self) -> Optional[float]:
         return self._last_flame_on_at
 
     @property
-    def flame_off_since(self) -> Optional[int]:
+    def flame_off_since(self) -> Optional[float]:
         return self._last_flame_off_at
+
+    @property
+    def hot_water_on_since(self) -> Optional[float]:
+        return self._last_hot_water_on_at
+
+    @property
+    def hot_water_off_since(self) -> Optional[float]:
+        return self._last_hot_water_off_at
 
     async def async_added_to_hass(self, hass: HomeAssistant, device_id: str) -> None:
         """Restore device state from storage when the integration loads."""
@@ -112,6 +145,7 @@ class DeviceTracker:
             self._last_flame_off_at = None
 
         self._record_flame_transitions(self._previous_state, state)
+        self._record_hot_water_transitions(self._previous_state, state)
 
         if self._modulation_tracker.update(state) and self._hass is not None:
             self._hass.create_task(self.async_save_data())
@@ -119,26 +153,11 @@ class DeviceTracker:
         self._current_status = self._determine_status()
 
     def _determine_status(self) -> BoilerStatus:
-        state = self._current_state
-        previous = self._previous_state
-
-        if state is None:
+        if (snapshot := self.status_snapshot) is None:
             # Should not happen in normal usage; treat as inactive.
             return BoilerStatus.OFF
 
-        return DeviceStatusEvaluator.evaluate(DeviceStatusSnapshot(
-            state=state,
-
-            last_cycle=self._last_cycle,
-            last_update_at=self._last_update_at,
-            last_flame_on_at=self._last_flame_on_at,
-            last_flame_off_at=self._last_flame_off_at,
-            last_flame_off_was_overshoot=self._last_flame_off_was_overshoot,
-
-            previous_state=previous,
-            previous_update_at=self._previous_update_at,
-            modulation_direction=self._determine_modulation_direction(),
-        ))
+        return DeviceStatusEvaluator.evaluate(snapshot)
 
     def _determine_modulation_direction(self) -> int:
         """Determine modulation direction."""
@@ -192,9 +211,25 @@ class DeviceTracker:
             self._last_flame_on_at = self._last_update_at
             self._last_flame_off_was_overshoot = False
 
+    def _record_hot_water_transitions(self, previous: Optional[DeviceState], current: DeviceState) -> None:
+        """Track domestic hot water ON/OFF timestamps."""
+        if previous is None:
+            if current.hot_water_active:
+                self._last_hot_water_on_at = self._last_update_at
+
+            return
+
+        if previous.hot_water_active and not current.hot_water_active:
+            # DHW ON -> OFF
+            self._last_hot_water_off_at = self._last_update_at
+
+        elif not previous.hot_water_active and current.hot_water_active:
+            # DHW OFF -> ON
+            self._last_hot_water_on_at = self._last_update_at
+
 
 __all__ = [
-    "DeviceTracker",
     "DeviceState",
+    "DeviceTracker",
     "DeviceCapabilities",
 ]

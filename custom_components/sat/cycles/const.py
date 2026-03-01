@@ -9,7 +9,6 @@ TARGET_MIN_ON_TIME_SECONDS: float = 600.0
 # Flow vs. setpoint classification margins
 OVERSHOOT_MARGIN_CELSIUS: float = 3.0
 UNDERSHOOT_MARGIN_CELSIUS: float = -3.0
-OVERSHOOT_SUSTAIN_SECONDS: float = 60.0
 
 # Timeouts
 LAST_CYCLE_MAX_AGE_SECONDS: float = 6 * 3600

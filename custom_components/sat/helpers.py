@@ -6,7 +6,7 @@ from typing import Optional, Union, Iterable, Tuple
 from homeassistant.core import State
 from homeassistant.util import dt
 
-from .types import HeatingSystem
+from .types import HeatingSystem, SustainedRuntime
 
 
 def timestamp() -> float:
@@ -21,7 +21,39 @@ def event_timestamp(time: Optional[datetime]) -> float:
 
 def seconds_since(start_time: Optional[float]) -> float:
     """Calculate the elapsed time in seconds since a given start time, returns zero if time is not valid."""
-    return timestamp() - start_time if start_time is not None else 0.0
+    elapsed = elapsed_seconds(timestamp(), start_time)
+    return elapsed if elapsed is not None else 0.0
+
+
+def elapsed_seconds(current_time: float, start_time: Optional[float]) -> Optional[float]:
+    """Return elapsed seconds between two timestamps, or None when start_time is missing."""
+    return current_time - start_time if start_time is not None else 0
+
+
+def non_negative_elapsed_seconds(current_time: float, start_time: Optional[float]) -> Optional[float]:
+    """Return elapsed seconds, or None if start_time is missing or in the future."""
+    if start_time is None:
+        return None
+
+    elapsed = current_time - start_time
+    return elapsed if elapsed >= 0 else None
+
+
+def is_within_elapsed_window(current_time: float, start_time: Optional[float], window_seconds: float) -> bool:
+    """Return True when a start time exists and elapsed seconds are within a positive window."""
+    if window_seconds <= 0:
+        return False
+
+    elapsed = non_negative_elapsed_seconds(current_time, start_time)
+    return elapsed is not None and elapsed < window_seconds
+
+
+def sustained_runtime(current_time: float, started_at: Optional[float]) -> SustainedRuntime:
+    """Return normalized timer state for sustained-condition checks."""
+    if started_at is None or current_time < started_at:
+        return SustainedRuntime(started_at=current_time, elapsed_seconds=0.0, initialized=True)
+
+    return SustainedRuntime(started_at=started_at, elapsed_seconds=current_time - started_at, initialized=False)
 
 
 def state_age_seconds(state: State) -> float:

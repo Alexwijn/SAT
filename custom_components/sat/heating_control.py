@@ -12,15 +12,24 @@ from homeassistant.core import HomeAssistant, State
 
 from .const import (
     COLD_SETPOINT,
+    DHW_OVERSHOOT_GUARD_SECONDS,
     MINIMUM_RELATIVE_MODULATION,
-    MINIMUM_SETPOINT, EVENT_SAT_CYCLE_ENDED,
+    MINIMUM_SETPOINT, EVENT_SAT_CYCLE_ENDED, UNDERHEAT_SUSTAIN_SECONDS, SATURATION_SUSTAIN_SECONDS, OVERSHOOT_SUSTAIN_SECONDS,
 )
 from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
-from .cycles.const import OVERSHOOT_MARGIN_CELSIUS, OVERSHOOT_SUSTAIN_SECONDS
+from .cycles.const import OVERSHOOT_MARGIN_CELSIUS, UNDERSHOOT_MARGIN_CELSIUS
 from .device import DeviceState, DeviceTracker
 from .entry_data import SatConfig
-from .helpers import event_timestamp, float_value, int_value, timestamp, clamp
+from .helpers import (
+    clamp,
+    event_timestamp,
+    float_value,
+    int_value,
+    is_within_elapsed_window,
+    sustained_runtime,
+    timestamp,
+)
 from .manufacturers.geminox import Geminox
 from .pwm import PWM, PWMState
 from .types import BoilerStatus, CycleControlMode, HeaterState, PWMStatus, RelativeModulationState
@@ -84,8 +93,11 @@ class SatHeatingControl:
         self._last_outside_temperature: Optional[float] = None
 
         self._flame_off_hold_setpoint: Optional[float] = None
-        self._sustained_overshoot_started_at: Optional[float] = None
         self._coordinator_listener_remove: Optional[Callable[[], None]] = None
+
+        self._sustained_overshoot_started_at: Optional[float] = None
+        self._sustained_underheat_started_at: Optional[float] = None
+        self._sustained_saturation_started_at: Optional[float] = None
 
     @property
     def device_status(self) -> BoilerStatus:
@@ -172,8 +184,8 @@ class SatHeatingControl:
 
     def reset(self) -> None:
         """Reset heating control state on major changes."""
-        self._sustained_overshoot_started_at = None
         self._pwm.reset()
+        self._reset_pwm_disable_guards()
 
     async def update(self, demand: HeatingDemand) -> None:
         """Apply a new demand update and push commands to the coordinator."""
@@ -195,6 +207,11 @@ class SatHeatingControl:
                 requested_setpoint=demand.requested_setpoint,
             )
 
+            self._maybe_disable_pwm_runtime(
+                demand=demand,
+                device_state=self._coordinator.state
+            )
+
             self._compute_relative_modulation_value()
 
             if self.control_mode == CycleControlMode.PWM:
@@ -204,8 +221,9 @@ class SatHeatingControl:
                 self._compute_continuous_control_setpoint(demand.requested_setpoint)
         else:
             self._pwm.disable()
+            self._reset_pwm_disable_guards()
+
             self._control_setpoint = MINIMUM_SETPOINT
-            self._sustained_overshoot_started_at = None
             self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
 
         await self._coordinator.async_set_control_setpoint(self._control_setpoint)
@@ -228,9 +246,9 @@ class SatHeatingControl:
                 pwm=self._pwm.state,
                 device_state=self._coordinator.state,
                 control_setpoint=self._control_setpoint,
-                relative_modulation=self._relative_modulation_value,
                 requested_setpoint=self._last_requested_setpoint,
                 outside_temperature=self._last_outside_temperature,
+                relative_modulation=self._relative_modulation_value,
             )
         )
 
@@ -241,6 +259,10 @@ class SatHeatingControl:
             return
 
         if device_state.hot_water_active:
+            self._sustained_overshoot_started_at = None
+            return
+
+        if is_within_elapsed_window(demand.timestamp, self._device_tracker.hot_water_off_since, DHW_OVERSHOOT_GUARD_SECONDS):
             self._sustained_overshoot_started_at = None
             return
 
@@ -261,28 +283,88 @@ class SatHeatingControl:
             self._sustained_overshoot_started_at = None
             return
 
-        if self._sustained_overshoot_started_at is None:
-            self._sustained_overshoot_started_at = demand.timestamp
-            return
+        runtime = sustained_runtime(demand.timestamp, self._sustained_overshoot_started_at)
+        self._sustained_overshoot_started_at = runtime.started_at
 
-        elapsed = demand.timestamp - self._sustained_overshoot_started_at
-        if elapsed < 0:
-            self._sustained_overshoot_started_at = demand.timestamp
-            return
-
-        if elapsed < OVERSHOOT_SUSTAIN_SECONDS:
+        if runtime.initialized or runtime.elapsed_seconds < OVERSHOOT_SUSTAIN_SECONDS:
             return
 
         _LOGGER.info(
             "Sustained overshoot detected (flow=%.1f°C >= requested=%.1f°C + %.1f°C for %.0fs).",
-            device_state.flow_temperature,
-            demand.requested_setpoint,
-            OVERSHOOT_MARGIN_CELSIUS,
-            elapsed,
+            device_state.flow_temperature, demand.requested_setpoint, OVERSHOOT_MARGIN_CELSIUS, runtime.elapsed_seconds
         )
 
-        self._sustained_overshoot_started_at = None
         self._pwm.enable()
+        self._reset_pwm_disable_guards()
+
+    def _maybe_disable_pwm_runtime(self, demand: HeatingDemand, device_state: DeviceState) -> None:
+        if not self._pwm.enabled:
+            self._sustained_underheat_started_at = None
+            self._sustained_saturation_started_at = None
+            return
+
+        if device_state.hot_water_active or is_within_elapsed_window(demand.timestamp, self._device_tracker.hot_water_off_since, DHW_OVERSHOOT_GUARD_SECONDS):
+            self._reset_pwm_disable_guards()
+            return
+
+        if demand.heater_state != HeaterState.ON or demand.requested_setpoint <= COLD_SETPOINT:
+            self._reset_pwm_disable_guards()
+            return
+
+        if self._maybe_disable_pwm_on_sustained_underheat(demand=demand, device_state=device_state):
+            return
+
+        if self._maybe_disable_pwm_on_sustained_saturation(demand=demand):
+            return
+
+    def _maybe_disable_pwm_on_sustained_underheat(self, demand: HeatingDemand, device_state: DeviceState) -> bool:
+        flow_temperature = device_state.flow_temperature
+        if flow_temperature is None:
+            self._sustained_underheat_started_at = None
+            return False
+
+        underheat_threshold = demand.requested_setpoint + UNDERSHOOT_MARGIN_CELSIUS
+        if flow_temperature > underheat_threshold:
+            self._sustained_underheat_started_at = None
+            return False
+
+        runtime = sustained_runtime(demand.timestamp, self._sustained_underheat_started_at)
+        self._sustained_underheat_started_at = runtime.started_at
+
+        if runtime.initialized or runtime.elapsed_seconds < UNDERHEAT_SUSTAIN_SECONDS:
+            return False
+
+        _LOGGER.info(
+            "Disabling PWM due to sustained underheat (flow=%.1f°C <= requested=%.1f°C + %.1f°C for %.0fs).",
+            flow_temperature, demand.requested_setpoint, UNDERSHOOT_MARGIN_CELSIUS, runtime.elapsed_seconds,
+        )
+
+        self._pwm.disable()
+        self._reset_pwm_disable_guards()
+
+        return True
+
+    def _maybe_disable_pwm_on_sustained_saturation(self, demand: HeatingDemand) -> bool:
+        off_time_seconds = self._pwm.state.off_time_seconds
+        if off_time_seconds is None or off_time_seconds > 0:
+            self._sustained_saturation_started_at = None
+            return False
+
+        runtime = sustained_runtime(demand.timestamp, self._sustained_saturation_started_at)
+        self._sustained_saturation_started_at = runtime.started_at
+
+        if runtime.initialized or runtime.elapsed_seconds < SATURATION_SUSTAIN_SECONDS:
+            return False
+
+        _LOGGER.info(
+            "Disabling PWM due to sustained saturation (off_time=%ds for %.0fs).",
+            off_time_seconds, runtime.elapsed_seconds
+        )
+
+        self._pwm.disable()
+        self._reset_pwm_disable_guards()
+
+        return True
 
     def _compute_pwm_control_setpoint(self, requested_setpoint: float) -> None:
         """Apply the PWM setpoint override based on the current device state."""
@@ -428,3 +510,8 @@ class SatHeatingControl:
 
         if isinstance(self._coordinator.manufacturer, Geminox):
             self._relative_modulation_value = max(10, self._relative_modulation_value)
+
+    def _reset_pwm_disable_guards(self) -> None:
+        self._sustained_overshoot_started_at = None
+        self._sustained_underheat_started_at = None
+        self._sustained_saturation_started_at = None

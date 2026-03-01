@@ -21,6 +21,8 @@ class DeviceStatusSnapshot:
     last_flame_on_at: Optional[float]
     last_flame_off_at: Optional[float]
     last_flame_off_was_overshoot: bool
+    last_hot_water_on_at: Optional[float]
+    last_hot_water_off_at: Optional[float]
 
     modulation_direction: int
     previous_update_at: Optional[float]
