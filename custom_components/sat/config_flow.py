@@ -376,6 +376,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 coordinator = await self.async_create_coordinator()
                 await coordinator.async_setup()
+                await coordinator.async_added_to_hass()
 
                 overshoot_protection = OvershootProtection(coordinator, self.data.get(CONF_HEATING_SYSTEM))
                 self.overshoot_protection_value = await overshoot_protection.calculate()
