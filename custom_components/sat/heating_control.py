@@ -47,6 +47,7 @@ class HeatingDemand:
     """Heating control update."""
     timestamp: float
 
+    valves_open: bool
     hvac_mode: HVACMode
     requested_setpoint: float
     outside_temperature: float
@@ -54,6 +55,9 @@ class HeatingDemand:
     @property
     def heater_state(self) -> HeaterState:
         if self.hvac_mode != HVACMode.HEAT:
+            return HeaterState.OFF
+
+        if not self.valves_open:
             return HeaterState.OFF
 
         return HeaterState.ON if self.requested_setpoint > COLD_SETPOINT else HeaterState.OFF
@@ -201,8 +205,8 @@ class SatHeatingControl:
         else:
             self._pwm.disable()
             self._control_setpoint = MINIMUM_SETPOINT
-            self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
             self._sustained_overshoot_started_at = None
+            self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
 
         await self._coordinator.async_set_control_setpoint(self._control_setpoint)
         await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)

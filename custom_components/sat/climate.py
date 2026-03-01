@@ -454,9 +454,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._heating_control.update(
             HeatingDemand(
                 hvac_mode=self.hvac_mode,
+                valves_open=self.valves_open,
+                timestamp=event_timestamp(time),
                 requested_setpoint=self.requested_setpoint,
                 outside_temperature=self.current_outside_temperature,
-                timestamp=event_timestamp(time),
             )
         )
 
