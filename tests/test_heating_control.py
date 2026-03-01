@@ -18,11 +18,11 @@ from custom_components.sat.const import (
 )
 from custom_components.sat.cycles.const import OVERSHOOT_SUSTAIN_SECONDS
 from custom_components.sat.entry_data import SatConfig, SatMode
-from custom_components.sat.helpers import timestamp
 from custom_components.sat.heating_control import (
     HeatingDemand,
     SatHeatingControl,
 )
+from custom_components.sat.helpers import timestamp
 from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.types import HeaterState, PWMStatus
 
@@ -66,8 +66,9 @@ def _enable_pwm(heating_control: SatHeatingControl, status: PWMStatus) -> None:
 
 def _make_demand(requested_setpoint: float, hvac_mode: HVACMode = HVACMode.HEAT, outside_temperature: float = 10.0) -> HeatingDemand:
     return HeatingDemand(
-        timestamp=timestamp(),
+        valves_open=True,
         hvac_mode=hvac_mode,
+        timestamp=timestamp(),
         requested_setpoint=requested_setpoint,
         outside_temperature=outside_temperature,
     )
@@ -169,7 +170,7 @@ async def test_pwm_suppression_applied(hass, coordinator, monkeypatch):
     await coordinator.async_set_heater_state(HeaterState.ON)
     await coordinator.async_set_boiler_temperature(50.0)
     heating_control._device_tracker._last_flame_on_at = timestamp() - (
-        OPTIONS_DEFAULTS[CONF_MODULATION_SUPPRESSION_DELAY_SECONDS] + 1
+            OPTIONS_DEFAULTS[CONF_MODULATION_SUPPRESSION_DELAY_SECONDS] + 1
     )
 
     await heating_control.update(_make_demand(40.0))
@@ -209,7 +210,7 @@ async def test_flame_off_setpoint_held_until_suppression_delay(hass, monkeypatch
     await coordinator.async_set_heater_state(HeaterState.ON)
     await coordinator.async_set_boiler_temperature(50.0)
     heating_control._device_tracker._last_flame_on_at = timestamp() - (
-        OPTIONS_DEFAULTS[CONF_MODULATION_SUPPRESSION_DELAY_SECONDS] - 1
+            OPTIONS_DEFAULTS[CONF_MODULATION_SUPPRESSION_DELAY_SECONDS] - 1
     )
 
     await heating_control.update(_make_demand(40.0))
@@ -225,19 +226,21 @@ async def test_enables_pwm_on_sustained_overshoot(heating_control, coordinator):
     start_time = timestamp()
 
     await heating_control.update(HeatingDemand(
+        valves_open=True,
         timestamp=start_time,
         hvac_mode=HVACMode.HEAT,
-        requested_setpoint=requested,
         outside_temperature=10.0,
+        requested_setpoint=requested,
     ))
 
     assert heating_control.pwm_state.enabled is False
 
     await heating_control.update(HeatingDemand(
-        timestamp=start_time + OVERSHOOT_SUSTAIN_SECONDS + 1,
+        valves_open=True,
         hvac_mode=HVACMode.HEAT,
-        requested_setpoint=requested,
         outside_temperature=10.0,
+        requested_setpoint=requested,
+        timestamp=start_time + OVERSHOOT_SUSTAIN_SECONDS + 1,
     ))
 
     assert heating_control.pwm_state.enabled is True
