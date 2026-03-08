@@ -165,6 +165,51 @@ def test_update_transitions_and_cycle_limit(pwm: PWM):
     assert pwm._current_cycle == pwm._config.duty_cycle_seconds
 
 
+def test_minimum_flame_on_hold_prevents_early_off_when_recalculated_on_time_drops(pwm: PWM):
+    pwm.enable()
+    base_offset = pwm._heating_system.base_offset
+    setpoint = base_offset + 0.5 * (50.0 - base_offset)
+    pwm._effective_on_temperature = 50.0
+
+    pwm._last_update = 0.0
+    pwm.update(
+        device_state=_make_device_state(flame_active=False, flow_temperature=50.0),
+        requested_setpoint=setpoint,
+        timestamp=0.0,
+    )
+    assert pwm.status is PWMStatus.ON
+    assert pwm._waiting_for_flame_on is True
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=True, flow_temperature=50.0),
+        requested_setpoint=setpoint,
+        timestamp=60.0,
+    )
+    assert pwm.status is PWMStatus.ON
+    assert pwm._waiting_for_flame_on is False
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=True, flow_temperature=90.0),
+        requested_setpoint=setpoint,
+        timestamp=120.0,
+    )
+    assert pwm.status is PWMStatus.ON
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=True, flow_temperature=90.0),
+        requested_setpoint=setpoint,
+        timestamp=240.0,
+    )
+    assert pwm.status is PWMStatus.ON
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=True, flow_temperature=90.0),
+        requested_setpoint=setpoint,
+        timestamp=360.0,
+    )
+    assert pwm.status is PWMStatus.OFF
+
+
 def test_pwm_on_phase_starts_when_flame_ignites(pwm: PWM):
     pwm.enable()
     base_offset = pwm._heating_system.base_offset

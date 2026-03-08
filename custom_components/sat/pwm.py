@@ -198,7 +198,11 @@ class PWM:
                     self._waiting_for_flame_on = False
                     _LOGGER.warning("PWM ON phase did not detect flame within %ds; starting timer anyway.", HEATER_STARTUP_TIMEFRAME)
 
-            if on_time_seconds < HEATER_STARTUP_TIMEFRAME or elapsed >= on_time_seconds:
+            if self._flame_on_at is not None and (timestamp - self._flame_on_at) < HEATER_STARTUP_TIMEFRAME:
+                _LOGGER.debug("PWM ON minimum flame-on hold active (elapsed_since_flame_on=%.0fs/%ds).", timestamp - self._flame_on_at, HEATER_STARTUP_TIMEFRAME)
+                return
+
+            if elapsed >= on_time_seconds:
                 self._flame_on_at = None
                 self._status = PWMStatus.OFF
                 self._last_update = timestamp

@@ -132,18 +132,16 @@ class SatHeatingControl:
     @property
     def relative_modulation_state(self) -> RelativeModulationState:
         """Return the computed relative modulation state."""
+        if self._pwm.enabled:
+            return RelativeModulationState.OFF
+
         if self._coordinator.hot_water_active:
             return RelativeModulationState.HOT_WATER
 
-        pwm_state = self._pwm.status if self._pwm is not None else PWMStatus.IDLE
+        if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
+            return RelativeModulationState.COLD
 
-        if pwm_state == PWMStatus.IDLE:
-            if self._coordinator.setpoint is None or self._coordinator.setpoint <= MINIMUM_SETPOINT:
-                return RelativeModulationState.COLD
-
-            return RelativeModulationState.PWM_OFF
-
-        return RelativeModulationState.OFF
+        return RelativeModulationState.PWM_OFF
 
     @property
     def control_mode(self) -> CycleControlMode:

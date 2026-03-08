@@ -275,6 +275,16 @@ async def test_modulation_is_minimum_when_pwm_active_and_supported(heating_contr
     assert heating_control.relative_modulation_value == MINIMUM_RELATIVE_MODULATION
 
 
+async def test_modulation_is_minimum_when_pwm_enabled_and_idle(heating_control, monkeypatch):
+    heating_control._coordinator.config.supports_relative_modulation_management = True
+    _enable_pwm(heating_control, PWMStatus.IDLE)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.relative_modulation_value == MINIMUM_RELATIVE_MODULATION
+
+
 async def test_modulation_stays_maximum_during_hot_water_when_supported(heating_control, monkeypatch):
     heating_control._coordinator.config.supports_relative_modulation_management = True
     _enable_pwm(heating_control, PWMStatus.ON)
