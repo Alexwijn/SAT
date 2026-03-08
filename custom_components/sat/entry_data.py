@@ -86,6 +86,15 @@ class PresetConfig:
 
 
 @dataclass(frozen=True)
+class SolarGainConfig:
+    enabled: bool
+    freeze_integral: bool
+    minimum_elevation: float
+    minimum_rise_per_hour: float
+    setpoint_offset_celsius: float
+
+
+@dataclass(frozen=True)
 class SimulationConfig:
     enabled: bool
     simulated_heating: float
@@ -264,6 +273,16 @@ class SatConfig:
             sync_climates_with_preset=bool(self.options.get(CONF_SYNC_CLIMATES_WITH_PRESET)),
 
             presets={key: float(value) for key, value in preset_values.items()},
+        )
+
+    @property
+    def solar_gain(self) -> SolarGainConfig:
+        return SolarGainConfig(
+            enabled=bool(self.options.get(CONF_SOLAR_GAIN_COMPENSATION)),
+            freeze_integral=bool(self.options.get(CONF_SOLAR_GAIN_FREEZE_INTEGRAL)),
+            minimum_elevation=float(self.options.get(CONF_SOLAR_GAIN_MIN_ELEVATION)),
+            minimum_rise_per_hour=float(self.options.get(CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR)),
+            setpoint_offset_celsius=float(self.options.get(CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS)),
         )
 
     @property

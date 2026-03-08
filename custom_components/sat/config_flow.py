@@ -704,6 +704,8 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             (vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]), bool),
             (vol.Required(CONF_ERROR_MONITORING, default=options[CONF_ERROR_MONITORING]), bool),
             (vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]), bool),
+            (vol.Required(CONF_SOLAR_GAIN_COMPENSATION, default=options[CONF_SOLAR_GAIN_COMPENSATION]), bool),
+            (vol.Required(CONF_SOLAR_GAIN_FREEZE_INTEGRAL, default=options[CONF_SOLAR_GAIN_FREEZE_INTEGRAL]), bool),
         ]
 
         supports_modulation = self._config_entry.data.get(CONF_MODE) in [SatMode.MQTT_OPENTHERM, SatMode.SERIAL, SatMode.SIMULATOR]
@@ -717,6 +719,18 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         schema_entries.append((
             vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=options[CONF_CLIMATE_VALVE_OFFSET]),
             selector.NumberSelector(selector.NumberSelectorConfig(min=-1, max=1, step=0.1)),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_SOLAR_GAIN_MIN_ELEVATION, default=options[CONF_SOLAR_GAIN_MIN_ELEVATION]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=-10, max=90, step=1, unit_of_measurement="°")),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR, default=options[CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0.0, max=4.0, step=0.1, unit_of_measurement="°C/h")),
+        ))
+        schema_entries.append((
+            vol.Required(CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS, default=options[CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS]),
+            selector.NumberSelector(selector.NumberSelectorConfig(min=0.0, max=10.0, step=0.1, unit_of_measurement="°C")),
         ))
 
         if supports_modulation:

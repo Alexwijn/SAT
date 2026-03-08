@@ -13,6 +13,11 @@ from custom_components.sat.entry_data import SatConfig
 from custom_components.sat.const import (
     CONF_HEATING_CURVE_COEFFICIENT,
     CONF_HEATING_MODE,
+    CONF_SOLAR_GAIN_COMPENSATION,
+    CONF_SOLAR_GAIN_FREEZE_INTEGRAL,
+    CONF_SOLAR_GAIN_MIN_ELEVATION,
+    CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR,
+    CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS,
     CONF_SENSOR_MAX_VALUE_AGE,
     CONF_HEATING_SYSTEM,
     HeatingMode,
@@ -23,6 +28,7 @@ from custom_components.sat.const import (
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.pid import PID
+from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
 
 pytestmark = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
@@ -53,6 +59,7 @@ def _update_climate_config(climate, *, data=None, options=None) -> None:
     climate._config = new_config
     climate._coordinator._config = new_config
     climate._coordinator._manufacturer = ManufacturerFactory.resolve_by_name(new_config.manufacturer) if new_config.manufacturer else None
+    climate._solar_gain = SolarGainController(new_config.solar_gain)
 
 
 def test_requested_setpoint_without_heating_curve(climate):
@@ -80,6 +87,21 @@ def test_requested_setpoint_uses_secondary_and_cap(monkeypatch, climate):
     monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.overshoot_cap", property(lambda self: 43.1))
 
     assert climate.requested_setpoint == 43.1
+
+
+def test_requested_setpoint_applies_solar_gain_offset(monkeypatch, climate):
+    _update_climate_config(climate, options={
+        CONF_SOLAR_GAIN_COMPENSATION: True,
+        CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS: 2.0,
+    })
+    climate.heating_curve._value = 30.0
+    climate._solar_gain_snapshot = SolarGainSnapshot(active=True, rise_per_hour=0.8, sun_elevation=20.0)
+
+    monkeypatch.setattr(PID, "output", property(lambda self: 41.2))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.output", property(lambda self: None))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.overshoot_cap", property(lambda self: None))
+
+    assert climate.requested_setpoint == 39.2
 
 
 def test_update_heating_curves_updates_value(climate):
@@ -161,3 +183,32 @@ async def test_control_loop_skips_when_hvac_off(monkeypatch, climate):
     await climate.async_control_heating_loop()
 
     update_mock.assert_not_called()
+
+
+def test_control_pid_freezes_integral_when_solar_gain_detected(monkeypatch, climate):
+    _update_climate_config(climate, options={
+        CONF_SOLAR_GAIN_COMPENSATION: True,
+        CONF_SOLAR_GAIN_FREEZE_INTEGRAL: True,
+        CONF_SOLAR_GAIN_MIN_ELEVATION: 10.0,
+        CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR: 0.5,
+    })
+
+    now = dt_util.utcnow()
+    climate._target_temperature = 21.0
+    climate._hvac_mode = HVACMode.HEAT
+    climate.hass.states.async_set("sensor.test_inside_sensor", "20.0")
+    climate.hass.states.async_set("sensor.test_outside_sensor", "5")
+    climate.hass.states.async_set("sun.sun", "above_horizon", {"elevation": 20.0})
+    climate._coordinator._relative_modulation_value = 0
+
+    calls: list[bool] = []
+
+    def _update(self, state, freeze_integral=False):
+        calls.append(freeze_integral)
+
+    monkeypatch.setattr(PID, "update", _update)
+    climate.control_pid(now)
+    climate.hass.states.async_set("sensor.test_inside_sensor", "20.3")
+    climate.control_pid(now + timedelta(minutes=10))
+
+    assert calls[-1] is True

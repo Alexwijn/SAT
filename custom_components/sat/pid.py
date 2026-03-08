@@ -156,22 +156,24 @@ class PID:
 
         _LOGGER.debug("Loaded PID state from storage for entity=%s", self._entity_id)
 
-    def update(self, state: TemperatureState) -> None:
+    def update(self, state: TemperatureState, freeze_integral: bool = False) -> None:
         """Update PID state with the latest error and heating curve value."""
         if self._heating_curve.value is None:
             _LOGGER.debug("Skipping PID update for %s because heating curve has no value", self._entity_id)
             return
 
         self._update_derivative(state)
-        self._update_integral(state)
+
+        if not freeze_integral:
+            self._update_integral(state)
 
         self._last_error = state.error
         self._last_temperature = state.current
 
         _LOGGER.debug(
-            "PID update: entity=%s current_temperature=%.3f setpoint=%.3f heating_curve=%.3f P=%.3f I=%.3f D=%.3f output=%.3f",
+            "PID update: entity=%s current_temperature=%.3f setpoint=%.3f heating_curve=%.3f freeze_integral=%s P=%.3f I=%.3f D=%.3f output=%.3f",
             self._entity_id, state.current, state.setpoint, self._heating_curve.value,
-            self.proportional, self.integral, self.derivative, self.output
+            freeze_integral, self.proportional, self.integral, self.derivative, self.output
         )
 
         if self._hass is not None:
