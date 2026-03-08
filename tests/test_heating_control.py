@@ -352,3 +352,29 @@ async def test_disables_pwm_on_sustained_saturation(heating_control, coordinator
         timestamp=start_time + SATURATION_SUSTAIN_SECONDS + 1,
     ))
     assert heating_control.pwm_state.enabled is False
+
+
+async def test_async_added_to_hass_replaces_existing_listeners(heating_control, monkeypatch):
+    removed = {"coordinator": 0, "pwm_cycle": 0}
+    calls = {"coordinator_add": 0, "pwm_listen": 0}
+
+    heating_control._coordinator_listener_remove = lambda: removed.__setitem__("coordinator", removed["coordinator"] + 1)
+    heating_control._pwm_cycle_listener_remove = lambda: removed.__setitem__("pwm_cycle", removed["pwm_cycle"] + 1)
+
+    def _add_listener(callback):
+        calls["coordinator_add"] += 1
+        return lambda: None
+
+    def _listen(_self, event_type, callback):
+        calls["pwm_listen"] += 1
+        return lambda: None
+
+    heating_control._coordinator.async_add_listener = _add_listener
+    monkeypatch.setattr(type(heating_control._hass.bus), "async_listen", _listen)
+
+    await heating_control.async_added_to_hass()
+
+    assert removed["coordinator"] == 1
+    assert removed["pwm_cycle"] == 1
+    assert calls["coordinator_add"] == 1
+    assert calls["pwm_listen"] == 1

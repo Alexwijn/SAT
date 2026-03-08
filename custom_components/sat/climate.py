@@ -101,6 +101,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
         self._attr_supported_features = self._build_supported_features()
 
+        self._event_listeners_registered: bool = False
         self._control_heating_loop_unsub: Optional[Callable[[], None]] = None
 
         # System Configuration
@@ -150,6 +151,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_will_remove_from_hass(self, event: Optional[Event] = None) -> None:
         """Run when entity about to be removed."""
+        self._event_listeners_registered = False
         self._cancel_scheduled_heating_control_loop()
 
         if self._window_sensor_handle is not None:
@@ -696,6 +698,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _register_event_listeners(self) -> None:
         """Register event listeners."""
+        if self._event_listeners_registered:
+            return
+
+        self._event_listeners_registered = True
+
         self.async_on_remove(
             async_track_time_interval(
                 self.hass, self.schedule_heating_control_loop, timedelta(seconds=5)

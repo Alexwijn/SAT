@@ -94,6 +94,7 @@ class SatHeatingControl:
 
         self._flame_off_hold_setpoint: Optional[float] = None
         self._coordinator_listener_remove: Optional[Callable[[], None]] = None
+        self._pwm_cycle_listener_remove: Optional[Callable[[], None]] = None
 
         self._sustained_overshoot_started_at: Optional[float] = None
         self._sustained_underheat_started_at: Optional[float] = None
@@ -153,6 +154,14 @@ class SatHeatingControl:
     async def async_added_to_hass(self) -> None:
         """Register listeners and initialize the control loop."""
         await self._device_tracker.async_added_to_hass(self._hass, self._coordinator.id)
+
+        if self._coordinator_listener_remove is not None:
+            self._coordinator_listener_remove()
+            self._coordinator_listener_remove = None
+
+        if self._pwm_cycle_listener_remove is not None:
+            self._pwm_cycle_listener_remove()
+            self._pwm_cycle_listener_remove = None
 
         self._coordinator_listener_remove = self._coordinator.async_add_listener(self._handle_coordinator_update)
         self._pwm_cycle_listener_remove = self._hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda event: self._pwm.on_cycle_end(cycle=event.data.get("cycle")))

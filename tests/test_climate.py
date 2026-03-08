@@ -185,6 +185,28 @@ async def test_control_loop_skips_when_hvac_off(monkeypatch, climate):
     update_mock.assert_not_called()
 
 
+def test_register_event_listeners_is_idempotent(monkeypatch, climate):
+    climate._event_listeners_registered = False
+    calls = {"time_interval": 0, "state_change": 0}
+
+    def _track_time_interval(*args, **kwargs):
+        calls["time_interval"] += 1
+        return lambda: None
+
+    def _track_state_change_event(*args, **kwargs):
+        calls["state_change"] += 1
+        return lambda: None
+
+    monkeypatch.setattr("custom_components.sat.climate.async_track_time_interval", _track_time_interval)
+    monkeypatch.setattr("custom_components.sat.climate.async_track_state_change_event", _track_state_change_event)
+
+    climate._register_event_listeners()
+    first_counts = dict(calls)
+    climate._register_event_listeners()
+
+    assert calls == first_counts
+
+
 def test_control_pid_freezes_integral_when_solar_gain_detected(monkeypatch, climate):
     _update_climate_config(climate, options={
         CONF_SOLAR_GAIN_COMPENSATION: True,

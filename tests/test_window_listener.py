@@ -62,6 +62,7 @@ async def test_window_listener_uses_configured_entities(monkeypatch, hass, clima
 
     monkeypatch.setattr("custom_components.sat.climate.async_track_state_change_event", _capture)
 
+    climate._event_listeners_registered = False
     climate._register_event_listeners()
 
     assert any(expected_entity in (entity_ids or []) for entity_ids in captured)
