@@ -18,13 +18,15 @@ The Smart Autotune Thermostat, or SAT for short, is a custom component for Home 
 - [DIYLess](https://diyless.com/) Master OpenTherm Shield
 - [Ihor Melnyk's](http://ihormelnyk.com/opentherm_adapter) OpenTherm adapter
 - [Jiří Praus'](https://www.tindie.com/products/jiripraus/opentherm-gateway-arduino-shield/) OpenTherm Gateway Arduino Shield
+- [EMS-ESP](https://emsesp.github.io/docs/) (MQTT, for Bosch, Junkers, Buderus systems)
+- [OTThing](https://otthing.com/) (MQTT)
 
 It can also function as a PID ON/OFF thermostat, providing advanced temperature control based on Outside Temperature compensation and the Proportional-Integral-Derivative (PID) algorithm. Unlike other thermostat components, SAT supports automatic gain tuning and heating curve coefficients. This capability allows it to determine the optimal setpoint for your boiler without any manual intervention.
 
 ---
 
 ## Features
-OpenTherm ( MQTT / Serial / ESPHome ):
+OpenTherm ( MQTT / Serial / ESPHome / EMS-ESP / OTThing ):
 - Multi-room temperature control with support for temperature synchronization for main climates
 - Overshoot protection value automatic calculation mechanism
 - Adjustable heating curve coefficients to fine-tune your heating system
@@ -37,6 +39,8 @@ OpenTherm ( MQTT / Serial / ESPHome ):
 - Sample time for PID control to fine-tune your system's response time
 - Open Window detection
 - Control DHW setpoint
+- Solar gain compensation to adjust heating based on passive solar heating
+- Boiler pressure monitoring
 
 PID ON/OFF thermostat:
 
@@ -49,6 +53,7 @@ PID ON/OFF thermostat:
 - Climate valve offset to adjust the temperature reading for your climate valve
 - Sample time for PID control to fine-tune your system's response time
 - Open Window detection
+- Solar gain compensation to adjust heating based on passive solar heating
 
 ---
 
@@ -87,6 +92,14 @@ SAT is configured using a config flow. After installation, go to the Integration
         - Top Topic ( *MQTT Top Topic* found in OTGW-firmware Settings )
         - Device
 
+   - EMS-ESP MQTT (for Bosch, Junkers, Buderus systems):
+        - Name of the thermostat
+        - Top Topic ( e.g. `ems-esp/` )
+
+   - OTThing MQTT:
+        - Name of the thermostat
+        - Top Topic ( e.g. `otthing/31F44C` )
+
    - OpenTherm Gateway Serial:
         - Name of the thermostat
         - URL
@@ -96,10 +109,10 @@ SAT is configured using a config flow. After installation, go to the Integration
         - Device
 
 > [!Important]
-> The ESPHome yaml needs to follow the exact naming of the following entities, otherwise SAT will not be able to find them in Home Assistant.
+> SAT communicates with the ESPHome device directly via the native API. It discovers entities by their `object_id`, which ESPHome derives from the entity's `id` (or `name` when no explicit `id` is set). The ESPHome yaml must produce the exact `object_id` values shown below, otherwise SAT will not be able to discover them.
 <details>
 <summary>ESPHome minimal yaml configuration</summary>
-   
+
 ```yaml
 # Insert usual esphome configuration (board, api, ota, etc.)
 
@@ -150,6 +163,8 @@ sensor:
       name: t_dhw_set_lb
     t_dhw_set_ub:
       name: t_dhw_set_ub
+    ch_pressure:
+      name: ch_pressure
 
 binary_sensor:
   - platform: opentherm
@@ -157,6 +172,8 @@ binary_sensor:
       name: flame_on
     dhw_active:
       name: dhw_active
+    ch_active:
+      name: ch_active
 
 switch:
   - platform: opentherm
@@ -178,7 +195,7 @@ For more information about which other entities are available for OpenTherm plea
 > [!NOTE]
 > For better results use an Inside Temperature sensor that reports two decimals and has a refresh rate of 30 seconds.
 
-3. Heating System: Selecting the correct heating system type is important for SAT to accurately control the temperature and optimize performance. Choose the option that matches your setup to ensure proper temperature regulation throughout your home.
+3. Heating System: Selecting the correct heating system type is important for SAT to accurately control the temperature and optimize performance. The available options are Radiators, Heat Pump, and Underfloor. Choose the option that matches your setup to ensure proper temperature regulation throughout your home.
 
 4. Areas:  
    - Primary: Users can add their physical thermostat. SAT will syncronize the `hvac_action` of the physical thermostat with the SAT climate entity's `hvac action`, that means if the physical thermostat doesn't require heating then the SAT climate entity `hvac_action` will remain at idle. Also the physical thermostat's room setpoint stays in sync with SAT climate entity. Moreover the physical thermostat will act as a back up if any failure to HA occurs.
@@ -202,53 +219,34 @@ Please note that choosing to skip Automatic Gains requires a good understanding 
 
 ## PID ON/OFF
 
-To be completed
+The PID ON/OFF mode allows SAT to control any switch, valve, or input_boolean entity as a simple on/off heater. This is useful for systems that don't support OpenTherm modulation.
+
+1. PID ON/OFF Connection
+   - Name of the thermostat
+   - Device ( a switch, valve, or input_boolean entity that controls your heater )
+   - Minimum Setpoint ( the operating temperature of your heater )
+
+2. Configure sensors:
+    - Inside Temperature sensor ( Your Room Temperature sensor )
+    - Outside Temperature sensor ( Your Outside Temperature sensor )
+    - Inside Humidity Sensor ( Your Room Humidity sensor )
+
+3. Heating System: Select Radiators, Heat Pump, or Underfloor.
+
+4. Areas: Same as OpenTherm configuration above.
+
+5. Calibrate System: Same as OpenTherm configuration above.
 
 ---
 
 # Configure
 
 ## General tab:
-*Heating Curve Version*: Represents the 3 formulas of calculation. The available options are:
 
-Radiators:
-- [Classic Curve](https://www.desmos.com/calculator/cy8gjiciny)
-- [Quantum Curve](https://www.desmos.com/calculator/hmrlrapnxz)
-- [Precision Curve](https://www.desmos.com/calculator/spfvsid4ds) ( Recommented )
-
-Underfloor:
-- [Classic Curve](https://www.desmos.com/calculator/exjth5qsoe)
-- [Quantum Curve](https://www.desmos.com/calculator/ke69ywalcz)
-- [Precision Curve](https://www.desmos.com/calculator/i7f7uuyaoz) ( Recommented )
+*Heating Mode*:
 
 > [!NOTE]
-> Graph parameters:
-> - a: Heating Curve Value
-> - b: Room Setpoint
-
-> [!TIP]
-> You can add the graph as an `iframe` card in HA.
-> 
-> Example:
-> ```yaml
-> type: iframe
-> url: https://www.desmos.com/calculator/spfvsid4ds
-> allow_open_top_navigation: true
-> allow: fullscreen
-> aspect_ratio: 130%
-
-*PID Controller Version*: 
-- Classic Controller
-- Improved Controller
-- Adaptive Controller
-
-> [!NOTE]
-> When the Adaptive controller is active, SAT automatically tunes the gains. No need for tweaking.
-
-*Heating Mode*: 
-
-> [!NOTE]
->Available only for multiroom installations
+> Available only for multiroom installations
 
 - Comfort ( SAT monitors the climates in other rooms to determine the error. It selects the highest error value as the PID error value for the current room )
 - Eco ( SAT monitors **only** the Main thermostat's error and it is used as the PID error )
@@ -264,39 +262,84 @@ For underfloor installations, the recommended max water setpoint is 50 °C.
 *Heating Curve Coefficient*:
 The heating curve coefficient is a configurable parameter in SAT that allows you to adjust the relationship between the outdoor temperature and the heating system output. This is useful for optimizing the heating system's performance in different weather conditions, as it allows you to adjust how much heat the system delivers as the outdoor temperature changes. By tweaking this parameter, you can achieve a more efficient and comfortable heating system.
 
-*Automatic Gains Value*: Automatically tweaking the aggressiveness of the Kp, Ki and Kd gains when Classic or Improved Controller is in use.
+Heating curve reference graphs:
+
+Radiators:
+- [Classic Curve](https://www.desmos.com/calculator/cy8gjiciny)
+- [Quantum Curve](https://www.desmos.com/calculator/hmrlrapnxz)
+- [Precision Curve](https://www.desmos.com/calculator/spfvsid4ds) ( Recommended )
+
+Underfloor:
+- [Classic Curve](https://www.desmos.com/calculator/exjth5qsoe)
+- [Quantum Curve](https://www.desmos.com/calculator/ke69ywalcz)
+- [Precision Curve](https://www.desmos.com/calculator/i7f7uuyaoz) ( Recommended )
+
+> [!NOTE]
+> Graph parameters:
+> - a: Heating Curve Value
+> - b: Room Setpoint
 
 > [!TIP]
-> Best results when the user uses the same value as the Heating Curve Coefficient value.
+> You can add the graph as an `iframe` card in HA.
+>
+> Example:
+> ```yaml
+> type: iframe
+> url: https://www.desmos.com/calculator/spfvsid4ds
+> allow_open_top_navigation: true
+> allow: fullscreen
+> aspect_ratio: 130%
+> ```
 
-*Derivative Time Weight*: Further tweaking of the Kd value.
+*Proportional (kP) / Integral (kI) / Derivative (kD)*: When automatic gains are disabled, you can manually set the PID gains in this tab.
 
-> [!TIP]
-> Better start with the value `2`.
-
-*Adjustment Factor for Return Temperature*:
-This factor adjusts the heating setpoint based on the boiler's return temperature, affecting heating responsiveness and efficiency. A higher value increases sensitivity to temperature changes, enhancing control over comfort and energy use. 
-
-> [!TIP]
-> Recommended starting range is 0.1 to 0.5. Adjust to suit your system and comfort preferences.
-
-*Contact Sensor*: You can add contact sensors to avoid wasting energy when a door/window is open. When the door/window is closed again, SAT restores heating.
+*Contact Sensors*: You can add contact sensors (window/door/garage door) to avoid wasting energy when a door/window is open. When the door/window is closed again, SAT restores heating.
 
 ## Presets tab:
-Predefined temperature settings for different scenarios or activities.
+Predefined temperature settings for different scenarios or activities: Home, Comfort, Sleep, Away, and Activity.
+
+*Synchronize with thermostat attached to the boiler*: Send SAT's target temperature to the boiler thermostat.
+
+*Synchronize climates with preset*: When a preset is selected, apply that temperature to room climates.
+
+## System Configuration tab:
+
+*Duty Cycles per hour*: The maximum amount of duty cycles per hour. The available options depend on the heating system type (Radiators: 3-4x, Heat Pump: 2-3x).
+
+*Synchronize climates with mode*: Also set HVAC mode on room climates when it changes on the main SAT climate entity.
+
+*Temperature Sensor maximum value age*: The maximum age of the temperature sensor value before considering it as stale.
+
+*Minimum time for window to be open*: The minimum time a window must be open before the system reacts and pauses heating.
 
 ## Advanced Tab
-*Thermal Comfort*: Uses as temperature sensor the Summer SImmer Index. The Summer Simmer Index refers to the perceived temperature based on the measured air temperature and relative humidity.
 
- *Dynamic Minimum Setpoint (Experimental)*: The Boiler flow water temperature may exceed the Overshoot Protection Value during Low-Load Control in multiroom installations ( Some valves may be closed ). We developed a mechanishm that monitors the boiler return water temperature and changes accordingly the Control Setpoint that is sent to the boiler. See *Adjustment Factor for Return Temperature*.
+> [!NOTE]
+> This tab is only visible when Home Assistant's advanced mode is enabled in your user profile.
 
-*Minimum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption.
+*Simulation*: Enable simulation mode for testing.
 
-*Maximum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption.
+*Error Monitoring*: Enable error monitoring via Sentry for diagnostics.
+
+*Thermal Comfort*: Uses the Summer Simmer Index as the temperature sensor. The Summer Simmer Index refers to the perceived temperature based on the measured air temperature and relative humidity.
+
+*Solar Gain Compensation*: When enabled, SAT adjusts heating output based on solar elevation to account for passive solar heating of the home. Related settings:
+- *Solar Gain Minimum Elevation*: The minimum sun elevation angle before solar compensation activates.
+- *Solar Gain Minimum Rise per Hour*: The minimum temperature rise rate to trigger solar gain detection.
+- *Solar Gain Setpoint Offset*: The offset applied to the setpoint when solar gain is detected.
+- *Solar Gain Freeze Integral*: Freeze the PID integral term during solar gain events to prevent windup.
+
+*Force Pulse Width Modulation*: Force PWM mode on (only available for OpenTherm MQTT/Serial).
 
 *Target Temperature Step*: SAT climate entity room setpoint step.
 
-*Maximum Relative Modulation*: The user is able to control the maximum relative modulation that the boiler will operate.
+*Climate Valve Offset*: Adjust the temperature reading for your climate valve.
+
+*Maximum Relative Modulation*: The user is able to control the maximum relative modulation that the boiler will operate (only available for OpenTherm MQTT/Serial).
+
+*Minimum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption (only available for OpenTherm MQTT/Serial).
+
+*Maximum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption (only available for OpenTherm MQTT/Serial).
 
 ---
 
