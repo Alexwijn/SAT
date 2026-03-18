@@ -44,7 +44,7 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
 
     @property
     def active(self) -> bool:
-        if (state := self.hass.states.get(self._entity.id)) is None:
+        if (state := self.hass.states.get(self._entity.entity_id)) is None:
             return False
 
         return state.state == STATE_ON

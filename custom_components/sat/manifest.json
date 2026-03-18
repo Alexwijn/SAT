@@ -7,8 +7,7 @@
   "config_flow": true,
   "dependencies": [
     "mqtt",
-    "dhcp",
-    "esphome"
+    "dhcp"
   ],
   "dhcp": [
     {

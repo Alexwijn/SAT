@@ -318,6 +318,10 @@ class SatHeatingControl:
             self._reset_pwm_disable_guards()
             return
 
+        if self._pwm.status != PWMStatus.ON:
+            self._reset_pwm_disable_guards()
+            return
+
         if self._maybe_disable_pwm_on_sustained_underheat(demand=demand, device_state=device_state):
             return
 
