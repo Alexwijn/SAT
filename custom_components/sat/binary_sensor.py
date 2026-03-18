@@ -23,6 +23,9 @@ from .helpers import float_value, seconds_since, timestamp
 from .types import BoilerStatus, CycleClassification
 
 PRESSURE_DROP_RATE_SETTLE_SECONDS = 600
+PRESSURE_EMA_ALPHA = 0.05
+PRESSURE_PROBLEM_CONFIRMATION_SECONDS = 120
+PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS = 300
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -205,6 +208,8 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         self._last_drop_rate: Optional[float] = None
         self._last_seen_pressure: Optional[float] = None
         self._last_pressure_timestamp: Optional[float] = None
+        self._smoothed_pressure: Optional[float] = None
+        self._problem_first_detected: Optional[float] = None
         self._pressure_samples: deque[tuple[float, float]] = deque()
 
     async def async_added_to_hass(self) -> None:
@@ -218,6 +223,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         self._last_pressure = float_value(attributes.get("last_pressure"))
         self._last_pressure_timestamp = float_value(attributes.get("last_pressure_timestamp"))
         self._last_seen_pressure = float_value(attributes.get("last_seen_pressure_timestamp"))
+        self._smoothed_pressure = float_value(attributes.get("smoothed_pressure"))
 
         if self._last_pressure is not None and self._last_pressure_timestamp is not None:
             self._pressure_samples.append((self._last_pressure_timestamp, self._last_pressure))
@@ -247,7 +253,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
     def is_on(self) -> bool:
         """Return the state of the sensor."""
         now = timestamp()
-        pressure = self._coordinator.boiler_pressure
+        raw_pressure = self._coordinator.boiler_pressure
         minimum_pressure = self._pressure_config.minimum_pressure_bar
         maximum_pressure = self._pressure_config.maximum_pressure_bar
         maximum_age_seconds = self._pressure_config.maximum_age_seconds
@@ -255,7 +261,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
 
         self._track_active_state(now)
 
-        if pressure is None:
+        if raw_pressure is None:
             if self._last_seen_pressure is None:
                 return False
 
@@ -265,15 +271,16 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
             return (now - self._last_seen_pressure) > maximum_age_seconds
 
         self._last_seen_pressure = now
-        self._record_pressure_sample(now, pressure, maximum_age_seconds)
+        smoothed = self._update_smoothed_pressure(raw_pressure)
+        self._record_pressure_sample(now, raw_pressure, maximum_age_seconds)
 
         drop_rate = self._calculate_drop_rate()
 
-        self._last_pressure = pressure
+        self._last_pressure = raw_pressure
         self._last_pressure_timestamp = now
 
-        pressure_low = pressure < minimum_pressure
-        pressure_high = pressure > maximum_pressure
+        pressure_low = smoothed < minimum_pressure
+        pressure_high = smoothed > maximum_pressure
         drop_rate_allowed = self._drop_rate_allowed(now)
 
         if not drop_rate_allowed:
@@ -283,14 +290,16 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
             self._last_drop_rate = round(drop_rate, 3)
 
         drop_rate_high = drop_rate is not None and drop_rate > maximum_drop_rate
+        raw_problem = pressure_low or pressure_high or drop_rate_high
 
-        return pressure_low or pressure_high or drop_rate_high
+        return self._confirm_problem(now, raw_problem)
 
     @property
     def extra_state_attributes(self) -> dict[str, Optional[float]]:
         """Return extra attributes for debugging pressure health decisions."""
         return {
             "pressure": self._coordinator.boiler_pressure,
+            "smoothed_pressure": self._smoothed_pressure,
             "pressure_drop_rate_bar_per_hour": self._last_drop_rate,
 
             "last_pressure": self._last_pressure,
@@ -303,13 +312,33 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-pressure-health"
 
+    def _update_smoothed_pressure(self, raw_pressure: float) -> float:
+        if self._smoothed_pressure is None:
+            self._smoothed_pressure = raw_pressure
+        else:
+            self._smoothed_pressure = (
+                PRESSURE_EMA_ALPHA * raw_pressure
+                + (1 - PRESSURE_EMA_ALPHA) * self._smoothed_pressure
+            )
+        return self._smoothed_pressure
+
+    def _confirm_problem(self, now: float, condition: bool) -> bool:
+        if not condition:
+            self._problem_first_detected = None
+            return False
+
+        if self._problem_first_detected is None:
+            self._problem_first_detected = now
+
+        return (now - self._problem_first_detected) >= PRESSURE_PROBLEM_CONFIRMATION_SECONDS
+
     def _track_active_state(self, timestamp_seconds: float) -> None:
         active = self._coordinator.active
         if self._last_active is None:
             self._last_active = active
             return
 
-        if self._last_active and not active:
+        if self._last_active != active:
             self._drop_rate_suspended_until = timestamp_seconds + PRESSURE_DROP_RATE_SETTLE_SECONDS
             self._pressure_samples.clear()
 
@@ -336,17 +365,27 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
             self._pressure_samples.popleft()
 
     def _calculate_drop_rate(self) -> Optional[float]:
-        if len(self._pressure_samples) < 2:
+        if len(self._pressure_samples) < 3:
             return None
 
-        oldest_time, oldest_pressure = self._pressure_samples[0]
-        newest_time, newest_pressure = self._pressure_samples[-1]
-        elapsed = newest_time - oldest_time
-
-        if elapsed <= 0:
+        elapsed = self._pressure_samples[-1][0] - self._pressure_samples[0][0]
+        if elapsed < PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS:
             return None
 
-        return ((oldest_pressure - newest_pressure) / elapsed) * 3600
+        n = len(self._pressure_samples)
+        sum_t = sum_p = sum_tp = sum_t2 = 0.0
+        for t, p in self._pressure_samples:
+            sum_t += t
+            sum_p += p
+            sum_tp += t * p
+            sum_t2 += t * t
+
+        denom = n * sum_t2 - sum_t * sum_t
+        if denom == 0:
+            return None
+
+        slope = (n * sum_tp - sum_t * sum_p) / denom
+        return -slope * 3600
 
 
 class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):
