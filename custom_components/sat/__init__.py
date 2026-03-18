@@ -186,6 +186,15 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if entry.data.get("sync_with_thermostat") is not None:
                 new_data["push_setpoint_to_thermostat"] = entry.data.get("sync_with_thermostat")
 
+            if entry.data.get("mode") == "esphome":
+                device = device_registry.async_get(hass).async_get(entry.data.get("device"))
+
+                for entry_id in device.config_entries:
+                    config_entry = hass.config_entries.async_get_entry(entry_id)
+                    if config_entry and config_entry.domain == "esphome":
+                        new_data["device"] = entry_id
+                        break
+
         hass.config_entries.async_update_entry(entry, version=SatFlowHandler.VERSION, data=new_data, options=new_options)
 
     _LOGGER.info("Migration to version %s successful", entry.version)

@@ -8,7 +8,7 @@ from homeassistant import config_entries
 from homeassistant.components import sensor, switch, valve, weather, binary_sensor, climate, input_boolean
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
-from homeassistant.helpers import selector, entity_registry
+from homeassistant.helpers import selector, device_registry, entity_registry
 from homeassistant.helpers.selector import SelectSelectorMode, SelectOptionDict
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
@@ -31,7 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 10
+    VERSION = 11
     MINOR_VERSION = 0
 
     def __init__(self):
@@ -219,6 +219,21 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
             self.data[CONF_MODE] = SatMode.ESPHOME
+
+            device = device_registry.async_get(self.hass).async_get(_user_input[CONF_DEVICE])
+
+            if device is not None:
+                for entry_id in device.config_entries:
+                    entry = self.hass.config_entries.async_get_entry(entry_id)
+                    if entry and entry.domain == "esphome":
+                        self.data[CONF_DEVICE] = entry_id
+                        break
+                else:
+                    self.errors["base"] = "esphome_entry_not_found"
+                    return await self.async_step_esphome()
+            else:
+                self.errors["base"] = "device_not_found"
+                return await self.async_step_esphome()
 
             return await self.async_step_sensors()
 

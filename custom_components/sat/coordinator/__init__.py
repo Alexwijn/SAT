@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from typing import Optional, Any
+from typing import Optional
 
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -399,19 +398,3 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self.async_notify_listeners(False)
 
 
-class SatEntityCoordinator(DataUpdateCoordinator):
-    def get(self, domain: str, key: str) -> Optional[Any]:
-        """Get the value for the given `key` from the boiler data."""
-        entity_id = self._get_entity_id(domain, key)
-        if entity_id is None:
-            return None
-
-        state = self.hass.states.get(entity_id)
-        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return None
-
-        return state.state
-
-    @abstractmethod
-    def _get_entity_id(self, domain: str, key: str):
-        pass
