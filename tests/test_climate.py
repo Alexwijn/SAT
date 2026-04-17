@@ -150,3 +150,124 @@ async def test_scenario_3(hass: HomeAssistant, entry: MockConfigEntry, climate: 
     assert climate.pulse_width_modulation_enabled
     assert climate.pwm.last_duty_cycle_percentage == 53.62
     assert climate.pwm.duty_cycle == (643, 556)
+
+
+@pytest.mark.parametrize(*[
+    "domains, data, options, config",
+    [(
+            [(TEMPLATE_DOMAIN, 1)],
+            {
+                CONF_MODE: MODE_FAKE,
+                CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
+                CONF_MINIMUM_SETPOINT: 57,
+                CONF_MAXIMUM_SETPOINT: 75,
+                CONF_THERMOSTAT: ["climate.better_thermostat"],
+            },
+            {
+                CONF_HEATING_CURVE_COEFFICIENT: 1.8,
+                CONF_FORCE_PULSE_WIDTH_MODULATION: True,
+            },
+            {
+                TEMPLATE_DOMAIN: [
+                    {
+                        SENSOR_DOMAIN: [
+                            {
+                                "name": "test_inside_sensor",
+                                "state": "{{ 20.9 | float }}",
+                            },
+                            {
+                                "name": "test_outside_sensor",
+                                "state": "{{ 9.9 | float }}",
+                            }
+                        ]
+                    },
+                ],
+            },
+    )],
+])
+async def test_thermostat_state_change_triggers_pid_recalculation(
+    hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator
+) -> None:
+    """Test that PID recalculates when the connected thermostat changes state."""
+    hass.states.async_set("climate.better_thermostat", HVACMode.HEAT, {
+        "temperature": 21.0,
+        "current_temperature": 20.9,
+        "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
+    })
+    await hass.async_block_till_done()
+
+    await coordinator.async_set_boiler_temperature(57)
+    await climate.async_set_target_temperature(21.0)
+    await climate.async_set_hvac_mode(HVACMode.HEAT)
+
+    initial_error = climate.pid.last_error
+
+    hass.states.async_set("climate.better_thermostat", HVACMode.OFF, {
+        "temperature": 21.0,
+        "current_temperature": 20.9,
+        "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
+    })
+    await hass.async_block_till_done()
+
+    assert climate.pid.last_error != initial_error or climate.pid.last_error == climate.error
+
+
+@pytest.mark.parametrize(*[
+    "domains, data, options, config",
+    [(
+            [(TEMPLATE_DOMAIN, 1)],
+            {
+                CONF_MODE: MODE_FAKE,
+                CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
+                CONF_MINIMUM_SETPOINT: 57,
+                CONF_MAXIMUM_SETPOINT: 75,
+                CONF_RADIATORS: ["climate.radiator1"],
+            },
+            {
+                CONF_HEATING_CURVE_COEFFICIENT: 1.8,
+                CONF_FORCE_PULSE_WIDTH_MODULATION: True,
+            },
+            {
+                TEMPLATE_DOMAIN: [
+                    {
+                        SENSOR_DOMAIN: [
+                            {
+                                "name": "test_inside_sensor",
+                                "state": "{{ 20.9 | float }}",
+                            },
+                            {
+                                "name": "test_outside_sensor",
+                                "state": "{{ 9.9 | float }}",
+                            }
+                        ]
+                    },
+                ],
+            },
+    )],
+])
+async def test_main_climate_state_change_triggers_pid_recalculation(
+    hass: HomeAssistant, entry: MockConfigEntry, climate: SatClimate, coordinator: SatFakeCoordinator
+) -> None:
+    """Test that PID recalculates when a main climate/radiator changes state."""
+    hass.states.async_set("climate.radiator1", HVACMode.HEAT, {
+        "temperature": 21.0,
+        "current_temperature": 20.9,
+        "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
+        "hvac_action": "heating",
+    })
+    await hass.async_block_till_done()
+
+    await coordinator.async_set_boiler_temperature(57)
+    await climate.async_set_target_temperature(21.0)
+    await climate.async_set_hvac_mode(HVACMode.HEAT)
+
+    initial_error = climate.pid.last_error
+
+    hass.states.async_set("climate.radiator1", HVACMode.OFF, {
+        "temperature": 21.0,
+        "current_temperature": 20.9,
+        "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
+    })
+    await hass.async_block_till_done()
+
+    assert climate.pid.last_error != initial_error or climate.pid.last_error == climate.error

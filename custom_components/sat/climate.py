@@ -610,11 +610,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
-        if (
-                old_state.state != new_state.state or
-                old_state.attributes.get("temperature") != new_state.attributes.get("temperature")
-        ):
+        if old_state.state != new_state.state:
             _LOGGER.debug("Thermostat State Changed.")
+            self._async_control_pid(True)
+            self.schedule_control_heating_loop()
+
+        if old_state.attributes.get("temperature") != new_state.attributes.get("temperature"):
+            _LOGGER.debug("Thermostat Temperature Changed.")
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
     async def _async_inside_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
@@ -661,6 +663,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if old_state is None or new_state.state != old_state.state:
             _LOGGER.debug(f"Main Climate State Changed ({new_state.entity_id}).")
+            self._async_control_pid(True)
             self.schedule_control_heating_loop()
 
     async def _async_climate_changed(self, event: Event[EventStateChangedData]) -> None:
