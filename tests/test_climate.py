@@ -1,6 +1,7 @@
 """The tests for the climate component."""
 
 import pytest
+from unittest.mock import patch
 from homeassistant.components.climate import HVACMode
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.template import DOMAIN as TEMPLATE_DOMAIN
@@ -200,16 +201,14 @@ async def test_thermostat_state_change_triggers_pid_recalculation(
     await climate.async_set_target_temperature(21.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    initial_error = climate.pid.last_error
-
-    hass.states.async_set("climate.better_thermostat", HVACMode.OFF, {
-        "temperature": 21.0,
-        "current_temperature": 20.9,
-        "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
-    })
-    await hass.async_block_till_done()
-
-    assert climate.pid.last_error != initial_error or climate.pid.last_error == climate.error
+    with patch.object(climate, "_async_control_pid", wraps=climate._async_control_pid) as spy:
+        hass.states.async_set("climate.better_thermostat", HVACMode.OFF, {
+            "temperature": 21.0,
+            "current_temperature": 20.9,
+            "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
+        })
+        await hass.async_block_till_done()
+        spy.assert_any_call(True)
 
 
 @pytest.mark.parametrize(*[
@@ -261,13 +260,11 @@ async def test_main_climate_state_change_triggers_pid_recalculation(
     await climate.async_set_target_temperature(21.0)
     await climate.async_set_hvac_mode(HVACMode.HEAT)
 
-    initial_error = climate.pid.last_error
-
-    hass.states.async_set("climate.radiator1", HVACMode.OFF, {
-        "temperature": 21.0,
-        "current_temperature": 20.9,
-        "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
-    })
-    await hass.async_block_till_done()
-
-    assert climate.pid.last_error != initial_error or climate.pid.last_error == climate.error
+    with patch.object(climate, "_async_control_pid", wraps=climate._async_control_pid) as spy:
+        hass.states.async_set("climate.radiator1", HVACMode.OFF, {
+            "temperature": 21.0,
+            "current_temperature": 20.9,
+            "hvac_modes": [HVACMode.HEAT, HVACMode.OFF],
+        })
+        await hass.async_block_till_done()
+        spy.assert_any_call(True)
