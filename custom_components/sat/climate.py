@@ -145,7 +145,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
-        self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
+        self.async_on_remove(
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
+        )
 
     async def async_will_remove_from_hass(self, event: Optional[Event] = None) -> None:
         """Run when entity about to be removed."""
