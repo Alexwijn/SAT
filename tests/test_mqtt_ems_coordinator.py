@@ -68,6 +68,24 @@ def test_hot_water_active(coordinator):
     assert coordinator.hot_water_active is True
 
 
+def test_hot_water_active_prefers_nested_status(coordinator):
+    coordinator.data.update({"dhw/tapwateractive": "off", DATA_DHW_ENABLE: "on"})
+    assert coordinator.hot_water_active is False
+
+    coordinator.data.update({"dhw/tapwateractive": "on"})
+    assert coordinator.hot_water_active is True
+
+
+def test_normalize_payload_flattens_nested_sections(coordinator):
+    payload = {"curflowtemp": 45.2, "dhw": {"seltemp": 48.5, "tapwateractive": "on"}}
+
+    normalized = coordinator._normalize_payload("boiler_data", payload)
+
+    assert normalized["curflowtemp"] == 45.2
+    assert normalized["dhw/seltemp"] == 48.5
+    assert normalized["dhw/tapwateractive"] == "on"
+
+
 def test_setpoint(coordinator):
     coordinator.data.update({DATA_CONTROL_SETPOINT: 55.0})
     assert coordinator.setpoint == 55.0

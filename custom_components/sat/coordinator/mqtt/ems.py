@@ -18,6 +18,7 @@ DATA_REL_MOD_LEVEL = "curburnpow"
 DATA_BOILER_TEMPERATURE = "curflowtemp"
 DATA_RETURN_TEMPERATURE = "rettemp"
 
+DATA_DHW_ACTIVE = "tapwateractive"
 DATA_DHW_ENABLE = "tapactivated"
 DATA_CENTRAL_HEATING = "heatingactive"
 DATA_BOILER_CAPACITY = "nompower"
@@ -61,7 +62,11 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     @property
     def hot_water_active(self) -> bool:
-        return self.data.get(DATA_DHW_ENABLE) == DATA_ON
+        for key in (DATA_DHW_ACTIVE, f"dhw/{DATA_DHW_ACTIVE}", DATA_DHW_ENABLE, f"dhw/{DATA_DHW_ENABLE}"):
+            if (value := self.data.get(key)) is not None:
+                return value == DATA_ON
+
+        return False
 
     @property
     def setpoint(self) -> Optional[float]:
@@ -144,6 +149,15 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     def _normalize_payload(self, key: str, payload: Any) -> dict[str, Any]:
         if isinstance(payload, dict):
-            return payload
+            normalized: dict[str, Any] = {}
+
+            for name, value in payload.items():
+                if isinstance(value, dict):
+                    for nested_name, nested_value in value.items():
+                        normalized[f"{name}/{nested_name}"] = nested_value
+                else:
+                    normalized[name] = value
+
+            return normalized
 
         return {key: payload}
