@@ -602,8 +602,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             # Set the hvac mode for those climate devices
             for entity_id in climates:
                 state = self.hass.states.get(entity_id)
-                if state is None or hvac_mode not in state.attributes.get("hvac_modes"):
-                    return
+                if state is None or hvac_mode not in (state.attributes.get("hvac_modes") or []):
+                    continue
 
                 data = {ATTR_ENTITY_ID: entity_id, ATTR_HVAC_MODE: hvac_mode}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE, data, blocking=True)
