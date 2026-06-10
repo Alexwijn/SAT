@@ -2,6 +2,7 @@ from typing import Optional
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 
 from .coordinator import SatDataUpdateCoordinator
@@ -22,6 +23,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
+    _attr_entity_category = EntityCategory.CONFIG
+
     def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
         super().__init__(coordinator, config, heating_control)
         self._name = self._config.name
@@ -75,6 +78,8 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
 
 
 class SatMaximumSetpointEntity(SatEntity, NumberEntity):
+    _attr_entity_category = EntityCategory.CONFIG
+
     def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
         super().__init__(coordinator, config, heating_control)
         self._name = self._config.name

@@ -5,7 +5,7 @@ from typing import Optional, Mapping, Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolumeFlowRate
+from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolumeFlowRate, EntityCategory
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -70,6 +70,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(_) -> None:
             self.schedule_update_ha_state()
@@ -100,6 +102,8 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     def __init__(
             self,
             coordinator: SatDataUpdateCoordinator,
@@ -266,6 +270,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 
 
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def name(self) -> str:
@@ -298,6 +303,7 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
 
 class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(entity_id: str) -> None:
@@ -355,6 +361,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
 
 
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def name(self) -> str:
@@ -390,6 +397,8 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 
 
 class SatManufacturerSensor(SatEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def name(self) -> str:
         return "Device Manufacturer"
@@ -409,6 +418,8 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 
 
 class SatCycleSensor(SatEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     async def async_added_to_hass(self) -> None:
         def on_cycle_event(_event: Event) -> None:
             self.schedule_update_ha_state()
@@ -458,6 +469,8 @@ class SatCycleSensor(SatEntity, SensorEntity):
 
 
 class SatDeviceSensor(SatEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def name(self) -> str:
         return "Device Status"

@@ -8,7 +8,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.components.climate import HVACAction
 from homeassistant.components.group.binary_sensor import BinarySensorGroup
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.const import ATTR_ENTITY_ID, EntityCategory
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -89,6 +89,8 @@ class SatSyncSensor:
 
 
 class SatControlSetpointSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
         SatSyncSensor.__init__(self)
         SatEntity.__init__(self, coordinator, config, heating_control)
@@ -123,6 +125,8 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity)
 
 
 class SatRelativeModulationSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
         SatSyncSensor.__init__(self)
         SatEntity.__init__(self, coordinator, config, heating_control)
@@ -160,6 +164,8 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatEntity, BinarySensorEnti
 
 
 class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, climate: SatClimate):
         SatSyncSensor.__init__(self)
         SatClimateEntity.__init__(self, coordinator, config, heating_control, climate)
@@ -198,6 +204,8 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
 
 
 class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
         super().__init__(coordinator, config, heating_control)
         self._pressure_config = self._config.pressure_health
@@ -389,6 +397,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
 
 
 class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def name(self) -> str:
@@ -412,6 +421,8 @@ class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):
 
 
 class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     async def async_added_to_hass(self) -> None:
         def on_cycle_event(_event: Event) -> None:
             self.schedule_update_ha_state()
