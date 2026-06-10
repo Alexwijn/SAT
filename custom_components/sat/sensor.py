@@ -18,7 +18,8 @@ from .coordinator.simulator import sensor as simulator_sensor
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
-from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation
+from .heating_curve import RECOMMENDATION_MINIMUM_SAMPLES
+from .types import BoilerStatus, CycleClassification
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -297,8 +298,6 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
 
 class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
-    _MINIMUM_DAILY_SAMPLES: int = 6
-    _ERROR_THRESHOLD: float = DEADBAND * 2
 
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(entity_id: str) -> None:
@@ -316,30 +315,21 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[str]:
-        daily = self._climate.temperature_statistics.window.daily
-
-        if daily.sample_count < self._MINIMUM_DAILY_SAMPLES:
-            return HeatingCurveRecommendation.INSUFFICIENT_SAMPLES.name
-
-        if daily.median_error is None:
-            return HeatingCurveRecommendation.HOLD.name
-
-        if daily.median_error > self._ERROR_THRESHOLD:
-            return HeatingCurveRecommendation.INCREASE.name
-
-        if daily.median_error < -self._ERROR_THRESHOLD:
-            return HeatingCurveRecommendation.DECREASE.name
-
-        return HeatingCurveRecommendation.HOLD.name
+        return self._climate.curve_advisor.advice.recommendation.name
 
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
+        advice = self._climate.curve_advisor.advice
         daily = self._climate.temperature_statistics.window.daily
         recent = self._climate.temperature_statistics.window.recent
 
         return {
-            "error_threshold": self._ERROR_THRESHOLD,
-            "minimum_daily_samples": self._MINIMUM_DAILY_SAMPLES,
+            "minimum_samples": RECOMMENDATION_MINIMUM_SAMPLES,
+
+            "sample_count": advice.sample_count,
+            "median_flow_correction": advice.median_correction,
+            "suggested_coefficient": advice.suggested_coefficient,
+            "current_coefficient": self._config.pid.heating_curve_coefficient,
 
             "recent_mean_error": recent.mean_error,
             "recent_sample_count": recent.sample_count,
@@ -357,7 +347,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return self._climate.temperature_statistics.window.daily.sample_count > 0
+        return self._climate.curve_advisor.advice.sample_count > 0 or self._climate.temperature_statistics.window.daily.sample_count > 0
 
     @property
     def unique_id(self) -> str:

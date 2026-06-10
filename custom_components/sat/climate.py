@@ -35,8 +35,8 @@ from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .entry_data import SatConfig, get_entry_data
 from .heating_control import HeatingDemand, SatHeatingControl
-from .heating_curve import HeatingCurve
-from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp
+from .heating_curve import HeatingCurve, HeatingCurveAdvisor
+from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
 from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, SolarGainSnapshot
 from .summer_simmer import SummerSimmer
@@ -113,6 +113,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.heating_curve = HeatingCurve.from_config(self._config)
         self.pid = PID.from_config(self.heating_curve, self._config)
         self._solar_gain = SolarGainController(self._config.solar_gain)
+        self._curve_advisor = HeatingCurveAdvisor(self._config.pid.heating_curve_coefficient)
+        self._target_temperature_changed_at: Optional[float] = None
 
         self._heating_control = heating_control
         self._temperature_history = TemperatureHistory()
@@ -144,6 +146,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.schedule_heating_control_loop())
 
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
+
+        self._target_temperature_changed_at = timestamp()
 
         self.async_on_remove(
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
@@ -280,6 +284,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def temperature_statistics(self) -> TemperatureStatistics:
         """Return temperature error statistics."""
         return self._temperature_history.statistics
+
+    @property
+    def curve_advisor(self) -> HeatingCurveAdvisor:
+        """Return the heating curve advisor."""
+        return self._curve_advisor
 
     @property
     def temperature_state(self) -> Optional[TemperatureState]:
@@ -491,6 +500,33 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             freeze_integral=self._solar_gain_snapshot.active and self._config.solar_gain.freeze_integral,
         )
 
+        self._record_curve_advice_sample(now)
+
+    def _record_curve_advice_sample(self, now: float) -> None:
+        """Feed the heating curve advisor when the system is in steady heating operation."""
+        if self.hvac_mode != HVACMode.HEAT or not self.valves_open:
+            return
+
+        if self._solar_gain_snapshot.active or self._coordinator.hot_water_active:
+            return
+
+        if self._target_temperature_changed_at is None or (now - self._target_temperature_changed_at) < HEATING_CURVE_SETTLE_SECONDS:
+            return
+
+        target_temperature = self.target_temperature
+        outside_temperature = self.current_outside_temperature
+        heating_curve_value = self.heating_curve.value
+
+        if target_temperature is None or outside_temperature is None or heating_curve_value is None:
+            return
+
+        self._curve_advisor.record(
+            timestamp=now,
+            correction=self.pid.output - heating_curve_value,
+            target_temperature=target_temperature,
+            outside_temperature=outside_temperature,
+        )
+
     def _sun_elevation(self) -> Optional[float]:
         sun_state = self.hass.states.get("sun.sun")
         if sun_state is None:
@@ -646,6 +682,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Set the new target temperature
         self._target_temperature = temperature
+        self._target_temperature_changed_at = timestamp()
 
         if cascade:
             # Set the target temperature for each main climate
