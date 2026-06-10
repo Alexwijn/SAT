@@ -233,7 +233,11 @@
           "solar_gain_min_rise_per_hour": "Aumento interno minimo per guadagno solare",
           "solar_gain_setpoint_offset_celsius": "Offset setpoint per guadagno solare",
           "target_temperature_step": "Passo della Temperatura Target",
-          "thermal_comfort": "Comfort Termico"
+          "thermal_comfort": "Comfort Termico",
+          "enable_flame_off_setpoint": "Abilita setpoint a fiamma spenta",
+          "enable_modulation_suppression": "Abilita soppressione della modulazione",
+          "flame_off_setpoint_offset_celsius": "Offset setpoint a fiamma spenta",
+          "modulation_suppression_delay_seconds": "Ritardo soppressione della modulazione"
         },
         "data_description": {
           "climate_valve_offset": "Differenza di temperatura (target vs attuale) per considerare una valvola aperta.",
@@ -258,7 +262,9 @@
           "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "enable_flame_off_setpoint": "Applica un offset temporaneo del setpoint mentre la fiamma è spenta (solo modulazione a larghezza di impulso).",
+          "enable_modulation_suppression": "Riduci la modulazione abbassando temporaneamente il setpoint dopo l'accensione della fiamma (solo modulazione a larghezza di impulso)."
         },
         "title": "Avanzate"
       },
@@ -328,7 +334,8 @@
           "sync_climates_with_mode": "Sincronizza climi con la modalità",
           "overshoot_protection": "Protezione dal Superamento (con Modulazione di Larghezza di Impulso )",
           "sensor_max_value_age": "Età massima del valore del sensore di temperatura",
-          "window_minimum_open_time": "Tempo minimo di apertura della finestra"
+          "window_minimum_open_time": "Tempo minimo di apertura della finestra",
+          "frost_protection_temperature": "Temperatura di protezione antigelo"
         },
         "data_description": {
           "cycles_per_hour": "Il numero massimo di cicli per ora.",
@@ -336,7 +343,8 @@
           "overshoot_protection": "Abilitare la protezione dal superamento con la Modulazione di Larghezza di Impulso per prevenire il superamento della temperatura della caldaia.",
           "sensor_max_value_age": "L'età massima del valore del sensore di temperatura prima di considerarlo stazionario.",
           "window_minimum_open_time": "Il tempo minimo che una finestra deve essere aperta prima che il sistema reagisca.",
-          "sync_climates_with_mode": "Applica anche la modalità HVAC ai climi delle stanze quando cambia qui."
+          "sync_climates_with_mode": "Applica anche la modalità HVAC ai climi delle stanze quando cambia qui.",
+          "frost_protection_temperature": "Continua a riscaldare quando la stanza scende sotto questa temperatura, anche con il termostato spento. Impostare a 0 per disattivare."
         },
         "description": "Comportamento di temporizzazione e sincronizzazione per cicli, sensori e modalità HVAC.",
         "title": "Configurazione del Sistema"
@@ -357,6 +365,16 @@
           "description": "Lo stato che vuoi forzare."
         }
       }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "La caldaia segnala un guasto",
+      "description": "La caldaia collegata a {name} segnala un guasto (codice {fault_code}). Controllare il display della caldaia e consultare il manuale o il proprio installatore."
+    },
+    "boiler_pressure": {
+      "title": "Pressione caldaia anomala",
+      "description": "La pressione della caldaia di {name} è fuori intervallo o sta calando rapidamente (attualmente {pressure} bar). Verificare la presenza di perdite e ripristinare la pressione dell'acqua se necessario."
     }
   }
 }

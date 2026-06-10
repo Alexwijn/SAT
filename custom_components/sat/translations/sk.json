@@ -233,7 +233,11 @@
           "solar_gain_min_rise_per_hour": "Minimálny vnútorný nárast pre solárny zisk",
           "solar_gain_setpoint_offset_celsius": "Offset setpointu pri solárnom zisku",
           "target_temperature_step": "Krok cieľovej teploty",
-          "thermal_comfort": "Tepelný komfort"
+          "thermal_comfort": "Tepelný komfort",
+          "enable_flame_off_setpoint": "Povoliť žiadanú teplotu pri zhasnutom plameni",
+          "enable_modulation_suppression": "Povoliť potlačenie modulácie",
+          "flame_off_setpoint_offset_celsius": "Posun žiadanej teploty pri zhasnutom plameni",
+          "modulation_suppression_delay_seconds": "Oneskorenie potlačenia modulácie"
         },
         "data_description": {
           "climate_valve_offset": "Rozdiel teplôt (cieľ vs aktuálna) na považovanie ventilu za otvorený.",
@@ -258,7 +262,9 @@
           "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "enable_flame_off_setpoint": "Použiť dočasný posun žiadanej teploty, kým je plameň zhasnutý (iba pulzná šírková modulácia).",
+          "enable_modulation_suppression": "Znížiť moduláciu dočasným znížením žiadanej teploty po zapálení plameňa (iba pulzná šírková modulácia)."
         },
         "title": "Rozšírené"
       },
@@ -328,7 +334,8 @@
           "sync_climates_with_mode": "Synchronizujte klímu s režimom",
           "overshoot_protection": "Ochrana proti prekročeniu (s moduláciou šírky impulzu )",
           "sensor_max_value_age": "Vek maximálnej hodnoty snímača teploty",
-          "window_minimum_open_time": "Minimálny čas na otvorenie okna"
+          "window_minimum_open_time": "Minimálny čas na otvorenie okna",
+          "frost_protection_temperature": "Teplota protimrazovej ochrany"
         },
         "data_description": {
           "cycles_per_hour": "Maximálny počet pracovných cyklov za hodinu.",
@@ -336,7 +343,8 @@
           "overshoot_protection": "Aktivujte ochranu proti prekročeniu pomocou modulácie šírky impulzov , aby ste zabránili prekročeniu teploty kotla.",
           "sensor_max_value_age": "Maximálny vek hodnoty teplotného snímača pred tým, než sa považuje za prerušenie.",
           "window_minimum_open_time": "Minimálny čas, počas ktorého musí byť okno otvorené, kým systém zareaguje.",
-          "sync_climates_with_mode": "Pri zmene tu nastaví režim HVAC aj na klímach miestností."
+          "sync_climates_with_mode": "Pri zmene tu nastaví režim HVAC aj na klímach miestností.",
+          "frost_protection_temperature": "Pokračovať vo vykurovaní, keď izba klesne pod túto teplotu, aj keď je termostat vypnutý. Nastavte 0 na vypnutie."
         },
         "description": "Časovanie a synchronizácia pre cykly, senzory a režim HVAC.",
         "title": "Konfigurácia systému"
@@ -357,6 +365,16 @@
           "description": "Stav, ktorý chcete vynútiť."
         }
       }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "Kotol hlási poruchu",
+      "description": "Kotol pripojený k {name} hlási poruchu (kód {fault_code}). Skontrolujte displej kotla a poraďte sa s manuálom alebo s inštalatérom."
+    },
+    "boiler_pressure": {
+      "title": "Nezdravý tlak kotla",
+      "description": "Tlak kotla pre {name} je mimo rozsahu alebo rýchlo klesá (aktuálne {pressure} bar). Skontrolujte systém na úniky a v prípade potreby doplňte tlak vody."
     }
   }
 }

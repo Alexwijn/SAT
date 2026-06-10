@@ -233,7 +233,11 @@
           "solar_gain_min_rise_per_hour": "Mindest-Anstiegsrate innen für Solargewinn",
           "solar_gain_setpoint_offset_celsius": "Solargewinn-Sollwert-Offset",
           "target_temperature_step": "Schrittweite der Zieltemperatur",
-          "thermal_comfort": "Thermischer Komfort"
+          "thermal_comfort": "Thermischer Komfort",
+          "enable_flame_off_setpoint": "Flamme-aus-Sollwert aktivieren",
+          "enable_modulation_suppression": "Modulationsunterdrückung aktivieren",
+          "flame_off_setpoint_offset_celsius": "Flamme-aus-Sollwertversatz",
+          "modulation_suppression_delay_seconds": "Verzögerung der Modulationsunterdrückung"
         },
         "data_description": {
           "climate_valve_offset": "Temperaturdifferenz (Soll vs. Ist), ab der ein Ventil als geöffnet gilt.",
@@ -258,7 +262,9 @@
           "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "enable_flame_off_setpoint": "Einen vorübergehenden Sollwertversatz anwenden, während die Flamme aus ist (nur Pulsweitenmodulation).",
+          "enable_modulation_suppression": "Modulation verringern, indem der Sollwert nach dem Zünden vorübergehend gesenkt wird (nur Pulsweitenmodulation)."
         },
         "title": "Erweitert"
       },
@@ -328,7 +334,8 @@
           "overshoot_protection": "Überschwingungsschutz (mit Pulsweitenmodulation )",
           "sync_climates_with_mode": "Klimazonen mit Modus synchronisieren",
           "sensor_max_value_age": "Maximales Alter des Temperatursensorwerts",
-          "window_minimum_open_time": "Mindestzeit für geöffnetes Fenster"
+          "window_minimum_open_time": "Mindestzeit für geöffnetes Fenster",
+          "frost_protection_temperature": "Frostschutztemperatur"
         },
         "data_description": {
           "cycles_per_hour": "Maximale Anzahl von Taktzyklen pro Stunde.",
@@ -336,7 +343,8 @@
           "overshoot_protection": "Überschwingungsschutz mit Pulsweitenmodulation aktivieren, um die Temperaturüberschreitung des Kessels zu verhindern.",
           "sensor_max_value_age": "Das maximale Alter des Temperatursensorwerts, bevor er als gestoppt betrachtet wird.",
           "window_minimum_open_time": "Die Mindestzeit, die ein Fenster geöffnet sein muss, bevor das System reagiert.",
-          "sync_climates_with_mode": "Setzt den HVAC-Modus auch auf Raum-Klimageräten, wenn er hier geändert wird."
+          "sync_climates_with_mode": "Setzt den HVAC-Modus auch auf Raum-Klimageräten, wenn er hier geändert wird.",
+          "frost_protection_temperature": "Weiter heizen, wenn der Raum unter diese Temperatur fällt, auch wenn der Thermostat ausgeschaltet ist. Zum Deaktivieren auf 0 setzen."
         },
         "description": "Zeit- und Synchronisationsverhalten für Zyklen, Sensoren und HVAC-Modus.",
         "title": "Systemkonfiguration"
@@ -357,6 +365,16 @@
           "description": "Der Zustand, den Sie erzwingen möchten."
         }
       }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "Kessel meldet eine Störung",
+      "description": "Der mit {name} verbundene Kessel meldet eine Störung (Code {fault_code}). Prüfen Sie das Kesseldisplay und ziehen Sie das Handbuch oder Ihren Installateur zu Rate."
+    },
+    "boiler_pressure": {
+      "title": "Kesseldruck kritisch",
+      "description": "Der Kesseldruck für {name} liegt außerhalb des Bereichs oder fällt schnell (aktuell {pressure} bar). Prüfen Sie das System auf Lecks und füllen Sie bei Bedarf Wasser nach."
     }
   }
 }

@@ -233,7 +233,11 @@
           "solar_gain_min_rise_per_hour": "Hausse intérieure minimale pour apport solaire",
           "solar_gain_setpoint_offset_celsius": "Décalage de consigne pour apport solaire",
           "target_temperature_step": "Pas de Température Cible",
-          "thermal_comfort": "Confort Thermique"
+          "thermal_comfort": "Confort Thermique",
+          "enable_flame_off_setpoint": "Activer la consigne flamme éteinte",
+          "enable_modulation_suppression": "Activer la suppression de modulation",
+          "flame_off_setpoint_offset_celsius": "Décalage de consigne flamme éteinte",
+          "modulation_suppression_delay_seconds": "Délai de suppression de modulation"
         },
         "data_description": {
           "climate_valve_offset": "Écart de température (cible vs actuelle) pour considérer une vanne ouverte.",
@@ -258,7 +262,9 @@
           "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "enable_flame_off_setpoint": "Appliquer un décalage de consigne temporaire lorsque la flamme est éteinte (modulation de largeur d'impulsion uniquement).",
+          "enable_modulation_suppression": "Réduire la modulation en abaissant temporairement la consigne après l'allumage de la flamme (modulation de largeur d'impulsion uniquement)."
         },
         "title": "Avancé"
       },
@@ -328,7 +334,8 @@
           "sync_climates_with_mode": "Synchroniser les climats avec le mode",
           "overshoot_protection": "Protection contre le dépassement (avec Modulation de Largeur d'Impulsion )",
           "sensor_max_value_age": "Âge maximal de la valeur du capteur de température",
-          "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre"
+          "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre",
+          "frost_protection_temperature": "Température de protection antigel"
         },
         "data_description": {
           "cycles_per_hour": "Le nombre maximal de cycles par heure.",
@@ -336,7 +343,8 @@
           "overshoot_protection": "Activer la protection contre le dépassement avec la Modulation de Largeur d'Impulsion pour prévenir les dépassements de température de la chaudière.",
           "sensor_max_value_age": "L'âge maximum de la valeur du capteur de température avant de la considérer comme stagnante.",
           "window_minimum_open_time": "Le temps minimum qu'une fenêtre doit être ouverte avant que le système ne réagisse.",
-          "sync_climates_with_mode": "Applique aussi le mode HVAC aux climats des pièces lorsqu'il change ici."
+          "sync_climates_with_mode": "Applique aussi le mode HVAC aux climats des pièces lorsqu'il change ici.",
+          "frost_protection_temperature": "Continuer à chauffer lorsque la pièce descend en dessous de cette température, même si le thermostat est éteint. Mettre à 0 pour désactiver."
         },
         "description": "Réglages de temporisation et de synchronisation pour cycles, capteurs et mode HVAC.",
         "title": "Configuration du Système"
@@ -357,6 +365,16 @@
           "description": "L’état que vous souhaitez forcer."
         }
       }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "La chaudière signale un défaut",
+      "description": "La chaudière connectée à {name} signale un défaut (code {fault_code}). Vérifiez l'écran de la chaudière et consultez le manuel ou votre installateur."
+    },
+    "boiler_pressure": {
+      "title": "Pression de chaudière anormale",
+      "description": "La pression de la chaudière pour {name} est hors plage ou chute rapidement (actuellement {pressure} bar). Vérifiez l'absence de fuites et rétablissez la pression d'eau si nécessaire."
     }
   }
 }

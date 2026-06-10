@@ -233,7 +233,11 @@
           "solar_gain_min_rise_per_hour": "Subida interior mínima para ganancia solar",
           "solar_gain_setpoint_offset_celsius": "Desfase de setpoint por ganancia solar",
           "target_temperature_step": "Paso de Temperatura Objetivo",
-          "thermal_comfort": "Confort Térmico"
+          "thermal_comfort": "Confort Térmico",
+          "enable_flame_off_setpoint": "Activar consigna con llama apagada",
+          "enable_modulation_suppression": "Activar supresión de modulación",
+          "flame_off_setpoint_offset_celsius": "Desfase de consigna con llama apagada",
+          "modulation_suppression_delay_seconds": "Retardo de supresión de modulación"
         },
         "data_description": {
           "climate_valve_offset": "Diferencia de temperatura (objetivo vs actual) para considerar una válvula abierta.",
@@ -258,7 +262,9 @@
           "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "enable_flame_off_setpoint": "Aplicar un desfase de consigna temporal mientras la llama está apagada (solo modulación por ancho de pulso).",
+          "enable_modulation_suppression": "Reducir la modulación bajando temporalmente la consigna tras el encendido de la llama (solo modulación por ancho de pulso)."
         },
         "title": "Avanzadas"
       },
@@ -328,7 +334,8 @@
           "sync_climates_with_mode": "Sincronizar climas con el modo",
           "overshoot_protection": "Protección contra Sobrepasos (con Modulación de Ancho de Pulso )",
           "sensor_max_value_age": "Edad máxima del valor del sensor de temperatura",
-          "window_minimum_open_time": "Tiempo mínimo de apertura de ventana"
+          "window_minimum_open_time": "Tiempo mínimo de apertura de ventana",
+          "frost_protection_temperature": "Temperatura de protección antiheladas"
         },
         "data_description": {
           "cycles_per_hour": "La cantidad máxima de ciclos por hora.",
@@ -336,7 +343,8 @@
           "overshoot_protection": "Habilitar protección contra sobrepasos con Modulación de Ancho de Pulso para prevenir excesos de temperatura de la caldera.",
           "sensor_max_value_age": "La edad máxima del valor del sensor de temperatura antes de considerarlo como obsoleto.",
           "window_minimum_open_time": "El tiempo mínimo que una ventana debe estar abierta antes de que el sistema reaccione.",
-          "sync_climates_with_mode": "También aplica el modo HVAC a los climas de las habitaciones cuando se cambia aquí."
+          "sync_climates_with_mode": "También aplica el modo HVAC a los climas de las habitaciones cuando se cambia aquí.",
+          "frost_protection_temperature": "Seguir calentando cuando la habitación baje de esta temperatura, incluso con el termostato apagado. Poner a 0 para desactivar."
         },
         "description": "Comportamiento de tiempos y sincronización para ciclos, sensores y modo HVAC.",
         "title": "Configuración del Sistema"
@@ -357,6 +365,16 @@
           "description": "El estado que desea forzar."
         }
       }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "La caldera informa de un fallo",
+      "description": "La caldera conectada a {name} informa de un fallo (código {fault_code}). Compruebe la pantalla de la caldera y consulte el manual o a su instalador."
+    },
+    "boiler_pressure": {
+      "title": "Presión de caldera anómala",
+      "description": "La presión de la caldera de {name} está fuera de rango o cae rápidamente (actualmente {pressure} bar). Compruebe si hay fugas y reponga la presión de agua si es necesario."
     }
   }
 }

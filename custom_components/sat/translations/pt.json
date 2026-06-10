@@ -233,7 +233,11 @@
           "solar_gain_min_rise_per_hour": "Subida interna mínima para ganho solar",
           "solar_gain_setpoint_offset_celsius": "Offset de setpoint por ganho solar",
           "target_temperature_step": "Passo da Temperatura Alvo",
-          "thermal_comfort": "Conforto Térmico"
+          "thermal_comfort": "Conforto Térmico",
+          "enable_flame_off_setpoint": "Ativar setpoint com chama apagada",
+          "enable_modulation_suppression": "Ativar supressão de modulação",
+          "flame_off_setpoint_offset_celsius": "Desvio do setpoint com chama apagada",
+          "modulation_suppression_delay_seconds": "Atraso da supressão de modulação"
         },
         "data_description": {
           "climate_valve_offset": "Diferença de temperatura (alvo vs atual) para considerar uma válvula aberta.",
@@ -258,7 +262,9 @@
           "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "enable_flame_off_setpoint": "Aplicar um desvio temporário do setpoint enquanto a chama está apagada (apenas modulação por largura de impulso).",
+          "enable_modulation_suppression": "Reduzir a modulação baixando temporariamente o setpoint após o acender da chama (apenas modulação por largura de impulso)."
         },
         "title": "Avançado"
       },
@@ -328,7 +334,8 @@
           "sync_climates_with_mode": "Sincronizar climas com o modo",
           "overshoot_protection": "Proteção contra Overshoot (com Modulação por Largura de Pulso )",
           "sensor_max_value_age": "Idade máxima do valor do sensor de temperatura",
-          "window_minimum_open_time": "Tempo mínimo para a janela estar aberta"
+          "window_minimum_open_time": "Tempo mínimo para a janela estar aberta",
+          "frost_protection_temperature": "Temperatura de proteção anticongelamento"
         },
         "data_description": {
           "cycles_per_hour": "A quantidade máxima de ciclos por hora.",
@@ -336,7 +343,8 @@
           "overshoot_protection": "Ativar proteção contra overshoot com Modulação por Largura de Pulso para evitar overshooting da temperatura da caldeira.",
           "sensor_max_value_age": "A idade máxima do valor do sensor de temperatura antes de ser considerado como estagnado.",
           "window_minimum_open_time": "O tempo mínimo que uma janela deve estar aberta antes de o sistema reagir.",
-          "sync_climates_with_mode": "Também aplica o modo HVAC aos climas dos ambientes quando alterado aqui."
+          "sync_climates_with_mode": "Também aplica o modo HVAC aos climas dos ambientes quando alterado aqui.",
+          "frost_protection_temperature": "Continuar a aquecer quando a divisão descer abaixo desta temperatura, mesmo com o termóstato desligado. Definir como 0 para desativar."
         },
         "description": "Comportamento de tempo e sincronização para ciclos, sensores e modo HVAC.",
         "title": "Configuração do Sistema"
@@ -357,6 +365,16 @@
           "description": "O estado que pretende forçar."
         }
       }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "A caldeira comunica uma avaria",
+      "description": "A caldeira ligada a {name} comunica uma avaria (código {fault_code}). Verifique o visor da caldeira e consulte o manual ou o seu instalador."
+    },
+    "boiler_pressure": {
+      "title": "Pressão da caldeira anómala",
+      "description": "A pressão da caldeira de {name} está fora do intervalo ou a descer rapidamente (atualmente {pressure} bar). Verifique fugas no sistema e reponha a pressão da água se necessário."
     }
   }
 }

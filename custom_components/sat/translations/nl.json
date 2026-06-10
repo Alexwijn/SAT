@@ -233,7 +233,11 @@
           "solar_gain_min_rise_per_hour": "Minimale binnentemperatuurstijging voor zonnewinst",
           "solar_gain_setpoint_offset_celsius": "Setpoint-offset bij zonnewinst",
           "target_temperature_step": "Stap van Doeltemperatuur",
-          "thermal_comfort": "Thermisch Comfort"
+          "thermal_comfort": "Thermisch Comfort",
+          "enable_flame_off_setpoint": "Vlam-uit setpoint inschakelen",
+          "enable_modulation_suppression": "Modulatieonderdrukking inschakelen",
+          "flame_off_setpoint_offset_celsius": "Vlam-uit setpointcorrectie",
+          "modulation_suppression_delay_seconds": "Vertraging modulatieonderdrukking"
         },
         "data_description": {
           "climate_valve_offset": "Temperatuurverschil (doel vs. huidig) om een klep als open te beschouwen.",
@@ -258,7 +262,9 @@
           "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy."
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "enable_flame_off_setpoint": "Pas een tijdelijke setpointcorrectie toe terwijl de vlam uit is (alleen pulsbreedtemodulatie).",
+          "enable_modulation_suppression": "Verminder modulatie door het setpoint tijdelijk te verlagen na het ontsteken van de vlam (alleen pulsbreedtemodulatie)."
         },
         "title": "Geavanceerd"
       },
@@ -328,7 +334,8 @@
           "overshoot_protection": "Overshoot Bescherming (met Pulsbreedtemodulatie )",
           "sync_climates_with_mode": "Synchroniseer klimaten met modus",
           "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor",
-          "window_minimum_open_time": "Minimale open tijd van het raam"
+          "window_minimum_open_time": "Minimale open tijd van het raam",
+          "frost_protection_temperature": "Vorstbeschermingstemperatuur"
         },
         "data_description": {
           "cycles_per_hour": "Het maximale aantal cycli per uur.",
@@ -336,7 +343,8 @@
           "overshoot_protection": "Overshoot Bescherming inschakelen met Pulsbreedtemodulatie om temperatuur-overshoot van de ketel te voorkomen.",
           "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd.",
           "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert.",
-          "sync_climates_with_mode": "Stel ook de HVAC-modus in op kamerklimaten wanneer die hier verandert."
+          "sync_climates_with_mode": "Stel ook de HVAC-modus in op kamerklimaten wanneer die hier verandert.",
+          "frost_protection_temperature": "Blijf verwarmen wanneer de kamer onder deze temperatuur zakt, ook als de thermostaat uit staat. Zet op 0 om uit te schakelen."
         },
         "description": "Timing- en synchronisatiegedrag voor cycli, sensoren en HVAC-modus.",
         "title": "Systeemconfiguratie"
@@ -357,6 +365,16 @@
           "description": "De toestand die je wilt afdwingen."
         }
       }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "Ketel meldt een storing",
+      "description": "De ketel die is verbonden met {name} meldt een storing (code {fault_code}). Controleer het display van de ketel en raadpleeg de handleiding of uw installateur."
+    },
+    "boiler_pressure": {
+      "title": "Keteldruk ongezond",
+      "description": "De keteldruk voor {name} is buiten bereik of daalt snel (momenteel {pressure} bar). Controleer het systeem op lekkages en vul indien nodig de waterdruk bij."
     }
   }
 }
