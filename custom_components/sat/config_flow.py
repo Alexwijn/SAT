@@ -515,7 +515,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             manufacturers = ManufacturerFactory.resolve_by_member_id(coordinator.member_id)
-            default_manufacturer = manufacturers[0].friendly_name if len(manufacturers) > 0 else -1
+            default_manufacturer = type(manufacturers[0]).__name__ if len(manufacturers) > 0 else None
         finally:
             await coordinator.async_will_remove_from_hass()
 
@@ -524,11 +524,16 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             manufacturer = ManufacturerFactory.resolve_by_name(name)
             options.append({"value": name, "label": manufacturer.friendly_name})
 
+        if default_manufacturer is not None:
+            manufacturer_marker = vol.Required(CONF_MANUFACTURER, default=default_manufacturer)
+        else:
+            manufacturer_marker = vol.Required(CONF_MANUFACTURER)
+
         return self.async_show_form(
             last_step=True,
             step_id="manufacturer",
             data_schema=vol.Schema({
-                vol.Required(CONF_MANUFACTURER, default=default_manufacturer): selector.SelectSelector(
+                manufacturer_marker: selector.SelectSelector(
                     selector.SelectSelectorConfig(options=options)
                 )
             })
