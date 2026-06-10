@@ -157,9 +157,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 new_options.pop("sync_with_thermostat")
 
         if entry.version < 4:
-            if entry.data.get("window_sensor") is not None:
-                new_data["window_sensors"] = [entry.data.get("window_sensor")]
-                del new_options["window_sensor"]
+            if (window_sensor := entry.options.get("window_sensor") or entry.data.get("window_sensor")) is not None:
+                new_options["window_sensors"] = [window_sensor]
+
+            new_data.pop("window_sensor", None)
+            new_options.pop("window_sensor", None)
 
         if entry.version < 5:
             if entry.options.get("overshoot_protection") is not None:
