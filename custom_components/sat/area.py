@@ -11,7 +11,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     EVENT_HOMEASSISTANT_STARTED,
 )
-from homeassistant.core import HomeAssistant, State, CoreState, Event, EventStateChangedData
+from homeassistant.core import HomeAssistant, State, CoreState
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import COLD_SETPOINT, MINIMUM_SETPOINT
@@ -197,10 +197,6 @@ class Area:
         if self._time_interval is not None:
             self._time_interval()
             self._time_interval = None
-
-    async def async_outside_entity_changed(self, _event: Event[EventStateChangedData]) -> None:
-        """Handle changes to the outside entity."""
-        self.heating_curve.update(self.target_temperature, self.current_temperature)
 
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Update the PID controller with the current error and heating curve."""
