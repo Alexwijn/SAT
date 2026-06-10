@@ -683,7 +683,9 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         schema_entries: list[tuple[Marker, Any]] = []
 
-        if options.get(CONF_HEATING_SYSTEM) == HeatingSystem.HEAT_PUMP:
+        heating_system = self._config_entry.data.get(CONF_HEATING_SYSTEM)
+
+        if heating_system == HeatingSystem.HEAT_PUMP:
             schema_entries.append((
                 vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR])),
                 selector.SelectSelector(selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
@@ -691,8 +693,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                     selector.SelectOptionDict(value="3", label="High (3x per hour)"),
                 ])),
             ))
-
-        if options.get(CONF_HEATING_SYSTEM) == HeatingSystem.RADIATORS:
+        else:
             schema_entries.append((
                 vol.Required(CONF_CYCLES_PER_HOUR, default=str(options[CONF_CYCLES_PER_HOUR])),
                 selector.SelectSelector(selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
