@@ -763,9 +763,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.control_pid()
             self.schedule_heating_control_loop()
 
-        if old_state.attributes.get("temperature") != new_state.attributes.get("temperature"):
+        if (new_temperature := new_state.attributes.get("temperature")) is None:
+            return
+
+        if old_state.attributes.get("temperature") != new_temperature:
             _LOGGER.debug("Thermostat temperature changed.")
-            await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
+            await self.async_set_target_temperature(new_temperature, cascade=False)
 
     async def _async_entity_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to an entity."""
