@@ -773,7 +773,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def _async_entity_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to an entity."""
-        if event.data.get("new_state") is None or event.data.get("new_state") in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+        new_state = event.data.get("new_state")
+        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
         self._update_heating_curves()
