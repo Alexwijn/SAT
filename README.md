@@ -368,6 +368,9 @@ The OPV is a crucial value that determines the boiler's on/off times when the Ov
 > [!TIP]
 > For more in depth review of SAT and real time observations you can read this [excellent discussion post](https://github.com/Alexwijn/SAT/discussions/40) from @critictidier.
 
+## Stargazers over time
+[![Stargazers over time](https://starchart.cc/Alexwijn/SAT.svg?variant=adaptive)](https://starchart.cc/Alexwijn/SAT)
+
 <!-- Badges -->
 
 [hacs-url]: https://github.com/hacs/integration
