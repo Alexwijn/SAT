@@ -64,12 +64,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return True
 
     try:
-        if getattr(entry_data, "coordinator", None) is not None:
-            await entry_data.coordinator.async_will_remove_from_hass()
         unload_successful = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     except ValueError:
         _LOGGER.debug("Platforms already unloaded for entry %s.", entry.entry_id)
         unload_successful = True
+
+    try:
+        if getattr(entry_data, "coordinator", None) is not None:
+            await entry_data.coordinator.async_will_remove_from_hass()
+    except Exception as error:
+        _LOGGER.error("Error during coordinator cleanup: %s", error)
 
     if not unload_successful:
         return False
