@@ -211,6 +211,25 @@ def test_derivative_uses_sensor_timing():
     assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
 
 
+def test_derivative_accumulates_sub_interval_updates():
+    pid = _make_pid(
+        HeatingSystem.RADIATORS,
+        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
+    )
+
+    _set_heating_curve_value(pid, 10.0)
+    pid.update(_state_for_error(1.0, 0.0, current=20.0))
+
+    pid.update(_state_for_error(1.0, 30.0, current=20.1))
+    pid.update(_state_for_error(1.0, 90.0, current=20.3))
+
+    derivative = -(20.3 - 20.0) / 90.0
+    alpha = 90.0 / (PID_UPDATE_INTERVAL + 90.0)
+    expected_raw = alpha * derivative
+
+    assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
+
+
 def test_derivative_freeze_when_delta_is_zero():
     pid = _make_pid(
         HeatingSystem.RADIATORS,

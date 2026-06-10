@@ -168,7 +168,6 @@ class PID:
             self._update_integral(state)
 
         self._last_error = state.error
-        self._last_temperature = state.current
 
         _LOGGER.debug(
             "PID update: entity=%s current_temperature=%.3f setpoint=%.3f heating_curve=%.3f freeze_integral=%s P=%.3f I=%.3f D=%.3f output=%.3f",
@@ -199,17 +198,17 @@ class PID:
     def _update_derivative(self, state: TemperatureState) -> None:
         """Update the derivative term of the PID controller based on temperature slope."""
         if self._last_temperature is None or self._last_derivative_updated is None:
-            self._last_derivative_updated = state.last_changed.timestamp()
+            self._reset_derivative_anchor(state)
             return
 
         if abs(state.error) <= DEADBAND:
-            self._last_derivative_updated = state.last_changed.timestamp()
+            self._reset_derivative_anchor(state)
             return
 
         temperature_delta = state.current - self._last_temperature
 
         if temperature_delta == 0.0:
-            self._last_derivative_updated = state.last_changed.timestamp()
+            self._reset_derivative_anchor(state)
             return
 
         delta_time = state.last_changed.timestamp() - self._last_derivative_updated
@@ -221,7 +220,7 @@ class PID:
 
         if abs(derivative) >= DERIVATIVE_RAW_CAP:
             self._raw_derivative = max(-DERIVATIVE_RAW_CAP, min(derivative, DERIVATIVE_RAW_CAP))
-            self._last_derivative_updated = state.last_changed.timestamp()
+            self._reset_derivative_anchor(state)
             return
 
         # Apply the low-pass filter and clamp the magnitude.
@@ -229,12 +228,17 @@ class PID:
         filtered_derivative = alpha * derivative + (1 - alpha) * self._raw_derivative
         self._raw_derivative = clamp_to_range(filtered_derivative, DERIVATIVE_RAW_CAP)
 
-        self._last_derivative_updated = state.last_changed.timestamp()
-
         _LOGGER.debug(
             "PID derivative update: entity=%s previous_temperature=%.3f current_temperature=%.3f delta_time=%.3f raw_value=%.6f",
             self._entity_id, self._last_temperature, state.current, delta_time, self._raw_derivative,
         )
+
+        self._reset_derivative_anchor(state)
+
+    def _reset_derivative_anchor(self, state: TemperatureState) -> None:
+        """Move the derivative temperature and time anchors to the current sample."""
+        self._last_temperature = state.current
+        self._last_derivative_updated = state.last_changed.timestamp()
 
     async def _async_save_state(self) -> None:
         if self._store is None:
