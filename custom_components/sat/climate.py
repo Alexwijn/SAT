@@ -46,6 +46,7 @@ from .temperature.history import TemperatureHistory
 from .temperature.history import TemperatureStatistics
 from .temperature.state import TemperatureState
 from .types import PWMStatus, HeatingMode
+from .warm_up import WarmUpEstimator, WARM_UP_MINIMUM_ERROR_CELSIUS
 
 ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
@@ -122,6 +123,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._curve_advisor = HeatingCurveAdvisor(self._config.pid.heating_curve_coefficient)
         self._target_temperature_changed_at: Optional[float] = None
         self._frost_protection_active: bool = False
+        self._warm_up = WarmUpEstimator()
 
         self._heating_control = heating_control
         self._temperature_history = TemperatureHistory()
@@ -184,6 +186,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if old_state is not None:
             self._heating_control.restore(old_state)
+            self._warm_up.restore(old_state.attributes.get("warm_up_rate_per_hour"))
 
             if self._target_temperature is None:
                 if old_state.attributes.get(ATTR_TEMPERATURE) is None:
@@ -257,6 +260,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "solar_gain_rise_per_hour": self._solar_gain_snapshot.rise_per_hour,
 
             "frost_protection_active": self._frost_protection_active,
+            "warm_up_rate_per_hour": self._warm_up.rate,
 
             "relative_modulation_value": self._heating_control.relative_modulation_value,
             "relative_modulation_state": self._heating_control.relative_modulation_state.name,
@@ -528,6 +532,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         )
 
         self._record_curve_advice_sample(now)
+
+        self._warm_up.update(
+            active=(
+                    self.hvac_mode == HVACMode.HEAT
+                    and self.valves_open
+                    and self._coordinator.flame_active
+                    and not self._solar_gain_snapshot.active
+                    and temperature_state.error > WARM_UP_MINIMUM_ERROR_CELSIUS
+            ),
+            temperature=temperature_state.current,
+            timestamp=now,
+        )
 
     def _update_frost_protection(self) -> bool:
         """Track whether the room is cold enough to require heating while off."""

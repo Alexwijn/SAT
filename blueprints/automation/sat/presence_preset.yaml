@@ -1,0 +1,70 @@
+blueprint:
+  name: SAT Presence Presets
+  description: >
+    Switch the SAT thermostat between the home and away presets based on a
+    person, group, or device tracker.
+  domain: automation
+  source_url: https://github.com/Alexwijn/SAT
+  input:
+    climate_entity:
+      name: SAT thermostat
+      selector:
+        entity:
+          filter:
+            domain: climate
+            integration: sat
+    presence_entity:
+      name: Presence entity
+      description: A person, group of persons, or device tracker.
+      selector:
+        entity:
+          filter:
+            domain:
+              - person
+              - group
+              - device_tracker
+    home_preset:
+      name: Preset when home
+      default: home
+      selector:
+        select:
+          options:
+            - home
+            - comfort
+            - sleep
+    away_preset:
+      name: Preset when away
+      default: away
+      selector:
+        select:
+          options:
+            - away
+            - sleep
+
+triggers:
+  - trigger: state
+    entity_id: !input presence_entity
+
+conditions:
+  - condition: template
+    value_template: "{{ trigger.from_state is not none and trigger.from_state.state != trigger.to_state.state }}"
+
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'home' }}"
+        sequence:
+          - action: climate.set_preset_mode
+            target:
+              entity_id: !input climate_entity
+            data:
+              preset_mode: !input home_preset
+    default:
+      - action: climate.set_preset_mode
+        target:
+          entity_id: !input climate_entity
+        data:
+          preset_mode: !input away_preset
+
+mode: queued

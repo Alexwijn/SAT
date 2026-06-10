@@ -1,0 +1,89 @@
+blueprint:
+  name: SAT Holiday Mode
+  description: >
+    Switch the SAT thermostat to the away preset and turn domestic hot water
+    off for the duration of a calendar event (for example "Holiday"), then
+    restore everything when the event ends.
+  domain: automation
+  source_url: https://github.com/Alexwijn/SAT
+  input:
+    climate_entity:
+      name: SAT thermostat
+      selector:
+        entity:
+          filter:
+            domain: climate
+            integration: sat
+    calendar_entity:
+      name: Holiday calendar
+      selector:
+        entity:
+          filter:
+            domain: calendar
+    water_heater_entity:
+      name: Hot water (optional)
+      description: The SAT hot water entity to turn off while away.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: water_heater
+    home_preset:
+      name: Preset when returning home
+      default: home
+      selector:
+        select:
+          options:
+            - home
+            - comfort
+
+variables:
+  water_heater_entity: !input water_heater_entity
+
+triggers:
+  - trigger: calendar
+    event: start
+    entity_id: !input calendar_entity
+    id: holiday_start
+  - trigger: calendar
+    event: end
+    entity_id: !input calendar_entity
+    id: holiday_end
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: holiday_start
+        sequence:
+          - action: climate.set_preset_mode
+            target:
+              entity_id: !input climate_entity
+            data:
+              preset_mode: away
+          - if:
+              - condition: template
+                value_template: "{{ water_heater_entity != '' }}"
+            then:
+              - action: water_heater.set_operation_mode
+                target:
+                  entity_id: !input water_heater_entity
+                data:
+                  operation_mode: "off"
+    default:
+      - action: climate.set_preset_mode
+        target:
+          entity_id: !input climate_entity
+        data:
+          preset_mode: !input home_preset
+      - if:
+          - condition: template
+            value_template: "{{ water_heater_entity != '' }}"
+        then:
+          - action: water_heater.set_operation_mode
+            target:
+              entity_id: !input water_heater_entity
+            data:
+              operation_mode: gas
+
+mode: queued

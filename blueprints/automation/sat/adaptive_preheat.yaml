@@ -1,0 +1,75 @@
+blueprint:
+  name: SAT Adaptive Preheat
+  description: >
+    Start heating early so the room reaches the target temperature at the
+    chosen time, using the warm-up rate the SAT thermostat has learned
+    (the warm_up_rate_per_hour attribute). Falls back to a configurable
+    rate while SAT is still learning.
+  domain: automation
+  source_url: https://github.com/Alexwijn/SAT
+  input:
+    climate_entity:
+      name: SAT thermostat
+      selector:
+        entity:
+          filter:
+            domain: climate
+            integration: sat
+    ready_time:
+      name: Ready time
+      description: The time at which the room should be at temperature.
+      selector:
+        time: {}
+    target_temperature:
+      name: Target temperature
+      default: 20.0
+      selector:
+        number:
+          min: 5
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    fallback_rate:
+      name: Fallback warm-up rate
+      description: Used while SAT has not learned a warm-up rate yet.
+      default: 1.0
+      selector:
+        number:
+          min: 0.1
+          max: 5
+          step: 0.1
+          unit_of_measurement: "°C/h"
+
+variables:
+  climate_entity: !input climate_entity
+  ready_time: !input ready_time
+  target_temperature: !input target_temperature
+  fallback_rate: !input fallback_rate
+
+triggers:
+  - trigger: time_pattern
+    minutes: "/5"
+
+conditions:
+  - condition: template
+    value_template: >
+      {% set current = state_attr(climate_entity, 'current_temperature') %}
+      {% set rate = state_attr(climate_entity, 'warm_up_rate_per_hour') or fallback_rate %}
+      {% if current is none or rate <= 0 %}
+        false
+      {% else %}
+        {% set deficit = [target_temperature - current, 0] | max %}
+        {% set lead_minutes = (deficit / rate * 60) | round(0, 'ceil') %}
+        {% set ready = today_at(ready_time) %}
+        {% set start = ready - timedelta(minutes=lead_minutes) %}
+        {{ deficit > 0 and start <= now() < ready }}
+      {% endif %}
+
+actions:
+  - action: climate.set_temperature
+    target:
+      entity_id: !input climate_entity
+    data:
+      temperature: !input target_temperature
+
+mode: single
