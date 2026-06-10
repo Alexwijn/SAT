@@ -251,3 +251,22 @@ async def test_pressure_health_high_pressure_with_delay(hass, coordinator, entry
 
     state = hass.states.get(_get_pressure_entity_id(hass, entry))
     assert state.state == "on"
+
+
+def _get_fault_entity_id(hass, entry):
+    registry = er.async_get(hass)
+    return registry.async_get_entity_id("binary_sensor", "sat", f"{entry.entry_id}-boiler-fault")
+
+
+async def test_device_fault_sensor(hass, coordinator, entry, domains, data, options, config):
+    entity_id = _get_fault_entity_id(hass, entry)
+    assert hass.states.get(entity_id).state == "unavailable"
+
+    coordinator._fault_active = True
+    coordinator._fault_code = 133
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "on"
+    assert state.attributes["fault_code"] == 133

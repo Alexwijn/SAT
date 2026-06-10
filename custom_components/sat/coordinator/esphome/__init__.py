@@ -48,6 +48,8 @@ ENTITY_MAP: dict[tuple[type[EntityInfo], str], str] = {
     (BinarySensorInfo, "flame_on"): "flame_on",
     (BinarySensorInfo, "dhw_active"): "dhw_active",
     (BinarySensorInfo, "ch_active"): "ch_active",
+    (BinarySensorInfo, "fault_indication"): "fault_indication",
+    (SensorInfo, "oem_fault_code"): "oem_fault_code",
 
     # Numbers (read-write setpoints)
     (NumberInfo, "t_set"): "t_set",
@@ -80,6 +82,8 @@ class EspHomeEntityKeys:
     flame_on: Optional[int] = None
     dhw_active: Optional[int] = None
     ch_active: Optional[int] = None
+    fault_indication: Optional[int] = None
+    oem_fault_code: Optional[int] = None
 
     # Numbers
     t_set: Optional[int] = None
@@ -163,6 +167,17 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
     @property
     def hot_water_enabled(self) -> Optional[bool]:
         return self._get_switch_value(self._keys.dhw_enable)
+
+    @property
+    def fault_active(self) -> Optional[bool]:
+        return self._get_binary_sensor_value(self._keys.fault_indication)
+
+    @property
+    def fault_code(self) -> Optional[int]:
+        if (code := self._get_sensor_value(self._keys.oem_fault_code)) is None:
+            return None
+
+        return int(code)
 
     @property
     def setpoint(self) -> Optional[float]:

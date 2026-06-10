@@ -48,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
     sensors: list[BinarySensorEntity] = [
         SatCycleHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatDeviceFaultSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatDeviceHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatPressureHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
@@ -394,6 +395,40 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
 
         slope = (n * sum_tp - sum_t * sum_p) / denom
         return -slope * 3600
+
+
+class SatDeviceFaultSensor(SatEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Device Fault"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def available(self) -> bool:
+        """Return availability of the sensor."""
+        return self._coordinator.fault_active is not None
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        return bool(self._coordinator.fault_active)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the fault details."""
+        return {"fault_code": self._coordinator.fault_code}
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-boiler-fault"
 
 
 class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):

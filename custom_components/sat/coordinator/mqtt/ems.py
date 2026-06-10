@@ -25,6 +25,7 @@ DATA_BOILER_CAPACITY = "nompower"
 
 DATA_REL_MIN_MOD_LEVEL = "burnminpower"
 DATA_MAX_REL_MOD_LEVEL_SETTING = "burnmaxpower"
+DATA_SERVICE_CODE_NUMBER = "servicecodenumber"
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -71,6 +72,13 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
     @property
     def supports_hot_water_management(self) -> bool:
         return True
+
+    @property
+    def fault_code(self) -> Optional[int]:
+        if (code := float_value(self.data.get(DATA_SERVICE_CODE_NUMBER))) is None:
+            return None
+
+        return int(code)
 
     @property
     def hot_water_enabled(self) -> Optional[bool]:

@@ -41,6 +41,8 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._maximum_setpoint = None
         self._hot_water_setpoint = None
         self._hot_water_enabled = True
+        self._fault_active: Optional[bool] = None
+        self._fault_code: Optional[int] = None
         self._boiler_temperature = None
         self._boiler_pressure = None
         self._device_state = HeaterState.OFF
@@ -92,6 +94,14 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
     @property
     def hot_water_enabled(self) -> Optional[bool]:
         return self._hot_water_enabled
+
+    @property
+    def fault_active(self) -> Optional[bool]:
+        return self._fault_active
+
+    @property
+    def fault_code(self) -> Optional[int]:
+        return self._fault_code
 
     @property
     def supports_maximum_setpoint_management(self):

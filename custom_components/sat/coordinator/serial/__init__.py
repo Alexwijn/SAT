@@ -62,6 +62,20 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return True
 
     @property
+    def fault_active(self) -> Optional[bool]:
+        if (fault := self.get(DATA_SLAVE_FAULT_IND)) is None:
+            return None
+
+        return bool(fault)
+
+    @property
+    def fault_code(self) -> Optional[int]:
+        if (code := self.get(DATA_SLAVE_OEM_FAULT)) is None:
+            return None
+
+        return int(code)
+
+    @property
     def hot_water_enabled(self) -> Optional[bool]:
         if (enabled := self.get(DATA_MASTER_DHW_ENABLED)) is None:
             return None

@@ -306,6 +306,16 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return False
 
     @property
+    def fault_active(self) -> Optional[bool]:
+        """Return whether the device reports a fault, if known."""
+        return None
+
+    @property
+    def fault_code(self) -> Optional[int]:
+        """Return the OEM fault code reported by the device, if any."""
+        return None
+
+    @property
     def hot_water_enabled(self) -> Optional[bool]:
         """Return whether domestic hot water is currently enabled, if known."""
         return None
