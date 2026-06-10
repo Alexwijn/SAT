@@ -150,6 +150,10 @@ class SatConfig:
         return bool(self.data.get(CONF_OVERSHOOT_PROTECTION))
 
     @property
+    def frost_protection_temperature(self) -> float:
+        return float(self.options.get(CONF_FROST_PROTECTION_TEMPERATURE) or 0.0)
+
+    @property
     def push_setpoint_to_thermostat(self) -> bool:
         return bool(self.options.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT, self.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT)))
 

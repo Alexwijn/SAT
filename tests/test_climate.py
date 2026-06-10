@@ -259,3 +259,34 @@ async def test_pulse_width_modulation_entity_service(hass, climate):
 
     await hass.services.async_call(DOMAIN, SERVICE_PULSE_WIDTH_MODULATION, {"entity_id": climate.entity_id, "enabled": False}, blocking=True)
     assert climate._heating_control.pwm_state.enabled is False
+
+
+async def test_frost_protection_heats_when_off(monkeypatch, climate):
+    climate.hass.states.async_set("sensor.test_inside_sensor", "4.0")
+    climate.hass.states.async_set("sensor.test_outside_sensor", "-5")
+    climate._hvac_mode = HVACMode.OFF
+
+    update_mock = AsyncMock()
+    monkeypatch.setattr(climate._heating_control, "update", update_mock)
+
+    await climate.async_control_heating_loop()
+
+    demand = update_mock.call_args.args[0]
+    assert climate._frost_protection_active is True
+    assert demand.hvac_mode == HVACMode.HEAT
+    assert demand.heater_state == HeaterState.ON
+
+
+async def test_frost_protection_stays_off_when_warm(monkeypatch, climate):
+    climate.hass.states.async_set("sensor.test_inside_sensor", "18.0")
+    climate.hass.states.async_set("sensor.test_outside_sensor", "-5")
+    climate._hvac_mode = HVACMode.OFF
+
+    update_mock = AsyncMock()
+    monkeypatch.setattr(climate._heating_control, "update", update_mock)
+
+    await climate.async_control_heating_loop()
+
+    demand = update_mock.call_args.args[0]
+    assert climate._frost_protection_active is False
+    assert demand.heater_state == HeaterState.OFF

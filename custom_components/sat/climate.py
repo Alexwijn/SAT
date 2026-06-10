@@ -121,6 +121,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._solar_gain = SolarGainController(self._config.solar_gain)
         self._curve_advisor = HeatingCurveAdvisor(self._config.pid.heating_curve_coefficient)
         self._target_temperature_changed_at: Optional[float] = None
+        self._frost_protection_active: bool = False
 
         self._heating_control = heating_control
         self._temperature_history = TemperatureHistory()
@@ -254,6 +255,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "solar_gain_sun_elevation": self._solar_gain_snapshot.sun_elevation,
             "solar_gain_rise_per_hour": self._solar_gain_snapshot.rise_per_hour,
 
+            "frost_protection_active": self._frost_protection_active,
+
             "relative_modulation_value": self._heating_control.relative_modulation_value,
             "relative_modulation_state": self._heating_control.relative_modulation_state.name,
 
@@ -364,6 +367,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def hvac_action(self) -> HVACAction:
         """Get the current HVAC action."""
         if self._hvac_mode == HVACMode.OFF:
+            if self._frost_protection_active and self._coordinator.active:
+                return HVACAction.HEATING
+
             return HVACAction.OFF
 
         if not self._coordinator.active:
@@ -522,6 +528,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._record_curve_advice_sample(now)
 
+    def _update_frost_protection(self) -> bool:
+        """Track whether the room is cold enough to require heating while off."""
+        threshold = self._config.frost_protection_temperature
+        current_temperature = self.current_temperature
+
+        if threshold <= 0 or current_temperature is None:
+            self._frost_protection_active = False
+        elif current_temperature <= threshold:
+            self._frost_protection_active = True
+        elif current_temperature >= threshold + FROST_PROTECTION_HYSTERESIS_CELSIUS:
+            self._frost_protection_active = False
+
+        return self._frost_protection_active
+
     def _record_curve_advice_sample(self, now: float) -> None:
         """Feed the heating curve advisor when the system is in steady heating operation."""
         if self.hvac_mode != HVACMode.HEAT or not self.valves_open:
@@ -587,6 +607,18 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._control_heating_loop_unsub = None
 
         if self._hvac_mode == HVACMode.OFF:
+            if self._update_frost_protection():
+                await self._heating_control.update(
+                    HeatingDemand(
+                        valves_open=True,
+                        hvac_mode=HVACMode.HEAT,
+                        timestamp=event_timestamp(time),
+                        requested_setpoint=max(self._coordinator.minimum_setpoint, FROST_PROTECTION_SETPOINT),
+                        outside_temperature=self.current_outside_temperature,
+                    )
+                )
+                return
+
             await self._heating_control.update(
                 HeatingDemand(
                     hvac_mode=HVACMode.OFF,
