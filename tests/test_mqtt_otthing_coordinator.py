@@ -126,8 +126,8 @@ def test_member_id(coordinator):
 
 def test_min_max_modulation(coordinator):
     _load_state(coordinator)
-    assert coordinator.minimum_relative_modulation_value == 100.0
-    assert coordinator.maximum_relative_modulation_value == 20.0
+    assert coordinator.minimum_relative_modulation_value == 20.0
+    assert coordinator.maximum_relative_modulation_value == 100.0
 
 
 def test_dhw_setpoint_bounds(coordinator):
