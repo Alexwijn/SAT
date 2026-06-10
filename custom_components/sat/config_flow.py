@@ -309,7 +309,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
             self.data[CONF_MODE] = SatMode.SIMULATOR
-            self.data[CONF_DEVICE] = f"%s_%s".format(SatMode.SIMULATOR, snake_case(_user_input.get(CONF_NAME)))
+            self.data[CONF_DEVICE] = f"{SatMode.SIMULATOR}_{snake_case(_user_input.get(CONF_NAME))}"
 
             return await self.async_step_sensors()
 
