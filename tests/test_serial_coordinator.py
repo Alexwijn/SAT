@@ -1,5 +1,7 @@
 """Unit tests for the serial coordinator."""
 
+import asyncio
+
 import pytest
 
 from custom_components.sat.const import CONF_DEVICE, CONF_MODE, OPTIONS_DEFAULTS
@@ -73,6 +75,8 @@ async def test_serial_coordinator_manages_subscription(hass, serial_gateway_monk
     gateway = serial_gateway_monkeypatch["instance"]
 
     assert gateway.subscriptions == [coordinator._publish_callback]
+
+    assert asyncio.iscoroutinefunction(coordinator._publish_callback)
 
     await coordinator.async_setup()
     await hass.async_block_till_done()
