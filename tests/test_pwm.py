@@ -16,13 +16,14 @@ from custom_components.sat.types import CycleControlMode, CycleKind, Percentiles
 def _make_device_state(
         *,
         flame_active: bool = False,
+        central_heating: bool = True,
         hot_water_active: bool = False,
         setpoint: Optional[float] = 40.0,
         flow_temperature: Optional[float] = 50.0,
 ) -> DeviceState:
     return DeviceState(
         flame_active=flame_active,
-        central_heating=True,
+        central_heating=central_heating,
         hot_water_active=hot_water_active,
         setpoint=setpoint,
         flow_temperature=flow_temperature,
@@ -131,6 +132,20 @@ def test_calculate_duty_cycle_ranges(pwm: PWM, ratio, flame_active, hot_water_ac
         assert off_time == pytest.approx(expected[1], abs=tolerance)
     else:
         assert (on_time, off_time) == expected
+
+
+def test_low_duty_residual_dhw_flame_does_not_start_cycle(pwm: PWM):
+    """A flame left over from a hot water pulse must not grant the minimum on-time."""
+    boiler_temperature = 50.0
+    pwm._effective_on_temperature = boiler_temperature
+
+    base_offset = pwm._heating_system.base_offset
+    setpoint = base_offset + 0.05 * (boiler_temperature - base_offset)
+
+    device_state = _make_device_state(flame_active=True, central_heating=False)
+    on_time, off_time = pwm._calculate_duty_cycle(setpoint, device_state)
+
+    assert (on_time, off_time) == (0, 1800)
 
 
 def test_update_transitions_and_cycle_limit(pwm: PWM):

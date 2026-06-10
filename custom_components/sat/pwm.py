@@ -245,7 +245,7 @@ class PWM:
 
         # Handle special low-duty cycle cases
         if self._last_duty_cycle_percentage < self._min_duty_cycle_percentage:
-            if device_state.flame_active and not device_state.hot_water_active:
+            if device_state.flame_active and device_state.central_heating and not device_state.hot_water_active:
                 on_time = self._on_time_lower_threshold
                 off_time = self._on_time_maximum_threshold - self._on_time_lower_threshold
 
