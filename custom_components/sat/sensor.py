@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import Optional, Mapping, Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import RestoreSensor, SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolumeFlowRate, EntityCategory
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume, UnitOfVolumeFlowRate, EntityCategory
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -19,6 +19,7 @@ from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_SAMPLES
+from .helpers import timestamp
 from .types import BoilerStatus, CycleClassification
 
 
@@ -65,6 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
         if minimum_consumption > 0 and maximum_consumption > 0:
             sensors.append(SatCurrentConsumptionSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
+            sensors.append(SatTotalConsumptionSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
 
     async_add_entities(sensors)
 
@@ -223,6 +225,20 @@ class SatCurrentPowerSensor(SatEntity, SensorEntity):
         return f"{self._config.entry_id}-boiler-current-power"
 
 
+def calculate_consumption_rate(coordinator: SatDataUpdateCoordinator, minimum_consumption: float, maximum_consumption: float) -> Optional[float]:
+    """Estimate the current gas consumption rate in m³/h from the relative modulation."""
+    if (relative_modulation_value := coordinator.relative_modulation_value) is None:
+        return None
+
+    if not coordinator.active or not coordinator.flame_active:
+        return 0.0
+
+    differential_gas_consumption = maximum_consumption - minimum_consumption
+    modulation_fraction = relative_modulation_value / 100
+
+    return round(minimum_consumption + (modulation_fraction * differential_gas_consumption), 3)
+
+
 class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 
     def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
@@ -251,24 +267,68 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
         return self._coordinator.relative_modulation_value is not None
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> Optional[float]:
         """Return the state of the device in native units.
 
         In this case, the state represents the current consumption of the boiler in m³/h.
         """
-        if not self._coordinator.active or not self._coordinator.flame_active:
-            return 0.0
-
-        differential_gas_consumption = self._maximum_consumption - self._minimum_consumption
-        relative_modulation_value = self._coordinator.relative_modulation_value
-
-        modulation_fraction = relative_modulation_value / 100
-        return round(self._minimum_consumption + (modulation_fraction * differential_gas_consumption), 3)
+        return calculate_consumption_rate(self._coordinator, self._minimum_consumption, self._maximum_consumption)
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-boiler-current-consumption"
+
+
+class SatTotalConsumptionSensor(SatEntity, RestoreSensor):
+    _attr_device_class = SensorDeviceClass.GAS
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
+
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
+
+        self._total: float = 0.0
+        self._last_rate: Optional[float] = None
+        self._last_update: Optional[float] = None
+
+        self._minimum_consumption = self._config.limits.minimum_consumption
+        self._maximum_consumption = self._config.limits.maximum_consumption
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+
+        if (data := await self.async_get_last_sensor_data()) is not None and data.native_value is not None:
+            self._total = float(data.native_value)
+
+    @property
+    def name(self) -> str:
+        return "Total Consumption (Device)"
+
+    @property
+    def native_value(self) -> float:
+        return round(self._total, 4)
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-boiler-total-consumption"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        now = timestamp()
+
+        if self._last_update is not None and self._last_rate is not None:
+            elapsed_hours = (now - self._last_update) / 3600
+
+            # Skip gaps over an hour, so restarts and clock jumps cannot inflate the total
+            if 0 < elapsed_hours < 1:
+                self._total += self._last_rate * elapsed_hours
+
+        self._last_update = now
+        self._last_rate = calculate_consumption_rate(self._coordinator, self._minimum_consumption, self._maximum_consumption)
+
+        super()._handle_coordinator_update()
 
 
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
