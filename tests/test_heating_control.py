@@ -378,3 +378,57 @@ async def test_async_added_to_hass_replaces_existing_listeners(heating_control, 
     assert removed["pwm_cycle"] == 1
     assert calls["coordinator_add"] == 1
     assert calls["pwm_listen"] == 1
+
+
+def _config_without_overshoot_protection() -> SatConfig:
+    return SatConfig(
+        entry_id="test",
+        data={
+            CONF_MODE: SatMode.FAKE.value,
+            CONF_MINIMUM_SETPOINT: 40.0,
+            CONF_OVERSHOOT_PROTECTION: False,
+            CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS,
+        },
+        options={**OPTIONS_DEFAULTS},
+    )
+
+
+async def test_no_pwm_enable_on_sustained_overshoot_without_protection(heating_control, coordinator):
+    heating_control._config = _config_without_overshoot_protection()
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(40.0)
+
+    requested = 30.0
+    start_time = timestamp()
+
+    await heating_control.update(HeatingDemand(
+        timestamp=start_time,
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        outside_temperature=10.0,
+        requested_setpoint=requested,
+    ))
+
+    await heating_control.update(HeatingDemand(
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        outside_temperature=10.0,
+        requested_setpoint=requested,
+        timestamp=start_time + OVERSHOOT_SUSTAIN_SECONDS + 1,
+    ))
+
+    assert heating_control.pwm_state.enabled is False
+
+
+async def test_pwm_off_phase_forces_minimum_without_protection(heating_control, coordinator):
+    heating_control._config = _config_without_overshoot_protection()
+
+    await coordinator.async_set_boiler_temperature(50.0)
+
+    _enable_pwm(heating_control, PWMStatus.OFF)
+    heating_control._control_setpoint = 45.0
+
+    await heating_control.update(_make_demand(45.0))
+
+    assert heating_control.control_setpoint == MINIMUM_SETPOINT

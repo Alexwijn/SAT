@@ -164,7 +164,7 @@ class SatHeatingControl:
             self._pwm_cycle_listener_remove = None
 
         self._coordinator_listener_remove = self._coordinator.async_add_listener(self._handle_coordinator_update)
-        self._pwm_cycle_listener_remove = self._hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, lambda event: self._pwm.on_cycle_end(cycle=event.data.get("cycle")))
+        self._pwm_cycle_listener_remove = self._hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, self._on_cycle_ended)
 
     async def async_will_remove_from_hass(self) -> None:
         """Persist state when the integration unloads."""
@@ -259,8 +259,21 @@ class SatHeatingControl:
             )
         )
 
+    def _on_cycle_ended(self, event) -> None:
+        """Forward completed cycles to the PWM controller."""
+        if (cycle := event.data.get("cycle")) is None:
+            return
+
+        if not self._config.overshoot_protection and cycle.control_mode == CycleControlMode.CONTINUOUS:
+            return
+
+        self._pwm.on_cycle_end(cycle=cycle)
+
     def _maybe_enable_pwm_on_sustained_overshoot(self, demand: HeatingDemand, device_state: DeviceState) -> None:
         """Enable PWM when the boiler stays in overshoot while flame is active."""
+        if not self._config.overshoot_protection:
+            return
+
         if self._pwm.enabled:
             self._sustained_overshoot_started_at = None
             return
@@ -382,7 +395,7 @@ class SatHeatingControl:
         config = self._config
         device_state = self._coordinator.state
 
-        if device_state.hot_water_active or requested_setpoint <= COLD_SETPOINT or not config.overshoot_protection:
+        if device_state.hot_water_active or requested_setpoint <= COLD_SETPOINT:
             return
 
         if self._pwm.status == PWMStatus.OFF:
