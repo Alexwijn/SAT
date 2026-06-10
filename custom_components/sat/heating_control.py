@@ -209,7 +209,9 @@ class SatHeatingControl:
         self._last_outside_temperature = demand.outside_temperature
 
         if demand.heater_state == HeaterState.ON:
-            if demand.requested_setpoint >= self._config.limits.maximum_setpoint:
+            if self._config.pwm.force_pulse_width_modulation:
+                self._pwm.enable()
+            elif demand.requested_setpoint >= self._config.limits.maximum_setpoint:
                 self._pwm.disable()
 
             self._maybe_enable_pwm_on_sustained_overshoot(
@@ -276,6 +278,9 @@ class SatHeatingControl:
         if not self._config.overshoot_protection and cycle.control_mode == CycleControlMode.CONTINUOUS:
             return
 
+        if self._config.pwm.force_pulse_width_modulation and cycle.control_mode == CycleControlMode.PWM:
+            return
+
         self._pwm.on_cycle_end(cycle=cycle)
 
     def _maybe_enable_pwm_on_sustained_overshoot(self, demand: HeatingDemand, device_state: DeviceState) -> None:
@@ -327,6 +332,9 @@ class SatHeatingControl:
         self._reset_pwm_disable_guards()
 
     def _maybe_disable_pwm_runtime(self, demand: HeatingDemand, device_state: DeviceState) -> None:
+        if self._config.pwm.force_pulse_width_modulation:
+            return
+
         if not self._pwm.enabled:
             self._sustained_underheat_started_at = None
             self._sustained_saturation_started_at = None

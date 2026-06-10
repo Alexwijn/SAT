@@ -7,6 +7,7 @@ from custom_components.sat.const import (
     COLD_SETPOINT,
     CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS,
     CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
+    CONF_FORCE_PULSE_WIDTH_MODULATION,
     CONF_HEATING_SYSTEM,
     CONF_MINIMUM_SETPOINT,
     CONF_MODE,
@@ -432,3 +433,25 @@ async def test_pwm_off_phase_forces_minimum_without_protection(heating_control, 
     await heating_control.update(_make_demand(45.0))
 
     assert heating_control.control_setpoint == MINIMUM_SETPOINT
+
+
+async def test_force_pulse_width_modulation_keeps_pwm_enabled(heating_control, coordinator):
+    heating_control._config = SatConfig(
+        entry_id="test",
+        data={
+            CONF_MODE: SatMode.FAKE.value,
+            CONF_MINIMUM_SETPOINT: 40.0,
+            CONF_OVERSHOOT_PROTECTION: True,
+            CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS,
+        },
+        options={**OPTIONS_DEFAULTS, CONF_FORCE_PULSE_WIDTH_MODULATION: True},
+    )
+
+    await coordinator.async_set_boiler_temperature(50.0)
+    await heating_control.update(_make_demand(45.0))
+
+    assert heating_control.pwm_state.enabled is True
+
+    await heating_control.update(_make_demand(heating_control._config.limits.maximum_setpoint + 1))
+
+    assert heating_control.pwm_state.enabled is True
