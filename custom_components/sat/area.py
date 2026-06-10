@@ -62,7 +62,7 @@ class Area:
         if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
             return None
 
-        return state if state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE] else None
+        return state if state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF] else None
 
     def sensor_state(self) -> Optional[State]:
         """Return the source state used to calculate the current temperature."""
@@ -165,6 +165,9 @@ class Area:
     @property
     def requires_heat(self) -> bool:
         """Determine if this area should influence heating arbitration."""
+        if self.climate_state is None:
+            return False
+
         valve_position = self.valve_position
         if valve_position is not None:
             return valve_position >= 10.0

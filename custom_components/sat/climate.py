@@ -757,11 +757,14 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
-        if (
-                old_state.state != new_state.state or
-                old_state.attributes.get("temperature") != new_state.attributes.get("temperature")
-        ):
+        if old_state.state != new_state.state:
             _LOGGER.debug("Thermostat state changed.")
+            self.pid.reset()
+            self.control_pid()
+            self.schedule_heating_control_loop()
+
+        if old_state.attributes.get("temperature") != new_state.attributes.get("temperature"):
+            _LOGGER.debug("Thermostat temperature changed.")
             await self.async_set_target_temperature(new_state.attributes.get("temperature"), cascade=False)
 
     async def _async_entity_changed(self, event: Event[EventStateChangedData]) -> None:
@@ -778,6 +781,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if not new_state or self._rooms is None:
             return
+
+        old_state = event.data.get("old_state")
+        if old_state is not None and old_state.state != new_state.state:
+            _LOGGER.debug(f"Climate state changed for {new_state.entity_id}.")
+            self.areas.pids.reset(new_state.entity_id)
+            self.schedule_heating_control_loop()
 
         # Get the attributes of the new state
         new_attrs = new_state.attributes

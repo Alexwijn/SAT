@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from homeassistant.components.climate import HVACMode
 from homeassistant.util import dt as dt_util
 
 from custom_components.sat.area import Area, ATTR_SENSOR_TEMPERATURE_ID
@@ -23,6 +24,34 @@ async def test_area_current_temperature_stale_climate_state(hass, monkeypatch):
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
 
     assert area.current_temperature is None
+
+
+async def test_area_off_climate_is_excluded(hass):
+    hass.states.async_set("climate.room1", HVACMode.OFF, {"temperature": 21.0, "current_temperature": 18.0})
+
+    config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=dict(OPTIONS_DEFAULTS))
+
+    area = Area(config, "climate.room1")
+    await area.async_added_to_hass(hass, "device.test")
+
+    assert area.climate_state is None
+    assert area.target_temperature is None
+    assert area.current_temperature is None
+    assert area.temperature_state is None
+    assert area.requires_heat is False
+
+
+async def test_area_heat_climate_is_included(hass):
+    hass.states.async_set("climate.room1", HVACMode.HEAT, {"temperature": 21.0, "current_temperature": 18.0})
+
+    config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=dict(OPTIONS_DEFAULTS))
+
+    area = Area(config, "climate.room1")
+    await area.async_added_to_hass(hass, "device.test")
+
+    assert area.climate_state is not None
+    assert area.target_temperature == 21.0
+    assert area.current_temperature == 18.0
 
 
 async def test_area_current_temperature_stale_override_sensor(hass, monkeypatch):
