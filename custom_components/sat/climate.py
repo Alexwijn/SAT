@@ -815,22 +815,33 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
 
+        old_state = event.data.get("old_state")
+        if old_state is not None and old_state.state == new_state.state:
+            return
+
         _LOGGER.debug(f"Window Sensor Changed to {new_state.state}.")
 
         if new_state.state == STATE_ON:
             if self.preset_mode == PRESET_ACTIVITY:
                 return
 
-            try:
-                self._window_sensor_handle = asyncio.create_task(
-                    asyncio.sleep(self._config.sensors.window_minimum_open_time_seconds)
-                )
-                self._pre_activity_temperature = self.target_temperature or self.min_temp
+            if self._window_sensor_handle is not None:
+                self._window_sensor_handle.cancel()
 
-                await self._window_sensor_handle
+            handle = asyncio.create_task(
+                asyncio.sleep(self._config.sensors.window_minimum_open_time_seconds)
+            )
+            self._window_sensor_handle = handle
+            self._pre_activity_temperature = self.target_temperature or self.min_temp
+
+            try:
+                await handle
                 await self.async_set_preset_mode(PRESET_ACTIVITY)
             except asyncio.CancelledError:
                 _LOGGER.debug("Window closed before minimum open time.")
+            finally:
+                if self._window_sensor_handle is handle:
+                    self._window_sensor_handle = None
 
             return
 
