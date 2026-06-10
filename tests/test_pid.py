@@ -34,7 +34,6 @@ def _pid_config(
         integral: float = 0.5,
         derivative: float = 0.1,
         automatic_gains: bool = False,
-        automatic_gains_value: float = 0.0,
         heating_curve_coefficient: float = 2.0,
 ) -> PidConfig:
     return PidConfig(
@@ -42,7 +41,6 @@ def _pid_config(
         derivative=derivative,
         proportional=proportional,
         automatic_gains=automatic_gains,
-        automatic_gains_value=automatic_gains_value,
         heating_curve_coefficient=heating_curve_coefficient,
     )
 

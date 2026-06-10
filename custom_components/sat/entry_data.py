@@ -46,7 +46,6 @@ class PidConfig:
     derivative: float
     proportional: float
     automatic_gains: bool
-    automatic_gains_value: float
     heating_curve_coefficient: float
 
 
@@ -209,7 +208,6 @@ class SatConfig:
             proportional=float(self.options.get(CONF_PROPORTIONAL)),
 
             automatic_gains=bool(self.options.get(CONF_AUTOMATIC_GAINS)),
-            automatic_gains_value=float(self.options.get(CONF_AUTOMATIC_GAINS_VALUE)),
             heating_curve_coefficient=float(self.options.get(CONF_HEATING_CURVE_COEFFICIENT)),
         )
 
