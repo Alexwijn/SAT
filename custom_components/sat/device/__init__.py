@@ -141,9 +141,6 @@ class DeviceTracker:
         self._previous_update_at = self._last_update_at
         self._last_update_at = timestamp
 
-        if not DeviceStatusEvaluator.has_demand(state):
-            self._last_flame_off_at = None
-
         self._record_flame_transitions(self._previous_state, state)
         self._record_hot_water_transitions(self._previous_state, state)
 
