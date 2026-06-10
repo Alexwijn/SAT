@@ -152,7 +152,7 @@ class SatConfig:
 
     @property
     def push_setpoint_to_thermostat(self) -> bool:
-        return bool(self.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT))
+        return bool(self.options.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT, self.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT)))
 
     @property
     def radiators(self) -> list[str]:

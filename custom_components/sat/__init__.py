@@ -199,6 +199,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         new_data["device"] = entry_id
                         break
 
+        if entry.version < 12:
+            if (push_setpoint := new_data.pop("push_setpoint_to_thermostat", None)) is not None:
+                new_options["push_setpoint_to_thermostat"] = push_setpoint
+
         hass.config_entries.async_update_entry(entry, version=SatFlowHandler.VERSION, data=new_data, options=new_options)
 
     _LOGGER.info("Migration to version %s successful", entry.version)
