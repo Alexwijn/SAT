@@ -153,7 +153,7 @@ class PWM:
         # -------------------------
         if self._status in (PWMStatus.OFF, PWMStatus.IDLE):
             if on_time_seconds >= HEATER_STARTUP_TIMEFRAME and (self._status == PWMStatus.IDLE or elapsed >= off_time_seconds):
-                if self._current_cycle >= self._config.duty_cycle_seconds:
+                if self._current_cycle >= self._config.cycles_per_hour:
                     _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
                     return
 
