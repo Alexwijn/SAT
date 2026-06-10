@@ -28,8 +28,8 @@ It can also function as a PID ON/OFF thermostat, providing advanced temperature 
 ## Features
 OpenTherm ( MQTT / Serial / ESPHome / EMS-ESP / OTThing ):
 - Multi-room temperature control with support for temperature synchronization for main climates
-- Overshoot protection value automatic calculation mechanism
 - Adjustable heating curve coefficients to fine-tune your heating system
+- Heating curve recommendation with a suggested coefficient, learned from daily operation
 - Target temperature step for adjusting the temperature in smaller increments
 - Presets for different modes such as Away, Sleep, Home, Comfort
 - Automatic gains for PID control
@@ -38,9 +38,14 @@ OpenTherm ( MQTT / Serial / ESPHome / EMS-ESP / OTThing ):
 - Climate valve offset to adjust the temperature reading for your climate valve
 - Sample time for PID control to fine-tune your system's response time
 - Open Window detection
-- Control DHW setpoint
+- Frost protection that keeps heating when a room gets too cold, even while turned off
+- Domestic hot water control through a water heater entity (setpoint and on/off)
+- Boiler fault reporting with Home Assistant repair issues
+- Gas consumption sensors, including a total for the Energy dashboard
 - Solar gain compensation to adjust heating based on passive solar heating
 - Boiler pressure monitoring
+- Adaptive preheat, presence, and holiday automation blueprints
+- Config entry diagnostics for easy issue reporting
 
 PID ON/OFF thermostat:
 
@@ -53,6 +58,7 @@ PID ON/OFF thermostat:
 - Climate valve offset to adjust the temperature reading for your climate valve
 - Sample time for PID control to fine-tune your system's response time
 - Open Window detection
+- Frost protection that keeps heating when a room gets too cold, even while turned off
 - Solar gain compensation to adjust heating based on passive solar heating
 
 ---
@@ -312,6 +318,8 @@ Predefined temperature settings for different scenarios or activities: Home, Com
 
 *Minimum time for window to be open*: The minimum time a window must be open before the system reacts and pauses heating.
 
+*Frost Protection Temperature*: Keep heating when the room drops below this temperature, even while the thermostat is off. Set to 0 to disable.
+
 ## Advanced Tab
 
 > [!NOTE]
@@ -340,6 +348,18 @@ Predefined temperature settings for different scenarios or activities: Home, Com
 *Minimum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption (only available for OpenTherm MQTT/Serial).
 
 *Maximum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption (only available for OpenTherm MQTT/Serial).
+
+---
+
+# Blueprints
+
+SAT ships three automation blueprints in [`blueprints/automation/sat/`](blueprints/automation/sat) that you can import into Home Assistant:
+
+- *Adaptive Preheat*: starts heating early so the room is at temperature by a chosen time, using the warm-up rate SAT has learned (the `warm_up_rate_per_hour` climate attribute).
+- *Presence Presets*: switches between the home and away presets based on a person, group, or device tracker.
+- *Holiday Mode*: follows a calendar; for the duration of an event it switches to the away preset and turns domestic hot water off, restoring both afterwards.
+
+Import them via Settings → Automations & scenes → Blueprints → Import blueprint, using the raw GitHub URL of the blueprint file.
 
 ---
 
