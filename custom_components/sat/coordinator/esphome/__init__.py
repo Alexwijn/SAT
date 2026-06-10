@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Optional, TYPE_CHECKING
 
 from aioesphomeapi import (
@@ -18,6 +19,7 @@ from aioesphomeapi import (
 )
 from homeassistant.core import HomeAssistant, callback, CALLBACK_TYPE
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.event import async_track_time_interval
 
 from .. import SatDataUpdateCoordinator
 from ...entry_data import SatConfig
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
     from homeassistant.components.esphome.entry_data import RuntimeEntryData
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+
+STATE_NOTIFY_INTERVAL = timedelta(seconds=5)
 
 ENTITY_MAP: dict[tuple[type[EntityInfo], str], str] = {
     # Sensors (read-only)
@@ -210,36 +214,12 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
         self._keys = self._discover_entities()
         _LOGGER.debug("Discovered ESPHome entity keys: %s", self._keys)
 
-        # Subscribe to state updates for all discovered keys
-        for state_type, key_fields in [
-            (SensorState, [
-                "t_boiler", "t_ret", "rel_mod_level", "device_id",
-                "max_capacity", "min_mod_level", "t_dhw_set_lb",
-                "t_dhw_set_ub", "ch_pressure"
-            ]),
+        self._unsub_callbacks.append(
+            async_track_time_interval(hass, self._async_notify_interval, STATE_NOTIFY_INTERVAL, cancel_on_shutdown=True)
+        )
 
-            (BinarySensorState, [
-                "flame_on", "dhw_active", "ch_active"
-            ]),
-
-            (NumberState, [
-                "t_set", "t_dhw_set", "max_t_set", "max_rel_mod_level"
-            ]),
-
-            (SwitchState, [
-                "ch_enable", "dhw_enable"
-            ]),
-        ]:
-            for field_name in key_fields:
-                key = getattr(self._keys, field_name)
-                if key is not None:
-                    unsub = self._entry_data.async_subscribe_state_update(
-                        device_id=0,
-                        state_type=state_type,
-                        state_key=key,
-                        entity_callback=self._on_state_update,
-                    )
-                    self._unsub_callbacks.append(unsub)
+        unsub = self._entry_data.async_subscribe_static_info_updated(self._on_static_info_updated)
+        self._unsub_callbacks.append(unsub)
 
         # Subscribe to device-level updates (availability changes, reconnects)
         unsub = self._entry_data.async_subscribe_device_updated(self._on_device_updated)
@@ -347,17 +327,25 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
         return state.state
 
     @callback
-    def _on_state_update(self) -> None:
-        """Called when any subscribed entity state changes."""
+    def _async_notify_interval(self, _now=None) -> None:
+        """Periodically notify listeners with the latest state cache values."""
+        self.async_notify_listeners()
+
+    def _refresh_keys(self) -> None:
+        """Re-discover entity keys in case the firmware was updated."""
+        new_keys = self._discover_entities()
+        if new_keys != self._keys:
+            _LOGGER.info("ESPHome entity keys changed, re-discovering")
+            self._keys = new_keys
+
+    @callback
+    def _on_static_info_updated(self, _infos: list[EntityInfo]) -> None:
+        """Called when the device sends new static entity info."""
+        self._refresh_keys()
         self.async_notify_listeners()
 
     @callback
     def _on_device_updated(self) -> None:
         """Called when device availability changes or reconnects."""
-        # Re-discover entities in case firmware was updated
-        new_keys = self._discover_entities()
-        if new_keys != self._keys:
-            _LOGGER.info("ESPHome entity keys changed after reconnection, re-discovering")
-            self._keys = new_keys
-
+        self._refresh_keys()
         self.async_notify_listeners()

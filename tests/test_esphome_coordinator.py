@@ -37,6 +37,7 @@ class FakeRuntimeEntryData:
         self.available = True
         self._state_subscriptions: dict = {}
         self._device_update_subscriptions: set = set()
+        self._static_info_update_subscriptions: set = set()
 
     def async_subscribe_state_update(self, *, device_id, state_type, state_key, entity_callback):
         key = (state_type, device_id, state_key)
@@ -46,6 +47,10 @@ class FakeRuntimeEntryData:
     def async_subscribe_device_updated(self, callback_):
         self._device_update_subscriptions.add(callback_)
         return lambda: self._device_update_subscriptions.discard(callback_)
+
+    def async_subscribe_static_info_updated(self, callback_):
+        self._static_info_update_subscriptions.add(callback_)
+        return lambda: self._static_info_update_subscriptions.discard(callback_)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -350,22 +355,25 @@ async def test_added_to_hass_discovers_and_subscribes(esphome_coordinator, runti
     await esphome_coordinator.async_added_to_hass(hass)
 
     assert esphome_coordinator._keys == KEYS
-    # Should have subscriptions for all discovered keys + 1 device-level subscription
-    assert len(esphome_coordinator._unsub_callbacks) > 0
-    assert len(runtime_data._state_subscriptions) > 0
+    assert len(esphome_coordinator._unsub_callbacks) == 3
+
+    assert len(runtime_data._state_subscriptions) == 0
     assert len(runtime_data._device_update_subscriptions) == 1
+    assert len(runtime_data._static_info_update_subscriptions) == 1
+
+    await esphome_coordinator.async_will_remove_from_hass()
 
 
 @pytest.mark.asyncio
 async def test_will_remove_from_hass_unsubscribes(esphome_coordinator, runtime_data, hass):
     await esphome_coordinator.async_added_to_hass(hass)
-    assert len(runtime_data._state_subscriptions) > 0
+    assert len(esphome_coordinator._unsub_callbacks) == 3
 
     await esphome_coordinator.async_will_remove_from_hass()
 
     assert esphome_coordinator._unsub_callbacks == []
-    assert len(runtime_data._state_subscriptions) == 0
     assert len(runtime_data._device_update_subscriptions) == 0
+    assert len(runtime_data._static_info_update_subscriptions) == 0
 
 
 # ── Capability tests ──────────────────────────────────────────────────────────
