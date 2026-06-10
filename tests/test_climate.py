@@ -237,6 +237,6 @@ def test_control_pid_freezes_integral_when_solar_gain_detected(monkeypatch, clim
     monkeypatch.setattr(PID, "update", _update)
     climate.control_pid(now)
     climate.hass.states.async_set("sensor.test_inside_sensor", "20.3")
-    climate.control_pid(now + timedelta(minutes=10))
+    climate.control_pid(now + timedelta(minutes=15))
 
     assert calls[-1] is True

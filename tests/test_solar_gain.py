@@ -37,7 +37,7 @@ def test_detects_solar_gain_when_signals_match():
     ))
 
     snapshot = controller.update(SolarGainSignals(
-        sample=SolarGainSample(temperature=20.2, timestamp=600.0),
+        sample=SolarGainSample(temperature=20.2, timestamp=900.0),
         valves_open=True,
         sun_elevation=20.0,
         flame_active=True,
@@ -63,7 +63,7 @@ def test_does_not_detect_when_sun_is_below_threshold():
     ))
 
     snapshot = controller.update(SolarGainSignals(
-        sample=SolarGainSample(temperature=20.2, timestamp=600.0),
+        sample=SolarGainSample(temperature=20.2, timestamp=900.0),
         valves_open=True,
         sun_elevation=5.0,
         flame_active=True,
@@ -87,7 +87,7 @@ def test_does_not_detect_when_modulation_unknown_and_flame_active():
     ))
 
     snapshot = controller.update(SolarGainSignals(
-        sample=SolarGainSample(temperature=20.2, timestamp=600.0),
+        sample=SolarGainSample(temperature=20.2, timestamp=900.0),
         valves_open=True,
         sun_elevation=20.0,
         flame_active=True,
@@ -96,3 +96,49 @@ def test_does_not_detect_when_modulation_unknown_and_flame_active():
     ))
 
     assert snapshot.active is False
+
+
+def test_rise_requires_minimum_history_span():
+    controller = SolarGainController(_config(enabled=True, minimum_elevation=10.0, minimum_rise_per_hour=0.5))
+
+    controller.update(SolarGainSignals(
+        sample=SolarGainSample(temperature=20.0, timestamp=0.0),
+        valves_open=True,
+        sun_elevation=20.0,
+        flame_active=False,
+        is_heating_mode=True,
+        relative_modulation=None,
+    ))
+
+    snapshot = controller.update(SolarGainSignals(
+        sample=SolarGainSample(temperature=20.5, timestamp=60.0),
+        valves_open=True,
+        sun_elevation=20.0,
+        flame_active=False,
+        is_heating_mode=True,
+        relative_modulation=None,
+    ))
+
+    assert snapshot.active is False
+    assert snapshot.rise_per_hour is None
+
+
+def test_single_sensor_tick_does_not_trigger():
+    controller = SolarGainController(_config(enabled=True, minimum_elevation=10.0, minimum_rise_per_hour=0.6))
+
+    snapshot = None
+    temperatures = [20.0] * 15 + [20.1]
+
+    for index, temperature in enumerate(temperatures):
+        snapshot = controller.update(SolarGainSignals(
+            sample=SolarGainSample(temperature=temperature, timestamp=index * 60.0),
+            valves_open=True,
+            sun_elevation=20.0,
+            flame_active=False,
+            is_heating_mode=True,
+            relative_modulation=None,
+        ))
+
+    assert snapshot.active is False
+    assert snapshot.rise_per_hour is not None
+    assert snapshot.rise_per_hour < 0.6

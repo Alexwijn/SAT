@@ -4,7 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from .const import SOLAR_GAIN_HOLD_SECONDS, SOLAR_GAIN_MAX_RELATIVE_MODULATION_PERCENT
+from .const import (
+    SOLAR_GAIN_HOLD_SECONDS,
+    SOLAR_GAIN_MAX_RELATIVE_MODULATION_PERCENT,
+    SOLAR_GAIN_RISE_MINIMUM_SPAN_SECONDS,
+    SOLAR_GAIN_RISE_WINDOW_SECONDS,
+)
 from .entry_data import SolarGainConfig
 
 
@@ -43,7 +48,7 @@ class SolarGainController:
     def __init__(self, config: SolarGainConfig) -> None:
         self._config = config
         self._hold_until: Optional[float] = None
-        self._last_sample: Optional[SolarGainSample] = None
+        self._samples: list[SolarGainSample] = []
 
     def update(self, signals: SolarGainSignals) -> SolarGainSnapshot:
         rise_per_hour = self._indoor_rise_per_hour(signals.sample)
@@ -64,18 +69,19 @@ class SolarGainController:
         return SolarGainSnapshot(active=active, rise_per_hour=rise_per_hour, sun_elevation=sun_elevation)
 
     def _indoor_rise_per_hour(self, sample: SolarGainSample) -> Optional[float]:
-        if self._last_sample is None:
-            self._last_sample = sample
+        if self._samples and sample.timestamp < self._samples[-1].timestamp:
+            self._samples = []
+
+        self._samples.append(sample)
+        self._samples = [previous for previous in self._samples if (sample.timestamp - previous.timestamp) <= SOLAR_GAIN_RISE_WINDOW_SECONDS]
+
+        oldest = self._samples[0]
+        elapsed_seconds = sample.timestamp - oldest.timestamp
+
+        if elapsed_seconds < SOLAR_GAIN_RISE_MINIMUM_SPAN_SECONDS:
             return None
 
-        previous = self._last_sample
-        self._last_sample = sample
-
-        elapsed_seconds = sample.timestamp - previous.timestamp
-        if elapsed_seconds <= 0:
-            return None
-
-        return (sample.temperature - previous.temperature) * 3600 / elapsed_seconds
+        return (sample.temperature - oldest.temperature) * 3600 / elapsed_seconds
 
     def _is_solar_gain_event(self, signals: SolarGainSignals, rise_per_hour: Optional[float]) -> bool:
         if rise_per_hour is None or signals.sun_elevation is None:
