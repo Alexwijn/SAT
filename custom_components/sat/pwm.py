@@ -87,17 +87,21 @@ class PWM:
     def reset(self) -> None:
         """Reset the PWM control."""
         self._enabled = False
-        self._current_cycle: int = 0
         self._last_update: float = timestamp()
         self._status: PWMStatus = PWMStatus.IDLE
         self._duty_cycle: Optional[Tuple[int, int]] = None
 
         self._waiting_for_flame_on: bool = False
-        self._first_duty_cycle_start: Optional[float] = None
+        self._cycle_starts: list[float] = []
         self._last_duty_cycle_percentage: Optional[float] = None
         self._flame_on_at: Optional[float] = None
 
         self._effective_on_temperature: Optional[float] = None
+
+    @property
+    def cycles_this_hour(self) -> int:
+        """Return the number of duty cycles started in the last hour."""
+        return len(self._cycle_starts)
 
     def enable(self) -> None:
         """Enable the PWM control."""
@@ -135,10 +139,7 @@ class PWM:
         on_time_seconds, off_time_seconds = self._calculate_duty_cycle(requested_setpoint, device_state)
         self._duty_cycle = (on_time_seconds, off_time_seconds)
 
-        if self._first_duty_cycle_start is None or (timestamp - self._first_duty_cycle_start) > 3600:
-            self._current_cycle = 0
-            self._first_duty_cycle_start = timestamp
-            _LOGGER.info("CYCLES count reset for the rolling hour.")
+        self._cycle_starts = [start for start in self._cycle_starts if (timestamp - start) <= 3600]
 
         # Update boiler temperature if heater has just started up
         if self._status == PWMStatus.ON and device_state.flame_active:
@@ -153,11 +154,11 @@ class PWM:
         # -------------------------
         if self._status in (PWMStatus.OFF, PWMStatus.IDLE):
             if on_time_seconds >= HEATER_STARTUP_TIMEFRAME and (self._status == PWMStatus.IDLE or elapsed >= off_time_seconds):
-                if self._current_cycle >= self._config.cycles_per_hour:
+                if self.cycles_this_hour >= self._config.cycles_per_hour:
                     _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
                     return
 
-                self._current_cycle += 1
+                self._cycle_starts.append(timestamp)
                 self._status = PWMStatus.ON
                 self._last_update = timestamp
                 self._waiting_for_flame_on = not device_state.flame_active
@@ -266,7 +267,7 @@ class PWM:
 
             _LOGGER.debug(
                 "Low duty cycle range, cycles this hour: %d. Calculated on_time: %d seconds, off_time: %d seconds.",
-                self._current_cycle, on_time, off_time
+                self.cycles_this_hour, on_time, off_time
             )
 
             return int(on_time), int(off_time)
@@ -277,7 +278,7 @@ class PWM:
 
             _LOGGER.debug(
                 "Mid-range duty cycle, cycles this hour: %d. Calculated on_time: %d seconds, off_time: %d seconds.",
-                self._current_cycle, on_time, off_time
+                self.cycles_this_hour, on_time, off_time
             )
 
             return int(on_time), int(off_time)
@@ -288,7 +289,7 @@ class PWM:
 
             _LOGGER.debug(
                 "High duty cycle range, cycles this hour: %d. Calculated on_time: %d seconds, off_time: %d seconds.",
-                self._current_cycle, on_time, off_time
+                self.cycles_this_hour, on_time, off_time
             )
 
             return int(on_time), int(off_time)

@@ -161,7 +161,7 @@ def test_update_transitions_and_cycle_limit(pwm: PWM):
         timestamp=0.0,
     )
     assert pwm.status is PWMStatus.ON
-    assert pwm._current_cycle == 1
+    assert pwm.cycles_this_hour == 1
 
     pwm.update(
         device_state=device_state,
@@ -170,14 +170,14 @@ def test_update_transitions_and_cycle_limit(pwm: PWM):
     )
     assert pwm.status is PWMStatus.OFF
 
-    pwm._current_cycle = pwm._config.duty_cycle_seconds
+    pwm._cycle_starts = [800.0] * pwm._config.cycles_per_hour
     pwm.update(
         device_state=device_state,
         requested_setpoint=setpoint,
         timestamp=900.0,
     )
     assert pwm.status is PWMStatus.OFF
-    assert pwm._current_cycle == pwm._config.duty_cycle_seconds
+    assert pwm.cycles_this_hour == pwm._config.cycles_per_hour
 
 
 def test_minimum_flame_on_hold_prevents_early_off_when_recalculated_on_time_drops(pwm: PWM):
@@ -276,8 +276,7 @@ def test_pwm_on_phase_starts_when_flame_ignites(pwm: PWM):
 def test_cycle_count_resets_after_rolling_hour(pwm: PWM):
     pwm.enable()
     pwm._status = PWMStatus.IDLE
-    pwm._current_cycle = 4
-    pwm._first_duty_cycle_start = 0.0
+    pwm._cycle_starts = [0.0, 25.0, 50.0, 75.0]
     pwm._last_update = 0.0
 
     base_offset = pwm._heating_system.base_offset
@@ -290,8 +289,8 @@ def test_cycle_count_resets_after_rolling_hour(pwm: PWM):
         timestamp=3701.0,
     )
 
-    assert pwm._current_cycle == 1
-    assert pwm._first_duty_cycle_start == 3701.0
+    assert pwm.cycles_this_hour == 1
+    assert pwm._cycle_starts == [3701.0]
     assert pwm.status is PWMStatus.ON
 
 
