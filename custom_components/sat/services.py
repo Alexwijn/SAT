@@ -2,7 +2,7 @@ import logging
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import entity_registry
+from homeassistant.helpers import config_validation as cv, entity_registry
 
 from .climate import SatClimate
 from .const import DOMAIN, SERVICE_RESET_INTEGRAL
@@ -20,7 +20,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
             if not (entry := registry.async_get(entity_id)):
                 continue
 
-            if not (entry_data := hass.data[DOMAIN].get(entry.config_entry_id)):
+            if not (entry_data := hass.data.get(DOMAIN, {}).get(entry.config_entry_id)):
                 continue
 
             if entry_data.climate is not None:
@@ -42,5 +42,10 @@ async def async_register_services(hass: HomeAssistant) -> None:
         DOMAIN,
         service=SERVICE_RESET_INTEGRAL,
         service_func=reset_integral,
-        schema=vol.Schema({vol.Required("entity_id"): list[str]})
+        schema=vol.Schema({vol.Required("entity_id"): cv.entity_ids})
     )
+
+
+async def async_unregister_services(hass: HomeAssistant) -> None:
+    """Remove the SAT services when the last entry unloads."""
+    hass.services.async_remove(DOMAIN, SERVICE_RESET_INTEGRAL)

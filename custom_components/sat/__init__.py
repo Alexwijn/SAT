@@ -16,7 +16,7 @@ from .const import (
 from .coordinator import SatDataUpdateCoordinatorFactory
 from .entry_data import SatConfig, SatEntryData
 from .heating_control import SatHeatingControl
-from .services import async_register_services
+from .services import async_register_services, async_unregister_services
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 PLATFORMS = ["climate", "sensor", "number", "binary_sensor"]
@@ -89,6 +89,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN].pop(entry.entry_id, None)
     if not hass.data[DOMAIN]:
         hass.data.pop(DOMAIN, None)
+        await async_unregister_services(hass)
 
     return True
 

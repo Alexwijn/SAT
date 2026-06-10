@@ -24,7 +24,7 @@ from homeassistant.components.climate import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, ServiceCall, Event, CoreState, EventStateChangedData, HassJob
+from homeassistant.core import HomeAssistant, Event, CoreState, EventStateChangedData, HassJob
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -143,7 +143,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.control_pid())
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.schedule_heating_control_loop())
 
-        await self._register_services()
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
         self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
@@ -209,16 +208,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._hvac_mode = HVACMode.OFF
 
         self.async_write_ha_state()
-
-    async def _register_services(self) -> None:
-        """Register SAT services with Home Assistant."""
-
-        async def reset_integral(_call: ServiceCall) -> None:
-            """Service to reset the integral part of the PID controller."""
-            self.pid.reset()
-            self.areas.pids.reset()
-
-        self.hass.services.async_register(DOMAIN, SERVICE_RESET_INTEGRAL, reset_integral)
 
     @property
     def name(self) -> str:
