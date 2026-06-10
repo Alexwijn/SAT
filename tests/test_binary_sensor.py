@@ -270,3 +270,21 @@ async def test_device_fault_sensor(hass, coordinator, entry, domains, data, opti
     state = hass.states.get(entity_id)
     assert state.state == "on"
     assert state.attributes["fault_code"] == 133
+
+
+async def test_device_fault_creates_repair_issue(hass, coordinator, entry, domains, data, options, config):
+    from homeassistant.helpers import issue_registry as ir
+
+    coordinator._fault_active = True
+    coordinator._fault_code = 133
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue(DOMAIN, f"boiler_fault_{entry.entry_id}") is not None
+
+    coordinator._fault_active = False
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert registry.async_get_issue(DOMAIN, f"boiler_fault_{entry.entry_id}") is None

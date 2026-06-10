@@ -9,7 +9,8 @@ from homeassistant.components.climate import HVACAction
 from homeassistant.components.group.binary_sensor import BinarySensorGroup
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, EntityCategory
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -321,6 +322,26 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-pressure-health"
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self.available and self.is_on:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_pressure_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="boiler_pressure",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "pressure": str(self._smoothed_pressure if self._smoothed_pressure is not None else "unknown"),
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_pressure_{self._config.entry_id}")
+
+        super()._handle_coordinator_update()
+
     def _update_smoothed_pressure(self, raw_pressure: float) -> float:
         if self._smoothed_pressure is None:
             self._smoothed_pressure = raw_pressure
@@ -429,6 +450,26 @@ class SatDeviceFaultSensor(SatEntity, BinarySensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-boiler-fault"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self._coordinator.fault_active:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_fault_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.ERROR,
+                translation_key="boiler_fault",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "fault_code": str(self._coordinator.fault_code if self._coordinator.fault_code is not None else "unknown"),
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_fault_{self._config.entry_id}")
+
+        super()._handle_coordinator_update()
 
 
 class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):

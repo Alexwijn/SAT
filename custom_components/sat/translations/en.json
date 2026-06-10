@@ -366,5 +366,15 @@
         }
       }
     }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "Boiler reports a fault",
+      "description": "The boiler connected to {name} reports a fault (code {fault_code}). Check the boiler display and consult the manual or your installer."
+    },
+    "boiler_pressure": {
+      "title": "Boiler pressure unhealthy",
+      "description": "The boiler pressure for {name} is out of range or dropping fast (currently {pressure} bar). Check the system for leaks and top up the water pressure if needed."
+    }
   }
 }
