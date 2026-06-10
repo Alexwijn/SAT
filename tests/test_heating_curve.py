@@ -83,3 +83,28 @@ def test_window_prunes_old_samples():
     )
 
     assert advisor.advice.sample_count == 1
+
+
+async def test_advisor_persists_and_restores_samples(hass):
+    advisor = HeatingCurveAdvisor(coefficient=1.8)
+    await advisor.async_added_to_hass(hass, "entry1")
+    _fill(advisor, 5.0)
+    await advisor._store.async_save(advisor._data_to_save())
+
+    restored = HeatingCurveAdvisor(coefficient=1.8)
+    await restored.async_added_to_hass(hass, "entry1")
+
+    assert restored.advice.sample_count == advisor.advice.sample_count
+    assert restored.advice.recommendation is advisor.advice.recommendation
+
+
+async def test_advisor_discards_samples_for_other_coefficient(hass):
+    advisor = HeatingCurveAdvisor(coefficient=1.8)
+    await advisor.async_added_to_hass(hass, "entry2")
+    _fill(advisor, 5.0)
+    await advisor._store.async_save(advisor._data_to_save())
+
+    restored = HeatingCurveAdvisor(coefficient=2.4)
+    await restored.async_added_to_hass(hass, "entry2")
+
+    assert restored.advice.sample_count == 0

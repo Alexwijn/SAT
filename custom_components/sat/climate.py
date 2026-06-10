@@ -138,6 +138,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await self._heating_control.async_added_to_hass()
         await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.id)
+        await self._curve_advisor.async_added_to_hass(self.hass, self._config.entry_id)
 
         if self.hass.state is CoreState.running:
             self._update_heating_curves()

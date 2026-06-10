@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from statistics import median
 from typing import Deque, Optional
 
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
+
 from . import SatConfig
 from .helpers import clamp
 from .types import HeatingCurveRecommendation, HeatingSystem
@@ -17,6 +20,9 @@ RECOMMENDATION_COEFFICIENT_STEP = 0.1
 
 MINIMUM_COEFFICIENT = 0.1
 MAXIMUM_COEFFICIENT = 12.0
+
+STORAGE_VERSION = 1
+STORAGE_SAVE_DELAY_SECONDS = 300
 
 
 class HeatingCurve:
@@ -82,7 +88,25 @@ class HeatingCurveAdvisor:
 
     def __init__(self, coefficient: float) -> None:
         self._coefficient = coefficient
+        self._store: Optional[Store] = None
         self._samples: Deque[HeatingCurveAdviceSample] = deque()
+
+    async def async_added_to_hass(self, hass: HomeAssistant, entry_id: str) -> None:
+        """Restore the recorded samples from storage when the integration loads."""
+        self._store = Store(hass, STORAGE_VERSION, f"sat.curve_advisor.{entry_id}")
+
+        if not (data := await self._store.async_load()):
+            return
+
+        if data.get("coefficient") != self._coefficient:
+            return
+
+        self._samples = deque(
+            HeatingCurveAdviceSample(shape=sample["shape"], timestamp=sample["timestamp"], correction=sample["correction"])
+            for sample in data.get("samples", [])
+        )
+
+        _LOGGER.debug("Restored %d heating curve advisor samples.", len(self._samples))
 
     def record(self, timestamp: float, correction: float, target_temperature: float, outside_temperature: float) -> None:
         """Record the correction the PID currently applies on top of the curve."""
@@ -95,6 +119,18 @@ class HeatingCurveAdvisor:
 
         while self._samples and self._samples[0].timestamp < (timestamp - RECOMMENDATION_WINDOW_SECONDS):
             self._samples.popleft()
+
+        if self._store is not None:
+            self._store.async_delay_save(self._data_to_save, STORAGE_SAVE_DELAY_SECONDS)
+
+    def _data_to_save(self) -> dict:
+        return {
+            "coefficient": self._coefficient,
+            "samples": [
+                {"shape": sample.shape, "timestamp": sample.timestamp, "correction": sample.correction}
+                for sample in self._samples
+            ],
+        }
 
     @property
     def advice(self) -> HeatingCurveAdvice:
