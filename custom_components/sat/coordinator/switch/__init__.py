@@ -9,6 +9,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_registry import RegistryEntry
 
+from homeassistant.exceptions import ConfigEntryNotReady
+
 from .. import SatDataUpdateCoordinator
 from ...entry_data import SatConfig
 from ...types import HeaterState
@@ -25,10 +27,12 @@ class SatSwitchCoordinator(SatDataUpdateCoordinator):
         super().__init__(hass, config)
 
         self._entity: RegistryEntry = entity_registry.async_get(hass).async_get(self._config.device)
+        if self._entity is None:
+            raise ConfigEntryNotReady(f"Switch entity {self._config.device} not found in the entity registry")
 
     @property
     def id(self) -> str:
-        return self._entity.name
+        return self._entity.id
 
     @property
     def type(self) -> str:
