@@ -110,6 +110,15 @@ class SatHeatingControl:
         """Expose the current PWM state."""
         return self._pwm.state
 
+    def enable_pwm(self) -> None:
+        """Enable Pulse Width Modulation."""
+        self._pwm.enable()
+
+    def disable_pwm(self) -> None:
+        """Disable Pulse Width Modulation."""
+        self._pwm.disable()
+        self._reset_pwm_disable_guards()
+
     @property
     def cycles(self) -> CycleStatistics:
         """Expose aggregated cycle statistics."""
