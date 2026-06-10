@@ -518,7 +518,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         self._control_heating_loop_unsub = async_call_later(self.hass, 1, HassJob(self.async_control_heating_loop))
-        self.async_on_remove(self._cancel_scheduled_heating_control_loop)
 
     def _cancel_scheduled_heating_control_loop(self) -> None:
         if self._control_heating_loop_unsub is None:
