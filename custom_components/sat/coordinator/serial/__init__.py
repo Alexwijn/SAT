@@ -58,6 +58,17 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
         return bool(self.get(DATA_SLAVE_DHW_ACTIVE) or False)
 
     @property
+    def supports_hot_water_management(self) -> bool:
+        return True
+
+    @property
+    def hot_water_enabled(self) -> Optional[bool]:
+        if (enabled := self.get(DATA_MASTER_DHW_ENABLED)) is None:
+            return None
+
+        return bool(enabled)
+
+    @property
     def supports_setpoint_management(self) -> bool:
         return True
 
@@ -199,6 +210,12 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
             await self._api.set_dhw_setpoint(value)
 
         await super().async_set_control_hot_water_setpoint(value)
+
+    async def async_set_hot_water_enabled(self, enabled: bool) -> None:
+        if not self._config.simulation.enabled:
+            await self._api.set_hot_water_ovrd(1 if enabled else 0)
+
+        await super().async_set_hot_water_enabled(enabled)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         if not self._config.simulation.enabled:

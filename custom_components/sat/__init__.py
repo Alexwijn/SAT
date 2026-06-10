@@ -18,7 +18,7 @@ from .entry_data import SatConfig, SatEntryData
 from .heating_control import SatHeatingControl
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-PLATFORMS = ["climate", "sensor", "number", "binary_sensor"]
+PLATFORMS = ["climate", "sensor", "number", "binary_sensor", "water_heater"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

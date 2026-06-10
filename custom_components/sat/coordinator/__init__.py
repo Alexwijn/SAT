@@ -301,6 +301,16 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         return False
 
     @property
+    def supports_hot_water_management(self) -> bool:
+        """Returns whether the device supports enabling and disabling domestic hot water."""
+        return False
+
+    @property
+    def hot_water_enabled(self) -> Optional[bool]:
+        """Return whether domestic hot water is currently enabled, if known."""
+        return None
+
+    @property
     def supports_relative_modulation(self):
         """Returns whether the device supports having relative modulation value.
 
@@ -363,6 +373,11 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Control the DHW setpoint temperature for the device."""
         if self.supports_hot_water_setpoint_management:
             _LOGGER.info("Set control hot water setpoint to %.1f°C", value)
+
+    async def async_set_hot_water_enabled(self, enabled: bool) -> None:
+        """Control whether the device may heat domestic hot water."""
+        if self.supports_hot_water_management:
+            _LOGGER.info("Set hot water enabled %s", enabled)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
         """Control the maximum setpoint temperature for the device."""

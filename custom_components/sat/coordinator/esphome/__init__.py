@@ -157,6 +157,14 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
         return self._get_binary_sensor_value(self._keys.dhw_active) or False
 
     @property
+    def supports_hot_water_management(self) -> bool:
+        return self._keys.dhw_enable is not None
+
+    @property
+    def hot_water_enabled(self) -> Optional[bool]:
+        return self._get_switch_value(self._keys.dhw_enable)
+
+    @property
     def setpoint(self) -> Optional[float]:
         return self._get_number_value(self._keys.t_set)
 
@@ -254,6 +262,13 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
             _LOGGER.debug("Sent heater state %s to ESPHome", state)
 
         await super().async_set_heater_state(state)
+
+    async def async_set_hot_water_enabled(self, enabled: bool) -> None:
+        if not self._config.simulation.enabled and self._keys.dhw_enable is not None:
+            self._client.switch_command(self._keys.dhw_enable, enabled)
+            _LOGGER.debug("Sent hot water enabled %s to ESPHome", enabled)
+
+        await super().async_set_hot_water_enabled(enabled)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         if not self._config.simulation.enabled and self._keys.max_rel_mod_level is not None:

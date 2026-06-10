@@ -15,6 +15,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 class SatFakeConfig:
     def __init__(self) -> None:
         self.supports_setpoint_management = True
+        self.supports_hot_water_management = True
         self.supports_maximum_setpoint_management = False
         self.supports_hot_water_setpoint_management = False
         self.supports_relative_modulation_management = False
@@ -39,6 +40,7 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._setpoint = None
         self._maximum_setpoint = None
         self._hot_water_setpoint = None
+        self._hot_water_enabled = True
         self._boiler_temperature = None
         self._boiler_pressure = None
         self._device_state = HeaterState.OFF
@@ -81,6 +83,17 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         return self.config.supports_hot_water_setpoint_management
 
     @property
+    def supports_hot_water_management(self) -> bool:
+        if self.config is None:
+            return super().supports_hot_water_management
+
+        return self.config.supports_hot_water_management
+
+    @property
+    def hot_water_enabled(self) -> Optional[bool]:
+        return self._hot_water_enabled
+
+    @property
     def supports_maximum_setpoint_management(self):
         if self.config is None:
             return super().supports_maximum_setpoint_management
@@ -118,6 +131,11 @@ class SatFakeCoordinator(SatDataUpdateCoordinator):
         self._hot_water_setpoint = value
 
         await super().async_set_control_hot_water_setpoint(value)
+
+    async def async_set_hot_water_enabled(self, enabled: bool) -> None:
+        self._hot_water_enabled = enabled
+
+        await super().async_set_hot_water_enabled(enabled)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         self._relative_modulation_value = value

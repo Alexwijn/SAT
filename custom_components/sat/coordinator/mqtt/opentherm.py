@@ -69,6 +69,17 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         return self.data.get(DATA_DHW_ENABLE) == STATE_ON
 
     @property
+    def supports_hot_water_management(self) -> bool:
+        return True
+
+    @property
+    def hot_water_enabled(self) -> Optional[bool]:
+        if (enabled := self.data.get(DATA_DHW_ENABLE)) is None:
+            return None
+
+        return enabled == STATE_ON
+
+    @property
     def setpoint(self) -> Optional[float]:
         if (setpoint := self.data.get(DATA_CONTROL_SETPOINT)) is not None:
             return float(setpoint)
@@ -202,6 +213,11 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await self._publish_command(f"SW={value}")
 
         await super().async_set_control_hot_water_setpoint(value)
+
+    async def async_set_hot_water_enabled(self, enabled: bool) -> None:
+        await self._publish_command(f"HW={1 if enabled else 0}")
+
+        await super().async_set_hot_water_enabled(enabled)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
         await self._publish_command(f"TC={value}")
