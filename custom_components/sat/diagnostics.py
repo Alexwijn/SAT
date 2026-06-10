@@ -1,0 +1,107 @@
+"""Diagnostics support for SAT."""
+from __future__ import annotations
+
+from typing import Any, Callable
+
+from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+
+from .const import CONF_DEVICE, CONF_MQTT_TOPIC
+from .entry_data import get_entry_data
+
+TO_REDACT = {CONF_DEVICE, CONF_MQTT_TOPIC}
+
+
+def _safe(getter: Callable[[], Any]) -> Any:
+    """Return the value of a getter, or the error it raised."""
+    try:
+        value = getter()
+    except Exception as exception:
+        return f"error: {exception}"
+
+    if hasattr(value, "name") and not isinstance(value, (str, int, float, bool)):
+        return value.name
+
+    return value
+
+
+async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
+    """Return diagnostics for a config entry."""
+    entry_data = get_entry_data(hass, entry.entry_id)
+
+    coordinator = entry_data.coordinator
+    heating_control = entry_data.heating_control
+
+    diagnostics: dict[str, Any] = {
+        "entry": {
+            "version": entry.version,
+            "data": async_redact_data(dict(entry.data), TO_REDACT),
+            "options": async_redact_data(dict(entry.options), TO_REDACT),
+        },
+        "coordinator": {
+            "type": _safe(lambda: coordinator.type),
+            "active": _safe(lambda: coordinator.active),
+            "setpoint": _safe(lambda: coordinator.setpoint),
+            "flame_active": _safe(lambda: coordinator.flame_active),
+            "hot_water_active": _safe(lambda: coordinator.hot_water_active),
+            "boiler_temperature": _safe(lambda: coordinator.boiler_temperature),
+            "return_temperature": _safe(lambda: coordinator.return_temperature),
+            "boiler_pressure": _safe(lambda: coordinator.boiler_pressure),
+            "boiler_power": _safe(lambda: coordinator.boiler_power),
+            "relative_modulation_value": _safe(lambda: coordinator.relative_modulation_value),
+            "minimum_relative_modulation_value": _safe(lambda: coordinator.minimum_relative_modulation_value),
+            "maximum_relative_modulation_value": _safe(lambda: coordinator.maximum_relative_modulation_value),
+            "supports_setpoint_management": _safe(lambda: coordinator.supports_setpoint_management),
+            "supports_hot_water_setpoint_management": _safe(lambda: coordinator.supports_hot_water_setpoint_management),
+            "supports_relative_modulation_management": _safe(lambda: coordinator.supports_relative_modulation_management),
+            "supports_maximum_setpoint_management": _safe(lambda: coordinator.supports_maximum_setpoint_management),
+            "member_id": _safe(lambda: coordinator.member_id),
+            "manufacturer": _safe(lambda: coordinator.manufacturer.friendly_name if coordinator.manufacturer else None),
+        },
+        "heating_control": {
+            "device_status": _safe(lambda: heating_control.device_status),
+            "control_setpoint": _safe(lambda: heating_control.control_setpoint),
+            "control_mode": _safe(lambda: heating_control.control_mode),
+            "relative_modulation_value": _safe(lambda: heating_control.relative_modulation_value),
+            "relative_modulation_state": _safe(lambda: heating_control.relative_modulation_state),
+            "pwm": {
+                "enabled": _safe(lambda: heating_control.pwm_state.enabled),
+                "status": _safe(lambda: heating_control.pwm_state.status),
+                "duty_cycle": _safe(lambda: list(heating_control.pwm_state.duty_cycle) if heating_control.pwm_state.duty_cycle else None),
+            },
+            "last_cycle": {
+                "kind": _safe(lambda: heating_control.last_cycle.kind if heating_control.last_cycle else None),
+                "control_mode": _safe(lambda: heating_control.last_cycle.control_mode if heating_control.last_cycle else None),
+                "classification": _safe(lambda: heating_control.last_cycle.classification if heating_control.last_cycle else None),
+            },
+        },
+    }
+
+    if (climate := entry_data.climate) is not None:
+        advice = climate.curve_advisor.advice
+
+        diagnostics["climate"] = {
+            "hvac_mode": _safe(lambda: climate.hvac_mode),
+            "preset_mode": _safe(lambda: climate.preset_mode),
+            "target_temperature": _safe(lambda: climate.target_temperature),
+            "current_temperature": _safe(lambda: climate.current_temperature),
+            "outside_temperature": _safe(lambda: climate.current_outside_temperature),
+            "requested_setpoint": _safe(lambda: climate.requested_setpoint),
+            "valves_open": _safe(lambda: climate.valves_open),
+            "heating_curve_value": _safe(lambda: climate.heating_curve.value),
+            "pid": {
+                "output": _safe(lambda: climate.pid.output),
+                "proportional": _safe(lambda: climate.pid.proportional),
+                "integral": _safe(lambda: climate.pid.integral),
+                "derivative": _safe(lambda: climate.pid.derivative),
+            },
+            "curve_advisor": {
+                "recommendation": _safe(lambda: advice.recommendation),
+                "sample_count": advice.sample_count,
+                "median_correction": advice.median_correction,
+                "suggested_coefficient": advice.suggested_coefficient,
+            },
+        }
+
+    return diagnostics
