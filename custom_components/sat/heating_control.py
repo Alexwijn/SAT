@@ -59,7 +59,7 @@ class HeatingDemand:
     valves_open: bool
     hvac_mode: HVACMode
     requested_setpoint: float
-    outside_temperature: float
+    outside_temperature: Optional[float]
 
     @property
     def heater_state(self) -> HeaterState:

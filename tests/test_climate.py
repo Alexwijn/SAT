@@ -28,6 +28,7 @@ from custom_components.sat.const import (
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.pid import PID
+from custom_components.sat.types import HeaterState
 from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
 
 pytestmark = pytest.mark.parametrize(
@@ -173,7 +174,7 @@ def test_control_pid_resets_on_stale_inside_sensor(monkeypatch, climate):
     assert reset_called["value"] is True
 
 
-async def test_control_loop_skips_when_hvac_off(monkeypatch, climate):
+async def test_control_loop_commands_heater_off_when_hvac_off(monkeypatch, climate):
     climate.hass.states.async_set("sensor.test_outside_sensor", "5")
     climate._hvac_mode = HVACMode.OFF
 
@@ -182,7 +183,12 @@ async def test_control_loop_skips_when_hvac_off(monkeypatch, climate):
 
     await climate.async_control_heating_loop()
 
-    update_mock.assert_not_called()
+    update_mock.assert_called_once()
+
+    demand = update_mock.call_args.args[0]
+    assert demand.hvac_mode == HVACMode.OFF
+    assert demand.requested_setpoint == MINIMUM_SETPOINT
+    assert demand.heater_state == HeaterState.OFF
 
 
 def test_register_event_listeners_is_idempotent(monkeypatch, climate):
