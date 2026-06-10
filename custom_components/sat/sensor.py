@@ -5,7 +5,7 @@ from typing import Optional, Mapping, Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume
+from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolumeFlowRate
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -231,12 +231,12 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
     @property
     def device_class(self):
         """Return the device class."""
-        return SensorDeviceClass.GAS
+        return SensorDeviceClass.VOLUME_FLOW_RATE
 
     @property
     def native_unit_of_measurement(self):
         """Return the unit of measurement."""
-        return UnitOfVolume.CUBIC_METERS
+        return UnitOfVolumeFlowRate.CUBIC_METERS_PER_HOUR
 
     @property
     def available(self):
