@@ -70,6 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
+    _attr_translation_key = "requested_setpoint"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     async def async_added_to_hass(self) -> None:
@@ -102,6 +103,7 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
+    _attr_translation_key = "pid"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
@@ -270,6 +272,7 @@ class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
 
 
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
+    _attr_translation_key = "heating_curve"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -303,6 +306,7 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 
 
 class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
+    _attr_translation_key = "heating_curve_recommendation"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     async def async_added_to_hass(self) -> None:
@@ -361,6 +365,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
 
 
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):
+    _attr_translation_key = "error_value"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -397,6 +402,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
 
 
 class SatManufacturerSensor(SatEntity, SensorEntity):
+    _attr_translation_key = "manufacturer"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -418,6 +424,7 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
 
 
 class SatCycleSensor(SatEntity, SensorEntity):
+    _attr_translation_key = "cycle_status"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     async def async_added_to_hass(self) -> None:
@@ -469,6 +476,7 @@ class SatCycleSensor(SatEntity, SensorEntity):
 
 
 class SatDeviceSensor(SatEntity, SensorEntity):
+    _attr_translation_key = "boiler_status"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
