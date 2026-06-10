@@ -184,10 +184,13 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         if entry.version < 10:
             if entry.data.get("mode") == "mqtt":
-                device = device_registry.async_get(hass).async_get(entry.data.get("device"))
-
                 new_data["mode"] = "mqtt_opentherm"
-                new_data["device"] = list(device.identifiers)[0][1]
+
+                device = device_registry.async_get(hass).async_get(entry.data.get("device"))
+                if device is not None and device.identifiers:
+                    new_data["device"] = list(device.identifiers)[0][1]
+                else:
+                    _LOGGER.warning("Device %s no longer exists, keeping the configured value.", entry.data.get("device"))
 
         if entry.version < 11:
             if entry.data.get("sync_with_thermostat") is not None:
@@ -196,7 +199,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if entry.data.get("mode") == "esphome":
                 device = device_registry.async_get(hass).async_get(entry.data.get("device"))
 
-                for entry_id in device.config_entries:
+                for entry_id in (device.config_entries if device is not None else []):
                     config_entry = hass.config_entries.async_get_entry(entry_id)
                     if config_entry and config_entry.domain == "esphome":
                         new_data["device"] = entry_id
