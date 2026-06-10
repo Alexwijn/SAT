@@ -22,9 +22,11 @@ from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
     DOMAIN as CLIMATE_DOMAIN, PRESET_AWAY, PRESET_SLEEP, PRESET_COMFORT,
 )
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, Event, CoreState, EventStateChangedData, HassJob
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -72,6 +74,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     async_add_devices([climate])
     entry_data.climate = climate
     entry_data.climate_ready.set()
+
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(SERVICE_RESET_INTEGRAL, None, "async_reset_integral")
+    platform.async_register_entity_service(SERVICE_PULSE_WIDTH_MODULATION, {vol.Required("enabled"): cv.boolean}, "async_set_pulse_width_modulation")
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
@@ -461,6 +467,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Reset control state when major changes occur."""
         self.pid.reset()
         self.areas.pids.reset()
+
+    async def async_reset_integral(self) -> None:
+        """Service to reset the integral part of the PID controllers."""
+        _LOGGER.info("Reset Integral action called for %s", self.entity_id)
+        self.reset_control_state()
+
+    async def async_set_pulse_width_modulation(self, enabled: bool) -> None:
+        """Service to enable or disable Pulse Width Modulation."""
+        _LOGGER.info("Pulse Width Modulation action called for %s with enabled=%s", self.entity_id, enabled)
+
+        if enabled:
+            self._heating_control.enable_pwm()
+        else:
+            self._heating_control.disable_pwm()
 
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller."""

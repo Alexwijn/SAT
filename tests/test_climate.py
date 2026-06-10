@@ -20,10 +20,13 @@ from custom_components.sat.const import (
     CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS,
     CONF_SENSOR_MAX_VALUE_AGE,
     CONF_HEATING_SYSTEM,
+    DOMAIN,
     HeatingMode,
     HeatingSystem,
     MINIMUM_SETPOINT,
     OPTIONS_DEFAULTS,
+    SERVICE_PULSE_WIDTH_MODULATION,
+    SERVICE_RESET_INTEGRAL,
 )
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.manufacturer import ManufacturerFactory
@@ -240,3 +243,19 @@ def test_control_pid_freezes_integral_when_solar_gain_detected(monkeypatch, clim
     climate.control_pid(now + timedelta(minutes=15))
 
     assert calls[-1] is True
+
+
+async def test_reset_integral_entity_service(hass, climate):
+    climate.pid._integral = 5.0
+
+    await hass.services.async_call(DOMAIN, SERVICE_RESET_INTEGRAL, {"entity_id": climate.entity_id}, blocking=True)
+
+    assert climate.pid.integral == 0.0
+
+
+async def test_pulse_width_modulation_entity_service(hass, climate):
+    await hass.services.async_call(DOMAIN, SERVICE_PULSE_WIDTH_MODULATION, {"entity_id": climate.entity_id, "enabled": True}, blocking=True)
+    assert climate._heating_control.pwm_state.enabled is True
+
+    await hass.services.async_call(DOMAIN, SERVICE_PULSE_WIDTH_MODULATION, {"entity_id": climate.entity_id, "enabled": False}, blocking=True)
+    assert climate._heating_control.pwm_state.enabled is False
