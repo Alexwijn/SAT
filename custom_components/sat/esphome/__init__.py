@@ -192,7 +192,24 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator, SatEntityCoordinator):
         await super().async_set_control_max_setpoint(value)
 
     def _get_entity_id(self, domain: str, key: str):
-        unique_id = f"{self._mac_address.upper()}-{domain}-{key}"
+        mac_address = self._mac_address.upper()
+        domain_casefold = domain.casefold()
+        key_casefold = key.casefold()
+        _LOGGER.debug(f"Attempting to find an ESPHome entity with the unique_id format {mac_address}/*/{domain}/{key}")
+
+        for entry in self._entities:
+            if entry.platform != esphome.DOMAIN or entry.domain != domain:
+                continue
+
+            unique_id_parts = entry.unique_id.casefold().split("/")
+            if len(unique_id_parts) != 4:
+                continue
+
+            entry_mac_address, _, entry_domain, entry_key = unique_id_parts
+            if entry_mac_address == mac_address.casefold() and entry_domain == domain_casefold and entry_key == key_casefold:
+                return entry.entity_id
+
+        unique_id = f"{mac_address}-{domain}-{key}"
         _LOGGER.debug(f"Attempting to find the unique_id of {unique_id}")
         return self._entity_registry.async_get_entity_id(domain, esphome.DOMAIN, unique_id)
 
