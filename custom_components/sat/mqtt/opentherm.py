@@ -183,18 +183,18 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         ]
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        await self._publish_command(f"CS={value}")
+        await self._publish_command(f"CS={value:.1f}")
         await self._publish_command(f"PM=25")
 
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
-        await self._publish_command(f"SW={value}")
+        await self._publish_command(f"SW={value:.1f}")
 
         await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
-        await self._publish_command(f"TC={value}")
+        await self._publish_command(f"TC={value:.1f}")
 
         await super().async_set_control_thermostat_setpoint(value)
 
@@ -212,7 +212,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_max_relative_modulation(value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
-        await self._publish_command(f"SH={value}")
+        await self._publish_command(f"SH={value:.1f}")
 
         await super().async_set_control_max_setpoint(value)
 
