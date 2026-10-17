@@ -35,6 +35,16 @@ class DeviceStatusEvaluator:
         state = snapshot.state
         previous = snapshot.previous_state
 
+        # Domestic hot water has priority over space heating.
+        # On many boilers (EMS, OpenTherm), central heating is temporarily suspended (False)
+        # while DHW is active.
+        if state.hot_water_active:
+            if state.flame_active:
+                return BoilerStatus.HEATING_HOT_WATER
+            if previous is not None and previous.flame_active:
+                return BoilerStatus.COOLING
+            return BoilerStatus.IDLE
+
         # Power / availability
         if not state.central_heating:
             return BoilerStatus.OFF

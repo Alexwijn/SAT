@@ -111,6 +111,10 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity)
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
+        if self._coordinator.hot_water_active:
+            self._last_mismatch = None
+            return False
+
         climate_setpoint = round(self._heating_control.control_setpoint, 1)
         coordinator_setpoint = round(self._coordinator.setpoint, 1)
 
@@ -148,6 +152,10 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatEntity, BinarySensorEnti
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
+        if self._coordinator.hot_water_active:
+            self._last_mismatch = None
+            return False
+
         climate_modulation = int(self._heating_control.relative_modulation_value)
         maximum_modulation = int(self._coordinator.maximum_relative_modulation_value)
 
@@ -182,6 +190,10 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
+        if self._coordinator.hot_water_active:
+            self._last_mismatch = None
+            return False
+
         device_active = self._coordinator.active
         climate_hvac_action = self._climate.state_attributes.get("hvac_action")
 
