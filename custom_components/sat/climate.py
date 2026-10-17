@@ -652,8 +652,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
-            # Set the target temperature for the connected boiler
+            # Set the target temperature for the connected boiler / thermostat
             if self._config.push_setpoint_to_thermostat:
+                if self._config.thermostat is not None:
+                    data = {ATTR_ENTITY_ID: self._config.thermostat, ATTR_TEMPERATURE: temperature}
+                    await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data)
                 await self._coordinator.async_set_control_thermostat_setpoint(temperature)
 
         # Reset the climate
@@ -683,7 +686,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if entity.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             return None
 
-        return float(entity.state)
+        if entity.domain == "climate" or "current_temperature" in entity.attributes:
+            if (curr_temp := entity.attributes.get("current_temperature")) is not None:
+                try:
+                    return float(curr_temp)
+                except (ValueError, TypeError):
+                    pass
+
+        try:
+            return float(entity.state)
+        except (ValueError, TypeError):
+            return None
 
     def _update_heating_curves(self) -> None:
         """Update the heating curves based on the current outside temperature."""
