@@ -28,9 +28,12 @@ class HeatingCurve:
         heating_curve_value = self.calculate(target_temperature, outside_temperature)
         self._last_heating_curve_value = round(self.base_offset + ((self._coefficient / 4) * heating_curve_value), 1)
 
-    def calculate_coefficient(self, setpoint: float, target_temperature: float, outside_temperature: float) -> float:
-        """Convert a setpoint to a coefficient value"""
+    def calculate_coefficient(self, setpoint: float, target_temperature: float, outside_temperature: float) -> float | None:
+        """Convert a setpoint to a coefficient, if the curve is nonzero."""
         heating_curve_value = self.calculate(target_temperature, outside_temperature)
+        if heating_curve_value == 0:
+            return None
+
         return round(4 * (setpoint - self.base_offset) / heating_curve_value, 1)
 
     def autotune(self, setpoint: float, target_temperature: float, outside_temperature: float):
@@ -39,6 +42,9 @@ class HeatingCurve:
             return
 
         coefficient = self.calculate_coefficient(setpoint, target_temperature, outside_temperature)
+        if coefficient is None:
+            return
+
         self._coefficient_derivative = round(coefficient - self._optimal_coefficient, 1) if self._optimal_coefficient else coefficient
 
         # Fuzzy logic for when the derivative is positive
