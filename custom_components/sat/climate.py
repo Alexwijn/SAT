@@ -766,8 +766,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: temperature}
                 await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
-            # Set the target temperature for the connected boiler
+            # Set the target temperature for the connected thermostat
             if self._config.push_setpoint_to_thermostat:
+                if self._config.thermostat is not None:
+                    data = {ATTR_ENTITY_ID: self._config.thermostat, ATTR_TEMPERATURE: temperature}
+                    await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+
                 await self._coordinator.async_set_control_thermostat_setpoint(temperature)
 
         # Reset the climate

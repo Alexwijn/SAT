@@ -8,6 +8,7 @@ import pytest
 from homeassistant.components.climate import HVACMode
 from homeassistant.core import State
 from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.sat.entry_data import SatConfig
 from custom_components.sat.const import (
@@ -20,6 +21,8 @@ from custom_components.sat.const import (
     CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS,
     CONF_SENSOR_MAX_VALUE_AGE,
     CONF_HEATING_SYSTEM,
+    CONF_PUSH_SETPOINT_TO_THERMOSTAT,
+    CONF_THERMOSTAT,
     DOMAIN,
     HEATING_CURVE_SETTLE_SECONDS,
     HeatingMode,
@@ -342,6 +345,16 @@ def test_curve_advice_sample_skipped_before_settling(monkeypatch, climate):
     climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS / 2, _temperature_state(20.7, 21.0))
 
     assert recorded == []
+
+
+async def test_target_temperature_is_pushed_to_configured_thermostat(hass, climate):
+    _update_climate_config(climate, data={CONF_THERMOSTAT: "climate.wall"}, options={CONF_PUSH_SETPOINT_TO_THERMOSTAT: True})
+    hass.states.async_set("climate.wall", HVACMode.HEAT, {"temperature": 19.0, "current_temperature": 19.5})
+    calls = async_mock_service(hass, "climate", "set_temperature")
+
+    await climate.async_set_target_temperature(21.0)
+
+    assert [(call.data["entity_id"], call.data["temperature"]) for call in calls] == [("climate.wall", 21.0)]
 
 
 def test_curve_advice_sample_skipped_while_room_is_still_warming(monkeypatch, climate):
