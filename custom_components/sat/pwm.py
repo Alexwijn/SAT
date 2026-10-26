@@ -60,6 +60,7 @@ class PWM:
         self._min_duty_cycle_percentage: float = self._duty_cycle_lower_threshold / 2
         self._max_duty_cycle_percentage: float = 1 - self._min_duty_cycle_percentage
 
+        self._enabled: bool = False
         self.reset()
 
         _LOGGER.debug(
@@ -85,8 +86,7 @@ class PWM:
         )
 
     def reset(self) -> None:
-        """Reset the PWM control."""
-        self._enabled = False
+        """Reset the PWM cycle state while keeping the learned enablement."""
         self._last_update: float = timestamp()
         self._status: PWMStatus = PWMStatus.IDLE
         self._duty_cycle: Optional[Tuple[int, int]] = None
@@ -111,6 +111,19 @@ class PWM:
         """Disable the PWM control."""
         self.reset()
         self._enabled = False
+
+    def suspend(self, timestamp: float) -> None:
+        """Pause the cycle while the heater is off, keeping the off-phase timing and the cycles this hour."""
+        if self._status == PWMStatus.IDLE:
+            return
+
+        if self._status == PWMStatus.ON:
+            self._last_update = timestamp
+            _LOGGER.info("Suspending PWM Cycle (ON->OFF): heater switched off.")
+
+        self._status = PWMStatus.OFF
+        self._flame_on_at = None
+        self._waiting_for_flame_on = False
 
     def restore(self, state: State) -> None:
         """Restore the PWM controller from a saved state."""

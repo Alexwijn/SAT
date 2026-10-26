@@ -92,25 +92,27 @@ async def test_hvac_off_forces_minimum(heating_control):
     assert heating_control._coordinator.active is False
 
 
-async def test_setpoint_below_cold_disables_pwm_and_forces_minimum(heating_control, coordinator):
+async def test_setpoint_below_cold_resets_pwm_cycle_and_forces_minimum(heating_control, coordinator):
     _enable_pwm(heating_control, PWMStatus.ON)
 
     await heating_control.update(_make_demand(COLD_SETPOINT - 0.1))
 
     assert heating_control.control_setpoint == MINIMUM_SETPOINT
     assert heating_control.relative_modulation_value == heating_control._config.pwm.maximum_relative_modulation
-    assert heating_control.pwm_state.enabled is False
+    assert heating_control.pwm_state.enabled is True
+    assert heating_control.pwm_state.status is PWMStatus.OFF
     assert coordinator.active is False
 
 
-async def test_closed_valves_force_minimum_and_disable_pwm(heating_control, coordinator):
+async def test_closed_valves_force_minimum_and_keep_pwm_enabled(heating_control, coordinator):
     _enable_pwm(heating_control, PWMStatus.ON)
 
     await heating_control.update(_make_demand(45.0, valves_open=False))
 
     assert heating_control.control_setpoint == MINIMUM_SETPOINT
     assert heating_control.relative_modulation_value == heating_control._config.pwm.maximum_relative_modulation
-    assert heating_control.pwm_state.enabled is False
+    assert heating_control.pwm_state.enabled is True
+    assert heating_control.pwm_state.status is PWMStatus.OFF
     assert coordinator.active is False
 
 
@@ -455,3 +457,27 @@ async def test_force_pulse_width_modulation_keeps_pwm_enabled(heating_control, c
     await heating_control.update(_make_demand(heating_control._config.limits.maximum_setpoint + 1))
 
     assert heating_control.pwm_state.enabled is True
+
+
+async def test_reopened_valves_wait_out_the_off_phase(heating_control, coordinator):
+    await coordinator.async_set_boiler_temperature(45.0)
+    pwm = heating_control._pwm
+    pwm._enabled = True
+    pwm._effective_on_temperature = 50.0
+    base_offset = pwm._heating_system.base_offset
+    setpoint = base_offset + 0.5 * (50.0 - base_offset)
+
+    now = timestamp()
+    pwm._last_update = now - 400.0
+    pwm._status = PWMStatus.ON
+    pwm._cycle_starts = [now - 400.0]
+
+    await heating_control.update(_make_demand(setpoint, valves_open=False))
+
+    assert heating_control.pwm_state.status is PWMStatus.OFF
+    assert pwm.cycles_this_hour == 1
+
+    await heating_control.update(_make_demand(setpoint))
+
+    assert heating_control.pwm_state.status is PWMStatus.OFF
+    assert pwm.cycles_this_hour == 1

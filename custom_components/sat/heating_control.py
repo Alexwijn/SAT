@@ -242,7 +242,7 @@ class SatHeatingControl:
             if self.control_mode == CycleControlMode.CONTINUOUS:
                 self._compute_continuous_control_setpoint(demand.requested_setpoint)
         else:
-            self._pwm.disable()
+            self._pwm.suspend(demand.timestamp)
             self._reset_pwm_disable_guards()
 
             self._control_setpoint = MINIMUM_SETPOINT

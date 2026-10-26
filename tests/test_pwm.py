@@ -320,6 +320,18 @@ def test_effective_temperature_updates_when_flame_stable(pwm: PWM):
     assert pwm._effective_on_temperature == pytest.approx(43.0)
 
 
+def test_reset_keeps_enabled(pwm: PWM):
+    pwm._enabled = True
+    pwm._status = PWMStatus.ON
+    pwm._duty_cycle = (100, 100)
+
+    pwm.reset()
+
+    assert pwm.enabled is True
+    assert pwm.status is PWMStatus.IDLE
+    assert pwm.state.duty_cycle is None
+
+
 def test_disable_resets_state(pwm: PWM):
     pwm._enabled = True
     pwm._status = PWMStatus.ON
@@ -410,3 +422,41 @@ def test_pwm_on_phase_gives_up_waiting_after_ignition_timeout(pwm: PWM):
     )
 
     assert pwm.status is PWMStatus.OFF
+
+
+def test_suspend_keeps_off_phase_timing_and_cycle_count(pwm: PWM):
+    pwm.enable()
+    pwm._status = PWMStatus.OFF
+    pwm._last_update = 100.0
+    pwm._cycle_starts = [100.0]
+
+    pwm.suspend(250.0)
+
+    assert pwm.status is PWMStatus.OFF
+    assert pwm._last_update == 100.0
+    assert pwm.cycles_this_hour == 1
+
+
+def test_suspend_ends_an_interrupted_burn_at_the_suspend_time(pwm: PWM):
+    pwm.enable()
+    pwm._status = PWMStatus.ON
+    pwm._last_update = 100.0
+    pwm._flame_on_at = 110.0
+    pwm._waiting_for_flame_on = True
+    pwm._cycle_starts = [100.0]
+
+    pwm.suspend(250.0)
+
+    assert pwm.status is PWMStatus.OFF
+    assert pwm._last_update == 250.0
+    assert pwm._flame_on_at is None
+    assert pwm._waiting_for_flame_on is False
+    assert pwm.cycles_this_hour == 1
+
+
+def test_suspend_leaves_idle_untouched(pwm: PWM):
+    pwm.enable()
+    pwm.suspend(250.0)
+
+    assert pwm.status is PWMStatus.IDLE
+    assert pwm.state.last_switched_at is None
