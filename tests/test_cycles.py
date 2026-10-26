@@ -12,7 +12,7 @@ from custom_components.sat.cycles.const import (
     DAILY_WINDOW_SECONDS,
     TARGET_MIN_ON_TIME_SECONDS,
 )
-from custom_components.sat.const import COLD_SETPOINT
+from custom_components.sat.const import COLD_SETPOINT, HEATER_STARTUP_TIMEFRAME
 from custom_components.sat.heating_control import ControlLoopSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
@@ -417,3 +417,19 @@ def test_cycle_history_daily_statistics():
     statistics = history.statistics
     assert statistics.flow_return_delta.daily.p50 == 10.0
     assert statistics.flow_control_setpoint_error.daily.p50 == 0.0
+
+
+def test_classify_pwm_short_underheat_is_uncertain():
+    boiler_state = _make_boiler_state(flame_active=False)
+    pwm_state = _make_pwm_state(PWMStatus.ON, enabled=True)
+    tail_metrics = _tail_metrics_for_error(UNDERSHOOT_MARGIN_CELSIUS - 0.5)
+
+    classification = CycleTracker._classify_cycle(
+        boiler_state=boiler_state,
+        duration_seconds=HEATER_STARTUP_TIMEFRAME - 1.0,
+        kind=CycleKind.CENTRAL_HEATING,
+        pwm_state=pwm_state,
+        tail_metrics=tail_metrics,
+    )
+
+    assert classification is CycleClassification.UNCERTAIN

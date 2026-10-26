@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .const import *
-from ..const import COLD_SETPOINT
+from ..const import COLD_SETPOINT, HEATER_STARTUP_TIMEFRAME
 from ..types import CycleClassification, CycleKind, PWMStatus
 
 if TYPE_CHECKING:
@@ -45,6 +45,9 @@ class CycleClassifier:
         underheat = tail_metrics.flow_requested_setpoint_error.p90 <= UNDERSHOOT_MARGIN_CELSIUS
 
         if underheat:
+            if duration_seconds < HEATER_STARTUP_TIMEFRAME:
+                return CycleClassification.UNCERTAIN
+
             if (effective_setpoint := tail_metrics.requested_setpoint.p50) is None:
                 effective_setpoint = device_state.setpoint
 
