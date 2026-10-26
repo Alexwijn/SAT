@@ -120,7 +120,7 @@ def test_automatic_gains_calculation():
     assert pid.kd == round(0.07 * 8400 * 20.0, 6)
 
 
-def test_integral_timebase_reset_and_accumulation():
+def test_integral_accumulates_inside_deadband_and_holds_outside():
     pid = _make_pid(
         HeatingSystem.RADIATORS,
         config=_pid_config(automatic_gains=False, integral=1.0, derivative=0.0),
@@ -137,7 +137,10 @@ def test_integral_timebase_reset_and_accumulation():
     pid.update(_state_for_error(DEADBAND / 2, 30.0))
     assert pid.integral == 6.0
 
-    pid.update(_state_for_error(DEADBAND / 2, 20.0 + PID_UPDATE_INTERVAL))
+    pid.update(_state_for_error(DEADBAND + 0.4, 40.0))
+    assert pid.integral == 6.0
+
+    pid.update(_state_for_error(DEADBAND / 2, 50.0))
     assert pid.integral == 9.0
 
 

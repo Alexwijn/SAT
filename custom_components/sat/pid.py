@@ -182,9 +182,8 @@ class PID:
             self._hass.loop.call_soon_threadsafe(async_dispatcher_send, self._hass, SIGNAL_PID_UPDATED, self._entity_id)
 
     def _update_integral(self, state: TemperatureState) -> None:
-        """Update the integral value in the PID controller."""
+        """Accumulate the integral inside the deadband and hold it outside, so a short excursion keeps the learned bias."""
         if abs(state.error) > DEADBAND:
-            self._integral = 0.0
             return
 
         self._integral += self.ki * state.error * PID_UPDATE_INTERVAL
