@@ -233,8 +233,8 @@ async def async_migrate_identifiers(hass: HomeAssistant, entry: ConfigEntry, con
         if new_unique_id and new_unique_id != unique_id:
             entity_reg.async_update_entity(entity_entry.entity_id, new_unique_id=new_unique_id)
 
-    device = device_reg.async_get_device(identifiers={(DOMAIN, config.name)})
-    if device is None:
+    devices = device_registry.async_entries_for_config_entry(device_reg, entry.entry_id)
+    if (device := next((device for device in devices if (DOMAIN, config.name) in device.identifiers), None)) is None:
         return
 
     device_reg.async_update_device(device.id, new_identifiers={(DOMAIN, config.entry_id)})
