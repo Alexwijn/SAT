@@ -144,21 +144,22 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._heating_control.async_added_to_hass()
         await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.id)
         await self._curve_advisor.async_added_to_hass(self.hass, self._config.entry_id)
+        await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
         if self.hass.state is CoreState.running:
             self._update_heating_curves()
             self._register_event_listeners()
 
             self.control_pid()
+            self.areas.control_pid()
             self.schedule_heating_control_loop()
         else:
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._update_heating_curves())
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
 
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.control_pid())
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.areas.control_pid())
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.schedule_heating_control_loop())
-
-        await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
         self._target_temperature_changed_at = timestamp()
 

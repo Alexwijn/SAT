@@ -9,9 +9,8 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.const import (
     STATE_UNKNOWN,
     STATE_UNAVAILABLE,
-    EVENT_HOMEASSISTANT_STARTED,
 )
-from homeassistant.core import HomeAssistant, State, CoreState
+from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import COLD_SETPOINT, MINIMUM_SETPOINT
@@ -183,11 +182,6 @@ class Area:
 
         await self.pid.async_added_to_hass(hass, self._entity_id, device_id)
 
-        if hass.state is CoreState.running:
-            self.control_pid()
-        else:
-            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self.control_pid)
-
         self._time_interval = async_track_time_interval(
             self._hass, self.control_pid, timedelta(seconds=PID_UPDATE_INTERVAL), cancel_on_shutdown=True
         )
@@ -248,6 +242,11 @@ class Areas:
         """Call async_added_to_hass for all areas."""
         for area in self._areas:
             await area.async_added_to_hass(hass, device_id)
+
+    def control_pid(self) -> None:
+        """Update the PID controller of every area with its current temperature state."""
+        for area in self._areas:
+            area.control_pid()
 
     class _HeatingCurves:
         """Helper for interacting with heating curves of all areas."""
