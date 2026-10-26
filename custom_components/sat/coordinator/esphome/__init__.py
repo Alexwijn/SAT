@@ -7,6 +7,7 @@ from typing import Optional, TYPE_CHECKING
 
 from aioesphomeapi import (
     APIClient,
+    APIConnectionError,
     BinarySensorInfo,
     BinarySensorState,
     EntityInfo,
@@ -102,30 +103,40 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, config: SatConfig) -> None:
         super().__init__(hass, config)
 
-        self._client: APIClient | None = None
-        self._unsub_callbacks: list[CALLBACK_TYPE] = []
-        self._entry_data: RuntimeEntryData | None = None
         self._keys: EspHomeEntityKeys = EspHomeEntityKeys()
+        self._unsub_interval: CALLBACK_TYPE | None = None
+        self._unsub_callbacks: list[CALLBACK_TYPE] = []
+        self._subscribed_entry_data: RuntimeEntryData | None = None
 
-        esphome_entry_id = config.device
-        if esphome_entry_id is None:
+        if config.device is None:
             raise ConfigEntryNotReady("ESPHome config entry ID not configured")
 
-        esphome_entry = hass.config_entries.async_get_entry(esphome_entry_id)
-        if esphome_entry is None:
-            raise ConfigEntryNotReady(f"ESPHome config entry {esphome_entry_id} not found")
+        if hass.config_entries.async_get_entry(config.device) is None:
+            raise ConfigEntryNotReady(f"ESPHome config entry {config.device} not found")
 
-        try:
-            self._entry_data = esphome_entry.runtime_data
-        except AttributeError:
+        if self._entry_data is None:
             raise ConfigEntryNotReady("ESPHome integration not yet initialized")
 
-        self._client = self._entry_data.client
+    @property
+    def _entry_data(self) -> RuntimeEntryData | None:
+        """Return the live runtime data of the ESPHome entry; Home Assistant replaces it whenever that entry reloads."""
+        if (entry := self.hass.config_entries.async_get_entry(self._config.device)) is None:
+            return None
+
+        return getattr(entry, "runtime_data", None)
+
+    @property
+    def _client(self) -> APIClient | None:
+        if (entry_data := self._entry_data) is None:
+            return None
+
+        return entry_data.client
 
     @property
     def id(self) -> str:
-        if self._entry_data.device_info is not None:
-            return self._entry_data.device_info.mac_address
+        if (entry_data := self._entry_data) is not None and entry_data.device_info is not None:
+            return entry_data.device_info.mac_address
+
         return self._config.device
 
     @property
@@ -233,78 +244,106 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
         return int(value) if value is not None else None
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:
-        # Discover entity keys from the ESPHome device info
         self._keys = self._discover_entities()
         _LOGGER.debug("Discovered ESPHome entity keys: %s", self._keys)
 
-        self._unsub_callbacks.append(
-            async_track_time_interval(hass, self._async_notify_interval, STATE_NOTIFY_INTERVAL, cancel_on_shutdown=True)
-        )
+        if self._unsub_interval is None:
+            self._unsub_interval = async_track_time_interval(hass, self._async_notify_interval, STATE_NOTIFY_INTERVAL, cancel_on_shutdown=True)
 
-        unsub = self._entry_data.async_subscribe_static_info_updated(self._on_static_info_updated)
-        self._unsub_callbacks.append(unsub)
-
-        # Subscribe to device-level updates (availability changes, reconnects)
-        unsub = self._entry_data.async_subscribe_device_updated(self._on_device_updated)
-        self._unsub_callbacks.append(unsub)
+        if (entry_data := self._entry_data) is not None:
+            self._subscribe_to_device_updates(entry_data)
 
         await super().async_added_to_hass(hass)
 
     async def async_will_remove_from_hass(self) -> None:
-        for unsub in self._unsub_callbacks:
-            unsub()
+        if self._unsub_interval is not None:
+            self._unsub_interval()
+            self._unsub_interval = None
 
-        self._unsub_callbacks.clear()
+        self._unsubscribe_from_device_updates()
         await super().async_will_remove_from_hass()
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        if not self._config.simulation.enabled and self._keys.t_set is not None:
-            self._client.number_command(self._keys.t_set, value)
-            _LOGGER.debug("Sent control setpoint %.1f to ESPHome", value)
+        self._send_number_command(self._keys.t_set, value, "control setpoint")
 
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
-        if not self._config.simulation.enabled and self._keys.t_dhw_set is not None:
-            self._client.number_command(self._keys.t_dhw_set, value)
-            _LOGGER.debug("Sent DHW setpoint %.1f to ESPHome", value)
+        self._send_number_command(self._keys.t_dhw_set, value, "DHW setpoint")
 
         await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_heater_state(self, state: HeaterState) -> None:
-        if not self._config.simulation.enabled and self._keys.ch_enable is not None:
-            self._client.switch_command(self._keys.ch_enable, state == HeaterState.ON)
-            _LOGGER.debug("Sent heater state %s to ESPHome", state)
+        self._send_switch_command(self._keys.ch_enable, state == HeaterState.ON, "heater state")
 
         await super().async_set_heater_state(state)
 
     async def async_set_hot_water_enabled(self, enabled: bool) -> None:
-        if not self._config.simulation.enabled and self._keys.dhw_enable is not None:
-            self._client.switch_command(self._keys.dhw_enable, enabled)
-            _LOGGER.debug("Sent hot water enabled %s to ESPHome", enabled)
+        self._send_switch_command(self._keys.dhw_enable, enabled, "hot water enabled")
 
         await super().async_set_hot_water_enabled(enabled)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
-        if not self._config.simulation.enabled and self._keys.max_rel_mod_level is not None:
-            self._client.number_command(self._keys.max_rel_mod_level, float(value))
-            _LOGGER.debug("Sent max relative modulation %d to ESPHome", value)
+        self._send_number_command(self._keys.max_rel_mod_level, float(value), "max relative modulation")
 
         await super().async_set_control_max_relative_modulation(value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
-        if not self._config.simulation.enabled and self._keys.max_t_set is not None:
-            self._client.number_command(self._keys.max_t_set, value)
-            _LOGGER.debug("Sent max setpoint %.1f to ESPHome", value)
+        self._send_number_command(self._keys.max_t_set, value, "max setpoint")
 
         await super().async_set_control_max_setpoint(value)
+
+    def _send_number_command(self, key: Optional[int], value: float, description: str) -> None:
+        if self._config.simulation.enabled or key is None or (client := self._client) is None:
+            return
+
+        try:
+            client.number_command(key, value)
+        except APIConnectionError as error:
+            _LOGGER.warning("Could not send %s to ESPHome: %s", description, error)
+            return
+
+        _LOGGER.debug("Sent %s %.1f to ESPHome", description, value)
+
+    def _send_switch_command(self, key: Optional[int], state: bool, description: str) -> None:
+        if self._config.simulation.enabled or key is None or (client := self._client) is None:
+            return
+
+        try:
+            client.switch_command(key, state)
+        except APIConnectionError as error:
+            _LOGGER.warning("Could not send %s to ESPHome: %s", description, error)
+            return
+
+        _LOGGER.debug("Sent %s %s to ESPHome", description, state)
+
+    def _subscribe_to_device_updates(self, entry_data: RuntimeEntryData) -> None:
+        self._unsubscribe_from_device_updates()
+
+        self._unsub_callbacks.append(entry_data.async_subscribe_static_info_updated(self._on_static_info_updated))
+        self._unsub_callbacks.append(entry_data.async_subscribe_device_updated(self._on_device_updated))
+        self._subscribed_entry_data = entry_data
+
+    def _unsubscribe_from_device_updates(self) -> None:
+        callbacks, self._unsub_callbacks = self._unsub_callbacks, []
+
+        for unsub in callbacks:
+            try:
+                unsub()
+            except KeyError:
+                continue
+
+        self._subscribed_entry_data = None
 
     def _discover_entities(self) -> EspHomeEntityKeys:
         """Scan entry_data.info to find entity keys by object_id."""
         keys = EspHomeEntityKeys()
 
+        if (entry_data := self._entry_data) is None:
+            return keys
+
         for info_type in (SensorInfo, BinarySensorInfo, NumberInfo, SwitchInfo):
-            infos = self._entry_data.info.get(info_type, {})
+            infos = entry_data.info.get(info_type, {})
             for (_device_id, key), info in infos.items():
                 field_name = ENTITY_MAP.get((info_type, info.object_id))
                 if field_name is not None:
@@ -314,10 +353,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
 
     def _get_sensor_value(self, key: Optional[int]) -> Optional[float]:
         """Read a sensor value from the ESPHome state cache."""
-        if key is None:
+        if key is None or (entry_data := self._entry_data) is None:
             return None
 
-        state = self._entry_data.state[SensorState].get(key)
+        state = entry_data.state[SensorState].get(key)
         if state is None or getattr(state, "missing_state", False):
             return None
 
@@ -325,10 +364,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
 
     def _get_binary_sensor_value(self, key: Optional[int]) -> Optional[bool]:
         """Read a binary sensor value from the ESPHome state cache."""
-        if key is None:
+        if key is None or (entry_data := self._entry_data) is None:
             return None
 
-        state = self._entry_data.state[BinarySensorState].get(key)
+        state = entry_data.state[BinarySensorState].get(key)
         if state is None or getattr(state, "missing_state", False):
             return None
 
@@ -336,10 +375,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
 
     def _get_number_value(self, key: Optional[int]) -> Optional[float]:
         """Read a number value from the ESPHome state cache."""
-        if key is None:
+        if key is None or (entry_data := self._entry_data) is None:
             return None
 
-        state = self._entry_data.state[NumberState].get(key)
+        state = entry_data.state[NumberState].get(key)
         if state is None or getattr(state, "missing_state", False):
             return None
 
@@ -347,10 +386,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
 
     def _get_switch_value(self, key: Optional[int]) -> Optional[bool]:
         """Read a switch value from the ESPHome state cache."""
-        if key is None:
+        if key is None or (entry_data := self._entry_data) is None:
             return None
 
-        state = self._entry_data.state[SwitchState].get(key)
+        state = entry_data.state[SwitchState].get(key)
         if state is None:
             return None
 
@@ -359,6 +398,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
     @callback
     def _async_notify_interval(self, _now=None) -> None:
         """Periodically notify listeners with the latest state cache values."""
+        if (entry_data := self._entry_data) is not None and entry_data is not self._subscribed_entry_data:
+            self._subscribe_to_device_updates(entry_data)
+            self._refresh_keys()
+
         self.async_notify_listeners()
 
     def _refresh_keys(self) -> None:

@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 from aioesphomeapi import (
+    APIConnectionError,
     BinarySensorInfo,
     BinarySensorState,
     DeviceInfo,
@@ -46,11 +47,11 @@ class FakeRuntimeEntryData:
 
     def async_subscribe_device_updated(self, callback_):
         self._device_update_subscriptions.add(callback_)
-        return lambda: self._device_update_subscriptions.discard(callback_)
+        return lambda: self._device_update_subscriptions.remove(callback_)
 
     def async_subscribe_static_info_updated(self, callback_):
         self._static_info_update_subscriptions.add(callback_)
-        return lambda: self._static_info_update_subscriptions.discard(callback_)
+        return lambda: self._static_info_update_subscriptions.remove(callback_)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -355,7 +356,7 @@ async def test_added_to_hass_discovers_and_subscribes(esphome_coordinator, runti
     await esphome_coordinator.async_added_to_hass(hass)
 
     assert esphome_coordinator._keys == KEYS
-    assert len(esphome_coordinator._unsub_callbacks) == 3
+    assert len(esphome_coordinator._unsub_callbacks) == 2
 
     assert len(runtime_data._state_subscriptions) == 0
     assert len(runtime_data._device_update_subscriptions) == 1
@@ -367,7 +368,7 @@ async def test_added_to_hass_discovers_and_subscribes(esphome_coordinator, runti
 @pytest.mark.asyncio
 async def test_will_remove_from_hass_unsubscribes(esphome_coordinator, runtime_data, hass):
     await esphome_coordinator.async_added_to_hass(hass)
-    assert len(esphome_coordinator._unsub_callbacks) == 3
+    assert len(esphome_coordinator._unsub_callbacks) == 2
 
     await esphome_coordinator.async_will_remove_from_hass()
 
@@ -408,3 +409,60 @@ async def test_id_returns_mac_address(esphome_coordinator):
 @pytest.mark.asyncio
 async def test_type_returns_esphome(esphome_coordinator):
     assert esphome_coordinator.type == "ESPHome"
+
+
+@pytest.mark.asyncio
+async def test_added_to_hass_twice_subscribes_once(esphome_coordinator, runtime_data, hass):
+    await esphome_coordinator.async_added_to_hass(hass)
+    await esphome_coordinator.async_added_to_hass(hass)
+
+    assert len(esphome_coordinator._unsub_callbacks) == 2
+    assert len(runtime_data._device_update_subscriptions) == 1
+    assert len(runtime_data._static_info_update_subscriptions) == 1
+
+    await esphome_coordinator.async_will_remove_from_hass()
+    await esphome_coordinator.async_will_remove_from_hass()
+
+    assert esphome_coordinator._unsub_callbacks == []
+
+
+@pytest.mark.asyncio
+async def test_will_remove_from_hass_tolerates_subscriptions_dropped_by_home_assistant(esphome_coordinator, runtime_data, hass):
+    await esphome_coordinator.async_added_to_hass(hass)
+    runtime_data._device_update_subscriptions.clear()
+
+    await esphome_coordinator.async_will_remove_from_hass()
+
+    assert esphome_coordinator._unsub_callbacks == []
+
+
+@pytest.mark.asyncio
+async def test_reloaded_esphome_entry_is_followed(esphome_coordinator, runtime_data, hass):
+    await esphome_coordinator.async_added_to_hass(hass)
+
+    replacement = FakeRuntimeEntryData(info=_build_info(), state=_build_state(), device_info=SimpleNamespace(mac_address="AA:BB:CC:DD:EE:FF"))
+    replacement.state[NumberState][21] = NumberState(key=21, state=60.0)
+    hass.config_entries.async_get_entry(ESPHOME_ENTRY_ID).runtime_data = replacement
+
+    esphome_coordinator._async_notify_interval()
+
+    assert esphome_coordinator.hot_water_setpoint == 60.0
+    assert len(runtime_data._device_update_subscriptions) == 0
+    assert len(replacement._device_update_subscriptions) == 1
+
+    await esphome_coordinator.async_set_control_setpoint(42.0)
+    replacement.client.number_command.assert_called_once_with(20, 42.0)
+    runtime_data.client.number_command.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_commands_survive_a_disconnected_gateway(esphome_coordinator, runtime_data):
+    esphome_coordinator._keys = KEYS
+    runtime_data.client.number_command.side_effect = APIConnectionError("Not connected")
+    runtime_data.client.switch_command.side_effect = APIConnectionError("Not connected")
+
+    await esphome_coordinator.async_set_control_setpoint(42.0)
+    await esphome_coordinator.async_set_heater_state(HeaterState.ON)
+
+    runtime_data.client.number_command.assert_called_once()
+    runtime_data.client.switch_command.assert_called_once()
