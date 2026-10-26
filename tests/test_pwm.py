@@ -9,6 +9,7 @@ from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.device import DeviceState
 from custom_components.sat.entry_data import PwmConfig
 from custom_components.sat.const import HEATER_STARTUP_TIMEFRAME, PWM_IGNITION_TIMEOUT_SECONDS
+from custom_components.sat.helpers import timestamp as wall_clock
 from custom_components.sat.pwm import PWM
 from custom_components.sat.types import CycleClassification, HeatingSystem, PWMStatus
 from custom_components.sat.types import CycleControlMode, CycleKind, Percentiles
@@ -424,6 +425,62 @@ def test_pwm_on_phase_gives_up_waiting_after_ignition_timeout(pwm: PWM):
     assert pwm.status is PWMStatus.OFF
 
 
+def test_restore_resumes_in_off_phase_after_interrupted_burn(pwm: PWM):
+    now = wall_clock()
+    switched_at = now - 120.0
+    pwm.restore(State("climate.home", "heat", attributes={
+        "pulse_width_modulation_enabled": True,
+        "pulse_width_modulation_state": PWMStatus.ON.name,
+        "pulse_width_modulation_switched_at": switched_at,
+    }))
+
+    assert pwm.status is PWMStatus.OFF
+    assert pwm.cycles_this_hour == 1
+    assert pwm.state.last_switched_at == switched_at
+
+    pwm._effective_on_temperature = 50.0
+    base_offset = pwm._heating_system.base_offset
+    setpoint = base_offset + 0.5 * (50.0 - base_offset)
+    device_state = _make_device_state(flame_active=False, flow_temperature=45.0)
+
+    pwm.update(device_state=device_state, requested_setpoint=setpoint, timestamp=now)
+    assert pwm.status is PWMStatus.OFF
+
+    pwm.update(device_state=device_state, requested_setpoint=setpoint, timestamp=now + 500.0)
+    assert pwm.status is PWMStatus.ON
+
+
+def test_restore_resumes_off_phase_from_its_own_switch(pwm: PWM):
+    now = wall_clock()
+    pwm.restore(State("climate.home", "heat", attributes={
+        "pulse_width_modulation_enabled": True,
+        "pulse_width_modulation_state": PWMStatus.OFF.name,
+        "pulse_width_modulation_switched_at": now - 60.0,
+    }))
+
+    assert pwm.status is PWMStatus.OFF
+    assert pwm.cycles_this_hour == 0
+    assert pwm._last_update == now - 60.0
+
+
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        {"pulse_width_modulation_enabled": True},
+        {"pulse_width_modulation_enabled": True, "pulse_width_modulation_state": PWMStatus.IDLE.name, "pulse_width_modulation_switched_at": 1.0},
+        {"pulse_width_modulation_enabled": True, "pulse_width_modulation_state": PWMStatus.ON.name},
+        {"pulse_width_modulation_enabled": True, "pulse_width_modulation_state": PWMStatus.ON.name, "pulse_width_modulation_switched_at": "later"},
+        {"pulse_width_modulation_enabled": True, "pulse_width_modulation_state": PWMStatus.ON.name, "pulse_width_modulation_switched_at": wall_clock() + 3600.0},
+    ],
+)
+def test_restore_without_usable_phase_stays_idle(pwm: PWM, attributes):
+    pwm.restore(State("climate.home", "heat", attributes=attributes))
+
+    assert pwm.enabled is True
+    assert pwm.status is PWMStatus.IDLE
+    assert pwm.state.last_switched_at is None
+
+
 def test_suspend_keeps_off_phase_timing_and_cycle_count(pwm: PWM):
     pwm.enable()
     pwm._status = PWMStatus.OFF
@@ -460,3 +517,28 @@ def test_suspend_leaves_idle_untouched(pwm: PWM):
 
     assert pwm.status is PWMStatus.IDLE
     assert pwm.state.last_switched_at is None
+
+
+def test_restore_keeps_learned_boiler_temperature_for_duty_cycle(pwm: PWM):
+    pwm.restore(State("climate.home", "heat", attributes={
+        "pulse_width_modulation_enabled": True,
+        "pulse_width_modulation_effective_on_temperature": 54.0,
+    }))
+
+    assert pwm.state.effective_on_temperature == 54.0
+
+    base_offset = pwm._heating_system.base_offset
+    setpoint = base_offset + 0.5 * (54.0 - base_offset)
+    on_time, off_time = pwm._calculate_duty_cycle(setpoint, _make_device_state(flame_active=False, flow_temperature=38.0))
+
+    assert abs(on_time - off_time) <= 1
+
+
+@pytest.mark.parametrize("value", [None, "warm", 0.0, -5.0])
+def test_restore_ignores_unusable_boiler_temperature(pwm: PWM, value):
+    pwm.restore(State("climate.home", "heat", attributes={
+        "pulse_width_modulation_enabled": True,
+        "pulse_width_modulation_effective_on_temperature": value,
+    }))
+
+    assert pwm.state.effective_on_temperature is None

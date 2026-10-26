@@ -271,6 +271,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "pulse_width_modulation_enabled": self._heating_control.pwm_state.enabled if self._heating_control.pwm_state is not None else False,
             "pulse_width_modulation_duty_cycle": self._heating_control.pwm_state.duty_cycle if self._heating_control.pwm_state is not None else None,
             "pulse_width_modulation_state": self._heating_control.pwm_state.status.name if self._heating_control.pwm_state is not None else PWMStatus.IDLE.name,
+            "pulse_width_modulation_switched_at": self._heating_control.pwm_state.last_switched_at if self._heating_control.pwm_state is not None else None,
+            "pulse_width_modulation_effective_on_temperature": self._heating_control.pwm_state.effective_on_temperature if self._heating_control.pwm_state is not None else None,
         }
 
     @property

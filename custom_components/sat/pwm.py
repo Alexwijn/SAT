@@ -23,6 +23,8 @@ class PWMState:
     status: PWMStatus
     duty_cycle: Optional[Tuple[int, int]]
     last_duty_cycle_percentage: Optional[float]
+    last_switched_at: Optional[float] = None
+    effective_on_temperature: Optional[float] = None
 
     @property
     def on_time_seconds(self) -> Optional[int]:
@@ -82,6 +84,8 @@ class PWM:
             status=self._status,
             enabled=self._enabled,
             duty_cycle=self._duty_cycle,
+            effective_on_temperature=self._effective_on_temperature,
+            last_switched_at=self._last_update if self._status != PWMStatus.IDLE else None,
             last_duty_cycle_percentage=round(self._last_duty_cycle_percentage * 100, 2) if self._last_duty_cycle_percentage is not None else None
         )
 
@@ -130,6 +134,42 @@ class PWM:
         if enabled := state.attributes.get("pulse_width_modulation_enabled"):
             self._enabled = bool(enabled)
             _LOGGER.debug("Restored Pulse Width Modulation state: %s", enabled)
+
+        self._restore_phase(state.attributes.get("pulse_width_modulation_state"), state.attributes.get("pulse_width_modulation_switched_at"))
+        self._restore_effective_on_temperature(state.attributes.get("pulse_width_modulation_effective_on_temperature"))
+
+    def _restore_effective_on_temperature(self, value: Optional[float]) -> None:
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return
+
+        if value <= self._heating_system.base_offset:
+            return
+
+        self._effective_on_temperature = value
+        _LOGGER.debug("Restored effective boiler temperature: %.1f°C", value)
+
+    def _restore_phase(self, status_name: Optional[str], switched_at: Optional[float]) -> None:
+        """Resume in the OFF phase from the last switch, so a restart never fires an extra burn."""
+        if status_name not in (PWMStatus.ON.name, PWMStatus.OFF.name) or switched_at is None:
+            return
+
+        try:
+            switched_at = float(switched_at)
+        except (TypeError, ValueError):
+            return
+
+        if switched_at > timestamp():
+            return
+
+        self._status = PWMStatus.OFF
+        self._last_update = switched_at
+
+        if status_name == PWMStatus.ON.name:
+            self._cycle_starts = [switched_at]
+
+        _LOGGER.info("Resumed PWM in OFF phase from the %s phase that started %.0fs ago.", status_name, timestamp() - switched_at)
 
     def update(self, device_state: DeviceState, requested_setpoint: float, timestamp: float) -> None:
         """Enable and update the PWM state based on the output of a PID controller."""
