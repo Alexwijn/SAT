@@ -10,6 +10,7 @@ from ...types import HeaterState
 
 DATA_ON = "on"
 DATA_OFF = "off"
+ON_VALUES = (DATA_ON, "ON", "On", True, 1, "1")
 
 DATA_BOILER_DATA = "boiler_data"
 DATA_FLAME_ACTIVE = "burngas"
@@ -20,6 +21,7 @@ DATA_BOILER_TEMPERATURE = "curflowtemp"
 DATA_RETURN_TEMPERATURE = "rettemp"
 
 DATA_DHW_ACTIVE = "tapwateractive"
+DATA_DHW_CHARGING = "charging"
 DATA_DHW_ENABLE = "tapactivated"
 DATA_CENTRAL_HEATING = "heatingactive"
 DATA_BOILER_CAPACITY = "nompower"
@@ -34,7 +36,11 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class SatEmsMqttCoordinator(SatMqttCoordinator):
-    """Class to manage to fetch data from the OTGW Gateway using MQTT."""
+    """Class to manage to fetch data from an EMS-ESP gateway using MQTT."""
+
+    @staticmethod
+    def _is_on(value: Any) -> bool:
+        return value in ON_VALUES
 
     @property
     def type(self) -> str:
@@ -58,17 +64,23 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     @property
     def active(self) -> bool:
-        return self.data.get(DATA_CENTRAL_HEATING) == DATA_ON
+        return self._is_on(self.data.get(DATA_CENTRAL_HEATING))
 
     @property
     def flame_active(self) -> bool:
-        return self.data.get(DATA_FLAME_ACTIVE) == DATA_ON
+        return self._is_on(self.data.get(DATA_FLAME_ACTIVE))
 
     @property
     def hot_water_active(self) -> bool:
-        for key in (DATA_DHW_ACTIVE, f"dhw/{DATA_DHW_ACTIVE}", DATA_DHW_ENABLE, f"dhw/{DATA_DHW_ENABLE}"):
+        activity_keys = (DATA_DHW_ACTIVE, f"dhw/{DATA_DHW_ACTIVE}", f"dhw/{DATA_DHW_CHARGING}", f"dhw{DATA_DHW_CHARGING}")
+        activity = [self.data.get(key) for key in activity_keys if self.data.get(key) is not None]
+
+        if activity:
+            return any(self._is_on(value) for value in activity)
+
+        for key in (DATA_DHW_ENABLE, f"dhw/{DATA_DHW_ENABLE}"):
             if (value := self.data.get(key)) is not None:
-                return value == DATA_ON
+                return self._is_on(value)
 
         return False
 
@@ -87,7 +99,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
     def hot_water_enabled(self) -> Optional[bool]:
         for key in (DATA_DHW_ENABLE, f"dhw/{DATA_DHW_ENABLE}"):
             if (value := self.data.get(key)) is not None:
-                return value == DATA_ON
+                return self._is_on(value)
 
         return None
 

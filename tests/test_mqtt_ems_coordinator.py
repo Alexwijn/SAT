@@ -302,3 +302,14 @@ async def test_max_relative_modulation_respects_boiler_minimum_power(coordinator
     await coordinator.async_set_control_max_relative_modulation(80)
 
     assert [call["value"] for call in calls] == [20, 31, 80]
+
+
+def test_hot_water_active_detects_charging_and_boolean_payloads(coordinator):
+    coordinator.data.update({"dhw/charging": True})
+    assert coordinator.hot_water_active is True
+
+    coordinator.data.update({"dhw/charging": False, "tapwateractive": "OFF"})
+    assert coordinator.hot_water_active is False
+
+    coordinator.data.update({"tapwateractive": "on"})
+    assert coordinator.hot_water_active is True
