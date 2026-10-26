@@ -8,6 +8,7 @@ from homeassistant.core import State
 from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.device import DeviceState
 from custom_components.sat.entry_data import PwmConfig
+from custom_components.sat.const import HEATER_STARTUP_TIMEFRAME, PWM_IGNITION_TIMEOUT_SECONDS
 from custom_components.sat.pwm import PWM
 from custom_components.sat.types import CycleClassification, HeatingSystem, PWMStatus
 from custom_components.sat.types import CycleControlMode, CycleKind, Percentiles
@@ -345,3 +346,67 @@ def test_cycle_end_pwm_underheat_disables(pwm: PWM):
     pwm.disable()
     pwm.on_cycle_end(cycle)
     assert pwm.enabled is False
+
+
+def test_pwm_on_phase_waits_for_late_ignition(pwm: PWM):
+    pwm.enable()
+    base_offset = pwm._heating_system.base_offset
+    setpoint = base_offset + 0.5 * (50.0 - base_offset)
+    pwm._effective_on_temperature = 50.0
+    pwm._last_update = 0.0
+
+    for moment in (0.0, HEATER_STARTUP_TIMEFRAME + 60.0, PWM_IGNITION_TIMEOUT_SECONDS - 60.0):
+        pwm.update(
+            device_state=_make_device_state(flame_active=False, flow_temperature=50.0),
+            requested_setpoint=setpoint,
+            timestamp=moment,
+        )
+
+        assert pwm.status is PWMStatus.ON
+
+    ignition = PWM_IGNITION_TIMEOUT_SECONDS - 30.0
+    on_time = pwm.state.on_time_seconds
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=True, flow_temperature=50.0),
+        requested_setpoint=setpoint,
+        timestamp=ignition,
+    )
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=True, flow_temperature=50.0),
+        requested_setpoint=setpoint,
+        timestamp=ignition + on_time - 10.0,
+    )
+
+    assert pwm.status is PWMStatus.ON
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=True, flow_temperature=50.0),
+        requested_setpoint=setpoint,
+        timestamp=ignition + on_time + 10.0,
+    )
+
+    assert pwm.status is PWMStatus.OFF
+
+
+def test_pwm_on_phase_gives_up_waiting_after_ignition_timeout(pwm: PWM):
+    pwm.enable()
+    base_offset = pwm._heating_system.base_offset
+    setpoint = base_offset + 0.5 * (50.0 - base_offset)
+    pwm._effective_on_temperature = 50.0
+    pwm._last_update = 0.0
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=False, flow_temperature=50.0),
+        requested_setpoint=setpoint,
+        timestamp=0.0,
+    )
+
+    pwm.update(
+        device_state=_make_device_state(flame_active=False, flow_temperature=50.0),
+        requested_setpoint=setpoint,
+        timestamp=PWM_IGNITION_TIMEOUT_SECONDS + 1.0,
+    )
+
+    assert pwm.status is PWMStatus.OFF

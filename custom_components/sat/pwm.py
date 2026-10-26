@@ -4,7 +4,7 @@ from typing import Optional, Tuple, TYPE_CHECKING
 
 from homeassistant.core import State
 
-from .const import HEATER_STARTUP_TIMEFRAME
+from .const import HEATER_STARTUP_TIMEFRAME, PWM_IGNITION_TIMEOUT_SECONDS
 from .device import DeviceState
 from .entry_data import PwmConfig
 from .helpers import timestamp
@@ -192,12 +192,12 @@ class PWM:
                     self._effective_on_temperature = device_state.flow_temperature
                     _LOGGER.info("PWM ON phase synced to flame ignition.")
                     return
-                elif elapsed < HEATER_STARTUP_TIMEFRAME:
+                elif elapsed < PWM_IGNITION_TIMEOUT_SECONDS:
                     _LOGGER.debug("PWM ON phase still waiting for flame ignition (elapsed=%.0fs).", elapsed)
                     return
                 else:
                     self._waiting_for_flame_on = False
-                    _LOGGER.warning("PWM ON phase did not detect flame within %ds; starting timer anyway.", HEATER_STARTUP_TIMEFRAME)
+                    _LOGGER.warning("PWM ON phase did not detect flame within %ds; starting timer anyway.", PWM_IGNITION_TIMEOUT_SECONDS)
 
             if self._flame_on_at is not None and (timestamp - self._flame_on_at) < HEATER_STARTUP_TIMEFRAME:
                 _LOGGER.debug("PWM ON minimum flame-on hold active (elapsed_since_flame_on=%.0fs/%ds).", timestamp - self._flame_on_at, HEATER_STARTUP_TIMEFRAME)
