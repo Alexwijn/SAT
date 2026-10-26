@@ -4,6 +4,7 @@ import logging
 from typing import Any, Optional
 
 from . import SatMqttCoordinator
+from ...const import MINIMUM_SETPOINT
 from ...helpers import float_value
 from ...types import HeaterState
 
@@ -90,7 +91,16 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     @property
     def setpoint(self) -> Optional[float]:
-        return float_value(self.data.get(DATA_CONTROL_SETPOINT))
+        if (value := float_value(self.data.get(DATA_CONTROL_SETPOINT))) is None:
+            return None
+
+        if value == 0:
+            return MINIMUM_SETPOINT
+
+        if self._requested_setpoint is not None and round(self._requested_setpoint) == round(value):
+            return self._requested_setpoint
+
+        return value
 
     @property
     def hot_water_setpoint(self) -> Optional[float]:
@@ -133,7 +143,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         return [DATA_BOILER_DATA]
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value == 10 else value}}}')
+        await self._publish_command(f'{{"cmd": "selflowtemp", "value": {0 if value <= MINIMUM_SETPOINT else int(round(value))}}}')
 
         await super().async_set_control_setpoint(value)
 

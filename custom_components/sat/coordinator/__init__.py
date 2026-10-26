@@ -102,6 +102,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         self._config: SatConfig = config
+        self._requested_setpoint: Optional[float] = None
         self._manufacturer: Optional[Manufacturer] = None
 
         if self._config.manufacturer is not None:
@@ -376,6 +377,8 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_set_control_setpoint(self, value: float) -> None:
         """Control the boiler setpoint temperature for the device."""
+        self._requested_setpoint = value
+
         if self.supports_setpoint_management:
             _LOGGER.info("Set control boiler setpoint to %.1f°C", value)
 

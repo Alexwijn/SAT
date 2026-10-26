@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.sat.const import CONF_DEVICE, CONF_MODE, CONF_MQTT_TOPIC, OPTIONS_DEFAULTS
+from custom_components.sat.const import CONF_DEVICE, CONF_MODE, CONF_MQTT_TOPIC, MINIMUM_SETPOINT, OPTIONS_DEFAULTS
 from custom_components.sat.coordinator.mqtt.ems import (
     DATA_BOILER_CAPACITY,
     DATA_BOILER_DATA,
@@ -147,7 +147,7 @@ async def test_set_control_setpoint(coordinator, monkeypatch):
 
     assert len(calls) == 1
     payload = json.loads(calls[0][0])
-    assert payload == {"cmd": "selflowtemp", "value": 42.5}
+    assert payload == {"cmd": "selflowtemp", "value": 42}
 
 
 @pytest.mark.asyncio
@@ -252,3 +252,35 @@ def test_normalize_dict_payload(coordinator):
 def test_normalize_scalar_payload(coordinator):
     result = coordinator._normalize_payload("some_key", "value")
     assert result == {"some_key": "value"}
+
+
+def _commands(monkeypatch, coordinator) -> list:
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(json.loads(a[0]))))
+    return calls
+
+
+async def test_control_setpoint_is_sent_as_whole_degrees(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_control_setpoint(51.9)
+    await coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)
+
+    assert calls == [{"cmd": "selflowtemp", "value": 52}, {"cmd": "selflowtemp", "value": 0}]
+
+
+async def test_reported_setpoint_maps_back_to_requested_value(coordinator, monkeypatch):
+    _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_control_setpoint(51.9)
+    coordinator.data.update({DATA_CONTROL_SETPOINT: 52})
+
+    assert coordinator.setpoint == 51.9
+
+    coordinator.data.update({DATA_CONTROL_SETPOINT: 0})
+
+    assert coordinator.setpoint == MINIMUM_SETPOINT
+
+    coordinator.data.update({DATA_CONTROL_SETPOINT: 48})
+
+    assert coordinator.setpoint == 48.0

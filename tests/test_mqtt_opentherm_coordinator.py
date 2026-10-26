@@ -270,3 +270,13 @@ async def test_set_control_setpoint_is_formatted_with_one_decimal(coordinator, m
     assert ("CS=56.6",) in calls
     assert ("SW=50.0",) in calls
     assert ("SH=65.0",) in calls
+
+
+async def test_requested_setpoint_is_remembered(coordinator, monkeypatch):
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock())
+
+    assert coordinator._requested_setpoint is None
+
+    await coordinator.async_set_control_setpoint(42.5)
+
+    assert coordinator._requested_setpoint == 42.5
