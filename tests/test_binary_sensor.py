@@ -68,9 +68,10 @@ async def test_pressure_health_drop_rate(hass, coordinator, entry, domains, data
         return current_time
 
     monkeypatch.setattr(sat_binary_sensor, "timestamp", fake_timestamp)
+    await coordinator.async_set_boiler_temperature(40.0)
 
     for i in range(60):
-        current_time = float(i * 10)
+        current_time = float(i * 60)
         pressure = 1.8 - (i * 0.01)
         await coordinator.async_set_boiler_pressure(pressure)
         coordinator.async_update_listeners()
@@ -80,6 +81,45 @@ async def test_pressure_health_drop_rate(hass, coordinator, entry, domains, data
     assert state is not None
     assert state.state == "on"
     assert state.attributes["pressure_drop_rate_bar_per_hour"] is not None
+
+
+async def test_pressure_health_ignores_thermal_contraction(hass, coordinator, entry, domains, data, options, config, monkeypatch):
+    current_time = 0.0
+
+    def fake_timestamp():
+        return current_time
+
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", fake_timestamp)
+
+    for i in range(60):
+        current_time = float(i * 60)
+        await coordinator.async_set_boiler_temperature(60.0 - i * 0.5)
+        await coordinator.async_set_boiler_pressure(2.0 - (i * 0.01))
+        coordinator.async_update_listeners()
+        await hass.async_block_till_done()
+
+        state = hass.states.get(_get_pressure_entity_id(hass, entry))
+        assert state.state == "off", f"False positive at iteration {i}"
+
+
+async def test_pressure_health_ignores_quantized_chatter(hass, coordinator, entry, domains, data, options, config, monkeypatch):
+    current_time = 0.0
+
+    def fake_timestamp():
+        return current_time
+
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", fake_timestamp)
+    await coordinator.async_set_boiler_temperature(40.0)
+    readings = (2.0, 1.89, 1.8, 1.89, 1.8, 1.7, 1.8, 1.89)
+
+    for i in range(240):
+        current_time = float(i * 15)
+        await coordinator.async_set_boiler_pressure(readings[i % len(readings)])
+        coordinator.async_update_listeners()
+        await hass.async_block_till_done()
+
+        state = hass.states.get(_get_pressure_entity_id(hass, entry))
+        assert state.state == "off", f"False positive at iteration {i}"
 
 
 async def test_pressure_health_ignores_drop_rate_after_shutdown(hass, coordinator, entry, domains, data, options, config, monkeypatch):

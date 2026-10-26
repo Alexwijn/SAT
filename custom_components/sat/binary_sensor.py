@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+from dataclasses import dataclass
 from typing import Optional
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
@@ -23,10 +24,21 @@ from .entry_data import SatConfig, SatMode, get_entry_data
 from .helpers import float_value, seconds_since, timestamp
 from .types import BoilerStatus, CycleClassification
 
-PRESSURE_DROP_RATE_SETTLE_SECONDS = 600
 PRESSURE_EMA_ALPHA = 0.05
+PRESSURE_RESOLUTION_BAR = 0.1
+PRESSURE_THERMAL_DRIFT_CELSIUS = 5.0
+PRESSURE_DROP_RATE_SETTLE_SECONDS = 1800
 PRESSURE_PROBLEM_CONFIRMATION_SECONDS = 120
-PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS = 300
+PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS = 1800
+
+
+@dataclass(frozen=True, slots=True)
+class PressureSample:
+    """Smoothed pressure reading together with the boiler temperature it was taken at."""
+
+    timestamp: float
+    pressure: float
+    boiler_temperature: Optional[float]
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -220,7 +232,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         self._last_pressure_timestamp: Optional[float] = None
         self._smoothed_pressure: Optional[float] = None
         self._problem_first_detected: Optional[float] = None
-        self._pressure_samples: deque[tuple[float, float]] = deque()
+        self._pressure_samples: deque[PressureSample] = deque()
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -236,7 +248,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         self._smoothed_pressure = float_value(attributes.get("smoothed_pressure"))
 
         if self._last_pressure is not None and self._last_pressure_timestamp is not None:
-            self._pressure_samples.append((self._last_pressure_timestamp, self._last_pressure))
+            self._pressure_samples.append(PressureSample(timestamp=self._last_pressure_timestamp, pressure=self._last_pressure, boiler_temperature=None))
 
     @property
     def name(self) -> str:
@@ -282,7 +294,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
 
         self._last_seen_pressure = now
         smoothed = self._update_smoothed_pressure(raw_pressure)
-        self._record_pressure_sample(now, raw_pressure, maximum_age_seconds)
+        self._record_pressure_sample(PressureSample(timestamp=now, pressure=smoothed, boiler_temperature=self._coordinator.boiler_temperature), maximum_age_seconds)
 
         drop_rate = self._calculate_drop_rate()
 
@@ -384,27 +396,36 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
 
         return False
 
-    def _record_pressure_sample(self, timestamp_seconds: float, pressure: float, maximum_age_seconds: float) -> None:
+    def _record_pressure_sample(self, sample: PressureSample, maximum_age_seconds: float) -> None:
         if maximum_age_seconds <= 0:
             maximum_age_seconds = 3600
 
         drop_window_seconds = max(maximum_age_seconds, 3600)
-        self._pressure_samples.append((timestamp_seconds, pressure))
+        self._pressure_samples.append(sample)
 
-        while self._pressure_samples and (timestamp_seconds - self._pressure_samples[0][0]) > drop_window_seconds:
+        while self._pressure_samples and (sample.timestamp - self._pressure_samples[0].timestamp) > drop_window_seconds:
             self._pressure_samples.popleft()
 
     def _calculate_drop_rate(self) -> Optional[float]:
+        """Return the pressure loss in bar per hour, or None when the window cannot tell a leak from noise or cooling."""
         if len(self._pressure_samples) < 3:
             return None
 
-        elapsed = self._pressure_samples[-1][0] - self._pressure_samples[0][0]
-        if elapsed < PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS:
+        first, last = self._pressure_samples[0], self._pressure_samples[-1]
+        if (last.timestamp - first.timestamp) < PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS:
             return None
+
+        if (first.pressure - last.pressure) < 2 * PRESSURE_RESOLUTION_BAR:
+            return None
+
+        if first.boiler_temperature is not None and last.boiler_temperature is not None:
+            if (first.boiler_temperature - last.boiler_temperature) > PRESSURE_THERMAL_DRIFT_CELSIUS:
+                return None
 
         n = len(self._pressure_samples)
         sum_t = sum_p = sum_tp = sum_t2 = 0.0
-        for t, p in self._pressure_samples:
+        for sample in self._pressure_samples:
+            t, p = sample.timestamp, sample.pressure
             sum_t += t
             sum_p += p
             sum_tp += t * p
