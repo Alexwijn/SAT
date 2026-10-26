@@ -1,7 +1,9 @@
 """PID controller logic for supply-air temperature tuning."""
 
 import logging
-from typing import Any, Optional
+from collections import deque
+from dataclasses import dataclass
+from typing import Any, Deque, Optional
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -10,7 +12,7 @@ from homeassistant.helpers.storage import Store
 from .const import *
 from .entry_data import PidConfig, SatConfig
 from .heating_curve import HeatingCurve
-from .helpers import float_value, clamp_to_range
+from .helpers import float_value, clamp, clamp_to_range
 from .temperature.state import TemperatureState
 from .types import HeatingSystem
 
@@ -19,12 +21,25 @@ _LOGGER = logging.getLogger(__name__)
 DERIVATIVE_RAW_CAP = 5.0
 PID_UPDATE_INTERVAL = 60
 
+DERIVATIVE_MINIMUM_SAMPLES = 3
+DERIVATIVE_MINIMUM_SPAN_RATIO = 0.5
+DERIVATIVE_DEFAULT_SENSOR_STEP = 0.1
+DERIVATIVE_WINDOW_MINIMUM_SECONDS = 900
+DERIVATIVE_WINDOW_MAXIMUM_SECONDS = 1800
+DERIVATIVE_WINDOW_SECONDS_PER_DEGREE = 12000
+
 STORAGE_VERSION = 1
+STORAGE_KEY_SAMPLES = "samples"
+STORAGE_KEY_SENSOR_STEP = "sensor_step"
 STORAGE_KEY_INTEGRAL = "integral"
 STORAGE_KEY_LAST_ERROR = "last_error"
 STORAGE_KEY_RAW_DERIVATIVE = "raw_derivative"
-STORAGE_KEY_LAST_TEMPERATURE = "last_temperature"
-STORAGE_KEY_LAST_DERIVATIVE_UPDATED = "last_derivative_updated"
+
+
+@dataclass(frozen=True, slots=True)
+class TemperatureSample:
+    timestamp: float
+    temperature: float
 
 
 class PID:
@@ -39,8 +54,8 @@ class PID:
         self._last_error: Optional[float] = None
 
         self._raw_derivative: float = 0.0
-        self._last_temperature: Optional[float] = None
-        self._last_derivative_updated: Optional[float] = None
+        self._samples: Deque[TemperatureSample] = deque()
+        self._sensor_step: Optional[float] = None
 
         self._store: Optional[Store] = None
         self._entity_id: Optional[str] = None
@@ -116,7 +131,17 @@ class PID:
     @property
     def raw_derivative(self) -> float:
         """Return the raw derivative value."""
-        return round(self._raw_derivative, 3)
+        return round(self._raw_derivative, 6)
+
+    @property
+    def sensor_step(self) -> float:
+        """The smallest change the sensor has reported, which sets how long a slope must be observed."""
+        return self._sensor_step if self._sensor_step is not None else DERIVATIVE_DEFAULT_SENSOR_STEP
+
+    @property
+    def derivative_window_seconds(self) -> int:
+        """Return the slope window, long enough for one sensor step to barely move the derivative."""
+        return int(clamp(self.sensor_step * DERIVATIVE_WINDOW_SECONDS_PER_DEGREE, DERIVATIVE_WINDOW_MINIMUM_SECONDS, DERIVATIVE_WINDOW_MAXIMUM_SECONDS))
 
     @property
     def last_error(self) -> Optional[float]:
@@ -148,11 +173,16 @@ class PID:
             return
 
         self._last_error = float_value(data.get(STORAGE_KEY_LAST_ERROR))
-        self._last_temperature = float_value(data.get(STORAGE_KEY_LAST_TEMPERATURE))
-        self._last_derivative_updated = float_value(data.get(STORAGE_KEY_LAST_DERIVATIVE_UPDATED))
+        self._sensor_step = float_value(data.get(STORAGE_KEY_SENSOR_STEP))
 
         self._integral = float(data.get(STORAGE_KEY_INTEGRAL, self._integral))
         self._raw_derivative = float(data.get(STORAGE_KEY_RAW_DERIVATIVE, self._raw_derivative))
+
+        for item in data.get(STORAGE_KEY_SAMPLES, []):
+            try:
+                self._samples.append(TemperatureSample(timestamp=float(item[0]), temperature=float(item[1])))
+            except (TypeError, ValueError, IndexError):
+                continue
 
         _LOGGER.debug("Loaded PID state from storage for entity=%s", self._entity_id)
 
@@ -195,49 +225,47 @@ class PID:
         )
 
     def _update_derivative(self, state: TemperatureState) -> None:
-        """Update the derivative term of the PID controller based on temperature slope."""
-        if self._last_temperature is None or self._last_derivative_updated is None:
-            self._reset_derivative_anchor(state)
+        """Derive the error slope from a least-squares fit over the recent samples."""
+        self._record_sample(state)
+
+        window = self.derivative_window_seconds
+        latest = self._samples[-1].timestamp
+        samples = [sample for sample in self._samples if latest - sample.timestamp <= window]
+
+        if len(samples) < DERIVATIVE_MINIMUM_SAMPLES or (latest - samples[0].timestamp) < DERIVATIVE_MINIMUM_SPAN_RATIO * window:
             return
 
-        if abs(state.error) <= DEADBAND:
-            self._reset_derivative_anchor(state)
-            return
-
-        temperature_delta = state.current - self._last_temperature
-
-        if temperature_delta == 0.0:
-            self._reset_derivative_anchor(state)
-            return
-
-        delta_time = state.last_changed.timestamp() - self._last_derivative_updated
-
-        if delta_time <= PID_UPDATE_INTERVAL:
-            return
-
-        derivative = -temperature_delta / delta_time
-
-        if abs(derivative) >= DERIVATIVE_RAW_CAP:
-            self._raw_derivative = max(-DERIVATIVE_RAW_CAP, min(derivative, DERIVATIVE_RAW_CAP))
-            self._reset_derivative_anchor(state)
-            return
-
-        # Apply the low-pass filter and clamp the magnitude.
-        alpha = delta_time / (PID_UPDATE_INTERVAL + delta_time)
-        filtered_derivative = alpha * derivative + (1 - alpha) * self._raw_derivative
-        self._raw_derivative = clamp_to_range(filtered_derivative, DERIVATIVE_RAW_CAP)
+        self._raw_derivative = clamp_to_range(-self._slope(samples), DERIVATIVE_RAW_CAP)
 
         _LOGGER.debug(
-            "PID derivative update: entity=%s previous_temperature=%.3f current_temperature=%.3f delta_time=%.3f raw_value=%.6f",
-            self._entity_id, self._last_temperature, state.current, delta_time, self._raw_derivative,
+            "PID derivative update: entity=%s samples=%d window=%ds sensor_step=%.3f raw_value=%.6f",
+            self._entity_id, len(samples), window, self.sensor_step, self._raw_derivative,
         )
 
-        self._reset_derivative_anchor(state)
+    def _record_sample(self, state: TemperatureState) -> None:
+        timestamp = state.last_reported.timestamp()
 
-    def _reset_derivative_anchor(self, state: TemperatureState) -> None:
-        """Move the derivative temperature and time anchors to the current sample."""
-        self._last_temperature = state.current
-        self._last_derivative_updated = state.last_changed.timestamp()
+        if self._samples and timestamp <= self._samples[-1].timestamp:
+            return
+
+        if self._samples and state.current != self._samples[-1].temperature:
+            step = round(abs(state.current - self._samples[-1].temperature), 3)
+            self._sensor_step = step if self._sensor_step is None else min(self._sensor_step, step)
+
+        self._samples.append(TemperatureSample(timestamp=timestamp, temperature=state.current))
+
+        while timestamp - self._samples[0].timestamp > DERIVATIVE_WINDOW_MAXIMUM_SECONDS:
+            self._samples.popleft()
+
+    @staticmethod
+    def _slope(samples: list[TemperatureSample]) -> float:
+        mean_timestamp = sum(sample.timestamp for sample in samples) / len(samples)
+        mean_temperature = sum(sample.temperature for sample in samples) / len(samples)
+
+        variance = sum((sample.timestamp - mean_timestamp) ** 2 for sample in samples)
+        covariance = sum((sample.timestamp - mean_timestamp) * (sample.temperature - mean_temperature) for sample in samples)
+
+        return covariance / variance if variance > 0 else 0.0
 
     async def _async_save_state(self) -> None:
         if self._store is None:
@@ -247,8 +275,8 @@ class PID:
             STORAGE_KEY_INTEGRAL: self._integral,
             STORAGE_KEY_LAST_ERROR: self._last_error,
             STORAGE_KEY_RAW_DERIVATIVE: self._raw_derivative,
-            STORAGE_KEY_LAST_TEMPERATURE: self._last_temperature,
-            STORAGE_KEY_LAST_DERIVATIVE_UPDATED: self._last_derivative_updated,
+            STORAGE_KEY_SENSOR_STEP: self._sensor_step,
+            STORAGE_KEY_SAMPLES: [[sample.timestamp, sample.temperature] for sample in self._samples],
         }
 
         await self._store.async_save(data)

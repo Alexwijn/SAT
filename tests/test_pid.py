@@ -9,6 +9,8 @@ from custom_components.sat.entry_data import PidConfig
 from custom_components.sat.heating_curve import HeatingCurve
 from custom_components.sat.pid import (
     DERIVATIVE_RAW_CAP,
+    DERIVATIVE_WINDOW_MAXIMUM_SECONDS,
+    DERIVATIVE_WINDOW_MINIMUM_SECONDS,
     PID, PID_UPDATE_INTERVAL,
 )
 from custom_components.sat.temperature.state import TemperatureState
@@ -157,92 +159,128 @@ def test_integral_clamped_to_heating_curve():
     assert pid.integral == 0.5
 
 
-def test_derivative_filtering_and_cap():
+def _derivative_pid() -> PID:
     pid = _make_pid(
         HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
+        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=6000.0),
     )
-
     _set_heating_curve_value(pid, 10.0)
-    start_time = 10.0
-    next_time = start_time + PID_UPDATE_INTERVAL + 1.0
-    pid.update(_state_for_error(1.0, start_time, current=10.0))
-    pid.update(_state_for_error(1.0, next_time, current=11.0))
+    return pid
 
-    derivative = -(11.0 - 10.0) / (next_time - start_time)
-    alpha = (next_time - start_time) / (PID_UPDATE_INTERVAL + (next_time - start_time))
-    expected_raw = alpha * derivative
 
-    assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
-    assert pid.derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
+def _feed_ramp(pid: PID, *, rate_per_hour: float, step: float, seconds: float, interval: float = 60.0, start: float = 20.0) -> None:
+    """Feed a steady temperature ramp as a sensor with the given resolution would report it."""
+    reported = None
+    for elapsed in range(0, int(seconds) + 1, int(interval)):
+        true_temperature = start + rate_per_hour * elapsed / 3600.0
+        quantized = round(round(true_temperature / step) * step, 3)
+        if quantized != reported:
+            reported = quantized
+            pid.update(_state_for_error(1.0, 1000.0 + elapsed, current=quantized))
 
-    pid.update(_state_for_error(1.0, next_time + PID_UPDATE_INTERVAL + 1.0, current=1000.0))
+
+def test_derivative_is_slope_over_the_window():
+    pid = _derivative_pid()
+
+    for index in range(10):
+        pid.update(_state_for_error(1.0, 1000.0 + index * 60.0, current=20.0 + index * 0.01))
+
+    assert pid.raw_derivative == pytest.approx(-0.01 / 60.0, abs=1e-6)
+    assert pid.derivative == pytest.approx(-1.0, abs=1e-3)
+
+
+def test_derivative_holds_until_window_has_enough_span():
+    pid = _derivative_pid()
+    pid._raw_derivative = 3.0
+
+    pid.update(_state_for_error(1.0, 1000.0, current=20.0))
+    pid.update(_state_for_error(1.0, 1060.0, current=20.1))
+
+    assert pid.raw_derivative == pytest.approx(3.0)
+
+    pid.update(_state_for_error(1.0, 1120.0, current=20.2))
+
+    assert pid.raw_derivative == pytest.approx(3.0)
+
+    for index in range(3, 12):
+        pid.update(_state_for_error(1.0, 1000.0 + index * 60.0, current=20.0 + index * 0.1))
+
+    assert pid.raw_derivative == pytest.approx(-0.1 / 60.0, abs=1e-6)
+
+
+def test_derivative_is_capped():
+    pid = _derivative_pid()
+
+    for index in range(20):
+        pid.update(_state_for_error(1.0, 1000.0 + index * 60.0, current=20.0 + index * 1000.0))
+
     assert pid.raw_derivative == -DERIVATIVE_RAW_CAP
 
 
-def test_derivative_freeze_in_deadband():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
-    )
+def test_derivative_keeps_working_inside_deadband():
+    pid = _derivative_pid()
 
-    _set_heating_curve_value(pid, 10.0)
-    pid.update(_state_for_error(1.0, 10.0, current=10.0))
-    pid._raw_derivative = 3.0
+    for index in range(10):
+        pid.update(_state_for_error(DEADBAND / 2, 1000.0 + index * 60.0, current=20.0 + index * 0.01))
 
-    pid.update(_state_for_error(DEADBAND / 2, 20.0, current=10.0))
-
-    assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)
+    assert pid.raw_derivative == pytest.approx(-0.01 / 60.0, abs=1e-6)
 
 
-def test_derivative_uses_sensor_timing():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
-    )
+def test_repeated_reports_are_recorded_once():
+    pid = _derivative_pid()
 
-    _set_heating_curve_value(pid, 10.0)
-    pid.update(_state_for_error(1.0, 100.0, current=10.0))
-    pid.update(_state_for_error(1.0, 200.0, current=11.0))
+    pid.update(_state_for_error(1.0, 1000.0, current=20.0))
+    pid.update(_state_for_error(1.0, 1000.0, current=20.0))
+    pid.update(_state_for_error(1.0, 1060.0, current=20.1))
 
-    derivative = -(11.0 - 10.0) / 100.0
-    alpha = 100.0 / (PID_UPDATE_INTERVAL + 100.0)
-    expected_raw = alpha * derivative
-
-    assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
+    assert len(pid._samples) == 2
 
 
-def test_derivative_accumulates_sub_interval_updates():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
-    )
+def test_samples_outside_the_longest_window_are_dropped():
+    pid = _derivative_pid()
 
-    _set_heating_curve_value(pid, 10.0)
-    pid.update(_state_for_error(1.0, 0.0, current=20.0))
+    for index in range(40):
+        pid.update(_state_for_error(1.0, 1000.0 + index * 60.0, current=20.0 + index * 0.01))
 
-    pid.update(_state_for_error(1.0, 30.0, current=20.1))
-    pid.update(_state_for_error(1.0, 90.0, current=20.3))
-
-    derivative = -(20.3 - 20.0) / 90.0
-    alpha = 90.0 / (PID_UPDATE_INTERVAL + 90.0)
-    expected_raw = alpha * derivative
-
-    assert pid.raw_derivative == pytest.approx(round(expected_raw, 3), rel=1e-3)
+    assert pid._samples[-1].timestamp - pid._samples[0].timestamp <= DERIVATIVE_WINDOW_MAXIMUM_SECONDS
 
 
-def test_derivative_freeze_when_delta_is_zero():
-    pid = _make_pid(
-        HeatingSystem.RADIATORS,
-        config=_pid_config(automatic_gains=False, proportional=0.0, integral=0.0, derivative=1.0),
-    )
+@pytest.mark.parametrize(
+    "step, expected_window",
+    [
+        (0.01, DERIVATIVE_WINDOW_MINIMUM_SECONDS),
+        (0.05, DERIVATIVE_WINDOW_MINIMUM_SECONDS),
+        (0.1, 1200),
+        (0.5, DERIVATIVE_WINDOW_MAXIMUM_SECONDS),
+    ],
+)
+def test_sensor_step_sets_the_derivative_window(step, expected_window):
+    pid = _derivative_pid()
 
-    _set_heating_curve_value(pid, 10.0)
-    pid.update(_state_for_error(1.0, 0.0, current=20.0))
-    pid.update(_state_for_error(1.0, 10.0, current=20.1))
-    pid.update(_state_for_error(1.0, 20.0, current=20.2))
+    assert pid.derivative_window_seconds == 1200
 
-    pid._raw_derivative = 3.0
-    pid.update(_state_for_error(1.0, 30.0, current=20.2))
+    _feed_ramp(pid, rate_per_hour=0.6, step=step, seconds=7200)
 
-    assert pid.raw_derivative == pytest.approx(3.0, rel=1e-3)
+    assert pid.sensor_step == pytest.approx(step)
+    assert pid.derivative_window_seconds == expected_window
+
+
+@pytest.mark.parametrize("step", [0.01, 0.05, 0.1])
+def test_coarse_and_fine_sensors_measure_the_same_ramp(step):
+    pid = _derivative_pid()
+
+    _feed_ramp(pid, rate_per_hour=0.6, step=step, seconds=3600)
+
+    expected = -0.6 / 3600.0
+    assert pid.raw_derivative == pytest.approx(expected, abs=0.35 * abs(expected))
+
+
+def test_one_coarse_sensor_step_barely_moves_the_derivative():
+    pid = _derivative_pid()
+
+    _feed_ramp(pid, rate_per_hour=0.6, step=0.1, seconds=3600)
+    before = pid.raw_derivative
+
+    pid.update(_state_for_error(1.0, 1000.0 + 3660.0, current=pid._samples[-1].temperature + 0.1))
+
+    assert abs(pid.raw_derivative - before) < 0.1 / pid.derivative_window_seconds
