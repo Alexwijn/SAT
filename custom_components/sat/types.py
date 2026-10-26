@@ -99,6 +99,13 @@ class HeatingCurveRecommendation(str, Enum):
     INSUFFICIENT_SAMPLES = "insufficient_samples"
 
 
+class HeatingCurveConfidence(str, Enum):
+    """Trust level of a heating curve recommendation."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class RelativeModulationState(str, Enum):
     """Relative modulation mode/state used for control decisions."""
     OFF = "off"

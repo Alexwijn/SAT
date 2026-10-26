@@ -18,7 +18,7 @@ from .coordinator.simulator import sensor as simulator_sensor
 from .entity import SatClimateEntity, SatEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
-from .heating_curve import RECOMMENDATION_MINIMUM_SAMPLES
+from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
 from .helpers import timestamp
 from .types import BoilerStatus, CycleClassification
 
@@ -394,12 +394,20 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
         recent = self._climate.temperature_statistics.window.recent
 
         return {
+            "confidence": advice.confidence.value if advice.confidence is not None else None,
+
+            "window_days": RECOMMENDATION_WINDOW_SECONDS // (24 * 60 * 60),
+            "minimum_days": RECOMMENDATION_MINIMUM_DAYS,
             "minimum_samples": RECOMMENDATION_MINIMUM_SAMPLES,
 
+            "sample_days": advice.sample_days,
             "sample_count": advice.sample_count,
             "median_flow_correction": advice.median_correction,
-            "suggested_coefficient": advice.suggested_coefficient,
+
             "current_coefficient": self._config.pid.heating_curve_coefficient,
+            "estimated_coefficient": advice.estimated_coefficient,
+            "suggested_coefficient": advice.suggested_coefficient,
+            "daily_coefficients": dict(advice.daily_coefficients),
 
             "recent_mean_error": recent.mean_error,
             "recent_sample_count": recent.sample_count,
@@ -412,7 +420,6 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
             "daily_median_error": daily.median_error,
             "daily_mean_abs_error": daily.mean_abs_error,
             "daily_in_band_fraction": daily.in_band_fraction,
-
         }
 
     @property

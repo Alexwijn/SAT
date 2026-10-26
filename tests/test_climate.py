@@ -21,6 +21,7 @@ from custom_components.sat.const import (
     CONF_SENSOR_MAX_VALUE_AGE,
     CONF_HEATING_SYSTEM,
     DOMAIN,
+    HEATING_CURVE_SETTLE_SECONDS,
     HeatingMode,
     HeatingSystem,
     MINIMUM_SETPOINT,
@@ -29,6 +30,8 @@ from custom_components.sat.const import (
     SERVICE_RESET_INTEGRAL,
 )
 from custom_components.sat.heating_curve import HeatingCurve
+from custom_components.sat.temperature.history import TemperatureHistory
+from custom_components.sat.temperature.state import TemperatureState
 from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.pid import PID
 from custom_components.sat.types import HeaterState
@@ -290,3 +293,64 @@ async def test_frost_protection_stays_off_when_warm(monkeypatch, climate):
     demand = update_mock.call_args.args[0]
     assert climate._frost_protection_active is False
     assert demand.heater_state == HeaterState.OFF
+
+
+def _temperature_state(current: float, setpoint: float) -> TemperatureState:
+    now = dt_util.utcnow()
+    return TemperatureState(entity_id="sensor.test_inside_sensor", current=current, setpoint=setpoint, last_updated=now, last_changed=now, last_reported=now)
+
+
+def _prepare_curve_advice(monkeypatch, climate, *, proportional: float, derivative: float) -> list:
+    recorded: list = []
+
+    climate._hvac_mode = HVACMode.HEAT
+    climate._target_temperature_changed_at = 0.0
+    climate.heating_curve.update(21.0, 5.0)
+
+    monkeypatch.setattr(type(climate.pid), "proportional", property(lambda self: proportional))
+    monkeypatch.setattr(type(climate.pid), "integral", property(lambda self: 0.5))
+    monkeypatch.setattr(type(climate.pid), "derivative", property(lambda self: derivative))
+    monkeypatch.setattr(climate._curve_advisor, "record", recorded.append)
+
+    for index in range(7):
+        climate._temperature_history.record(0.3, HEATING_CURVE_SETTLE_SECONDS * 2 - 1800.0 + index * 300.0)
+
+    return recorded
+
+
+def test_curve_advice_sample_excludes_derivative(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=-2.0)
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert len(recorded) == 1
+    assert recorded[0].correction == 3.5
+    assert recorded[0].shape == HeatingCurve.calculate(21.0, 5.0)
+
+
+def test_curve_advice_sample_skipped_while_room_is_far_from_setpoint(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=15.0, derivative=0.0)
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(19.5, 21.0))
+
+    assert recorded == []
+
+
+def test_curve_advice_sample_skipped_before_settling(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS / 2, _temperature_state(20.7, 21.0))
+
+    assert recorded == []
+
+
+def test_curve_advice_sample_skipped_while_room_is_still_warming(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=10.0, derivative=0.0)
+    climate._temperature_history = TemperatureHistory()
+
+    for index in range(7):
+        climate._temperature_history.record(0.9 - index * 0.1, HEATING_CURVE_SETTLE_SECONDS * 2 - 1800.0 + index * 300.0)
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.3, 21.0))
+
+    assert recorded == []

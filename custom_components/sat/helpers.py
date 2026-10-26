@@ -201,3 +201,20 @@ def percentile_interpolated(values: list[float], percentile: float) -> Optional[
     lower_value = values_sorted[lower_index]
     upper_value = values_sorted[upper_index]
     return float(lower_value + (upper_value - lower_value) * fraction)
+
+
+def weighted_median(values: list[float], weights: list[float]) -> Optional[float]:
+    """Return the weighted median of values, or None if no value carries a positive weight."""
+    order = sorted((index for index, weight in enumerate(weights) if weight > 0), key=lambda index: values[index])
+    if not order:
+        return None
+
+    half_weight = sum(weights[index] for index in order) / 2
+    cumulative_weight = 0.0
+
+    for index in order:
+        cumulative_weight += weights[index]
+        if cumulative_weight >= half_weight:
+            return float(values[index])
+
+    return float(values[order[-1]])

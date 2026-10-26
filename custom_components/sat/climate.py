@@ -37,7 +37,10 @@ from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
 from .entry_data import SatConfig, get_entry_data
 from .heating_control import HeatingDemand, SatHeatingControl
-from .heating_curve import HeatingCurve, HeatingCurveAdvisor
+from .heating_curve import (
+    HeatingCurve, HeatingCurveAdvisor, HeatingCurveAdviceSample,
+    RECOMMENDATION_MAXIMUM_ERROR_CELSIUS, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS,
+)
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
 from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, SolarGainSnapshot
@@ -531,7 +534,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             freeze_integral=self._solar_gain_snapshot.active and self._config.solar_gain.freeze_integral,
         )
 
-        self._record_curve_advice_sample(now)
+        self._record_curve_advice_sample(now, temperature_state)
 
         self._warm_up.update(
             active=(
@@ -559,7 +562,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return self._frost_protection_active
 
-    def _record_curve_advice_sample(self, now: float) -> None:
+    def _record_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> None:
         """Feed the heating curve advisor when the system is in steady heating operation."""
         if self.hvac_mode != HVACMode.HEAT or not self.valves_open:
             return
@@ -567,22 +570,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._solar_gain_snapshot.active or self._coordinator.hot_water_active:
             return
 
+        if abs(temperature_state.error) > RECOMMENDATION_MAXIMUM_ERROR_CELSIUS:
+            return
+
+        if not self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS):
+            return
+
         if self._target_temperature_changed_at is None or (now - self._target_temperature_changed_at) < HEATING_CURVE_SETTLE_SECONDS:
             return
 
-        target_temperature = self.target_temperature
-        outside_temperature = self.current_outside_temperature
-        heating_curve_value = self.heating_curve.value
-
-        if target_temperature is None or outside_temperature is None or heating_curve_value is None:
+        if (shape := self.heating_curve.shape) is None or self.heating_curve.value is None:
             return
 
-        self._curve_advisor.record(
+        self._curve_advisor.record(HeatingCurveAdviceSample(
+            shape=shape,
             timestamp=now,
-            correction=self.pid.output - heating_curve_value,
-            target_temperature=target_temperature,
-            outside_temperature=outside_temperature,
-        )
+            correction=self.pid.proportional + self.pid.integral,
+        ))
 
     def _sun_elevation(self) -> Optional[float]:
         sun_state = self.hass.states.get("sun.sun")

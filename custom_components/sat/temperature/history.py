@@ -82,6 +82,16 @@ class TemperatureHistory:
             in_band_fraction=self._in_band_fraction(errors),
         )
 
+    def is_steady(self, window_seconds: int, maximum_range: float) -> bool:
+        """Whether the error has covered the whole window without drifting more than the given range."""
+        samples = self._recent_samples(window_seconds)
+
+        if len(samples) < 3 or (samples[-1].timestamp - samples[0].timestamp) < 0.8 * window_seconds:
+            return False
+
+        errors = [sample.error for sample in samples]
+        return (max(errors) - min(errors)) <= maximum_range
+
     def _recent_samples(self, window_seconds: int) -> list[TemperatureErrorSample]:
         if (now := self._current_time_hint()) is None:
             return []

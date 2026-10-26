@@ -98,9 +98,13 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             },
             "curve_advisor": {
                 "recommendation": _safe(lambda: advice.recommendation),
+                "confidence": _safe(lambda: advice.confidence),
                 "sample_count": advice.sample_count,
+                "sample_days": advice.sample_days,
                 "median_correction": advice.median_correction,
+                "estimated_coefficient": advice.estimated_coefficient,
                 "suggested_coefficient": advice.suggested_coefficient,
+                "daily_coefficients": dict(advice.daily_coefficients),
             },
         }
 
