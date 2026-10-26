@@ -9,12 +9,14 @@ from typing import Callable, Optional
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.core import HomeAssistant, State
+from homeassistant.helpers.dispatcher import dispatcher_send
 
 from .const import (
     COLD_SETPOINT,
     DHW_OVERSHOOT_GUARD_SECONDS,
     MINIMUM_RELATIVE_MODULATION,
     MINIMUM_SETPOINT, EVENT_SAT_CYCLE_ENDED, UNDERHEAT_SUSTAIN_SECONDS, SATURATION_SUSTAIN_SECONDS, OVERSHOOT_SUSTAIN_SECONDS,
+    SIGNAL_HEATING_CONTROL_UPDATED,
 )
 from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
@@ -175,6 +177,8 @@ class SatHeatingControl:
         self._coordinator_listener_remove = self._coordinator.async_add_listener(self._handle_coordinator_update)
         self._pwm_cycle_listener_remove = self._hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, self._on_cycle_ended)
 
+        self._handle_coordinator_update()
+
     async def async_will_remove_from_hass(self) -> None:
         """Persist state when the integration unloads."""
         if self._coordinator_listener_remove is not None:
@@ -269,6 +273,8 @@ class SatHeatingControl:
                 relative_modulation=self._relative_modulation_value,
             )
         )
+
+        dispatcher_send(self._hass, SIGNAL_HEATING_CONTROL_UPDATED, self._coordinator.id)
 
     def _on_cycle_ended(self, event) -> None:
         """Forward completed cycles to the PWM controller."""

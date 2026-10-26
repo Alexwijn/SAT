@@ -8,7 +8,7 @@ from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.heating_control import ControlLoopSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
-from custom_components.sat.types import CycleClassification, CycleControlMode, CycleKind, Percentiles, PWMStatus, HeatingSystem
+from custom_components.sat.types import BoilerStatus, CycleClassification, CycleControlMode, CycleKind, Percentiles, PWMStatus, HeatingSystem
 from homeassistant.helpers import entity_registry as er
 
 pytestmark = pytest.mark.parametrize(
@@ -138,3 +138,17 @@ async def test_core_sensors_registered(hass, climate, entry, domains, data, opti
     for unique_id in expected_unique_ids:
         entity_id = registry.async_get_entity_id("sensor", "sat", unique_id)
         assert entity_id is not None
+
+
+async def test_device_status_sensor_follows_heating_control(hass, heating_control, entry, domains, data, options, config):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-boiler-status")
+
+    assert entity_id is not None
+    assert hass.states.get(entity_id).state == heating_control.device_status.name
+
+    heating_control._device_tracker._current_status = BoilerStatus.CENTRAL_HEATING
+    heating_control._handle_coordinator_update()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == heating_control.device_status.name

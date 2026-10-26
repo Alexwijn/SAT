@@ -18,7 +18,7 @@ from . import SatHeatingControl
 from .climate import SatClimate
 from .const import *
 from .coordinator.serial import binary_sensor as serial_binary_sensor
-from .entity import SatClimateEntity, SatEntity
+from .entity import SatClimateEntity, SatEntity, SatHeatingControlEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .helpers import float_value, seconds_since, timestamp
 from .types import BoilerStatus, CycleClassification
@@ -90,7 +90,7 @@ class SatSyncSensor:
         return False
 
 
-class SatControlSetpointSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity):
+class SatControlSetpointSyncSensor(SatSyncSensor, SatHeatingControlEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
@@ -126,7 +126,7 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity)
         return f"{self._config.entry_id}-control-setpoint-synchro"
 
 
-class SatRelativeModulationSyncSensor(SatSyncSensor, SatEntity, BinarySensorEntity):
+class SatRelativeModulationSyncSensor(SatSyncSensor, SatHeatingControlEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
@@ -472,7 +472,7 @@ class SatDeviceFaultSensor(SatEntity, BinarySensorEntity):
         super()._handle_coordinator_update()
 
 
-class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):
+class SatDeviceHealthSensor(SatHeatingControlEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -496,7 +496,7 @@ class SatDeviceHealthSensor(SatEntity, BinarySensorEntity):
         return f"{self._config.entry_id}-boiler-health"
 
 
-class SatCycleHealthSensor(SatEntity, BinarySensorEntity):
+class SatCycleHealthSensor(SatHeatingControlEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     async def async_added_to_hass(self) -> None:

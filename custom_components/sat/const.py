@@ -216,3 +216,4 @@ EVENT_SAT_CYCLE_ENDED = "sat_cycle_ended"
 
 # Dispatcher signals for internal updates.
 SIGNAL_PID_UPDATED = "sat_pid_updated"
+SIGNAL_HEATING_CONTROL_UPDATED = "sat_heating_control_updated"

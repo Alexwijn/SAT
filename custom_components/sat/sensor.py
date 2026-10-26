@@ -15,7 +15,7 @@ from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .coordinator.serial import sensor as serial_sensor
 from .coordinator.simulator import sensor as simulator_sensor
-from .entity import SatClimateEntity, SatEntity
+from .entity import SatClimateEntity, SatEntity, SatHeatingControlEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
@@ -488,7 +488,7 @@ class SatManufacturerSensor(SatEntity, SensorEntity):
         return f"{self._config.entry_id}-manufacturer"
 
 
-class SatCycleSensor(SatEntity, SensorEntity):
+class SatCycleSensor(SatHeatingControlEntity, SensorEntity):
     _attr_translation_key = "cycle_status"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -540,7 +540,7 @@ class SatCycleSensor(SatEntity, SensorEntity):
         return f"{self._config.entry_id}-cycle-status"
 
 
-class SatDeviceSensor(SatEntity, SensorEntity):
+class SatDeviceSensor(SatHeatingControlEntity, SensorEntity):
     _attr_translation_key = "boiler_status"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
