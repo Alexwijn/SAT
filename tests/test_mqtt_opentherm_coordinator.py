@@ -257,3 +257,16 @@ def test_process_message_updates_data(coordinator):
 def test_process_message_json_payload(coordinator):
     coordinator._process_message_payload(DATA_BOILER_TEMPERATURE, json.dumps(45.2))
     assert coordinator.data.get(DATA_BOILER_TEMPERATURE) == 45.2
+
+
+async def test_set_control_setpoint_is_formatted_with_one_decimal(coordinator, monkeypatch):
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a)))
+
+    await coordinator.async_set_control_setpoint(56.602000000000004)
+    await coordinator.async_set_control_hot_water_setpoint(50)
+    await coordinator.async_set_control_max_setpoint(65.0)
+
+    assert ("CS=56.6",) in calls
+    assert ("SW=50.0",) in calls
+    assert ("SH=65.0",) in calls
