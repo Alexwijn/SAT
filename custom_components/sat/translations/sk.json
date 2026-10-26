@@ -376,5 +376,18 @@
       "title": "Nezdravý tlak kotla",
       "description": "Tlak kotla pre {name} je mimo rozsahu alebo rýchlo klesá (aktuálne {pressure} bar). Skontrolujte systém na úniky a v prípade potreby doplňte tlak vody."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Odporúčanie vykurovacej krivky",
+        "state": {
+          "increase": "Zvýšiť",
+          "decrease": "Znížiť",
+          "hold": "Ponechať",
+          "insufficient_samples": "Nedostatok vzoriek"
+        }
+      }
+    }
   }
 }

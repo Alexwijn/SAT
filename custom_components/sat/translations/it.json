@@ -376,5 +376,18 @@
       "title": "Pressione caldaia anomala",
       "description": "La pressione della caldaia di {name} è fuori intervallo o sta calando rapidamente (attualmente {pressure} bar). Verificare la presenza di perdite e ripristinare la pressione dell'acqua se necessario."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Raccomandazione curva di riscaldamento",
+        "state": {
+          "increase": "Aumenta",
+          "decrease": "Riduci",
+          "hold": "Mantieni",
+          "insufficient_samples": "Campioni insufficienti"
+        }
+      }
+    }
   }
 }

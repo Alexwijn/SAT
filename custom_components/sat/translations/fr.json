@@ -376,5 +376,18 @@
       "title": "Pression de chaudière anormale",
       "description": "La pression de la chaudière pour {name} est hors plage ou chute rapidement (actuellement {pressure} bar). Vérifiez l'absence de fuites et rétablissez la pression d'eau si nécessaire."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Recommandation de courbe de chauffe",
+        "state": {
+          "increase": "Augmenter",
+          "decrease": "Diminuer",
+          "hold": "Conserver",
+          "insufficient_samples": "Échantillons insuffisants"
+        }
+      }
+    }
   }
 }

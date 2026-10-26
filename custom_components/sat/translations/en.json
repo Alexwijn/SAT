@@ -376,5 +376,18 @@
       "title": "Boiler pressure unhealthy",
       "description": "The boiler pressure for {name} is out of range or dropping fast (currently {pressure} bar). Check the system for leaks and top up the water pressure if needed."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Heating curve recommendation",
+        "state": {
+          "increase": "Increase",
+          "decrease": "Decrease",
+          "hold": "Hold",
+          "insufficient_samples": "Insufficient samples"
+        }
+      }
+    }
   }
 }

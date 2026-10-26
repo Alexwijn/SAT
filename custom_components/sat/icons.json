@@ -46,10 +46,10 @@
       "heating_curve_recommendation": {
         "default": "mdi:chart-line",
         "state": {
-          "HOLD": "mdi:check-circle",
-          "INCREASE": "mdi:arrow-up-bold",
-          "DECREASE": "mdi:arrow-down-bold",
-          "INSUFFICIENT_SAMPLES": "mdi:timer-sand"
+          "hold": "mdi:check-circle",
+          "increase": "mdi:arrow-up-bold",
+          "decrease": "mdi:arrow-down-bold",
+          "insufficient_samples": "mdi:timer-sand"
         }
       }
     }

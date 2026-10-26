@@ -20,7 +20,7 @@ from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
 from .helpers import timestamp
-from .types import BoilerStatus, CycleClassification
+from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -368,6 +368,8 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
 class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
     _attr_translation_key = "heating_curve_recommendation"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [recommendation.value for recommendation in HeatingCurveRecommendation]
 
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(entity_id: str) -> None:
@@ -384,8 +386,8 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
         return "Heating Curve Recommendation"
 
     @property
-    def native_value(self) -> Optional[str]:
-        return self._climate.curve_advisor.advice.recommendation.name
+    def native_value(self) -> str:
+        return self._climate.curve_advisor.advice.recommendation.value
 
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
@@ -421,10 +423,6 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
             "daily_mean_abs_error": daily.mean_abs_error,
             "daily_in_band_fraction": daily.in_band_fraction,
         }
-
-    @property
-    def available(self) -> bool:
-        return self._climate.curve_advisor.advice.sample_count > 0 or self._climate.temperature_statistics.window.daily.sample_count > 0
 
     @property
     def unique_id(self) -> str:

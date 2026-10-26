@@ -376,5 +376,18 @@
       "title": "Presión de caldera anómala",
       "description": "La presión de la caldera de {name} está fuera de rango o cae rápidamente (actualmente {pressure} bar). Compruebe si hay fugas y reponga la presión de agua si es necesario."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Recomendación de curva de calefacción",
+        "state": {
+          "increase": "Aumentar",
+          "decrease": "Reducir",
+          "hold": "Mantener",
+          "insufficient_samples": "Muestras insuficientes"
+        }
+      }
+    }
   }
 }

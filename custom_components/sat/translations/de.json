@@ -376,5 +376,18 @@
       "title": "Kesseldruck kritisch",
       "description": "Der Kesseldruck für {name} liegt außerhalb des Bereichs oder fällt schnell (aktuell {pressure} bar). Prüfen Sie das System auf Lecks und füllen Sie bei Bedarf Wasser nach."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Heizkurvenempfehlung",
+        "state": {
+          "increase": "Erhöhen",
+          "decrease": "Verringern",
+          "hold": "Beibehalten",
+          "insufficient_samples": "Zu wenige Messwerte"
+        }
+      }
+    }
   }
 }

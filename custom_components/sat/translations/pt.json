@@ -376,5 +376,18 @@
       "title": "Pressão da caldeira anómala",
       "description": "A pressão da caldeira de {name} está fora do intervalo ou a descer rapidamente (atualmente {pressure} bar). Verifique fugas no sistema e reponha a pressão da água se necessário."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Recomendação da curva de aquecimento",
+        "state": {
+          "increase": "Aumentar",
+          "decrease": "Reduzir",
+          "hold": "Manter",
+          "insufficient_samples": "Amostras insuficientes"
+        }
+      }
+    }
   }
 }

@@ -376,5 +376,18 @@
       "title": "Keteldruk ongezond",
       "description": "De keteldruk voor {name} is buiten bereik of daalt snel (momenteel {pressure} bar). Controleer het systeem op lekkages en vul indien nodig de waterdruk bij."
     }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Stooklijn aanbeveling",
+        "state": {
+          "increase": "Verhogen",
+          "decrease": "Verlagen",
+          "hold": "Behouden",
+          "insufficient_samples": "Onvoldoende metingen"
+        }
+      }
+    }
   }
 }
