@@ -35,6 +35,12 @@ class DeviceStatusEvaluator:
         state = snapshot.state
         previous = snapshot.previous_state
 
+        if state.hot_water_active:
+            if state.flame_active:
+                return BoilerStatus.HEATING_HOT_WATER
+
+            return BoilerStatus.COOLING if previous is not None and previous.flame_active else BoilerStatus.IDLE
+
         # Power / availability
         if not state.central_heating:
             return BoilerStatus.OFF
@@ -83,9 +89,6 @@ class DeviceStatusEvaluator:
 
             # Otherwise, simply idle.
             return BoilerStatus.IDLE
-
-        if state.hot_water_active:
-            return BoilerStatus.HEATING_HOT_WATER
 
         # Space heating with flame on.
         if state.setpoint is None or state.flow_temperature is None:

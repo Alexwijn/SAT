@@ -58,3 +58,36 @@ def test_status_ramping_up_outside_window_falls_back_to_preheat():
     ))
 
     assert status is BoilerStatus.PREHEATING
+
+
+def _snapshot(state: DeviceState, previous: DeviceState | None) -> DeviceStatusSnapshot:
+    return DeviceStatusSnapshot(
+        last_cycle=None,
+        last_flame_on_at=None,
+        last_flame_off_at=None,
+        last_flame_off_was_overshoot=False,
+        last_hot_water_on_at=None,
+        last_hot_water_off_at=None,
+        last_update_at=100.0,
+        previous_update_at=98.0,
+        modulation_direction=0,
+        previous_state=previous,
+        state=state,
+    )
+
+
+def test_status_hot_water_has_priority_over_suspended_central_heating():
+    heating_hot_water = DeviceState(
+        flame_active=True, hot_water_active=True, central_heating=False,
+        setpoint=60.0, flow_temperature=55.0, return_temperature=40.0, max_modulation_level=100, relative_modulation_level=80.0,
+    )
+
+    assert DeviceStatusEvaluator.evaluate(_snapshot(heating_hot_water, None)) is BoilerStatus.HEATING_HOT_WATER
+
+    flame_off = DeviceState(
+        flame_active=False, hot_water_active=True, central_heating=False,
+        setpoint=60.0, flow_temperature=55.0, return_temperature=40.0, max_modulation_level=100, relative_modulation_level=0.0,
+    )
+
+    assert DeviceStatusEvaluator.evaluate(_snapshot(flame_off, heating_hot_water)) is BoilerStatus.COOLING
+    assert DeviceStatusEvaluator.evaluate(_snapshot(flame_off, None)) is BoilerStatus.IDLE
