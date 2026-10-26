@@ -180,8 +180,7 @@ async def test_set_heater_state_on(coordinator, monkeypatch):
 
     await coordinator.async_set_heater_state(HeaterState.ON)
 
-    payload = json.loads(calls[0][0])
-    assert payload == {"cmd": "heatingactivated", "value": "on"}
+    assert calls == []
 
 
 @pytest.mark.asyncio
@@ -191,8 +190,7 @@ async def test_set_heater_state_off(coordinator, monkeypatch):
 
     await coordinator.async_set_heater_state(HeaterState.OFF)
 
-    payload = json.loads(calls[0][0])
-    assert payload == {"cmd": "heatingactivated", "value": "off"}
+    assert calls == []
 
 
 @pytest.mark.asyncio
@@ -258,6 +256,15 @@ def _commands(monkeypatch, coordinator) -> list:
     calls = []
     monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(json.loads(a[0]))))
     return calls
+
+
+async def test_heater_state_does_not_toggle_heating_activated(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+    await coordinator.async_set_heater_state(HeaterState.ON)
+
+    assert calls == []
 
 
 async def test_control_setpoint_is_sent_as_whole_degrees(coordinator, monkeypatch):

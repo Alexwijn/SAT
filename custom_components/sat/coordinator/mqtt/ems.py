@@ -162,8 +162,7 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_thermostat_setpoint(value)
 
     async def async_set_heater_state(self, state: HeaterState) -> None:
-        await self._publish_command(f'{{"cmd": "heatingactivated", "value": "{DATA_ON if state == HeaterState.ON else DATA_OFF}"}}')
-
+        """Heat demand on EMS boilers follows the flow setpoint alone."""
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
