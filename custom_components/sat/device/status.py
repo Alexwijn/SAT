@@ -27,6 +27,7 @@ class DeviceStatusSnapshot:
     modulation_direction: int
     previous_update_at: Optional[float]
     previous_state: Optional[DeviceState]
+    last_demand_started_at: Optional[float] = None
 
 
 class DeviceStatusEvaluator:
@@ -62,13 +63,7 @@ class DeviceStatusEvaluator:
                 return BoilerStatus.ANTI_CYCLING
 
             # Stalled ignition: OFF for much longer than expected, with demand present.
-            if DeviceStatusEvaluator.is_ignition_stalled(
-                    state=state,
-                    last_cycle=snapshot.last_cycle,
-                    last_update_at=snapshot.last_update_at,
-                    last_flame_off_at=snapshot.last_flame_off_at,
-                    last_flame_off_was_overshoot=snapshot.last_flame_off_was_overshoot,
-            ):
+            if DeviceStatusEvaluator.is_ignition_stalled(snapshot):
                 return BoilerStatus.STALLED_IGNITION
 
             # Flame just turned off, and we are not overshoot cooling nor anti cycling.
@@ -135,8 +130,12 @@ class DeviceStatusEvaluator:
         return state.setpoint > state.flow_temperature + BOILER_DEMAND_HYSTERESIS
 
     @staticmethod
-    def is_ignition_stalled(last_cycle: Optional["Cycle"], last_flame_off_at: Optional[float], last_flame_off_was_overshoot: bool, last_update_at: Optional[float], state: DeviceState) -> bool:
-        """Detect stalled ignition when demand persists for too long."""
+    def is_ignition_stalled(snapshot: DeviceStatusSnapshot) -> bool:
+        """Detect stalled ignition when demand persists for too long after the flame went out."""
+        state = snapshot.state
+        last_update_at = snapshot.last_update_at
+        last_flame_off_at = snapshot.last_flame_off_at
+
         if last_flame_off_at is None or last_update_at is None:
             return False
 
@@ -150,25 +149,29 @@ class DeviceStatusEvaluator:
         if DeviceStatusEvaluator.is_in_anti_cycling(state, last_update_at, last_flame_off_at):
             return False
 
-        if DeviceStatusEvaluator.is_overshoot_cooling(state, last_flame_off_was_overshoot):
+        if DeviceStatusEvaluator.is_overshoot_cooling(state, snapshot.last_flame_off_was_overshoot):
             return False
 
-        time_since_off = last_update_at - last_flame_off_at
-        if time_since_off < 0:
+        waiting_since = last_flame_off_at
+        if snapshot.last_demand_started_at is not None:
+            waiting_since = max(waiting_since, snapshot.last_demand_started_at)
+
+        time_waiting = last_update_at - waiting_since
+        if time_waiting < 0:
             return False
 
         # Base threshold on the last cycle duration (if available) plus an absolute floor.
         threshold = BOILER_STALL_IGNITION_MIN_OFF_SECONDS
 
-        if last_cycle is not None:
+        if snapshot.last_cycle is not None:
             try:
-                last_duration = float(last_cycle.duration)
+                last_duration = float(snapshot.last_cycle.duration)
                 threshold = max(threshold, last_duration * BOILER_STALL_IGNITION_OFF_RATIO)
             except (TypeError, ValueError):
                 # Ignore if duration_seconds is missing or not numeric.
                 pass
 
-        return time_since_off >= threshold
+        return time_waiting >= threshold
 
     @staticmethod
     def is_in_anti_cycling(state: DeviceState, last_update_at: Optional[float], last_flame_off_at: Optional[float]) -> bool:

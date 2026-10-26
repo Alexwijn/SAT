@@ -91,3 +91,48 @@ def test_status_hot_water_has_priority_over_suspended_central_heating():
 
     assert DeviceStatusEvaluator.evaluate(_snapshot(flame_off, heating_hot_water)) is BoilerStatus.COOLING
     assert DeviceStatusEvaluator.evaluate(_snapshot(flame_off, None)) is BoilerStatus.IDLE
+
+
+def test_status_fresh_demand_after_long_off_phase_is_not_stalled():
+    previous = _state(flow=30.0, setpoint=10.0, flame_active=False)
+    current = _state(flow=30.0, setpoint=52.0, flame_active=False)
+
+    status = DeviceStatusEvaluator.evaluate(DeviceStatusSnapshot(
+        last_cycle=None,
+        last_flame_on_at=100.0,
+        last_flame_off_at=200.0,
+        last_flame_off_was_overshoot=False,
+        last_hot_water_on_at=None,
+        last_hot_water_off_at=None,
+        last_update_at=1700.0,
+        previous_update_at=1690.0,
+        modulation_direction=0,
+        previous_state=previous,
+        state=current,
+        last_demand_started_at=1700.0,
+    ))
+
+    assert status is BoilerStatus.WAITING_FOR_FLAME
+
+
+def test_status_demand_unanswered_for_too_long_is_stalled():
+    previous = _state(flow=30.0, setpoint=52.0, flame_active=False)
+    current = _state(flow=30.0, setpoint=52.0, flame_active=False)
+
+    status = DeviceStatusEvaluator.evaluate(DeviceStatusSnapshot(
+        last_cycle=None,
+        last_flame_on_at=100.0,
+        last_flame_off_at=200.0,
+        last_flame_off_was_overshoot=False,
+        last_hot_water_on_at=None,
+        last_hot_water_off_at=None,
+        last_update_at=2400.0,
+        previous_update_at=2390.0,
+        modulation_direction=0,
+        previous_state=previous,
+        state=current,
+        last_demand_started_at=1700.0,
+    ))
+
+    assert status is BoilerStatus.STALLED_IGNITION
+

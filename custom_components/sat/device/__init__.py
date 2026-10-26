@@ -34,6 +34,7 @@ class DeviceTracker:
         self._last_flame_off_was_overshoot: bool = False
         self._last_hot_water_on_at: Optional[float] = None
         self._last_hot_water_off_at: Optional[float] = None
+        self._last_demand_started_at: Optional[float] = None
 
         self._modulation_tracker = ModulationReliabilityTracker()
 
@@ -77,6 +78,7 @@ class DeviceTracker:
 
             last_hot_water_on_at=self.hot_water_on_since,
             last_hot_water_off_at=self.hot_water_off_since,
+            last_demand_started_at=self._last_demand_started_at,
 
             previous_state=self._previous_state,
             previous_update_at=self._previous_update_at,
@@ -142,6 +144,7 @@ class DeviceTracker:
         self._last_update_at = timestamp
 
         self._record_flame_transitions(self._previous_state, state)
+        self._record_demand_transitions(self._previous_state, state)
         self._record_hot_water_transitions(self._previous_state, state)
 
         if self._modulation_tracker.update(state) and self._hass is not None:
@@ -207,6 +210,14 @@ class DeviceTracker:
             # Flame OFF -> ON
             self._last_flame_on_at = self._last_update_at
             self._last_flame_off_was_overshoot = False
+
+    def _record_demand_transitions(self, previous: Optional[DeviceState], current: DeviceState) -> None:
+        """Track when space-heating demand (re)appears."""
+        if not DeviceStatusEvaluator.has_demand(current):
+            return
+
+        if previous is None or not DeviceStatusEvaluator.has_demand(previous):
+            self._last_demand_started_at = self._last_update_at
 
     def _record_hot_water_transitions(self, previous: Optional[DeviceState], current: DeviceState) -> None:
         """Track domestic hot water ON/OFF timestamps."""
