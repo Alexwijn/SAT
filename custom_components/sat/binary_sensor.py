@@ -118,7 +118,7 @@ class SatControlSetpointSyncSensor(SatSyncSensor, SatHeatingControlEntity, Binar
         climate_setpoint = round(self._heating_control.control_setpoint, 1)
         coordinator_setpoint = round(self._coordinator.setpoint, 1)
 
-        return self.state_delayed(climate_setpoint != coordinator_setpoint)
+        return self.state_delayed(not self._coordinator.hot_water_active and climate_setpoint != coordinator_setpoint)
 
     @property
     def unique_id(self) -> str:
@@ -157,7 +157,7 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatHeatingControlEntity, Bi
         climate_modulation = int(self._heating_control.relative_modulation_value)
         maximum_modulation = int(self._coordinator.maximum_relative_modulation_value)
 
-        return self.state_delayed(climate_modulation != maximum_modulation)
+        return self.state_delayed(not self._coordinator.hot_water_active and (climate_modulation != maximum_modulation))
 
     @property
     def unique_id(self) -> str:
@@ -197,7 +197,7 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
         should_be_idle = climate_hvac_action == HVACAction.IDLE and not device_active
         should_be_heating = climate_hvac_action == HVACAction.HEATING and device_active
 
-        return self.state_delayed(not (should_be_off or should_be_idle or should_be_heating))
+        return self.state_delayed(not self._coordinator.hot_water_active and not (should_be_off or should_be_idle or should_be_heating))
 
     @property
     def unique_id(self) -> str:
