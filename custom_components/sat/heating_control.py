@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Optional
@@ -17,6 +18,7 @@ from .const import (
     DHW_OVERSHOOT_GUARD_SECONDS,
     MINIMUM_RELATIVE_MODULATION,
     MINIMUM_SETPOINT, EVENT_SAT_CYCLE_ENDED, UNDERHEAT_SUSTAIN_SECONDS, SATURATION_SUSTAIN_SECONDS, OVERSHOOT_SUSTAIN_SECONDS,
+    OVERSHOOT_REFERENCE_WINDOW_SECONDS,
     SIGNAL_HEATING_CONTROL_UPDATED,
 )
 from .coordinator import SatDataUpdateCoordinator
@@ -52,6 +54,14 @@ class ControlLoopSample:
 
     requested_setpoint: Optional[float]
     outside_temperature: Optional[float]
+
+
+@dataclass(frozen=True, slots=True)
+class RequestedSetpointSample:
+    """Requested flow setpoint at a moment in time."""
+
+    timestamp: float
+    setpoint: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +104,7 @@ class SatHeatingControl:
 
         self._last_requested_setpoint: Optional[float] = None
         self._last_outside_temperature: Optional[float] = None
+        self._requested_setpoints: deque[RequestedSetpointSample] = deque()
 
         self._flame_off_hold_setpoint: Optional[float] = None
         self._coordinator_listener_remove: Optional[Callable[[], None]] = None
@@ -212,6 +223,7 @@ class SatHeatingControl:
         """Apply a new demand update and push commands to the coordinator."""
         self._last_requested_setpoint = demand.requested_setpoint
         self._last_outside_temperature = demand.outside_temperature
+        self._record_requested_setpoint(demand)
 
         if demand.heater_state == HeaterState.ON:
             if self._config.pwm.force_pulse_width_modulation:
@@ -319,7 +331,7 @@ class SatHeatingControl:
             self._sustained_overshoot_started_at = None
             return
 
-        overshoot_threshold = demand.requested_setpoint + OVERSHOOT_MARGIN_CELSIUS
+        overshoot_threshold = self._recent_requested_setpoint_maximum() + OVERSHOOT_MARGIN_CELSIUS
         if device_state.flow_temperature < overshoot_threshold:
             self._sustained_overshoot_started_at = None
             return
@@ -337,6 +349,16 @@ class SatHeatingControl:
 
         self._pwm.enable()
         self._reset_pwm_disable_guards()
+
+    def _record_requested_setpoint(self, demand: HeatingDemand) -> None:
+        self._requested_setpoints.append(RequestedSetpointSample(timestamp=demand.timestamp, setpoint=demand.requested_setpoint))
+
+        while self._requested_setpoints and (demand.timestamp - self._requested_setpoints[0].timestamp) > OVERSHOOT_REFERENCE_WINDOW_SECONDS:
+            self._requested_setpoints.popleft()
+
+    def _recent_requested_setpoint_maximum(self) -> float:
+        """Return the highest setpoint asked of the boiler recently, since it cannot shed heat as fast as the request can fall."""
+        return max(sample.setpoint for sample in self._requested_setpoints)
 
     def _maybe_disable_pwm_runtime(self, demand: HeatingDemand, device_state: DeviceState) -> None:
         if self._config.pwm.force_pulse_width_modulation:

@@ -21,7 +21,7 @@ from custom_components.sat.const import (
     MINIMUM_SETPOINT,
     OPTIONS_DEFAULTS,
 )
-from custom_components.sat.const import OVERSHOOT_SUSTAIN_SECONDS
+from custom_components.sat.const import OVERSHOOT_REFERENCE_WINDOW_SECONDS, OVERSHOOT_SUSTAIN_SECONDS
 from custom_components.sat.entry_data import SatConfig, SatMode
 from custom_components.sat.heating_control import (
     HeatingDemand,
@@ -523,6 +523,48 @@ async def test_underheat_guard_waits_for_burner_to_establish(heating_control, co
     ))
 
     assert heating_control.pwm_state.enabled is False
+
+
+async def test_falling_request_does_not_count_as_overshoot(heating_control, coordinator):
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(62.0)
+    start_time = timestamp()
+
+    await heating_control.update(HeatingDemand(
+        timestamp=start_time,
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        outside_temperature=10.0,
+        requested_setpoint=65.0,
+    ))
+
+    for offset in (60.0, 120.0, 180.0):
+        await heating_control.update(HeatingDemand(
+            valves_open=True,
+            hvac_mode=HVACMode.HEAT,
+            outside_temperature=10.0,
+            requested_setpoint=55.0,
+            timestamp=start_time + offset,
+        ))
+
+    assert heating_control.pwm_state.enabled is False
+
+    await heating_control.update(HeatingDemand(
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        outside_temperature=10.0,
+        requested_setpoint=55.0,
+        timestamp=start_time + OVERSHOOT_REFERENCE_WINDOW_SECONDS + 1,
+    ))
+    await heating_control.update(HeatingDemand(
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        outside_temperature=10.0,
+        requested_setpoint=55.0,
+        timestamp=start_time + OVERSHOOT_REFERENCE_WINDOW_SECONDS + OVERSHOOT_SUSTAIN_SECONDS + 2,
+    ))
+
+    assert heating_control.pwm_state.enabled is True
 
 
 async def test_reopened_valves_wait_out_the_off_phase(heating_control, coordinator):
