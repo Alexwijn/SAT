@@ -28,6 +28,8 @@ DATA_REL_MIN_MOD_LEVEL = "burnminpower"
 DATA_MAX_REL_MOD_LEVEL_SETTING = "burnmaxpower"
 DATA_SERVICE_CODE_NUMBER = "servicecodenumber"
 
+DEFAULT_MINIMUM_POWER = 20
+
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
@@ -166,7 +168,8 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         await super().async_set_heater_state(state)
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
-        await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {max(value, 20)}}}')
+        minimum_power = self.minimum_relative_modulation_value or DEFAULT_MINIMUM_POWER
+        await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {max(value, int(minimum_power))}}}')
 
         await super().async_set_control_max_relative_modulation(value)
 

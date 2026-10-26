@@ -291,3 +291,14 @@ async def test_reported_setpoint_maps_back_to_requested_value(coordinator, monke
     coordinator.data.update({DATA_CONTROL_SETPOINT: 48})
 
     assert coordinator.setpoint == 48.0
+
+
+async def test_max_relative_modulation_respects_boiler_minimum_power(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_control_max_relative_modulation(0)
+    coordinator.data.update({DATA_REL_MIN_MOD_LEVEL: 31})
+    await coordinator.async_set_control_max_relative_modulation(0)
+    await coordinator.async_set_control_max_relative_modulation(80)
+
+    assert [call["value"] for call in calls] == [20, 31, 80]
