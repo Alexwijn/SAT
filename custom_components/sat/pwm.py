@@ -202,6 +202,10 @@ class PWM:
             if (timestamp - self._flame_on_at) <= self._effective_on_temperature_update_window:
                 self._effective_on_temperature = (0.3 * device_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
 
+        if self._status == PWMStatus.ON and not device_state.flame_active and self._flame_on_at is not None:
+            self._flame_on_at = None
+            _LOGGER.info("PWM ON phase lost the flame; the next ignition restarts the warm-up window.")
+
         # -------------------------
         # Start ON phase (OFF/IDLE -> ON)
         # -------------------------

@@ -542,3 +542,20 @@ def test_restore_ignores_unusable_boiler_temperature(pwm: PWM, value):
     }))
 
     assert pwm.state.effective_on_temperature is None
+
+
+def test_flame_dropout_reopens_warm_up_window_on_reignition(pwm: PWM):
+    pwm.enable()
+    pwm._status = PWMStatus.ON
+    pwm._last_update = 0.0
+    pwm._flame_on_at = 0.0
+    pwm._effective_on_temperature = 40.0
+    setpoint = pwm._heating_system.base_offset + 10.0
+
+    pwm.update(device_state=_make_device_state(flame_active=False, flow_temperature=38.0), requested_setpoint=setpoint, timestamp=30.0)
+    assert pwm._flame_on_at is None
+    assert pwm.status is PWMStatus.ON
+
+    pwm.update(device_state=_make_device_state(flame_active=True, flow_temperature=50.0), requested_setpoint=setpoint, timestamp=400.0)
+    assert pwm._flame_on_at == 400.0
+    assert pwm.state.effective_on_temperature == 43.0
