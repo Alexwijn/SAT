@@ -801,7 +801,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if entity.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
             return None
 
-        return float(entity.state)
+        value = entity.attributes.get("current_temperature") if entity.domain == CLIMATE_DOMAIN else entity.state
+
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            _LOGGER.warning("Sensor %s for %s has a non-numeric value %r", entity_id, self.entity_id, value)
+            return None
 
     def _update_heating_curves(self) -> None:
         """Update the heating curves based on the current outside temperature."""

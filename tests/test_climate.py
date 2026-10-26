@@ -357,6 +357,14 @@ async def test_target_temperature_is_pushed_to_configured_thermostat(hass, clima
     assert [(call.data["entity_id"], call.data["temperature"]) for call in calls] == [("climate.wall", 21.0)]
 
 
+def test_entity_state_float_reads_climate_current_temperature(climate):
+    climate.hass.states.async_set("climate.wall", HVACMode.HEAT, {"current_temperature": 19.5})
+    climate.hass.states.async_set("sensor.broken", "not-a-number")
+
+    assert climate._get_entity_state_float("climate.wall") == 19.5
+    assert climate._get_entity_state_float("sensor.broken") is None
+
+
 def test_curve_advice_sample_skipped_while_room_is_still_warming(monkeypatch, climate):
     recorded = _prepare_curve_advice(monkeypatch, climate, proportional=10.0, derivative=0.0)
     climate._temperature_history = TemperatureHistory()
