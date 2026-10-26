@@ -481,3 +481,44 @@ async def test_reopened_valves_wait_out_the_off_phase(heating_control, coordinat
 
     assert heating_control.pwm_state.status is PWMStatus.OFF
     assert pwm.cycles_this_hour == 1
+
+
+async def test_fresh_ignition_keeps_flame_off_hold_when_tracker_lags(hass, monkeypatch, coordinator):
+    _update_coordinator_config(coordinator)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: 30.0))
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+    await heating_control.update(_make_demand(40.0))
+
+    hold = 30.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+    assert heating_control.control_setpoint == hold
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(41.0)
+    heating_control._device_tracker._last_flame_on_at = timestamp() - 1500.0
+    heating_control._device_tracker._last_flame_off_at = timestamp() - 200.0
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == hold
+
+
+async def test_fresh_ignition_without_hold_derives_it_from_return_temperature(hass, monkeypatch, coordinator):
+    _update_coordinator_config(coordinator)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: 30.0))
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(41.0)
+    heating_control._control_setpoint = MINIMUM_SETPOINT
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == 30.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]

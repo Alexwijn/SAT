@@ -443,15 +443,14 @@ class SatHeatingControl:
 
             return
 
-        if (flame_on_since := self._device_tracker.flame_on_since) is None:
-            _LOGGER.warning("Setpoint override (flame on): no flame on timestamp found.")
-            return
-
-        elapsed_since_flame_on = timestamp() - flame_on_since
+        elapsed_since_flame_on = self._elapsed_since_flame_on()
         suppression_delay = config.modulation_suppression_delay_seconds
 
         if elapsed_since_flame_on < suppression_delay:
             remaining_hold = suppression_delay - elapsed_since_flame_on
+            if self._flame_off_hold_setpoint is None and (return_temperature := device_state.return_temperature) is not None:
+                self._flame_off_hold_setpoint = clamp(return_temperature + config.flame_off_setpoint_offset_celsius, COLD_SETPOINT, self._config.limits.maximum_setpoint)
+
             if self._flame_off_hold_setpoint is not None:
                 _LOGGER.debug(
                     "Setpoint override hold: using flame-off setpoint %.1f°C for %.1fs more.",
@@ -482,6 +481,16 @@ class SatHeatingControl:
         )
 
         self._control_setpoint = suppressed_setpoint
+
+    def _elapsed_since_flame_on(self) -> float:
+        """The tracker may not have seen the current ignition yet, in which case the flame has just come on."""
+        flame_on_since = self._device_tracker.flame_on_since
+        flame_off_since = self._device_tracker.flame_off_since
+
+        if flame_on_since is None or (flame_off_since is not None and flame_on_since < flame_off_since):
+            return 0.0
+
+        return timestamp() - flame_on_since
 
     def _compute_continuous_control_setpoint(self, requested_setpoint: float) -> None:
         """Apply the continuous setpoint update based on boiler temperature."""
