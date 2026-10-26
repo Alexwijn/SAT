@@ -13,6 +13,7 @@ from homeassistant.helpers.dispatcher import dispatcher_send
 
 from .const import (
     COLD_SETPOINT,
+    HEATER_STARTUP_TIMEFRAME,
     DHW_OVERSHOOT_GUARD_SECONDS,
     MINIMUM_RELATIVE_MODULATION,
     MINIMUM_SETPOINT, EVENT_SAT_CYCLE_ENDED, UNDERHEAT_SUSTAIN_SECONDS, SATURATION_SUSTAIN_SECONDS, OVERSHOOT_SUSTAIN_SECONDS,
@@ -366,7 +367,7 @@ class SatHeatingControl:
 
     def _maybe_disable_pwm_on_sustained_underheat(self, demand: HeatingDemand, device_state: DeviceState) -> bool:
         flow_temperature = device_state.flow_temperature
-        if flow_temperature is None:
+        if flow_temperature is None or not self._flame_established(demand.timestamp, device_state):
             self._sustained_underheat_started_at = None
             return False
 
@@ -390,6 +391,13 @@ class SatHeatingControl:
         self._reset_pwm_disable_guards()
 
         return True
+
+    def _flame_established(self, now: float, device_state: DeviceState) -> bool:
+        """Whether the burner has been running long enough for the flow temperature to reflect its output."""
+        if not device_state.flame_active or (flame_on_since := self._device_tracker.flame_on_since) is None:
+            return False
+
+        return (now - flame_on_since) >= HEATER_STARTUP_TIMEFRAME
 
     def _maybe_disable_pwm_on_sustained_saturation(self, demand: HeatingDemand) -> bool:
         off_time_seconds = self._pwm.state.off_time_seconds

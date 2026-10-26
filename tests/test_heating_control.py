@@ -13,6 +13,7 @@ from custom_components.sat.const import (
     CONF_MODE,
     CONF_MODULATION_SUPPRESSION_DELAY_SECONDS,
     CONF_OVERSHOOT_PROTECTION,
+    HEATER_STARTUP_TIMEFRAME,
     SATURATION_SUSTAIN_SECONDS,
     UNDERHEAT_SUSTAIN_SECONDS,
     HeatingSystem,
@@ -307,6 +308,7 @@ async def test_disables_pwm_on_sustained_underheat(heating_control, coordinator,
 
     await coordinator.async_set_heater_state(HeaterState.ON)
     await coordinator.async_set_boiler_temperature(requested_setpoint - 4.0)
+    heating_control._device_tracker._last_flame_on_at = start_time - HEATER_STARTUP_TIMEFRAME
 
     await heating_control.update(HeatingDemand(
         timestamp=start_time,
@@ -457,6 +459,70 @@ async def test_force_pulse_width_modulation_keeps_pwm_enabled(heating_control, c
     await heating_control.update(_make_demand(heating_control._config.limits.maximum_setpoint + 1))
 
     assert heating_control.pwm_state.enabled is True
+
+
+async def test_underheat_guard_ignores_flow_while_burner_is_off(heating_control, coordinator, monkeypatch):
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: False))
+
+    requested_setpoint = 40.0
+    start_time = timestamp()
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(requested_setpoint - 4.0)
+
+    for offset in (0.0, UNDERHEAT_SUSTAIN_SECONDS + 1, 2 * UNDERHEAT_SUSTAIN_SECONDS + 2):
+        await heating_control.update(HeatingDemand(
+            valves_open=True,
+            hvac_mode=HVACMode.HEAT,
+            requested_setpoint=requested_setpoint,
+            outside_temperature=10.0,
+            timestamp=start_time + offset,
+        ))
+
+    assert heating_control.pwm_state.enabled is True
+
+
+async def test_underheat_guard_waits_for_burner_to_establish(heating_control, coordinator, monkeypatch):
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    requested_setpoint = 40.0
+    start_time = timestamp()
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(requested_setpoint - 4.0)
+    heating_control._device_tracker._last_flame_on_at = start_time
+    heating_control._control_setpoint = requested_setpoint
+
+    await heating_control.update(HeatingDemand(
+        timestamp=start_time,
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        requested_setpoint=requested_setpoint,
+        outside_temperature=10.0,
+    ))
+
+    await heating_control.update(HeatingDemand(
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        requested_setpoint=requested_setpoint,
+        outside_temperature=10.0,
+        timestamp=start_time + UNDERHEAT_SUSTAIN_SECONDS + 1,
+    ))
+
+    assert heating_control.pwm_state.enabled is True
+
+    await heating_control.update(HeatingDemand(
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        requested_setpoint=requested_setpoint,
+        outside_temperature=10.0,
+        timestamp=start_time + HEATER_STARTUP_TIMEFRAME + UNDERHEAT_SUSTAIN_SECONDS + 2,
+    ))
+
+    assert heating_control.pwm_state.enabled is False
 
 
 async def test_reopened_valves_wait_out_the_off_phase(heating_control, coordinator):
