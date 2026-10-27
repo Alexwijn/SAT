@@ -41,11 +41,9 @@ class OvershootProtection:
                 await self._wait_a_moment(OVERSHOOT_PROTECTION_RELATIVE_MODULATION_WAIT)
 
             return self._calculate_overshoot_value()
-        except asyncio.CancelledError as exception:
-            await self._coordinator.async_set_heater_state(DeviceState.OFF)
-            await self._coordinator.async_set_control_setpoint(MINIMUM_SETPOINT)
-
-            raise exception
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            await self._reset_heater_state()
+            raise
 
     async def _wait_for_flame(self) -> None:
         """Wait until the heating system flame is active."""
@@ -67,6 +65,7 @@ class OvershootProtection:
         """Wait until the boiler temperature stabilizes, influenced by relative modulation."""
         while not self._coordinator.boiler_temperature:
             _LOGGER.warning("Waiting for boiler temperature")
+            await asyncio.sleep(SLEEP_INTERVAL)
 
         starting_temperature = self._coordinator.boiler_temperature
         previous_average_temperature = self._coordinator.boiler_temperature
