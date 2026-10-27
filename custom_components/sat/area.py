@@ -24,7 +24,7 @@ class Area:
         self._hass: HomeAssistant | None = None
 
         # Create controllers with the given configuration options
-        self.pid: PID = create_pid_controller(config_options)
+        self.pid: PID = create_pid_controller(config_data, config_options)
         self.heating_curve: HeatingCurve = create_heating_curve_controller(config_data, config_options)
 
     @property

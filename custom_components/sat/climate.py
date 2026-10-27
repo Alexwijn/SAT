@@ -166,7 +166,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._window_minimum_open_time = convert_time_str_to_seconds(config_options.get(CONF_WINDOW_MINIMUM_OPEN_TIME))
 
         # Create a PID controller with given configuration options
-        self.pid = create_pid_controller(config_options)
+        self.pid = create_pid_controller(config_entry.data, config_options)
 
         # Create Area controllers
         self.areas = Areas(config_entry.data, config_options)
