@@ -568,7 +568,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _record_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> None:
         """Feed the heating curve advisor when the system is in steady heating operation."""
-        if self.hvac_mode != HVACMode.HEAT or not self.valves_open:
+        if self.hvac_mode != HVACMode.HEAT or not self.valves_open or self.hvac_action != HVACAction.HEATING:
             return
 
         if self._solar_gain_snapshot.active or self._coordinator.hot_water_active:

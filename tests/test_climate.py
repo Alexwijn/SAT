@@ -330,6 +330,7 @@ def _prepare_curve_advice(monkeypatch, climate, *, proportional: float, derivati
     monkeypatch.setattr(type(climate.pid), "proportional", property(lambda self: proportional))
     monkeypatch.setattr(type(climate.pid), "integral", property(lambda self: 0.5))
     monkeypatch.setattr(type(climate.pid), "derivative", property(lambda self: derivative))
+    monkeypatch.setattr(type(climate._coordinator), "active", property(lambda self: True))
     monkeypatch.setattr(climate._curve_advisor, "record", recorded.append)
 
     for index in range(7):
@@ -346,6 +347,15 @@ def test_curve_advice_sample_excludes_derivative(monkeypatch, climate):
     assert len(recorded) == 1
     assert recorded[0].correction == 3.5
     assert recorded[0].shape == HeatingCurve.calculate(21.0, 5.0)
+
+
+def test_curve_advice_sample_skipped_while_boiler_is_idle(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    monkeypatch.setattr(type(climate._coordinator), "active", property(lambda self: False))
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert recorded == []
 
 
 def test_curve_advice_sample_skipped_while_room_is_far_from_setpoint(monkeypatch, climate):
