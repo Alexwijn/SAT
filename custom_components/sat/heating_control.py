@@ -18,6 +18,7 @@ from .const import (
     DHW_OVERSHOOT_GUARD_SECONDS,
     MINIMUM_RELATIVE_MODULATION,
     MINIMUM_SETPOINT, EVENT_SAT_CYCLE_ENDED, UNDERHEAT_SUSTAIN_SECONDS, SATURATION_SUSTAIN_SECONDS, OVERSHOOT_SUSTAIN_SECONDS,
+    TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS,
     OVERSHOOT_REFERENCE_WINDOW_SECONDS,
     SIGNAL_HEATING_CONTROL_UPDATED,
 )
@@ -73,6 +74,7 @@ class HeatingDemand:
     hvac_mode: HVACMode
     requested_setpoint: float
     outside_temperature: Optional[float]
+    target_temperature_changed_at: Optional[float] = None
 
     @property
     def heater_state(self) -> HeaterState:
@@ -426,6 +428,14 @@ class SatHeatingControl:
         if off_time_seconds is None or off_time_seconds > 0:
             self._sustained_saturation_started_at = None
             return False
+
+        if is_within_elapsed_window(demand.timestamp, demand.target_temperature_changed_at, TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS):
+            _LOGGER.info("Disabling PWM: the duty cycle saturated right after the target temperature changed.")
+
+            self._pwm.disable()
+            self._reset_pwm_disable_guards()
+
+            return True
 
         runtime = sustained_runtime(demand.timestamp, self._sustained_saturation_started_at)
         self._sustained_saturation_started_at = runtime.started_at

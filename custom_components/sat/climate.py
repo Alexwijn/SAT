@@ -664,6 +664,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 timestamp=event_timestamp(time),
                 requested_setpoint=self.requested_setpoint,
                 outside_temperature=self.current_outside_temperature,
+                target_temperature_changed_at=self._target_temperature_changed_at,
             )
         )
 

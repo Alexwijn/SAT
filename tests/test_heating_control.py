@@ -15,6 +15,7 @@ from custom_components.sat.const import (
     CONF_OVERSHOOT_PROTECTION,
     HEATER_STARTUP_TIMEFRAME,
     SATURATION_SUSTAIN_SECONDS,
+    TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS,
     UNDERHEAT_SUSTAIN_SECONDS,
     HeatingSystem,
     MINIMUM_RELATIVE_MODULATION,
@@ -630,3 +631,34 @@ async def test_fresh_ignition_without_hold_derives_it_from_return_temperature(ha
     await heating_control.update(_make_demand(40.0))
 
     assert heating_control.control_setpoint == 30.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+
+
+async def _saturated_demand(heating_control, coordinator, monkeypatch, target_changed_seconds_ago: float) -> None:
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(60.0)
+    heating_control._pwm._duty_cycle = (300, 0)
+
+    now = timestamp()
+    await heating_control.update(HeatingDemand(
+        timestamp=now,
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        requested_setpoint=40.0,
+        outside_temperature=10.0,
+        target_temperature_changed_at=now - target_changed_seconds_ago,
+    ))
+
+
+async def test_saturation_right_after_a_target_change_leaves_pwm_at_once(heating_control, coordinator, monkeypatch):
+    await _saturated_demand(heating_control, coordinator, monkeypatch, target_changed_seconds_ago=20.0)
+
+    assert heating_control.pwm_state.enabled is False
+
+
+async def test_saturation_long_after_a_target_change_still_waits(heating_control, coordinator, monkeypatch):
+    await _saturated_demand(heating_control, coordinator, monkeypatch, target_changed_seconds_ago=TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS + 1)
+
+    assert heating_control.pwm_state.enabled is True

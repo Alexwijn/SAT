@@ -183,6 +183,21 @@ def test_control_pid_resets_on_stale_inside_sensor(monkeypatch, climate):
     assert reset_called["value"] is True
 
 
+async def test_control_loop_passes_the_target_temperature_change_time(monkeypatch, climate):
+    climate.hass.states.async_set("sensor.test_outside_sensor", "5")
+    climate._hvac_mode = HVACMode.HEAT
+
+    update_mock = AsyncMock()
+    monkeypatch.setattr(climate._heating_control, "update", update_mock)
+
+    await climate.async_set_target_temperature(21.0, cascade=False)
+    await climate.async_control_heating_loop()
+
+    demand = update_mock.call_args.args[0]
+    assert demand.target_temperature_changed_at == climate._target_temperature_changed_at
+    assert demand.target_temperature_changed_at is not None
+
+
 async def test_control_loop_commands_heater_off_when_hvac_off(monkeypatch, climate):
     climate.hass.states.async_set("sensor.test_outside_sensor", "5")
     climate._hvac_mode = HVACMode.OFF
