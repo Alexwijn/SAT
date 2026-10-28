@@ -25,7 +25,7 @@ from homeassistant.components.climate import (
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, Event, CoreState, EventStateChangedData, HassJob
+from homeassistant.core import HomeAssistant, Event, CoreState, EventStateChangedData, HassJob, callback
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
@@ -113,6 +113,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._event_listeners_registered: bool = False
         self._control_heating_loop_unsub: Optional[Callable[[], None]] = None
+        self._control_heating_loop_scheduled_at: Optional[float] = None
 
         # System Configuration
         self._attr_name = self._config.name
@@ -602,24 +603,34 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         return float(elevation)
 
+    @callback
     def schedule_heating_control_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
         """Schedule a debounced execution of the heating control loop."""
-        if force:
-            # Cancel previous scheduled run, if any
-            if self._control_heating_loop_unsub is not None:
-                self._control_heating_loop_unsub()
-                self._control_heating_loop_unsub = None
-
+        if force or self._scheduled_heating_control_loop_is_overdue():
+            self._cancel_scheduled_heating_control_loop()
             self.hass.async_create_task(self.async_control_heating_loop())
             return
 
-        # If a run is already scheduled, do nothing.
         if self._control_heating_loop_unsub is not None:
             return
 
+        self._control_heating_loop_scheduled_at = timestamp()
         self._control_heating_loop_unsub = async_call_later(self.hass, 1, HassJob(self.async_control_heating_loop))
 
+    def _scheduled_heating_control_loop_is_overdue(self) -> bool:
+        """A scheduled run that never started would otherwise block every later run."""
+        if self._control_heating_loop_unsub is None or self._control_heating_loop_scheduled_at is None:
+            return False
+
+        if (age := timestamp() - self._control_heating_loop_scheduled_at) < HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS:
+            return False
+
+        _LOGGER.warning("Heating control loop for %s did not run %.0fs after being scheduled; running it now.", self.entity_id, age)
+        return True
+
     def _cancel_scheduled_heating_control_loop(self) -> None:
+        self._control_heating_loop_scheduled_at = None
+
         if self._control_heating_loop_unsub is None:
             return
 
@@ -629,6 +640,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
         self._control_heating_loop_unsub = None
+        self._control_heating_loop_scheduled_at = None
 
         if self._hvac_mode == HVACMode.OFF:
             if self._update_frost_protection():

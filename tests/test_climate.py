@@ -6,12 +6,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.components.climate import HVACMode
-from homeassistant.core import State
+from homeassistant.core import State, is_callback
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.sat.entry_data import SatConfig
 from custom_components.sat.const import (
+    HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS,
     CONF_HEATING_CURVE_COEFFICIENT,
     CONF_HEATING_MODE,
     CONF_SOLAR_GAIN_COMPENSATION,
@@ -33,6 +34,7 @@ from custom_components.sat.const import (
     SERVICE_RESET_INTEGRAL,
 )
 from custom_components.sat.heating_curve import HeatingCurve
+from custom_components.sat.helpers import timestamp
 from custom_components.sat.temperature.history import TemperatureHistory
 from custom_components.sat.temperature.state import TemperatureState
 from custom_components.sat.manufacturer import ManufacturerFactory
@@ -390,3 +392,34 @@ def test_curve_advice_sample_skipped_while_room_is_still_warming(monkeypatch, cl
     climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.3, 21.0))
 
     assert recorded == []
+
+
+def test_schedule_heating_control_loop_runs_on_the_event_loop(climate):
+    assert is_callback(climate.schedule_heating_control_loop)
+
+
+async def test_pending_scheduled_run_is_not_duplicated(monkeypatch, climate):
+    update_mock = AsyncMock()
+    monkeypatch.setattr(climate._heating_control, "update", update_mock)
+    climate._control_heating_loop_unsub = lambda: None
+    climate._control_heating_loop_scheduled_at = timestamp()
+
+    climate.schedule_heating_control_loop()
+    await climate.hass.async_block_till_done()
+
+    update_mock.assert_not_called()
+
+
+async def test_overdue_scheduled_run_is_replaced(monkeypatch, climate):
+    climate.hass.states.async_set("sensor.test_outside_sensor", "5")
+    update_mock = AsyncMock()
+    monkeypatch.setattr(climate._heating_control, "update", update_mock)
+    climate._control_heating_loop_unsub = lambda: None
+    climate._control_heating_loop_scheduled_at = timestamp() - HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS - 1
+
+    climate.schedule_heating_control_loop()
+    await climate.hass.async_block_till_done()
+
+    update_mock.assert_called_once()
+    assert climate._control_heating_loop_unsub is None
+    assert climate._control_heating_loop_scheduled_at is None
