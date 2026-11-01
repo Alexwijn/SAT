@@ -6,7 +6,7 @@ from custom_components.sat.device import DeviceState
 from custom_components.sat.const import EVENT_SAT_CYCLE_ENDED, CONF_HEATING_SYSTEM
 from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
-from custom_components.sat.efficiency import EfficiencyFit, EfficiencyReport
+from custom_components.sat.efficiency import EfficiencyPeriod, EfficiencyReport
 from custom_components.sat.seasonal_curve import SeasonalCurveEvaluator, SeasonalCurveHour
 from custom_components.sat.heating_control import ControlLoopSample
 from custom_components.sat.helpers import timestamp
@@ -188,8 +188,8 @@ async def test_efficiency_sensor_exposes_the_report(hass, climate, coordinator, 
     assert hass.states.get(entity_id).state == "unknown"
     assert hass.states.get(entity_id).attributes["source"] is None
 
-    current = EfficiencyFit(days=30, slope=0.55, baseload=1.0, r_squared=0.9)
-    previous = EfficiencyFit(days=30, slope=0.5, baseload=1.0, r_squared=0.9)
+    current = EfficiencyPeriod(days=365, baseload=1.0, degree_days=1800.0, gas_per_degree_day=0.55)
+    previous = EfficiencyPeriod(days=365, baseload=1.0, degree_days=1900.0, gas_per_degree_day=0.5)
     climate.efficiency._report = EfficiencyReport(source="meter", unit="m³", current=current, previous=previous, gas_estimate_ratio=1.2)
     coordinator.async_update_listeners()
     await hass.async_block_till_done()
@@ -199,18 +199,19 @@ async def test_efficiency_sensor_exposes_the_report(hass, climate, coordinator, 
     assert state.attributes["unit_of_measurement"] == "m³/°Cd"
     assert state.attributes["source"] == "meter"
     assert state.attributes["baseload_per_day"] == 1.0
-    assert state.attributes["last_year_slope"] == 0.5
+    assert state.attributes["degree_days"] == 1800.0
+    assert state.attributes["previous_year"] == 0.5
     assert state.attributes["change_percentage"] == 10.0
     assert state.attributes["gas_estimate_ratio"] == 1.2
 
 
 async def test_diagnostics_include_the_efficiency_report(hass, climate, entry, domains, data, options, config):
-    climate.efficiency._report = EfficiencyReport(source="estimate", unit="m³", current=EfficiencyFit(days=30, slope=0.5, baseload=1.0, r_squared=0.9))
+    climate.efficiency._report = EfficiencyReport(source="estimate", unit="m³", current=EfficiencyPeriod(days=365, baseload=1.0, degree_days=1800.0, gas_per_degree_day=0.5))
 
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
 
     assert diagnostics["climate"]["efficiency"]["source"] == "estimate"
-    assert diagnostics["climate"]["efficiency"]["current"]["slope"] == 0.5
+    assert diagnostics["climate"]["efficiency"]["current"]["gas_per_degree_day"] == 0.5
     assert diagnostics["climate"]["efficiency"]["change_percentage"] is None
 
 

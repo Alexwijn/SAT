@@ -229,7 +229,7 @@ class SatHeatingEfficiencySensor(SatClimateEntity, SensorEntity):
     def native_value(self) -> Optional[float]:
         report = self._climate.efficiency.report
 
-        return report.current.slope if report.current is not None else None
+        return report.current.gas_per_degree_day if report.current is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
@@ -239,9 +239,9 @@ class SatHeatingEfficiencySensor(SatClimateEntity, SensorEntity):
         return {
             "source": report.source,
             "days": current.days if current is not None else None,
+            "degree_days": current.degree_days if current is not None else None,
             "baseload_per_day": current.baseload if current is not None else None,
-            "r_squared": current.r_squared if current is not None else None,
-            "last_year_slope": previous.slope if previous is not None else None,
+            "previous_year": previous.gas_per_degree_day if previous is not None else None,
             "change_percentage": report.change_percentage,
             "gas_estimate_ratio": report.gas_estimate_ratio,
         }

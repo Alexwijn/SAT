@@ -13,7 +13,7 @@ from homeassistant.util.unit_conversion import TemperatureConverter, VolumeConve
 from pytest_homeassistant_custom_component.components.recorder.common import async_wait_recording_done
 
 from custom_components.sat.const import DOMAIN
-from custom_components.sat.efficiency import EfficiencyDay, EfficiencyEvaluator, EfficiencyMonitor, EfficiencyReport, EfficiencyFit, GasHistory, SOURCE_ESTIMATE, SOURCE_METER
+from custom_components.sat.efficiency import EfficiencyDay, EfficiencyEvaluator, EfficiencyMonitor, EfficiencyPeriod, EfficiencyReport, GasHistory, SOURCE_ESTIMATE, SOURCE_METER
 
 TODAY = date(2026, 11, 15)
 
@@ -29,9 +29,9 @@ def _row(day: date, **values) -> dict:
     return {"start": moment.timestamp(), **values}
 
 
-def _days(count: int, slope: float = 0.5, baseload: float = 1.0, end: date = TODAY) -> list[EfficiencyDay]:
+def _days(count: int, rate: float = 0.5, baseload: float = 0.0, end: date = TODAY, degree_days: float = 10.0) -> list[EfficiencyDay]:
     return [
-        EfficiencyDay(date=end - timedelta(days=index + 1), degree_days=(degree_days := 5.0 + index % 10), gas=baseload + slope * degree_days)
+        EfficiencyDay(date=end - timedelta(days=index + 1), degree_days=degree_days, gas=baseload + rate * degree_days)
         for index in range(count)
     ]
 
@@ -43,33 +43,46 @@ def _history(days: list[EfficiencyDay]) -> tuple:
     return GasHistory(source=SOURCE_METER, unit="m³", rows=gas), temperatures
 
 
-def test_known_slope_and_baseload_are_recovered():
-    fit = EfficiencyEvaluator.fit(_days(30))
+def test_gas_per_degree_day_is_recovered():
+    period = EfficiencyEvaluator.period(_days(60))
 
-    assert fit.slope == 0.5
-    assert fit.baseload == 1.0
-    assert fit.r_squared == 1.0
-    assert fit.days == 30
-
-
-def test_flat_summer_days_give_no_fit():
-    summer = [EfficiencyDay(date=TODAY - timedelta(days=index + 1), gas=1.0, degree_days=0.0) for index in range(30)]
-
-    assert EfficiencyEvaluator.fit(summer) is None
+    assert period.gas_per_degree_day == 0.5
+    assert period.degree_days == 600.0
+    assert period.baseload == 0.0
+    assert period.days == 60
 
 
-def test_too_few_days_give_no_fit():
-    assert EfficiencyEvaluator.fit(_days(20)) is None
+def test_warm_days_set_the_baseload():
+    days = _days(100, rate=0.5, baseload=1.0) + _days(20, rate=0.0, baseload=1.0, end=TODAY - timedelta(days=100), degree_days=0.0)
+
+    period = EfficiencyEvaluator.period(days)
+
+    assert period.baseload == 1.0
+    assert period.gas_per_degree_day == 0.5
 
 
-def test_too_few_degree_days_give_no_fit():
-    days = [EfficiencyDay(date=TODAY - timedelta(days=index + 1), gas=1.0 + index % 2, degree_days=1.0 * (index % 2)) for index in range(30)]
+def test_too_few_warm_days_give_no_baseload():
+    days = _days(100) + _days(13, rate=0.0, baseload=9.0, end=TODAY - timedelta(days=100), degree_days=0.0)
 
-    assert EfficiencyEvaluator.fit(days) is None
+    assert EfficiencyEvaluator.period(days).baseload == 0.0
 
 
-def test_gas_falling_with_cold_gives_no_fit():
-    assert EfficiencyEvaluator.fit(_days(30, slope=-0.1, baseload=5.0)) is None
+def test_baseload_never_gives_a_negative_result():
+    days = _days(29, rate=0.0, baseload=5.0, degree_days=11.0) + _days(14, rate=0.0, baseload=50.0, end=TODAY - timedelta(days=29), degree_days=0.0)
+
+    assert EfficiencyEvaluator.period(days).gas_per_degree_day == 0.0
+
+
+def test_summer_gives_no_period():
+    assert EfficiencyEvaluator.period(_days(60, rate=0.0, baseload=1.0, degree_days=0.0)) is None
+
+
+def test_too_few_days_give_no_period():
+    assert EfficiencyEvaluator.period(_days(29, degree_days=20.0)) is None
+
+
+def test_too_few_degree_days_give_no_period():
+    assert EfficiencyEvaluator.period(_days(60, degree_days=4.0)) is None
 
 
 def test_negative_change_and_missing_days_are_dropped():
@@ -84,34 +97,46 @@ def test_negative_change_and_missing_days_are_dropped():
     assert [day.date for day in EfficiencyEvaluator.days(rows, temperatures)] == [TODAY - timedelta(days=1)]
 
 
-def test_today_is_not_part_of_the_fit():
-    days = _days(30) + [EfficiencyDay(date=TODAY, gas=500.0, degree_days=5.0)]
-    gas, temperatures = _history(days)
+def test_today_is_not_part_of_the_period():
+    gas, temperatures = _history(_days(60) + [EfficiencyDay(date=TODAY, gas=500.0, degree_days=10.0)])
 
-    assert EfficiencyEvaluator.report(gas, temperatures, TODAY).current.slope == 0.5
+    assert EfficiencyEvaluator.report(gas, temperatures, TODAY).current.gas_per_degree_day == 0.5
 
 
-def test_rise_compared_with_last_year_is_reported():
-    gas, temperatures = _history(_days(30, slope=0.55) + _days(30, slope=0.5, end=date(2025, 11, 15)))
+def test_rise_compared_with_the_year_before_is_reported():
+    gas, temperatures = _history(_days(365, rate=0.55) + _days(365, rate=0.5, end=TODAY - timedelta(days=365)))
 
     report = EfficiencyEvaluator.report(gas, temperatures, TODAY)
 
-    assert report.current.slope == 0.55
-    assert report.previous.slope == 0.5
+    assert report.current.gas_per_degree_day == 0.55
+    assert report.previous.gas_per_degree_day == 0.5
     assert report.change_percentage == 10.0
 
 
-def test_days_outside_the_same_calendar_window_are_not_compared():
-    gas, temperatures = _history(_days(30) + _days(30, end=date(2025, 7, 1)))
+def test_change_needs_nearly_a_full_year_on_both_sides():
+    gas, temperatures = _history(_days(365) + _days(328, end=TODAY - timedelta(days=365)))
 
     report = EfficiencyEvaluator.report(gas, temperatures, TODAY)
 
+    assert report.previous is not None
+    assert report.change_percentage is None
+
+
+def test_part_of_a_year_still_gives_a_value():
+    gas, temperatures = _history(_days(60))
+
+    report = EfficiencyEvaluator.report(gas, temperatures, TODAY)
+
+    assert report.current.gas_per_degree_day == 0.5
     assert report.previous is None
     assert report.change_percentage is None
 
 
-def test_leap_day_compares_with_the_end_of_february():
-    assert EfficiencyEvaluator._year_before(date(2028, 2, 29)) == date(2027, 2, 28)
+def test_no_change_against_a_year_without_heating_gas():
+    period = EfficiencyPeriod(days=365, baseload=0.0, degree_days=1800.0, gas_per_degree_day=0.5)
+    empty = EfficiencyPeriod(days=365, baseload=0.0, degree_days=1800.0, gas_per_degree_day=0.0)
+
+    assert EfficiencyReport(current=period, previous=empty).change_percentage is None
 
 
 def test_gas_estimate_ratio_is_recovered():
@@ -136,11 +161,11 @@ def test_earlier_temperature_sources_take_precedence_and_gaps_are_filled():
     assert merged == {first: 5.0, second: 7.0}
 
 
-def test_change_needs_both_fits():
-    fit = EfficiencyFit(days=30, slope=0.5, baseload=1.0, r_squared=1.0)
+def test_change_needs_both_periods():
+    period = EfficiencyPeriod(days=365, baseload=1.0, degree_days=1800.0, gas_per_degree_day=0.5)
 
-    assert EfficiencyReport(current=fit).change_percentage is None
-    assert EfficiencyReport(previous=fit).change_percentage is None
+    assert EfficiencyReport(current=period).change_percentage is None
+    assert EfficiencyReport(previous=period).change_percentage is None
 
 
 async def test_refresh_without_recorder_leaves_an_empty_report(hass):
@@ -198,12 +223,12 @@ def _noon(age: int) -> datetime:
     return dt_util.as_utc(datetime.combine(day, time(12), tzinfo=dt_util.DEFAULT_TIME_ZONE))
 
 
-def _import_house(hass, gas_id: str, temperature_id: str, unit: str = "m³", days: int = 40) -> None:
+def _import_house(hass, gas_id: str, temperature_id: str, unit: str = "m³", days: int = 41) -> None:
     total, gas_rows, temperature_rows = 0.0, [], []
 
     for age in range(days, 0, -1):
         outside = 2.0 + age % 10
-        total += 1.0 + 0.5 * (18.0 - outside)
+        total += 0.5 * (18.0 - outside)
 
         gas_rows.append({"start": _noon(age), "sum": total, "state": total})
         temperature_rows.append({"start": _noon(age), "mean": outside, "min": outside, "max": outside})
@@ -230,8 +255,7 @@ async def test_report_from_real_statistics_with_a_meter(recorder_mock, hass, mon
     report = monitor.report
     assert report.source == SOURCE_METER
     assert report.unit == "m³"
-    assert report.current.slope == pytest.approx(0.5, abs=0.01)
-    assert report.current.baseload == pytest.approx(1.0, abs=0.1)
+    assert report.current.gas_per_degree_day == pytest.approx(0.5, abs=0.02)
     assert report.previous is None
 
 

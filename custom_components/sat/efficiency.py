@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
-from statistics import fmean
+from statistics import median
 from typing import Callable, Optional
 
 from homeassistant.const import UnitOfTemperature, UnitOfVolume
@@ -31,9 +31,13 @@ STARTUP_DELAY_SECONDS = 60
 
 DEGREE_DAY_BASE_CELSIUS = 18.0
 
-FIT_WINDOW_DAYS = 60
-FIT_MINIMUM_DAYS = 21
-FIT_MINIMUM_DEGREE_DAYS = 30.0
+WINDOW_DAYS = 365
+MINIMUM_DAYS = 30
+MINIMUM_DEGREE_DAYS = 300.0
+COMPARISON_MINIMUM_DAYS = 329
+
+BASELOAD_MINIMUM_DAYS = 14
+BASELOAD_MAXIMUM_DEGREE_DAYS = 1.0
 
 ESTIMATE_RATIO_MINIMUM_DAYS = 14
 
@@ -48,13 +52,13 @@ class EfficiencyDay:
 
 
 @dataclass(frozen=True, slots=True)
-class EfficiencyFit:
-    """Gas use split into a part that follows the weather and a part that does not."""
+class EfficiencyPeriod:
+    """Gas needed for heating over a period, corrected for the weather."""
 
     days: int
-    slope: float
     baseload: float
-    r_squared: float
+    degree_days: float
+    gas_per_degree_day: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,16 +76,19 @@ class EfficiencyReport:
 
     source: Optional[str] = None
     unit: Optional[str] = None
-    current: Optional[EfficiencyFit] = None
-    previous: Optional[EfficiencyFit] = None
+    current: Optional[EfficiencyPeriod] = None
+    previous: Optional[EfficiencyPeriod] = None
     gas_estimate_ratio: Optional[float] = None
 
     @property
     def change_percentage(self) -> Optional[float]:
-        if self.current is None or self.previous is None:
+        if self.current is None or self.previous is None or self.previous.gas_per_degree_day <= 0:
             return None
 
-        return round((self.current.slope - self.previous.slope) / self.previous.slope * 100, 1)
+        if self.current.days < COMPARISON_MINIMUM_DAYS or self.previous.days < COMPARISON_MINIMUM_DAYS:
+            return None
+
+        return round((self.current.gas_per_degree_day - self.previous.gas_per_degree_day) / self.previous.gas_per_degree_day * 100, 1)
 
 
 class EfficiencyEvaluator:
@@ -90,13 +97,12 @@ class EfficiencyEvaluator:
     @staticmethod
     def report(gas: GasHistory, temperatures: dict[date, float], today: date) -> EfficiencyReport:
         days = EfficiencyEvaluator.days(gas.rows, temperatures)
-        year_ago = EfficiencyEvaluator._year_before(today)
 
         return EfficiencyReport(
             unit=gas.unit,
             source=gas.source,
-            current=EfficiencyEvaluator.fit(EfficiencyEvaluator._window(days, today)),
-            previous=EfficiencyEvaluator.fit(EfficiencyEvaluator._window(days, year_ago)),
+            current=EfficiencyEvaluator.period(EfficiencyEvaluator._window(days, today)),
+            previous=EfficiencyEvaluator.period(EfficiencyEvaluator._window(days, today - timedelta(days=WINDOW_DAYS))),
         )
 
     @staticmethod
@@ -133,31 +139,28 @@ class EfficiencyEvaluator:
         return merged
 
     @staticmethod
-    def fit(days: list[EfficiencyDay]) -> Optional[EfficiencyFit]:
-        if len(days) < FIT_MINIMUM_DAYS or sum(day.degree_days for day in days) < FIT_MINIMUM_DEGREE_DAYS:
+    def period(days: list[EfficiencyDay]) -> Optional[EfficiencyPeriod]:
+        degree_days = sum(day.degree_days for day in days)
+
+        if len(days) < MINIMUM_DAYS or degree_days < MINIMUM_DEGREE_DAYS:
             return None
 
-        mean_gas = fmean(day.gas for day in days)
-        mean_degree_days = fmean(day.degree_days for day in days)
+        baseload = EfficiencyEvaluator._baseload(days)
+        heating_gas = max(0.0, sum(day.gas - baseload for day in days))
 
-        denominator = sum((day.degree_days - mean_degree_days) ** 2 for day in days)
-        if denominator <= 0:
-            return None
-
-        slope = sum((day.degree_days - mean_degree_days) * (day.gas - mean_gas) for day in days) / denominator
-        if slope <= 0:
-            return None
-
-        baseload = mean_gas - slope * mean_degree_days
-        total = sum((day.gas - mean_gas) ** 2 for day in days)
-        residual = sum((day.gas - (baseload + slope * day.degree_days)) ** 2 for day in days)
-
-        return EfficiencyFit(
+        return EfficiencyPeriod(
             days=len(days),
-            slope=round(slope, 4),
             baseload=round(baseload, 3),
-            r_squared=round(1 - residual / total, 3) if total > 0 else 1.0,
+            degree_days=round(degree_days, 1),
+            gas_per_degree_day=round(heating_gas / degree_days, 3),
         )
+
+    @staticmethod
+    def _baseload(days: list[EfficiencyDay]) -> float:
+        """Return the gas used per day when there is nothing to heat, such as for hot water and cooking."""
+        warm_days = [day.gas for day in days if day.degree_days < BASELOAD_MAXIMUM_DEGREE_DAYS]
+
+        return median(warm_days) if len(warm_days) >= BASELOAD_MINIMUM_DAYS else 0.0
 
     @staticmethod
     def gas_estimate_ratio(meter_rows: list[dict], estimate_rows: list[dict], today: date) -> Optional[float]:
@@ -176,11 +179,7 @@ class EfficiencyEvaluator:
 
     @staticmethod
     def _window(days: list[EfficiencyDay], end: date) -> list[EfficiencyDay]:
-        return [day for day in days if end - timedelta(days=FIT_WINDOW_DAYS) <= day.date < end]
-
-    @staticmethod
-    def _year_before(day: date) -> date:
-        return day.replace(year=day.year - 1, day=28) if (day.month, day.day) == (2, 29) else day.replace(year=day.year - 1)
+        return [day for day in days if end - timedelta(days=WINDOW_DAYS) <= day.date < end]
 
     @staticmethod
     def _date(row: dict) -> date:
