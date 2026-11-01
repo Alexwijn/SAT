@@ -43,6 +43,7 @@ from .heating_curve import (
 )
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
+from .seasonal_curve import SeasonalCurveMonitor
 from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, SolarGainSnapshot
 from .summer_simmer import SummerSimmer
 from .temperature.history import TemperatureHistory
@@ -126,6 +127,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._solar_gain = SolarGainController(self._config.solar_gain)
         self._curve_advisor = HeatingCurveAdvisor(self._config.pid.heating_curve_coefficient)
         self._curve_advice_sample: Optional[HeatingCurveAdviceSample] = None
+        self._seasonal_curve = SeasonalCurveMonitor(self._config.entry_id)
         self._target_temperature_changed_at: Optional[float] = None
         self._frost_protection_active: bool = False
         self._warm_up = WarmUpEstimator()
@@ -146,6 +148,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._heating_control.async_added_to_hass()
         await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.id)
         await self._curve_advisor.async_added_to_hass(self.hass, self._config.entry_id)
+        await self._seasonal_curve.async_added_to_hass(self.hass)
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
         if self.hass.state is CoreState.running:
@@ -179,6 +182,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._window_sensor_handle = None
 
         await self._heating_control.async_will_remove_from_hass()
+        await self._seasonal_curve.async_will_remove_from_hass()
         await self._coordinator.async_will_remove_from_hass()
 
         for area in self.areas.items():
@@ -311,6 +315,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def curve_advisor(self) -> HeatingCurveAdvisor:
         """Return the heating curve advisor."""
         return self._curve_advisor
+
+    @property
+    def seasonal_curve(self) -> SeasonalCurveMonitor:
+        """Return the seasonal heating curve monitor."""
+        return self._seasonal_curve
 
     @property
     def implied_curve_coefficient(self) -> Optional[float]:

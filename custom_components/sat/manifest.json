@@ -10,7 +10,8 @@
     "dhcp"
   ],
   "after_dependencies": [
-    "esphome"
+    "esphome",
+    "recorder"
   ],
   "dhcp": [
     {
