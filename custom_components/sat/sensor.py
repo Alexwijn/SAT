@@ -51,6 +51,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatManufacturerSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatOutsideTemperatureSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
@@ -103,6 +105,69 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._config.entry_id}-requested-setpoint"
+
+
+class SatOutsideTemperatureSensor(SatClimateEntity, SensorEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    async def async_added_to_hass(self) -> None:
+        def on_pid_updated(_) -> None:
+            self.schedule_update_ha_state()
+
+        await super().async_added_to_hass()
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
+
+    @property
+    def name(self) -> str:
+        return "Outside Temperature"
+
+    @property
+    def device_class(self) -> SensorDeviceClass:
+        return SensorDeviceClass.TEMPERATURE
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return UnitOfTemperature.CELSIUS
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if (temperature := self._climate.current_outside_temperature) is None:
+            return None
+
+        return round(temperature, 1)
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.entry_id}-outside-temperature"
+
+
+class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    async def async_added_to_hass(self) -> None:
+        def on_pid_updated(entity_id: str) -> None:
+            if entity_id != self._climate.entity_id:
+                return
+
+            self.schedule_update_ha_state()
+
+        await super().async_added_to_hass()
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
+
+    @property
+    def name(self) -> str:
+        return "Implied Curve Coefficient"
+
+    @property
+    def native_value(self) -> Optional[float]:
+        return self._climate.implied_curve_coefficient
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.entry_id}-implied-curve-coefficient"
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):

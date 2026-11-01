@@ -143,13 +143,32 @@ async def test_core_sensors_registered(hass, climate, entry, domains, data, opti
 async def test_measurement_sensors_reach_long_term_statistics(hass, climate, entry, domains, data, options, config):
     registry = er.async_get(hass)
 
-    for suffix in ("pid", "error-value", "heating-curve", "requested-setpoint"):
+    for suffix in ("pid", "error-value", "heating-curve", "requested-setpoint", "outside-temperature", "implied-curve-coefficient"):
         entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{suffix}")
         assert registry.async_get(entity_id).capabilities == {"state_class": "measurement"}
 
     for suffix in ("boiler-status", "manufacturer", "cycle-status", "heating-curve-recommendation"):
         entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{suffix}")
         assert "state_class" not in (registry.async_get(entity_id).capabilities or {})
+
+
+async def test_implied_coefficient_is_unknown_outside_steady_heating(hass, climate, entry, domains, data, options, config):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-implied-curve-coefficient")
+
+    assert hass.states.get(entity_id).state == "unknown"
+
+
+async def test_outside_temperature_sensor_mirrors_the_climate(hass, climate, entry, domains, data, options, config, monkeypatch):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-outside-temperature")
+
+    monkeypatch.setattr(type(climate), "current_outside_temperature", property(lambda self: 4.26))
+    climate.async_write_ha_state()
+    await hass.async_block_till_done()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == "4.3"
 
 
 async def test_device_status_sensor_follows_heating_control(hass, heating_control, entry, domains, data, options, config):

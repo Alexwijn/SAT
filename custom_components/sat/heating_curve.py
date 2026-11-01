@@ -172,6 +172,13 @@ class HeatingCurveAdvisor:
 
         self._schedule_save(sample.timestamp)
 
+    def implied_coefficient(self, sample: Optional[HeatingCurveAdviceSample]) -> Optional[float]:
+        """Return the coefficient that would have absorbed the correction of this sample."""
+        if sample is None or sample.shape < RECOMMENDATION_MINIMUM_SHAPE:
+            return None
+
+        return round(clamp(self._coefficient + sample.coefficient_delta, MINIMUM_COEFFICIENT, MAXIMUM_COEFFICIENT), 2)
+
     def _prune(self, now: float) -> None:
         while self._samples and self._samples[0].timestamp < (now - RECOMMENDATION_WINDOW_SECONDS):
             self._samples.popleft()

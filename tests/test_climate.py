@@ -349,6 +349,48 @@ def test_curve_advice_sample_excludes_derivative(monkeypatch, climate):
     assert recorded[0].shape == HeatingCurve.calculate(21.0, 5.0)
 
 
+def test_implied_coefficient_follows_the_steady_sample(monkeypatch, climate):
+    _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    shape = HeatingCurve.calculate(21.0, 5.0)
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert climate.implied_curve_coefficient == round(climate._config.pid.heating_curve_coefficient + 4 * 3.5 / shape, 2)
+
+    monkeypatch.setattr(type(climate._coordinator), "active", property(lambda self: False))
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert climate.implied_curve_coefficient is None
+
+
+def test_implied_coefficient_clears_during_hot_water_and_solar_gain(monkeypatch, climate):
+    _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    now, state = HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0)
+
+    climate._record_curve_advice_sample(now, state)
+    assert climate.implied_curve_coefficient is not None
+
+    monkeypatch.setattr(type(climate._coordinator), "hot_water_active", property(lambda self: True))
+    climate._record_curve_advice_sample(now, state)
+    assert climate.implied_curve_coefficient is None
+
+    monkeypatch.setattr(type(climate._coordinator), "hot_water_active", property(lambda self: False))
+    monkeypatch.setattr(climate, "_solar_gain_snapshot", SimpleNamespace(active=True))
+    climate._record_curve_advice_sample(now, state)
+    assert climate.implied_curve_coefficient is None
+
+
+def test_implied_coefficient_clears_when_the_control_loop_cannot_run(monkeypatch, climate):
+    _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+    assert climate.implied_curve_coefficient is not None
+
+    monkeypatch.setattr(type(climate), "temperature_state", property(lambda self: None))
+    climate.control_pid()
+
+    assert climate.implied_curve_coefficient is None
+
+
 def test_curve_advice_sample_skipped_while_boiler_is_idle(monkeypatch, climate):
     recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
     monkeypatch.setattr(type(climate._coordinator), "active", property(lambda self: False))
