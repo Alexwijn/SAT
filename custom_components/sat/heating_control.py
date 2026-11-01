@@ -12,6 +12,7 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.dispatcher import dispatcher_send
 
+from .boiler_health import BoilerHealthMonitor
 from .const import (
     COLD_SETPOINT,
     HEATER_STARTUP_TIMEFRAME,
@@ -97,6 +98,7 @@ class SatHeatingControl:
 
         self._cycles: CycleHistory = CycleHistory()
         self._device_tracker: DeviceTracker = DeviceTracker()
+        self._boiler_health: BoilerHealthMonitor = BoilerHealthMonitor(config)
 
         self._pwm: PWM = PWM(config.pwm, config.heating_system)
         self._cycle_tracker: CycleTracker = CycleTracker(self._hass, self._cycles)
@@ -134,6 +136,11 @@ class SatHeatingControl:
         """Disable Pulse Width Modulation."""
         self._pwm.disable()
         self._reset_pwm_disable_guards()
+
+    @property
+    def boiler_health(self) -> BoilerHealthMonitor:
+        """Expose the long-term boiler health monitor."""
+        return self._boiler_health
 
     @property
     def cycles(self) -> CycleStatistics:
@@ -179,6 +186,7 @@ class SatHeatingControl:
     async def async_added_to_hass(self) -> None:
         """Register listeners and initialize the control loop."""
         await self._device_tracker.async_added_to_hass(self._hass, self._coordinator.id)
+        await self._boiler_health.async_added_to_hass(self._hass, self._config.entry_id)
 
         if self._coordinator_listener_remove is not None:
             self._coordinator_listener_remove()
@@ -204,6 +212,7 @@ class SatHeatingControl:
             self._pwm_cycle_listener_remove = None
 
         await self._device_tracker.async_save_data()
+        await self._boiler_health.async_save_data()
 
     def restore(self, old_state: State) -> None:
         """Restore control state from the persisted climate attributes."""
@@ -289,12 +298,17 @@ class SatHeatingControl:
             )
         )
 
+        self._boiler_health.update(self._coordinator.state, self._coordinator.boiler_pressure, event_timestamp(time))
+
         dispatcher_send(self._hass, SIGNAL_HEATING_CONTROL_UPDATED, self._coordinator.id)
 
     def _on_cycle_ended(self, event) -> None:
         """Forward completed cycles to the PWM controller."""
         if (cycle := event.data.get("cycle")) is None:
             return
+
+        sample = event.data.get("sample")
+        self._boiler_health.record_cycle(cycle, sample.outside_temperature if sample is not None else None)
 
         if not self._config.overshoot_protection and cycle.control_mode == CycleControlMode.CONTINUOUS:
             return
