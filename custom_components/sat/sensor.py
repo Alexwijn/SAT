@@ -53,6 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatOutsideTemperatureSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatSeasonalCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
@@ -168,6 +169,35 @@ class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._config.entry_id}-implied-curve-coefficient"
+
+
+class SatSeasonalCurveCoefficientSensor(SatClimateEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def name(self) -> str:
+        return "Seasonal Curve Coefficient"
+
+    @property
+    def native_value(self) -> Optional[float]:
+        return self._climate.seasonal_curve.fit.coefficient
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        fit = self._climate.seasonal_curve.fit
+
+        return {
+            "days": fit.days,
+            "hours": fit.hours,
+            "cold_coefficient": fit.cold_coefficient,
+            "mild_coefficient": fit.mild_coefficient,
+            "curve_mismatch": fit.is_mismatch,
+            "bins": [{"minimum_temperature": item.minimum_temperature, "coefficient": item.coefficient, "hours": item.hours} for item in fit.bins],
+        }
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.entry_id}-seasonal-curve-coefficient"
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):

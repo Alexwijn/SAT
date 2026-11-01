@@ -5,6 +5,8 @@ import pytest
 from custom_components.sat.device import DeviceState
 from custom_components.sat.const import EVENT_SAT_CYCLE_ENDED, CONF_HEATING_SYSTEM
 from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
+from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
+from custom_components.sat.seasonal_curve import SeasonalCurveEvaluator, SeasonalCurveHour
 from custom_components.sat.heating_control import ControlLoopSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
@@ -157,6 +159,32 @@ async def test_implied_coefficient_is_unknown_outside_steady_heating(hass, clima
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-implied-curve-coefficient")
 
     assert hass.states.get(entity_id).state == "unknown"
+
+
+async def test_seasonal_coefficient_sensor_exposes_the_fit(hass, climate, coordinator, entry, domains, data, options, config):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-seasonal-curve-coefficient")
+
+    assert hass.states.get(entity_id).state == "unknown"
+    assert hass.states.get(entity_id).attributes["hours"] == 0
+
+    hours = [SeasonalCurveHour(start=index * 21600.0, coefficient=2.4, outside_temperature=4.0) for index in range(60)]
+    climate.seasonal_curve._fit = SeasonalCurveEvaluator.fit(hours)
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "2.4"
+    assert state.attributes["hours"] == 60
+    assert state.attributes["curve_mismatch"] is False
+    assert state.attributes["bins"] == [{"minimum_temperature": 3, "coefficient": 2.4, "hours": 60}]
+
+
+async def test_diagnostics_include_the_seasonal_fit(hass, climate, entry, domains, data, options, config):
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert diagnostics["climate"]["seasonal_curve"]["coefficient"] is None
+    assert diagnostics["climate"]["seasonal_curve"]["curve_mismatch"] is False
 
 
 async def test_outside_temperature_sensor_mirrors_the_climate(hass, climate, entry, domains, data, options, config, monkeypatch):
