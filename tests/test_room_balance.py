@@ -426,7 +426,7 @@ async def test_climate_feeds_the_monitor_without_valve_data(room_states, hass, c
     seen = []
     monkeypatch.setattr(climate.room_balance, "observe", lambda boiler, rooms, now: seen.append((boiler, rooms)))
 
-    climate._record_room_balance_samples(START, SimpleNamespace(error=0.5, current=20.5))
+    climate._record_room_observations(START, SimpleNamespace(error=0.5, current=20.5))
 
     boiler, rooms = seen[0]
     assert [room.room_id for room in rooms] == [MAIN_ROOM_ID, ROOM]
@@ -676,9 +676,13 @@ async def test_diagnostics_include_the_room_balance(room_states, hass, climate, 
     assert diagnostics["climate"]["room_balance"][ROOM]["status"] == RoomBalanceStatus.INSUFFICIENT_DATA
 
 
-async def test_climate_skips_the_monitor_without_rooms():
-    from custom_components.sat.climate import SatClimate
+@pytest.mark.parametrize(("domains", "data", "options", "config"), [([], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, {}, {})])
+async def test_climate_skips_the_balance_but_not_preheat_without_rooms(hass, climate, monkeypatch, domains, data, options, config):
+    balance, preheat = [], []
+    monkeypatch.setattr(climate.room_balance, "observe", lambda boiler, rooms, now: balance.append(rooms))
+    monkeypatch.setattr(climate.preheat, "observe", lambda boiler, rooms, now: preheat.append(rooms))
 
-    fake = SimpleNamespace(areas=SimpleNamespace(ids=lambda: []))
+    climate._record_room_observations(START, SimpleNamespace(error=0.5, current=20.5))
 
-    assert SatClimate._record_room_balance_samples(fake, START, SimpleNamespace()) is None
+    assert balance == []
+    assert [room.room_id for room in preheat[0]] == [MAIN_ROOM_ID]

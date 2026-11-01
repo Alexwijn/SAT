@@ -43,6 +43,7 @@ from .heating_curve import (
 )
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
+from .preheat import PreheatMonitor
 from .room_balance import BoilerObservation, MAIN_ROOM_ID, RoomBalanceMonitor, RoomObservation, RoomSignals
 from .seasonal_curve import SeasonalCurveMonitor
 from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, SolarGainSnapshot
@@ -130,6 +131,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._curve_advice_sample: Optional[HeatingCurveAdviceSample] = None
         self._seasonal_curve = SeasonalCurveMonitor(self._config.entry_id)
         self._room_balance = RoomBalanceMonitor(self._config.entry_id, self.areas.ids())
+        self._preheat = PreheatMonitor(self._config.entry_id)
         self._target_temperature_changed_at: Optional[float] = None
         self._frost_protection_active: bool = False
         self._warm_up = WarmUpEstimator()
@@ -152,6 +154,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._curve_advisor.async_added_to_hass(self.hass, self._config.entry_id)
         await self._seasonal_curve.async_added_to_hass(self.hass)
         await self._room_balance.async_added_to_hass(self.hass)
+        await self._preheat.async_added_to_hass(self.hass)
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
         if self.hass.state is CoreState.running:
@@ -187,6 +190,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
         await self._room_balance.async_save_data()
+        await self._preheat.async_save_data()
         await self._coordinator.async_will_remove_from_hass()
 
         for area in self.areas.items():
@@ -319,6 +323,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def curve_advisor(self) -> HeatingCurveAdvisor:
         """Return the heating curve advisor."""
         return self._curve_advisor
+
+    @property
+    def preheat(self) -> PreheatMonitor:
+        """Return the preheat monitor."""
+        return self._preheat
 
     @property
     def room_balance(self) -> RoomBalanceMonitor:
@@ -564,7 +573,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         )
 
         self._record_curve_advice_sample(now, temperature_state)
-        self._record_room_balance_samples(now, temperature_state)
+        self._record_room_observations(now, temperature_state)
 
         self._warm_up.update(
             active=(
@@ -599,11 +608,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._curve_advice_sample is not None:
             self._curve_advisor.record(self._curve_advice_sample)
 
-    def _record_room_balance_samples(self, now: float, temperature_state: TemperatureState) -> None:
-        """Feed the room balance monitor, which only has something to compare when rooms are configured."""
-        if not self.areas.ids():
-            return
-
+    def _record_room_observations(self, now: float, temperature_state: TemperatureState) -> None:
+        """Feed the monitors; the room balance only has something to compare when rooms are configured."""
         boiler = BoilerObservation(
             eligible=(
                     self.hvac_mode == HVACMode.HEAT
@@ -628,7 +634,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             steady=self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS),
         )
 
-        self._room_balance.observe(boiler, [main, *(self._room_observation(area, now) for area in self.areas.items())], now)
+        rooms = [main, *(self._room_observation(area, now) for area in self.areas.items())]
+        self._preheat.observe(boiler, rooms, now)
+
+        if self.areas.ids():
+            self._room_balance.observe(boiler, rooms, now)
 
     def _room_observation(self, area: Area, now: float) -> RoomObservation:
         temperature_state = area.temperature_state
