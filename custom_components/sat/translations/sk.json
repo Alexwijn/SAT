@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "Kotol častejšie krátko cykluje",
       "description": "Kotol {name} teraz štartuje približne {recent_cycles}-krát denne so strednou dobou behu {on_time} minút, oproti {baseline_cycles} štartom denne pri podobnom počasí. Časté krátke behy opotrebúvajú kotol a plytvajú plynom. Skontrolujte vykurovaciu krivku, nastavenia PWM a minimálny výkon kotla."
+    },
+    "room_undersupplied": {
+      "title": "{room} dostáva príliš málo tepla",
+      "description": "{room} v {name} trvalo potrebuje viac tepla ako zvyšok domu, čo zvyšuje teplotu prívodu približne o {flow_premium} °C. Skontrolujte, či je radiátor dostatočne veľký, či sú spiatočkové ventily vyvážené a či nie je prievan alebo otvorené dvere."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} zostáva studená, hoci termostat je spokojný",
+      "description": "{room} v {name} zostáva pod cieľovou teplotou, ale termostat si teplo pýta len zriedka. Termostat pravdepodobne meria vyššiu teplotu ako miestnosť. Skontrolujte jeho umiestnenie alebo korekciu teploty."
+    },
+    "room_fault": {
+      "title": "{room} hlási problém s ventilom",
+      "description": "Zariadenie v {room} v {name} hlási alarm ventilu. Skontrolujte jeho inštaláciu, kalibráciu a prepojenie s prípadným externým snímačom teploty."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Znížiť",
           "hold": "Ponechať",
           "insufficient_samples": "Nedostatok vzoriek"
+        }
+      },
+      "room_balance": {
+        "name": "Vyváženie miestnosti",
+        "state": {
+          "balanced": "Vyvážená",
+          "room_fault": "Porucha zariadenia",
+          "oversupplied": "Nadmerne zásobovaná",
+          "undersupplied": "Nedostatočne zásobovaná",
+          "sensor_mismatch": "Nesúlad senzora",
+          "insufficient_data": "Nedostatok údajov"
         }
       }
     }

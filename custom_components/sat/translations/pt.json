@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "A caldeira faz mais ciclos curtos",
       "description": "A caldeira de {name} arranca agora cerca de {recent_cycles} vezes por dia com uma duração mediana de {on_time} minutos, em comparação com {baseline_cycles} arranques por dia com tempo semelhante. Ciclos curtos frequentes desgastam a caldeira e desperdiçam gás. Verifique a curva de aquecimento, as definições de PWM e a potência mínima da caldeira."
+    },
+    "room_undersupplied": {
+      "title": "{room} recebe pouco calor",
+      "description": "{room} de {name} precisa constantemente de mais calor do que o resto da casa, o que aumenta a temperatura de ida em cerca de {flow_premium} °C. Verifique se o radiador é suficientemente grande, se os detentores estão equilibrados e se existem correntes de ar ou portas abertas."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} continua fria com o termóstato satisfeito",
+      "description": "{room} de {name} mantém-se abaixo do objetivo, mas o termóstato raramente pede calor. O termóstato mede provavelmente mais calor do que a divisão. Verifique a sua localização ou o desvio de temperatura."
+    },
+    "room_fault": {
+      "title": "{room} comunica um problema de válvula",
+      "description": "O dispositivo em {room} de {name} comunica um alarme de válvula. Verifique a instalação, a calibração e a ligação a qualquer sensor de temperatura externo."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Reduzir",
           "hold": "Manter",
           "insufficient_samples": "Amostras insuficientes"
+        }
+      },
+      "room_balance": {
+        "name": "Equilíbrio da divisão",
+        "state": {
+          "balanced": "Equilibrada",
+          "room_fault": "Falha do dispositivo",
+          "oversupplied": "Sobrealimentada",
+          "undersupplied": "Subalimentada",
+          "sensor_mismatch": "Discrepância do sensor",
+          "insufficient_data": "Dados insuficientes"
         }
       }
     }

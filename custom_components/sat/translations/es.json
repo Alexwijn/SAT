@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "La caldera hace más ciclos cortos",
       "description": "La caldera de {name} arranca ahora unas {recent_cycles} veces al día con una duración mediana de {on_time} minutos, frente a {baseline_cycles} arranques al día con un clima similar. Los ciclos cortos frecuentes desgastan la caldera y desperdician gas. Revise la curva de calefacción, los ajustes de PWM y la potencia mínima de la caldera."
+    },
+    "room_undersupplied": {
+      "title": "{room} recibe muy poco calor",
+      "description": "{room} de {name} necesita constantemente más calor que el resto de la casa, lo que eleva la temperatura de impulsión unos {flow_premium} °C. Compruebe si el radiador es suficientemente grande, si los detentores están equilibrados y si hay corrientes de aire o puertas abiertas."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} sigue fría aunque su termostato está satisfecho",
+      "description": "{room} de {name} se mantiene por debajo de su objetivo, pero su termostato rara vez pide calor. Probablemente el termostato mide más calor que la habitación. Compruebe su ubicación o el ajuste de temperatura."
+    },
+    "room_fault": {
+      "title": "{room} informa de un problema de válvula",
+      "description": "El dispositivo de {room} de {name} informa de una alarma de válvula. Compruebe su instalación, su calibración y el enlace con cualquier sensor de temperatura externo."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Reducir",
           "hold": "Mantener",
           "insufficient_samples": "Muestras insuficientes"
+        }
+      },
+      "room_balance": {
+        "name": "Equilibrio de la habitación",
+        "state": {
+          "balanced": "Equilibrada",
+          "room_fault": "Fallo del dispositivo",
+          "oversupplied": "Sobrealimentada",
+          "undersupplied": "Infraalimentada",
+          "sensor_mismatch": "Discrepancia del sensor",
+          "insufficient_data": "Datos insuficientes"
         }
       }
     }

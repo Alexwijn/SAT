@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "La caldaia esegue più cicli brevi",
       "description": "La caldaia di {name} si avvia ora circa {recent_cycles} volte al giorno con una durata mediana di {on_time} minuti, rispetto a {baseline_cycles} avvii al giorno con un clima simile. I cicli brevi frequenti usurano la caldaia e sprecano gas. Controllare la curva di riscaldamento, le impostazioni PWM e la potenza minima della caldaia."
+    },
+    "room_undersupplied": {
+      "title": "{room} riceve troppo poco calore",
+      "description": "{room} di {name} richiede costantemente più calore del resto della casa, aumentando la temperatura di mandata di circa {flow_premium} °C. Controllare che il radiatore sia abbastanza grande, che i detentori siano bilanciati e che non ci siano correnti d'aria o porte aperte."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} resta fredda mentre il termostato è soddisfatto",
+      "description": "{room} di {name} resta sotto l'obiettivo, ma il termostato richiede raramente calore. Probabilmente il termostato rileva una temperatura più alta della stanza. Controllare la posizione o l'offset di temperatura."
+    },
+    "room_fault": {
+      "title": "{room} segnala un problema alla valvola",
+      "description": "Il dispositivo in {room} di {name} segnala un allarme valvola. Controllare l'installazione, la calibrazione e il collegamento a un eventuale sensore di temperatura esterno."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Riduci",
           "hold": "Mantieni",
           "insufficient_samples": "Campioni insufficienti"
+        }
+      },
+      "room_balance": {
+        "name": "Bilanciamento stanza",
+        "state": {
+          "balanced": "Bilanciata",
+          "room_fault": "Guasto del dispositivo",
+          "oversupplied": "Sovralimentata",
+          "undersupplied": "Sottoalimentata",
+          "sensor_mismatch": "Discrepanza del sensore",
+          "insufficient_data": "Dati insufficienti"
         }
       }
     }

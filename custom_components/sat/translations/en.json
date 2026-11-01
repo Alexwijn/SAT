@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "Boiler short cycling more often",
       "description": "The boiler for {name} now starts about {recent_cycles} times a day with a median run time of {on_time} minutes, compared with {baseline_cycles} starts a day in similar weather. Frequent short runs wear the boiler and waste gas. Check the heating curve, the PWM settings and the boiler's minimum output."
+    },
+    "room_undersupplied": {
+      "title": "{room} receives too little heat",
+      "description": "{room} on {name} consistently needs more heat than the rest of the house, which raises the flow temperature by about {flow_premium} °C. Check whether the radiator is large enough, whether the lockshield valves are balanced, and whether there are drafts or open doors."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} stays cold while its thermostat is satisfied",
+      "description": "{room} on {name} stays below its target, but its thermostat rarely asks for heat. The thermostat probably reads warmer than the room. Check its placement or temperature offset."
+    },
+    "room_fault": {
+      "title": "{room} reports a valve problem",
+      "description": "The device in {room} on {name} reports a valve alarm. Check its installation, calibration and any external temperature sensor link."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Decrease",
           "hold": "Hold",
           "insufficient_samples": "Insufficient samples"
+        }
+      },
+      "room_balance": {
+        "name": "Room balance",
+        "state": {
+          "balanced": "Balanced",
+          "room_fault": "Device fault",
+          "oversupplied": "Oversupplied",
+          "undersupplied": "Undersupplied",
+          "sensor_mismatch": "Sensor mismatch",
+          "insufficient_data": "Insufficient data"
         }
       }
     }

@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "Kessel taktet häufiger",
       "description": "Der Kessel von {name} startet jetzt etwa {recent_cycles} Mal pro Tag mit einer mittleren Laufzeit von {on_time} Minuten, gegenüber {baseline_cycles} Starts pro Tag bei ähnlichem Wetter. Häufige kurze Laufzeiten verschleißen den Kessel und verschwenden Gas. Prüfen Sie die Heizkurve, die PWM-Einstellungen und die Mindestleistung des Kessels."
+    },
+    "room_undersupplied": {
+      "title": "{room} erhält zu wenig Wärme",
+      "description": "{room} von {name} benötigt dauerhaft mehr Wärme als der Rest des Hauses, was die Vorlauftemperatur um etwa {flow_premium} °C erhöht. Prüfen Sie, ob der Heizkörper groß genug ist, ob die Rücklaufverschraubungen abgeglichen sind und ob es Zugluft oder offene Türen gibt."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} bleibt kalt, obwohl der Thermostat zufrieden ist",
+      "description": "{room} von {name} bleibt unter der Zieltemperatur, aber der Thermostat fordert selten Wärme an. Der Thermostat misst wahrscheinlich wärmer als der Raum. Prüfen Sie seine Position oder den Temperaturversatz."
+    },
+    "room_fault": {
+      "title": "{room} meldet ein Ventilproblem",
+      "description": "Das Gerät in {room} von {name} meldet einen Ventilalarm. Prüfen Sie die Montage, die Kalibrierung und die Verbindung zu einem externen Temperatursensor."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Verringern",
           "hold": "Beibehalten",
           "insufficient_samples": "Zu wenige Messwerte"
+        }
+      },
+      "room_balance": {
+        "name": "Raumabgleich",
+        "state": {
+          "balanced": "Ausgeglichen",
+          "room_fault": "Gerätestörung",
+          "oversupplied": "Überversorgt",
+          "undersupplied": "Unterversorgt",
+          "sensor_mismatch": "Sensorabweichung",
+          "insufficient_data": "Unzureichende Daten"
         }
       }
     }

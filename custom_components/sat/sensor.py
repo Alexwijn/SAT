@@ -7,6 +7,7 @@ from homeassistant.components.sensor import RestoreSensor, SensorDeviceClass, Se
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume, UnitOfVolumeFlowRate, EntityCategory
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -21,6 +22,12 @@ from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
 from .helpers import timestamp
 from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation, RoomBalanceStatus
+
+ROOM_BALANCE_ISSUES: dict[RoomBalanceStatus, str] = {
+    RoomBalanceStatus.ROOM_FAULT: "room_fault",
+    RoomBalanceStatus.UNDERSUPPLIED: "room_undersupplied",
+    RoomBalanceStatus.SENSOR_MISMATCH: "room_sensor_mismatch",
+}
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -336,6 +343,41 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._config.entry_id}-{self._area_id}-room-balance"
+
+    async def async_will_remove_from_hass(self) -> None:
+        for key in ROOM_BALANCE_ISSUES.values():
+            ir.async_delete_issue(self.hass, DOMAIN, self._issue_id(key))
+
+        await super().async_will_remove_from_hass()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        balance = self._climate.room_balance.balance(self._area_id)
+        room_state = self.hass.states.get(self._area_id)
+
+        for status, key in ROOM_BALANCE_ISSUES.items():
+            if balance.status != status:
+                ir.async_delete_issue(self.hass, DOMAIN, self._issue_id(key))
+                continue
+
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                self._issue_id(key),
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=key,
+                translation_placeholders={
+                    "name": self._config.name,
+                    "room": room_state.name if room_state is not None else self._area_id,
+                    "flow_premium": f"{balance.flow_premium or 0.0:.1f}",
+                },
+            )
+
+        super()._handle_coordinator_update()
+
+    def _issue_id(self, key: str) -> str:
+        return f"{key}_{self._config.entry_id}_{self._area_id}"
 
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):

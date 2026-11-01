@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "Ketel pendelt vaker",
       "description": "De ketel van {name} start nu ongeveer {recent_cycles} keer per dag met een mediane brandtijd van {on_time} minuten, tegenover {baseline_cycles} starts per dag bij vergelijkbaar weer. Vaak kort branden verslijt de ketel en verspilt gas. Controleer de stooklijn, de PWM-instellingen en het minimale vermogen van de ketel."
+    },
+    "room_undersupplied": {
+      "title": "{room} krijgt te weinig warmte",
+      "description": "{room} van {name} heeft structureel meer warmte nodig dan de rest van het huis, wat de aanvoertemperatuur met ongeveer {flow_premium} °C verhoogt. Controleer of de radiator groot genoeg is, of de voetventielen zijn ingeregeld en of er tocht of openstaande deuren zijn."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} blijft koud terwijl de thermostaat tevreden is",
+      "description": "{room} van {name} blijft onder de doeltemperatuur, maar de thermostaat vraagt zelden om warmte. De thermostaat meet waarschijnlijk warmer dan de kamer. Controleer de plaatsing of de temperatuurcorrectie."
+    },
+    "room_fault": {
+      "title": "{room} meldt een klepprobleem",
+      "description": "Het apparaat in {room} van {name} meldt een klepalarm. Controleer de installatie, de kalibratie en een eventuele koppeling met een externe temperatuursensor."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Verlagen",
           "hold": "Behouden",
           "insufficient_samples": "Onvoldoende metingen"
+        }
+      },
+      "room_balance": {
+        "name": "Kamerbalans",
+        "state": {
+          "balanced": "In balans",
+          "room_fault": "Apparaatstoring",
+          "oversupplied": "Te veel aanvoer",
+          "undersupplied": "Te weinig aanvoer",
+          "sensor_mismatch": "Sensorafwijking",
+          "insufficient_data": "Onvoldoende gegevens"
         }
       }
     }

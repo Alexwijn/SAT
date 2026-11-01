@@ -1,18 +1,22 @@
 """Tests for the per-room balance advisor."""
 
+import json
+import re
 from collections import deque
 from dataclasses import replace
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
 
 import pytest
 from homeassistant.components.climate import HVACAction, HVACMode
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er, issue_registry as ir
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_ROOMS
+import custom_components.sat
+from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_ROOMS, DOMAIN
 from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sat.heating_curve import RECOMMENDATION_STEADY_WINDOW_SECONDS
 from custom_components.sat.room_balance import (
@@ -32,6 +36,7 @@ from custom_components.sat.room_balance import (
 from custom_components.sat.types import HeatingSystem, RoomBalanceStatus
 
 ROOM = "climate.bedroom"
+TRANSLATIONS = Path(custom_components.sat.__file__).parent / "translations"
 DAY_SECONDS = 24 * 60 * 60
 START = dt_util.as_utc(datetime(2026, 11, 1, 12, 0, tzinfo=dt_util.DEFAULT_TIME_ZONE)).timestamp()
 
@@ -518,6 +523,78 @@ async def test_room_sensor_exposes_the_balance(room_states, hass, climate, coord
     assert state.attributes["flow_premium"] == 5.0
     assert state.attributes["valve_position"] is None
     assert state.attributes["radiator_heat_rise"] is None
+
+
+@WITH_ROOM
+@pytest.mark.parametrize(("key", "room_days"), [
+    ("room_undersupplied", {"coefficient": 3.0, "shortfall": 1.0}),
+    ("room_sensor_mismatch", {"coefficient": 3.0, "shortfall": 1.0, "calling": 0.1}),
+])
+async def test_repair_issue_is_raised_and_cleared(room_states, hass, climate, coordinator, entry, domains, data, options, config, key, room_days):
+    issue_id = f"{key}_{entry.entry_id}_{ROOM}"
+    issues = ir.async_get(hass)
+
+    _inject_days(climate.room_balance, _days(ROOM, **room_days) + _days(MAIN_ROOM_ID) + _days("climate.other"))
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    issue = issues.async_get_issue(DOMAIN, issue_id)
+    assert issue is not None
+    assert issue.translation_key == key
+    assert issue.translation_placeholders["room"] == hass.states.get(ROOM).name
+
+    _inject_days(climate.room_balance, [])
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert issues.async_get_issue(DOMAIN, issue_id) is None
+
+
+@WITH_ROOM
+async def test_fault_issue_follows_the_alarm(room_states, hass, climate, coordinator, entry, domains, data, options, config):
+    issue_id = f"room_fault_{entry.entry_id}_{ROOM}"
+    issues = ir.async_get(hass)
+
+    climate.room_balance._faults = {ROOM}
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert issues.async_get_issue(DOMAIN, issue_id) is not None
+
+    climate.room_balance._faults = set()
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert issues.async_get_issue(DOMAIN, issue_id) is None
+
+
+@WITH_ROOM
+async def test_balanced_room_raises_no_issue(room_states, hass, climate, coordinator, entry, domains, data, options, config):
+    _inject_days(climate.room_balance, _days(ROOM) + _days(MAIN_ROOM_ID) + _days("climate.other"))
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert [issue for issue in ir.async_get(hass).issues if issue[1].startswith("room_")] == []
+
+
+@pytest.mark.parametrize("key", ["room_undersupplied", "room_sensor_mismatch", "room_fault"])
+def test_issues_are_translated_in_every_language(key):
+    placeholders = None
+
+    for path in sorted(TRANSLATIONS.glob("*.json")):
+        issue = json.loads(path.read_text(encoding="utf-8"))["issues"][key]
+        found = set(re.findall(r"{(\w+)}", issue["description"]))
+
+        assert issue["title"]
+        assert placeholders is None or found == placeholders
+        placeholders = found
+
+
+def test_states_are_translated_in_every_language():
+    expected = {status.value for status in RoomBalanceStatus}
+
+    for path in sorted(TRANSLATIONS.glob("*.json")):
+        assert set(json.loads(path.read_text(encoding="utf-8"))["entity"]["sensor"]["room_balance"]["state"]) == expected
 
 
 @WITH_ROOM

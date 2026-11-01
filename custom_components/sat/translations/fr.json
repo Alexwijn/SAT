@@ -383,6 +383,18 @@
     "boiler_short_cycling_trend": {
       "title": "La chaudière effectue plus de cycles courts",
       "description": "La chaudière de {name} démarre désormais environ {recent_cycles} fois par jour avec une durée médiane de {on_time} minutes, contre {baseline_cycles} démarrages par jour par temps similaire. Les cycles courts fréquents usent la chaudière et gaspillent du gaz. Vérifiez la courbe de chauffe, les réglages PWM et la puissance minimale de la chaudière."
+    },
+    "room_undersupplied": {
+      "title": "{room} reçoit trop peu de chaleur",
+      "description": "{room} de {name} a constamment besoin de plus de chaleur que le reste de la maison, ce qui augmente la température de départ d'environ {flow_premium} °C. Vérifiez que le radiateur est assez grand, que les tés de réglage sont équilibrés et qu'il n'y a pas de courants d'air ou de portes ouvertes."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} reste froide alors que son thermostat est satisfait",
+      "description": "{room} de {name} reste en dessous de sa consigne, mais son thermostat demande rarement de la chaleur. Le thermostat mesure probablement plus chaud que la pièce. Vérifiez son emplacement ou son décalage de température."
+    },
+    "room_fault": {
+      "title": "{room} signale un problème de vanne",
+      "description": "L'appareil de {room} de {name} signale une alarme de vanne. Vérifiez son installation, son étalonnage et le lien avec un éventuel capteur de température externe."
     }
   },
   "entity": {
@@ -394,6 +406,17 @@
           "decrease": "Diminuer",
           "hold": "Conserver",
           "insufficient_samples": "Échantillons insuffisants"
+        }
+      },
+      "room_balance": {
+        "name": "Équilibrage de la pièce",
+        "state": {
+          "balanced": "Équilibrée",
+          "room_fault": "Défaut de l'appareil",
+          "oversupplied": "Suralimentée",
+          "undersupplied": "Sous-alimentée",
+          "sensor_mismatch": "Écart de capteur",
+          "insufficient_data": "Données insuffisantes"
         }
       }
     }
