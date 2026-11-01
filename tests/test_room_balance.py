@@ -1,7 +1,10 @@
 """Tests for the per-room balance advisor."""
 
-from datetime import datetime
+from collections import deque
+from dataclasses import replace
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
+from typing import Optional
 
 import pytest
 from homeassistant.components.climate import HVACAction, HVACMode
@@ -10,10 +13,13 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_ROOMS
+from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sat.heating_curve import RECOMMENDATION_STEADY_WINDOW_SECONDS
 from custom_components.sat.room_balance import (
     BoilerObservation,
     MAIN_ROOM_ID,
+    RoomBalanceDay,
+    RoomBalanceEvaluator,
     RoomBalanceMonitor,
     RoomHeatRiseTracker,
     RoomObservation,
@@ -23,7 +29,7 @@ from custom_components.sat.room_balance import (
     SAMPLE_INTERVAL_SECONDS,
     WarmUpPoint,
 )
-from custom_components.sat.types import HeatingSystem
+from custom_components.sat.types import HeatingSystem, RoomBalanceStatus
 
 ROOM = "climate.bedroom"
 DAY_SECONDS = 24 * 60 * 60
@@ -351,6 +357,174 @@ async def test_climate_feeds_the_monitor_without_valve_data(room_states, hass, c
     assert rooms[1].valve_position is None
     assert rooms[1].signals == RoomSignalReading()
     assert rooms[1].implied_coefficient is not None
+
+
+TODAY = date(2026, 11, 15)
+
+
+def _days(room_id: str, coefficient: float = 2.0, shortfall: float = 0.0, calling: float = 0.8, response: Optional[float] = None, valve: Optional[float] = None, count: int = 7, samples: int = 24) -> list[RoomBalanceDay]:
+    return [
+        RoomBalanceDay(
+            date=(TODAY - timedelta(days=age)).isoformat(),
+            room_id=room_id,
+            sample_count=samples,
+            calling_fraction=calling,
+            shape=20.0,
+            shortfall=shortfall,
+            valve_position=valve,
+            warm_up_response=response,
+            warm_up_episodes=1 if response is not None else 0,
+            implied_coefficient=coefficient,
+        )
+        for age in range(1, count + 1)
+    ]
+
+
+def _evaluate(*days: list[RoomBalanceDay]) -> dict:
+    return RoomBalanceEvaluator.evaluate([day for room_days in days for day in room_days], TODAY.toordinal())
+
+
+def test_two_signals_without_a_valve_are_undersupplied():
+    result = _evaluate(_days("cold", coefficient=3.0, shortfall=1.0), _days("a"), _days("b"))
+
+    assert result["cold"].status == RoomBalanceStatus.UNDERSUPPLIED
+    assert result["cold"].valve_position is None
+    assert result["a"].status == RoomBalanceStatus.BALANCED
+
+
+def test_one_signal_without_a_valve_is_not_undersupplied():
+    high_demand = _evaluate(_days("cold", coefficient=3.0), _days("a"), _days("b"))
+    falling_short = _evaluate(_days("cold", shortfall=1.0), _days("a"), _days("b"))
+
+    assert high_demand["cold"].status == RoomBalanceStatus.BALANCED
+    assert falling_short["cold"].status == RoomBalanceStatus.BALANCED
+
+
+def test_slow_response_counts_as_a_signal():
+    result = _evaluate(_days("cold", shortfall=1.0, response=0.02), _days("a", response=0.05), _days("b", response=0.05))
+
+    assert result["cold"].status == RoomBalanceStatus.UNDERSUPPLIED
+
+
+def test_response_needs_enough_episodes():
+    result = _evaluate(_days("cold", shortfall=1.0, response=0.02, count=2) + _days("cold", shortfall=1.0)[2:], _days("a", response=0.05), _days("b", response=0.05))
+
+    assert result["cold"].warm_up_episodes == 2
+    assert result["cold"].status == RoomBalanceStatus.BALANCED
+
+
+def test_short_room_with_an_idle_thermostat_is_a_sensor_mismatch():
+    result = _evaluate(_days("cold", coefficient=3.0, shortfall=1.0, calling=0.1), _days("a"), _days("b"))
+
+    assert result["cold"].status == RoomBalanceStatus.SENSOR_MISMATCH
+
+
+def test_fast_room_is_oversupplied_only_next_to_an_undersupplied_room():
+    with_short = _evaluate(_days("cold", coefficient=3.0, shortfall=1.0), _days("fast", response=0.09), _days("a", response=0.05), _days("b", response=0.05))
+    without_short = _evaluate(_days("fast", response=0.09), _days("a", response=0.05), _days("b", response=0.05))
+
+    assert with_short["fast"].status == RoomBalanceStatus.OVERSUPPLIED
+    assert without_short["fast"].status == RoomBalanceStatus.BALANCED
+
+
+def test_single_room_has_insufficient_data():
+    assert _evaluate(_days("only", coefficient=3.0, shortfall=1.0))["only"].status == RoomBalanceStatus.INSUFFICIENT_DATA
+
+
+def test_room_needs_enough_qualifying_days():
+    result = _evaluate(_days("few", coefficient=3.0, shortfall=1.0, count=4), _days("a"), _days("b"))
+
+    assert result["few"].status == RoomBalanceStatus.INSUFFICIENT_DATA
+    assert result["few"].days == 4
+
+
+def test_days_with_too_few_samples_do_not_qualify():
+    assert _evaluate(_days("few", samples=11), _days("a"), _days("b"))["few"].days == 0
+
+
+def test_old_days_are_outside_the_window():
+    old = [replace(day, date=(TODAY - timedelta(days=30)).isoformat()) for day in _days("old", coefficient=5.0, shortfall=2.0)]
+
+    assert "old" not in _evaluate(old, _days("a"), _days("b"))
+
+
+def test_flow_premium_is_calculated_from_the_reference():
+    result = _evaluate(_days("cold", coefficient=3.0, shortfall=1.0), _days("a"), _days("b"))
+
+    assert result["cold"].reference_coefficient == 2.0
+    assert result["cold"].flow_premium == 5.0
+    assert result["a"].flow_premium == 0.0
+
+
+def test_one_signal_with_a_saturated_valve_is_undersupplied():
+    result = _evaluate(_days("cold", coefficient=3.0, valve=95.0), _days("a"), _days("b"))
+
+    assert result["cold"].status == RoomBalanceStatus.UNDERSUPPLIED
+
+
+def test_half_open_valve_does_not_confirm_a_single_signal():
+    result = _evaluate(_days("cold", coefficient=3.0, valve=50.0), _days("a"), _days("b"))
+
+    assert result["cold"].status == RoomBalanceStatus.BALANCED
+
+
+def test_low_valve_median_is_oversupplied_next_to_an_undersupplied_room():
+    result = _evaluate(_days("cold", coefficient=3.0, shortfall=1.0), _days("open", valve=20.0), _days("a"))
+
+    assert result["open"].status == RoomBalanceStatus.OVERSUPPLIED
+
+
+def test_heat_rise_changes_no_verdict():
+    plain = _evaluate(_days("cold", coefficient=3.0), _days("a"), _days("b"))
+    rising = [replace(day, heat_rise=10.0) for day in _days("cold", coefficient=3.0)]
+
+    result = _evaluate(rising, _days("a"), _days("b"))
+
+    assert result["cold"].heat_rise == 10.0
+    assert result["cold"].status == plain["cold"].status
+
+
+def test_reported_fault_takes_precedence_and_clears():
+    monitor = _monitor()
+
+    monitor.observe(_boiler(), [_room(signals=RoomSignalReading(valve_alarm=True))], START)
+    assert monitor.balance(ROOM).status == RoomBalanceStatus.ROOM_FAULT
+
+    monitor.observe(_boiler(), [_room()], START + 1)
+    assert monitor.balance(ROOM).status == RoomBalanceStatus.INSUFFICIENT_DATA
+
+
+def _inject_days(monitor: RoomBalanceMonitor, days: list[RoomBalanceDay]) -> None:
+    today = dt_util.now().date()
+    shift = today.toordinal() - TODAY.toordinal()
+
+    monitor._days = deque(replace(day, date=date.fromordinal(day.ordinal + shift).isoformat()) for day in days)
+    monitor._current_date = today.isoformat()
+    monitor._balances = None
+
+
+@WITH_ROOM
+async def test_room_sensor_exposes_the_balance(room_states, hass, climate, coordinator, entry, domains, data, options, config):
+    entity_id = er.async_get(hass).async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{ROOM}-room-balance")
+
+    assert hass.states.get(entity_id).state == "insufficient_data"
+
+    _inject_days(climate.room_balance, _days(ROOM, coefficient=3.0, shortfall=1.0) + _days(MAIN_ROOM_ID) + _days("climate.other"))
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "undersupplied"
+    assert state.attributes["flow_premium"] == 5.0
+    assert state.attributes["valve_position"] is None
+    assert state.attributes["radiator_heat_rise"] is None
+
+
+@WITH_ROOM
+async def test_diagnostics_include_the_room_balance(room_states, hass, climate, entry, domains, data, options, config):
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert diagnostics["climate"]["room_balance"][ROOM]["status"] == RoomBalanceStatus.INSUFFICIENT_DATA
 
 
 async def test_climate_skips_the_monitor_without_rooms():

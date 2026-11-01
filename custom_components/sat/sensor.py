@@ -20,7 +20,7 @@ from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
 from .helpers import timestamp
-from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation
+from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation, RoomBalanceStatus
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -60,6 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
     for entity_id in entry_data.config.rooms:
         sensors.append(SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate, entity_id))
+        sensors.append(SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate, entity_id))
 
     if entry_data.coordinator.supports_relative_modulation_management:
         sensors.append(SatCurrentPowerSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
@@ -285,6 +286,56 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
             "integral": pid.integral,
             "derivative": pid.derivative,
         }
+
+
+class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
+    _attr_translation_key = "room_balance"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_options = [status.value for status in RoomBalanceStatus]
+
+    def __init__(
+            self,
+            coordinator: SatDataUpdateCoordinator,
+            config: SatConfig,
+            heating_control: SatHeatingControl,
+            climate: SatClimate,
+            area_id: str,
+    ):
+        super().__init__(coordinator, config, heating_control, climate)
+        self._area_id: str = area_id
+
+    @property
+    def name(self) -> str:
+        return f"Room Balance ({self._area_id})"
+
+    @property
+    def native_value(self) -> str:
+        return self._climate.room_balance.balance(self._area_id).status.value
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        balance = self._climate.room_balance.balance(self._area_id)
+
+        return {
+            "days": balance.days,
+            "shortfall": balance.shortfall,
+            "flow_premium": balance.flow_premium,
+            "calling_fraction": balance.calling_fraction,
+            "implied_coefficient": balance.implied_coefficient,
+            "reference_coefficient": balance.reference_coefficient,
+
+            "warm_up_episodes": balance.warm_up_episodes,
+            "warm_up_response": balance.warm_up_response,
+            "reference_warm_up_response": balance.reference_warm_up_response,
+
+            "valve_position": balance.valve_position,
+            "radiator_heat_rise": balance.heat_rise,
+        }
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.entry_id}-{self._area_id}-room-balance"
 
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):

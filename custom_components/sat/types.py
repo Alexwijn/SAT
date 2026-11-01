@@ -49,6 +49,16 @@ class BoilerStatus(Enum):
     POST_CYCLE_SETTLING = "post_cycle_settling"
 
 
+class RoomBalanceStatus(str, Enum):
+    """How well a room is supplied with heat compared to the rest of the house."""
+    BALANCED = "balanced"
+    ROOM_FAULT = "room_fault"
+    OVERSUPPLIED = "oversupplied"
+    UNDERSUPPLIED = "undersupplied"
+    SENSOR_MISMATCH = "sensor_mismatch"
+    INSUFFICIENT_DATA = "insufficient_data"
+
+
 class CycleKind(str, Enum):
     """Cycle category for tracking heating vs hot water activity."""
     MIXED = "mixed"

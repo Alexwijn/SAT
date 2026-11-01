@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
 from statistics import fmean, median
 from typing import Deque, Optional
@@ -18,6 +18,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .helpers import float_value
+from .types import RoomBalanceStatus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +33,23 @@ WARM_UP_MINIMUM_SPAN_SECONDS = 1800.0
 WARM_UP_MINIMUM_SHORTFALL_CELSIUS = 0.3
 
 HEAT_RISE_MINIMUM_SPAN_SECONDS = 600.0
+
+EVALUATION_WINDOW_DAYS = 14
+MINIMUM_DAILY_SAMPLES = 12
+MINIMUM_QUALIFYING_DAYS = 5
+MINIMUM_COMPARABLE_ROOMS = 2
+MINIMUM_WARM_UP_EPISODES = 3
+
+FALLING_SHORT_CELSIUS = 0.5
+HIGH_DEMAND_MINIMUM_DIFFERENCE = 0.5
+UNDERSUPPLIED_MINIMUM_SIGNALS = 2
+SENSOR_MISMATCH_MAXIMUM_CALLING = 0.3
+
+SLOW_RESPONSE_RATIO = 0.67
+FAST_RESPONSE_RATIO = 1.5
+
+VALVE_SATURATED_PERCENT = 90.0
+VALVE_THROTTLED_PERCENT = 30.0
 
 UNIQUE_ID_WINDOW_OPEN = "window_open"
 UNIQUE_ID_VALVE_ALARM = "valve_alarm"
@@ -243,6 +261,134 @@ class RoomHeatRiseTracker:
         return highest - lowest
 
 
+@dataclass(frozen=True, slots=True)
+class RoomBalance:
+    """Evaluation of one room against the rest of the house."""
+
+    status: RoomBalanceStatus = RoomBalanceStatus.INSUFFICIENT_DATA
+    days: int = 0
+    warm_up_episodes: int = 0
+    shape: Optional[float] = None
+    shortfall: Optional[float] = None
+    heat_rise: Optional[float] = None
+    flow_premium: Optional[float] = None
+    valve_position: Optional[float] = None
+    calling_fraction: Optional[float] = None
+    warm_up_response: Optional[float] = None
+    implied_coefficient: Optional[float] = None
+    reference_coefficient: Optional[float] = None
+    reference_warm_up_response: Optional[float] = None
+
+
+class RoomBalanceEvaluator:
+    """Compare rooms with each other over the recent days."""
+
+    @staticmethod
+    def evaluate(days: list[RoomBalanceDay], today: int) -> dict[str, RoomBalance]:
+        summaries = RoomBalanceEvaluator._summaries(days, today)
+        comparable = {room_id: summary for room_id, summary in summaries.items() if summary.days >= MINIMUM_QUALIFYING_DAYS}
+
+        if len(comparable) < MINIMUM_COMPARABLE_ROOMS:
+            return summaries
+
+        reference_coefficient = median(summary.implied_coefficient for summary in comparable.values())
+        responses = [summary.warm_up_response for summary in comparable.values() if RoomBalanceEvaluator._has_response(summary)]
+        reference_response = median(responses) if len(responses) >= MINIMUM_COMPARABLE_ROOMS else None
+
+        rooms = {
+            room_id: replace(summary, reference_coefficient=reference_coefficient, reference_warm_up_response=reference_response, flow_premium=RoomBalanceEvaluator._flow_premium(summary, reference_coefficient))
+            for room_id, summary in comparable.items()
+        }
+
+        rooms = {room_id: replace(room, status=RoomBalanceEvaluator._supply_status(room)) for room_id, room in rooms.items()}
+        any_undersupplied = any(room.status == RoomBalanceStatus.UNDERSUPPLIED for room in rooms.values())
+
+        return summaries | {
+            room_id: replace(room, status=RoomBalanceStatus.OVERSUPPLIED) if any_undersupplied and RoomBalanceEvaluator._is_oversupplied(room) else room
+            for room_id, room in rooms.items()
+        }
+
+    @staticmethod
+    def _summaries(days: list[RoomBalanceDay], today: int) -> dict[str, RoomBalance]:
+        grouped: dict[str, list[RoomBalanceDay]] = {}
+
+        for day in days:
+            if today - EVALUATION_WINDOW_DAYS <= day.ordinal < today:
+                grouped.setdefault(day.room_id, []).append(day)
+
+        return {room_id: RoomBalanceEvaluator._summary(room_days) for room_id, room_days in grouped.items()}
+
+    @staticmethod
+    def _summary(days: list[RoomBalanceDay]) -> RoomBalance:
+        qualifying = [day for day in days if day.sample_count >= MINIMUM_DAILY_SAMPLES]
+
+        def middle(values: list[Optional[float]]) -> Optional[float]:
+            present = [value for value in values if value is not None]
+            return median(present) if present else None
+
+        return RoomBalance(
+            days=len(qualifying),
+            warm_up_episodes=sum(day.warm_up_episodes for day in days),
+            shape=middle([day.shape for day in qualifying]),
+            shortfall=middle([day.shortfall for day in qualifying]),
+            heat_rise=middle([day.heat_rise for day in days]),
+            valve_position=middle([day.valve_position for day in qualifying]),
+            calling_fraction=middle([day.calling_fraction for day in qualifying]),
+            warm_up_response=middle([day.warm_up_response for day in days]),
+            implied_coefficient=middle([day.implied_coefficient for day in qualifying]),
+        )
+
+    @staticmethod
+    def _has_response(room: RoomBalance) -> bool:
+        return room.warm_up_response is not None and room.warm_up_episodes >= MINIMUM_WARM_UP_EPISODES
+
+    @staticmethod
+    def _flow_premium(room: RoomBalance, reference_coefficient: float) -> Optional[float]:
+        if room.shape is None or room.implied_coefficient is None:
+            return None
+
+        return round(max(0.0, room.implied_coefficient - reference_coefficient) / 4 * room.shape, 1)
+
+    @staticmethod
+    def _supply_status(room: RoomBalance) -> RoomBalanceStatus:
+        falling_short = room.shortfall is not None and room.shortfall >= FALLING_SHORT_CELSIUS
+
+        if falling_short and room.calling_fraction is not None and room.calling_fraction < SENSOR_MISMATCH_MAXIMUM_CALLING:
+            return RoomBalanceStatus.SENSOR_MISMATCH
+
+        signals = sum([RoomBalanceEvaluator._is_high_demand(room), falling_short, RoomBalanceEvaluator._is_slow(room)])
+        valve_saturated = room.valve_position is not None and room.valve_position >= VALVE_SATURATED_PERCENT
+
+        if signals >= UNDERSUPPLIED_MINIMUM_SIGNALS or (signals >= 1 and valve_saturated):
+            return RoomBalanceStatus.UNDERSUPPLIED
+
+        return RoomBalanceStatus.BALANCED
+
+    @staticmethod
+    def _is_high_demand(room: RoomBalance) -> bool:
+        return room.implied_coefficient - room.reference_coefficient >= HIGH_DEMAND_MINIMUM_DIFFERENCE
+
+    @staticmethod
+    def _is_slow(room: RoomBalance) -> bool:
+        if room.reference_warm_up_response is None or not RoomBalanceEvaluator._has_response(room):
+            return False
+
+        return room.warm_up_response <= room.reference_warm_up_response * SLOW_RESPONSE_RATIO
+
+    @staticmethod
+    def _is_oversupplied(room: RoomBalance) -> bool:
+        if room.status != RoomBalanceStatus.BALANCED or room.implied_coefficient > room.reference_coefficient:
+            return False
+
+        if room.valve_position is not None and room.valve_position <= VALVE_THROTTLED_PERCENT:
+            return True
+
+        if room.reference_warm_up_response is None or not RoomBalanceEvaluator._has_response(room):
+            return False
+
+        return room.warm_up_response >= room.reference_warm_up_response * FAST_RESPONSE_RATIO
+
+
 class RoomBalanceMonitor:
     """Keep a daily history per room that survives restarts."""
 
@@ -261,6 +407,9 @@ class RoomBalanceMonitor:
 
         self._warm_up: dict[str, RoomWarmUpTracker] = {}
         self._heat_rise: dict[str, RoomHeatRiseTracker] = {}
+
+        self._faults: set[str] = set()
+        self._balances: Optional[dict[str, RoomBalance]] = None
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:
         """Restore the history from storage when the integration loads."""
@@ -290,9 +439,19 @@ class RoomBalanceMonitor:
         """Completed days of every room, oldest first."""
         return list(self._days)
 
+    def balance(self, room_id: str) -> RoomBalance:
+        """Return the evaluation of a room, where a fault reported right now takes precedence."""
+        if self._balances is None:
+            self._balances = RoomBalanceEvaluator.evaluate(self.days, date.fromisoformat(self._current_date).toordinal()) if self._current_date else {}
+
+        balance = self._balances.get(room_id, RoomBalance())
+
+        return replace(balance, status=RoomBalanceStatus.ROOM_FAULT) if room_id in self._faults else balance
+
     def observe(self, boiler: BoilerObservation, rooms: list[RoomObservation], now: float) -> None:
         """Process the current state of all rooms."""
         self._roll_over(now)
+        self._faults = {room.room_id for room in rooms if room.signals.valve_alarm}
 
         for room in rooms:
             self._track_warm_up(boiler, room, now)
@@ -357,11 +516,13 @@ class RoomBalanceMonitor:
     def _roll_over(self, now: float) -> None:
         today = dt_util.as_local(dt_util.utc_from_timestamp(now)).date()
 
-        if self._current_date is None:
-            self._current_date = today.isoformat()
+        if self._current_date == today.isoformat():
             return
 
-        if self._current_date == today.isoformat():
+        self._balances = None
+
+        if self._current_date is None:
+            self._current_date = today.isoformat()
             return
 
         for room_id, accumulator in self._current.items():

@@ -112,6 +112,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
                 "suggested_coefficient": advice.suggested_coefficient,
                 "daily_coefficients": dict(advice.daily_coefficients),
             },
+            "room_balance": _safe(lambda: {room_id: asdict(climate.room_balance.balance(room_id)) for room_id in climate.areas.ids()}),
             "seasonal_curve": _safe(lambda: {**asdict(climate.seasonal_curve.fit), "curve_mismatch": climate.seasonal_curve.fit.is_mismatch}),
         }
 
