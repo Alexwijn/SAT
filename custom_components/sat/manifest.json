@@ -10,6 +10,7 @@
     "dhcp"
   ],
   "after_dependencies": [
+    "energy",
     "esphome",
     "recorder"
   ],

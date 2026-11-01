@@ -45,6 +45,7 @@ from .heating_curve import (
 )
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
+from .efficiency import EfficiencyMonitor
 from .preheat import PreheatForecast, PreheatMonitor
 from .room_balance import BoilerObservation, MAIN_ROOM_ID, RoomBalanceMonitor, RoomObservation, RoomSignals
 from .seasonal_curve import SeasonalCurveMonitor
@@ -144,6 +145,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._seasonal_curve = SeasonalCurveMonitor(self._config.entry_id)
         self._room_balance = RoomBalanceMonitor(self._config.entry_id, self.areas.ids())
         self._preheat = PreheatMonitor(self._config.entry_id)
+        self._efficiency = EfficiencyMonitor(self._config.entry_id, ensure_list(self._config.sensors.outside_sensor_entity_id))
         self._target_temperature_changed_at: Optional[float] = None
         self._frost_protection_active: bool = False
         self._warm_up = WarmUpEstimator()
@@ -167,6 +169,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._seasonal_curve.async_added_to_hass(self.hass)
         await self._room_balance.async_added_to_hass(self.hass)
         await self._preheat.async_added_to_hass(self.hass)
+        await self._efficiency.async_added_to_hass(self.hass)
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
         if self.hass.state is CoreState.running:
@@ -201,6 +204,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
+        await self._efficiency.async_will_remove_from_hass()
         await self._room_balance.async_save_data()
         await self._preheat.async_save_data()
         await self._coordinator.async_will_remove_from_hass()
@@ -335,6 +339,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def curve_advisor(self) -> HeatingCurveAdvisor:
         """Return the heating curve advisor."""
         return self._curve_advisor
+
+    @property
+    def efficiency(self) -> EfficiencyMonitor:
+        """Return the efficiency monitor."""
+        return self._efficiency
 
     @property
     def preheat(self) -> PreheatMonitor:
