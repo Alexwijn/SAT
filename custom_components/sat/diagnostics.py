@@ -114,6 +114,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
                 "suggested_coefficient": advice.suggested_coefficient,
                 "daily_coefficients": dict(advice.daily_coefficients),
             },
+            "efficiency": _safe(lambda: {**asdict(climate.efficiency.report), "change_percentage": climate.efficiency.report.change_percentage}),
             "preheat": _safe(lambda: {
                 room_id: {
                     "episodes": len(climate.preheat.episodes(room_id)),

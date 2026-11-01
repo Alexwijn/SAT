@@ -61,6 +61,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatOutsideTemperatureSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatSeasonalCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatHeatingEfficiencySensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
@@ -206,6 +207,46 @@ class SatSeasonalCurveCoefficientSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._config.entry_id}-seasonal-curve-coefficient"
+
+
+class SatHeatingEfficiencySensor(SatClimateEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def name(self) -> str:
+        return "Heating Efficiency"
+
+    @property
+    def native_unit_of_measurement(self) -> Optional[str]:
+        """Return the gas used per degree day, in the unit of the gas statistics."""
+        report = self._climate.efficiency.report
+
+        return f"{report.unit}/°Cd" if report.unit is not None else None
+
+    @property
+    def native_value(self) -> Optional[float]:
+        report = self._climate.efficiency.report
+
+        return report.current.slope if report.current is not None else None
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        report = self._climate.efficiency.report
+        current, previous = report.current, report.previous
+
+        return {
+            "source": report.source,
+            "days": current.days if current is not None else None,
+            "baseload_per_day": current.baseload if current is not None else None,
+            "r_squared": current.r_squared if current is not None else None,
+            "last_year_slope": previous.slope if previous is not None else None,
+            "change_percentage": report.change_percentage,
+            "gas_estimate_ratio": report.gas_estimate_ratio,
+        }
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.entry_id}-heating-efficiency"
 
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
