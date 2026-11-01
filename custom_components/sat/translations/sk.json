@@ -375,6 +375,10 @@
     "boiler_pressure": {
       "title": "Nezdravý tlak kotla",
       "description": "Tlak kotla pre {name} je mimo rozsahu alebo rýchlo klesá (aktuálne {pressure} bar). Skontrolujte systém na úniky a v prípade potreby doplňte tlak vody."
+    },
+    "boiler_pressure_trend": {
+      "title": "Kotol pomaly stráca tlak",
+      "description": "Vykurovací systém {name} od posledného doplnenia stratil približne {loss} bar a za posledných 90 dní bol doplnený {top_ups}-krát. Môže to naznačovať malý únik alebo chybnú expanznú nádobu. Skontrolujte systém alebo kontaktujte svojho inštalatéra."
     }
   },
   "entity": {

@@ -375,6 +375,10 @@
     "boiler_pressure": {
       "title": "Presión de caldera anómala",
       "description": "La presión de la caldera de {name} está fuera de rango o cae rápidamente (actualmente {pressure} bar). Compruebe si hay fugas y reponga la presión de agua si es necesario."
+    },
+    "boiler_pressure_trend": {
+      "title": "La caldera pierde presión lentamente",
+      "description": "El sistema de calefacción de {name} ha perdido unos {loss} bar desde el último llenado y se ha rellenado {top_ups} veces en los últimos 90 días. Esto puede indicar una pequeña fuga o un vaso de expansión defectuoso. Revise el sistema o contacte con su instalador."
     }
   },
   "entity": {

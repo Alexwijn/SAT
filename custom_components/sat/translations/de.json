@@ -375,6 +375,10 @@
     "boiler_pressure": {
       "title": "Kesseldruck kritisch",
       "description": "Der Kesseldruck für {name} liegt außerhalb des Bereichs oder fällt schnell (aktuell {pressure} bar). Prüfen Sie das System auf Lecks und füllen Sie bei Bedarf Wasser nach."
+    },
+    "boiler_pressure_trend": {
+      "title": "Kessel verliert langsam Druck",
+      "description": "Das Heizsystem von {name} hat seit dem letzten Nachfüllen etwa {loss} bar verloren und wurde in den letzten 90 Tagen {top_ups} Mal nachgefüllt. Das kann auf ein kleines Leck oder ein defektes Ausdehnungsgefäß hindeuten. Prüfen Sie das System oder wenden Sie sich an Ihren Installateur."
     }
   },
   "entity": {

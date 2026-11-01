@@ -375,6 +375,10 @@
     "boiler_pressure": {
       "title": "Pressão da caldeira anómala",
       "description": "A pressão da caldeira de {name} está fora do intervalo ou a descer rapidamente (atualmente {pressure} bar). Verifique fugas no sistema e reponha a pressão da água se necessário."
+    },
+    "boiler_pressure_trend": {
+      "title": "A caldeira perde pressão lentamente",
+      "description": "O sistema de aquecimento de {name} perdeu cerca de {loss} bar desde o último enchimento e foi reabastecido {top_ups} vezes nos últimos 90 dias. Isto pode indicar uma pequena fuga ou um vaso de expansão avariado. Verifique o sistema ou contacte o seu instalador."
     }
   },
   "entity": {

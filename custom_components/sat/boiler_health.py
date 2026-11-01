@@ -27,6 +27,13 @@ HISTORY_RETENTION_DAYS = 400
 PRESSURE_SAMPLE_INTERVAL_SECONDS = 600.0
 COLD_BOILER_MAXIMUM_CELSIUS = 35.0
 
+PRESSURE_TREND_WINDOW_DAYS = 90
+PRESSURE_TREND_MINIMUM_DAYS = 14
+PRESSURE_TREND_MINIMUM_LOSS_BAR = 0.3
+PRESSURE_TREND_MINIMUM_SLOPE_BAR_PER_DAY = 0.01
+PRESSURE_TOP_UP_MINIMUM_RISE_BAR = 0.2
+PRESSURE_TOP_UP_PROBLEM_COUNT = 2
+
 
 @dataclass(frozen=True, slots=True)
 class BoilerHealthDay:
@@ -70,6 +77,75 @@ class BoilerHealthAccumulator:
         self.outside_temperatures.clear()
 
 
+@dataclass(frozen=True, slots=True)
+class PressureTrend:
+    """Cold pressure development since the last top-up."""
+
+    days: int = 0
+    top_ups: int = 0
+    loss_bar: Optional[float] = None
+    slope_bar_per_day: Optional[float] = None
+
+    @property
+    def is_slow_loss(self) -> bool:
+        if self.loss_bar is None or self.slope_bar_per_day is None:
+            return False
+
+        return self.loss_bar >= PRESSURE_TREND_MINIMUM_LOSS_BAR and self.slope_bar_per_day >= PRESSURE_TREND_MINIMUM_SLOPE_BAR_PER_DAY
+
+    @property
+    def is_problem(self) -> bool:
+        return self.is_slow_loss or self.top_ups >= PRESSURE_TOP_UP_PROBLEM_COUNT
+
+
+@dataclass(frozen=True, slots=True)
+class BoilerTrends:
+    """Evaluated long-term trends of the boiler."""
+
+    pressure: PressureTrend = PressureTrend()
+
+    @property
+    def is_problem(self) -> bool:
+        return self.pressure.is_problem
+
+
+class BoilerTrendEvaluator:
+    """Derive long-term trends from completed days."""
+
+    @staticmethod
+    def evaluate(days: list[BoilerHealthDay], today: int) -> BoilerTrends:
+        return BoilerTrends(pressure=BoilerTrendEvaluator.pressure(days, today))
+
+    @staticmethod
+    def pressure(days: list[BoilerHealthDay], today: int) -> PressureTrend:
+        measured = [day for day in days if day.cold_pressure is not None and day.ordinal >= today - PRESSURE_TREND_WINDOW_DAYS]
+
+        top_up_indexes = [
+            index for index in range(1, len(measured))
+            if measured[index].cold_pressure - measured[index - 1].cold_pressure >= PRESSURE_TOP_UP_MINIMUM_RISE_BAR
+        ]
+
+        segment = measured[top_up_indexes[-1]:] if top_up_indexes else measured
+
+        if len(segment) < PRESSURE_TREND_MINIMUM_DAYS:
+            return PressureTrend(days=len(segment), top_ups=len(top_up_indexes))
+
+        slope = BoilerTrendEvaluator._slope(segment)
+        span = segment[-1].ordinal - segment[0].ordinal
+
+        return PressureTrend(days=len(segment), top_ups=len(top_up_indexes), loss_bar=round(-slope * span, 3), slope_bar_per_day=round(-slope, 4))
+
+    @staticmethod
+    def _slope(days: list[BoilerHealthDay]) -> float:
+        mean_ordinal = fmean(day.ordinal for day in days)
+        mean_pressure = fmean(day.cold_pressure for day in days)
+
+        numerator = sum((day.ordinal - mean_ordinal) * (day.cold_pressure - mean_pressure) for day in days)
+        denominator = sum((day.ordinal - mean_ordinal) ** 2 for day in days)
+
+        return numerator / denominator if denominator > 0 else 0.0
+
+
 class BoilerHealthMonitor:
     """Keep a daily history of boiler behaviour that survives restarts."""
 
@@ -79,6 +155,7 @@ class BoilerHealthMonitor:
         self._store: Optional[Store] = None
         self._hass: Optional[HomeAssistant] = None
         self._saved_at: Optional[float] = None
+        self._trends: Optional[BoilerTrends] = None
         self._pressure_sampled_at: Optional[float] = None
         self._current: Optional[BoilerHealthAccumulator] = None
         self._days: Deque[BoilerHealthDay] = deque()
@@ -110,6 +187,17 @@ class BoilerHealthMonitor:
     def days(self) -> list[BoilerHealthDay]:
         """Completed days, oldest first."""
         return list(self._days)
+
+    @property
+    def trends(self) -> BoilerTrends:
+        """Trends over the completed days, refreshed when a day completes."""
+        if self._current is None:
+            return BoilerTrends()
+
+        if self._trends is None:
+            self._trends = BoilerTrendEvaluator.evaluate(self.days, date.fromisoformat(self._current.date).toordinal())
+
+        return self._trends
 
     def update(self, state: DeviceState, pressure: Optional[float], now: float) -> None:
         """Track the day rollover and sample the pressure while the boiler is cold."""
@@ -154,6 +242,7 @@ class BoilerHealthMonitor:
         elif self._current.date != today.isoformat():
             self._days.append(self._current.to_day())
             self._current = BoilerHealthAccumulator(date=today.isoformat())
+            self._trends = None
 
             self._prune(today)
             self._schedule_save(now)
@@ -167,6 +256,7 @@ class BoilerHealthMonitor:
             self._days.popleft()
 
     def _clear_cycle_history(self) -> None:
+        self._trends = None
         self._days = deque(
             replace(day, cycle_count=0, median_on_seconds=None, flow_return_delta=None, outside_temperature=None)
             for day in self._days

@@ -375,6 +375,10 @@
     "boiler_pressure": {
       "title": "Keteldruk ongezond",
       "description": "De keteldruk voor {name} is buiten bereik of daalt snel (momenteel {pressure} bar). Controleer het systeem op lekkages en vul indien nodig de waterdruk bij."
+    },
+    "boiler_pressure_trend": {
+      "title": "Ketel verliest langzaam druk",
+      "description": "Het verwarmingssysteem van {name} is sinds de laatste keer bijvullen ongeveer {loss} bar gedaald en is de afgelopen 90 dagen {top_ups} keer bijgevuld. Dit kan wijzen op een klein lek of een defect expansievat. Controleer het systeem of neem contact op met je installateur."
     }
   },
   "entity": {

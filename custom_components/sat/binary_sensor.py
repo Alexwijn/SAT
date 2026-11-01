@@ -64,6 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatDeviceFaultSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatDeviceHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatPressureHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatBoilerTrendsSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
 
@@ -515,6 +516,65 @@ class SatDeviceHealthSensor(SatHeatingControlEntity, BinarySensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-boiler-health"
+
+
+class SatBoilerTrendsSensor(SatHeatingControlEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Boiler Trends"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        return self._heating_control.boiler_health.trends.is_problem
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the values behind the trend decisions."""
+        pressure = self._heating_control.boiler_health.trends.pressure
+
+        return {
+            "pressure_trend_days": pressure.days,
+            "pressure_top_ups": pressure.top_ups,
+            "pressure_loss_bar": pressure.loss_bar,
+            "pressure_slope_bar_per_day": pressure.slope_bar_per_day,
+        }
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-boiler-trends"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        pressure = self._heating_control.boiler_health.trends.pressure
+
+        if pressure.is_problem:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_pressure_trend_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="boiler_pressure_trend",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "top_ups": str(pressure.top_ups),
+                    "loss": f"{pressure.loss_bar or 0.0:.1f}",
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_pressure_trend_{self._config.entry_id}")
+
+        super()._handle_coordinator_update()
 
 
 class SatCycleHealthSensor(SatHeatingControlEntity, BinarySensorEntity):

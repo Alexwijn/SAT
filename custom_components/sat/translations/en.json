@@ -375,6 +375,10 @@
     "boiler_pressure": {
       "title": "Boiler pressure unhealthy",
       "description": "The boiler pressure for {name} is out of range or dropping fast (currently {pressure} bar). Check the system for leaks and top up the water pressure if needed."
+    },
+    "boiler_pressure_trend": {
+      "title": "Boiler slowly losing pressure",
+      "description": "The heating system for {name} has lost about {loss} bar since its last top-up and was topped up {top_ups} times in the last 90 days. This can point to a slow leak or a failing expansion vessel. Check the system or contact your installer."
     }
   },
   "entity": {

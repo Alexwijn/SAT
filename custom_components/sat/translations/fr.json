@@ -375,6 +375,10 @@
     "boiler_pressure": {
       "title": "Pression de chaudière anormale",
       "description": "La pression de la chaudière pour {name} est hors plage ou chute rapidement (actuellement {pressure} bar). Vérifiez l'absence de fuites et rétablissez la pression d'eau si nécessaire."
+    },
+    "boiler_pressure_trend": {
+      "title": "La chaudière perd lentement de la pression",
+      "description": "Le système de chauffage de {name} a perdu environ {loss} bar depuis le dernier remplissage et a été rempli {top_ups} fois au cours des 90 derniers jours. Cela peut indiquer une petite fuite ou un vase d'expansion défectueux. Vérifiez le système ou contactez votre installateur."
     }
   },
   "entity": {
