@@ -41,7 +41,7 @@ from .entry_data import SatConfig, get_entry_data
 from .heating_control import HeatingDemand, SatHeatingControl
 from .heating_curve import (
     HeatingCurve, HeatingCurveAdvisor, HeatingCurveAdviceSample,
-    RECOMMENDATION_MAXIMUM_ERROR_CELSIUS, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS,
+    RECOMMENDATION_MAXIMUM_ERROR_CELSIUS, RECOMMENDATION_MAXIMUM_SUN_ELEVATION, RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS,
 )
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
@@ -722,10 +722,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         ))
 
     def _steady_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> Optional[HeatingCurveAdviceSample]:
-        if self.hvac_mode != HVACMode.HEAT or not self.valves_open or self.hvac_action != HVACAction.HEATING:
+        if self.hvac_mode != HVACMode.HEAT or not self.valves_open:
             return None
 
         if self._solar_gain_snapshot.active or self._coordinator.hot_water_active:
+            return None
+
+        if not self._boiler_answers_main_climate(now):
+            return None
+
+        if (sun_elevation := self._sun_elevation()) is not None and sun_elevation >= RECOMMENDATION_MAXIMUM_SUN_ELEVATION:
             return None
 
         if abs(temperature_state.error) > RECOMMENDATION_MAXIMUM_ERROR_CELSIUS:
@@ -737,14 +743,23 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._target_temperature_changed_at is None or (now - self._target_temperature_changed_at) < HEATING_CURVE_SETTLE_SECONDS:
             return None
 
-        if (shape := self.heating_curve.shape) is None or self.heating_curve.value is None:
+        if (shape := self.heating_curve.shape) is None or (curve_value := self.heating_curve.value) is None:
             return None
 
         return HeatingCurveAdviceSample(
             shape=shape,
             timestamp=now,
-            correction=self.pid.proportional + self.pid.integral,
+            correction=self.pid.output - curve_value,
         )
+
+    def _boiler_answers_main_climate(self, now: float) -> bool:
+        """Whether the boiler is heating on the request of the main climate, the only demand the curve can be judged on."""
+        requested_setpoint = self.requested_setpoint
+
+        if requested_setpoint <= COLD_SETPOINT or abs(requested_setpoint - self.pid.output) > RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS:
+            return False
+
+        return self._heating_control.burned_within_pwm_period(now)
 
     def _sun_elevation(self) -> Optional[float]:
         sun_state = self.hass.states.get("sun.sun")

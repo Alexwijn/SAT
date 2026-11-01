@@ -89,6 +89,11 @@ class PWM:
             last_duty_cycle_percentage=round(self._last_duty_cycle_percentage * 100, 2) if self._last_duty_cycle_percentage is not None else None
         )
 
+    @property
+    def maximum_cycle_seconds(self) -> float:
+        """Return the longest cycle the duty cycle calculation can produce."""
+        return self._on_time_maximum_threshold
+
     def reset(self) -> None:
         """Reset the PWM cycle state while keeping the learned enablement."""
         self._last_update: float = timestamp()

@@ -12,6 +12,7 @@ from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.sat.entry_data import SatConfig
 from custom_components.sat.const import (
+    COLD_SETPOINT,
     HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS,
     CONF_HEATING_CURVE_COEFFICIENT,
     CONF_HEATING_MODE,
@@ -330,8 +331,9 @@ def _prepare_curve_advice(monkeypatch, climate, *, proportional: float, derivati
     monkeypatch.setattr(type(climate.pid), "proportional", property(lambda self: proportional))
     monkeypatch.setattr(type(climate.pid), "integral", property(lambda self: 0.5))
     monkeypatch.setattr(type(climate.pid), "derivative", property(lambda self: derivative))
-    monkeypatch.setattr(type(climate._coordinator), "active", property(lambda self: True))
+    monkeypatch.setattr(climate._heating_control, "burned_within_pwm_period", lambda now: True)
     monkeypatch.setattr(climate._curve_advisor, "record", recorded.append)
+    climate.hass.states.async_set("sun.sun", "below_horizon", {"elevation": -10.0})
 
     for index in range(7):
         climate._temperature_history.record(0.3, HEATING_CURVE_SETTLE_SECONDS * 2 - 1800.0 + index * 300.0)
@@ -339,65 +341,69 @@ def _prepare_curve_advice(monkeypatch, climate, *, proportional: float, derivati
     return recorded
 
 
-def test_curve_advice_sample_excludes_derivative(monkeypatch, climate):
+def test_curve_advice_sample_measures_the_whole_request(monkeypatch, climate):
     recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=-2.0)
 
     climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
 
     assert len(recorded) == 1
-    assert recorded[0].correction == 3.5
+    assert recorded[0].correction == pytest.approx(1.5, abs=0.05)
     assert recorded[0].shape == HeatingCurve.calculate(21.0, 5.0)
 
 
-def test_implied_coefficient_follows_the_steady_sample(monkeypatch, climate):
-    _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
-    shape = HeatingCurve.calculate(21.0, 5.0)
-
-    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
-
-    assert climate.implied_curve_coefficient == round(climate._config.pid.heating_curve_coefficient + 4 * 3.5 / shape, 2)
-
-    monkeypatch.setattr(type(climate._coordinator), "active", property(lambda self: False))
-    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
-
-    assert climate.implied_curve_coefficient is None
-
-
-def test_implied_coefficient_clears_during_hot_water_and_solar_gain(monkeypatch, climate):
-    _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
-    now, state = HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0)
-
-    climate._record_curve_advice_sample(now, state)
-    assert climate.implied_curve_coefficient is not None
-
-    monkeypatch.setattr(type(climate._coordinator), "hot_water_active", property(lambda self: True))
-    climate._record_curve_advice_sample(now, state)
-    assert climate.implied_curve_coefficient is None
-
-    monkeypatch.setattr(type(climate._coordinator), "hot_water_active", property(lambda self: False))
-    monkeypatch.setattr(climate, "_solar_gain_snapshot", SimpleNamespace(active=True))
-    climate._record_curve_advice_sample(now, state)
-    assert climate.implied_curve_coefficient is None
-
-
-def test_implied_coefficient_clears_when_the_control_loop_cannot_run(monkeypatch, climate):
-    _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
-    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
-    assert climate.implied_curve_coefficient is not None
-
-    monkeypatch.setattr(type(climate), "temperature_state", property(lambda self: None))
-    climate.control_pid()
-
-    assert climate.implied_curve_coefficient is None
-
-
-def test_curve_advice_sample_skipped_while_boiler_is_idle(monkeypatch, climate):
+def test_curve_advice_sample_keeps_recording_through_the_pwm_off_phase(monkeypatch, climate):
     recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
     monkeypatch.setattr(type(climate._coordinator), "active", property(lambda self: False))
 
     climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
 
+    assert len(recorded) == 1
+
+
+def test_curve_advice_sample_skipped_while_boiler_has_stopped_burning(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    monkeypatch.setattr(climate._heating_control, "burned_within_pwm_period", lambda now: False)
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
     assert recorded == []
+
+
+def test_curve_advice_sample_skipped_while_another_room_drives_the_boiler(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    monkeypatch.setattr(type(climate), "requested_setpoint", property(lambda self: self.pid.output + 5.0))
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert recorded == []
+
+
+def test_curve_advice_sample_skipped_while_no_heat_is_requested(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    monkeypatch.setattr(type(climate.pid), "output", property(lambda self: float(COLD_SETPOINT)))
+    monkeypatch.setattr(type(climate), "requested_setpoint", property(lambda self: float(COLD_SETPOINT)))
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert recorded == []
+
+
+def test_curve_advice_sample_skipped_while_the_sun_is_up(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    climate.hass.states.async_set("sun.sun", "above_horizon", {"elevation": 5.0})
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert recorded == []
+
+
+def test_curve_advice_sample_recorded_without_a_sun_entity(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    climate.hass.states.async_remove("sun.sun")
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert len(recorded) == 1
 
 
 def test_curve_advice_sample_skipped_while_room_is_far_from_setpoint(monkeypatch, climate):

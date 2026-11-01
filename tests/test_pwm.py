@@ -559,3 +559,9 @@ def test_flame_dropout_reopens_warm_up_window_on_reignition(pwm: PWM):
     pwm.update(device_state=_make_device_state(flame_active=True, flow_temperature=50.0), requested_setpoint=setpoint, timestamp=400.0)
     assert pwm._flame_on_at == 400.0
     assert pwm.state.effective_on_temperature == 43.0
+
+
+def test_maximum_cycle_covers_the_longest_duty_cycle(pwm: PWM):
+    on_time, off_time = pwm._calculate_duty_cycle(pwm._heating_system.base_offset, _make_device_state(flame_active=True))
+
+    assert pwm.maximum_cycle_seconds == on_time + off_time

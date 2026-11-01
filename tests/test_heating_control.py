@@ -662,3 +662,20 @@ async def test_saturation_long_after_a_target_change_still_waits(heating_control
     await _saturated_demand(heating_control, coordinator, monkeypatch, target_changed_seconds_ago=TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS + 1)
 
     assert heating_control.pwm_state.enabled is True
+
+
+async def test_burner_counts_as_recent_for_one_pwm_period(heating_control, coordinator, monkeypatch):
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: False))
+    now = timestamp()
+    period = heating_control._pwm.maximum_cycle_seconds
+
+    assert heating_control.burned_within_pwm_period(now) is False
+
+    heating_control._device_tracker._last_flame_off_at = now - period + 1.0
+    assert heating_control.burned_within_pwm_period(now) is True
+
+    heating_control._device_tracker._last_flame_off_at = now - period - 1.0
+    assert heating_control.burned_within_pwm_period(now) is False
+
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: True))
+    assert heating_control.burned_within_pwm_period(now) is True

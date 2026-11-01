@@ -29,7 +29,7 @@ It can also function as a PID ON/OFF thermostat, providing advanced temperature 
 OpenTherm ( MQTT / Serial / ESPHome / EMS-ESP / OTThing ):
 - Multi-room temperature control with support for temperature synchronization for main climates
 - Adjustable heating curve coefficients to fine-tune your heating system
-- Heating curve recommendation with a suggested coefficient, learned from a week of steady operation and weighed per day so one stormy day cannot skew it
+- Heating curve recommendation with a suggested coefficient, learned from a week of steady heating after sunset, only while the boiler answers the main climate, and weighed per day so one stormy day cannot skew it
 - Target temperature step for adjusting the temperature in smaller increments
 - Presets for different modes such as Away, Sleep, Home, Comfort
 - Automatic gains for PID control
