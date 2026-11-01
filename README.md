@@ -355,7 +355,7 @@ Predefined temperature settings for different scenarios or activities: Home, Com
 
 SAT ships three automation blueprints in [`blueprints/automation/sat/`](blueprints/automation/sat) that you can import into Home Assistant:
 
-- *Adaptive Preheat*: starts heating early so the room is at temperature by a chosen time, using the warm-up rate SAT has learned (the `warm_up_rate_per_hour` climate attribute).
+- *Adaptive Preheat*: starts heating early so the room is at temperature by a chosen time or the start of the next calendar event. The lead time comes from the `sat.estimate_preheat` service, which learns how fast each room recovers at different outside temperatures and uses the forecast when a weather entity is configured.
 - *Presence Presets*: switches between the home and away presets based on a person, group, or device tracker.
 - *Holiday Mode*: follows a calendar; for the duration of an event it switches to the away preset and turns domestic hot water off, restoring both afterwards.
 

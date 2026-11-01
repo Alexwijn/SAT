@@ -2,9 +2,10 @@ blueprint:
   name: SAT Adaptive Preheat
   description: >
     Start heating early so the room reaches the target temperature at the
-    chosen time, using the warm-up rate the SAT thermostat has learned
-    (the warm_up_rate_per_hour attribute). Falls back to a configurable
-    rate while SAT is still learning.
+    chosen time or the start of the next calendar event. The lead time comes
+    from how fast SAT has seen the room recover at similar outside
+    temperatures, using the forecast when a weather entity is configured.
+    Falls back to a configurable rate while SAT is still learning.
   domain: automation
   source_url: https://github.com/Alexwijn/SAT
   input:
@@ -15,11 +16,32 @@ blueprint:
           filter:
             domain: climate
             integration: sat
+    room_entity:
+      name: Room
+      description: >
+        A climate entity configured as a room in SAT, to preheat that room
+        with its own learned rate. Leave empty for the SAT thermostat itself.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: climate
     ready_time:
       name: Ready time
       description: The time at which the room should be at temperature.
+      default: "07:00:00"
       selector:
         time: {}
+    calendar_entity:
+      name: Calendar
+      description: >
+        Use the start of the next event on this calendar instead of the ready
+        time. Leave empty to use the ready time.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: calendar
     target_temperature:
       name: Target temperature
       default: 20.0
@@ -31,7 +53,7 @@ blueprint:
           unit_of_measurement: "°C"
     fallback_rate:
       name: Fallback warm-up rate
-      description: Used while SAT has not learned a warm-up rate yet.
+      description: Used while SAT has not learned a recovery rate yet.
       default: 1.0
       selector:
         number:
@@ -42,9 +64,15 @@ blueprint:
 
 variables:
   climate_entity: !input climate_entity
+  room_entity: !input room_entity
   ready_time: !input ready_time
+  calendar_entity: !input calendar_entity
   target_temperature: !input target_temperature
   fallback_rate: !input fallback_rate
+  target_entity: "{{ room_entity if room_entity else climate_entity }}"
+  ready: >
+    {% set start = state_attr(calendar_entity, 'start_time') if calendar_entity else none %}
+    {{ (as_local(as_datetime(start)) if start else today_at(ready_time)).isoformat() }}
 
 triggers:
   - trigger: time_pattern
@@ -52,23 +80,29 @@ triggers:
 
 conditions:
   - condition: template
-    value_template: >
-      {% set current = state_attr(climate_entity, 'current_temperature') %}
-      {% set rate = state_attr(climate_entity, 'warm_up_rate_per_hour') or fallback_rate %}
-      {% if current is none or rate <= 0 %}
-        false
-      {% else %}
-        {% set deficit = [target_temperature - current, 0] | max %}
-        {% set lead_minutes = (deficit / rate * 60) | round(0, 'ceil') %}
-        {% set ready = today_at(ready_time) %}
-        {% set start = ready - timedelta(minutes=lead_minutes) %}
-        {{ deficit > 0 and start <= now() < ready }}
-      {% endif %}
+    value_template: "{{ now() < as_datetime(ready) < now() + timedelta(days=1) }}"
 
 actions:
-  - action: climate.set_temperature
+  - action: sat.estimate_preheat
     target:
       entity_id: !input climate_entity
+    data:
+      room: "{{ room_entity }}"
+      ready_time: "{{ ready }}"
+      target_temperature: !input target_temperature
+    response_variable: response
+  - variables:
+      deficit: >
+        {% set current = state_attr(target_entity, 'current_temperature') %}
+        {{ [target_temperature - current, 0] | max if current is not none else 0 }}
+      lead_minutes: >
+        {% set learned = response[climate_entity].lead_minutes %}
+        {{ learned if learned is not none else (deficit / fallback_rate * 60) | round(0, 'ceil') }}
+  - condition: template
+    value_template: "{{ deficit > 0 and as_datetime(ready) - timedelta(minutes=lead_minutes) <= now() }}"
+  - action: climate.set_temperature
+    target:
+      entity_id: "{{ target_entity }}"
     data:
       temperature: !input target_temperature
 

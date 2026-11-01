@@ -92,7 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         {
             vol.Required("target_temperature"): vol.Coerce(float),
             vol.Optional("ready_time"): cv.datetime,
-            vol.Optional("room"): cv.entity_id,
+            vol.Optional("room"): vol.Any(None, "", cv.entity_id),
         },
         "async_estimate_preheat",
         supports_response=SupportsResponse.ONLY,
@@ -549,7 +549,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Service to estimate how long before the ready time heating has to start."""
         room_id, current_temperature = MAIN_ROOM_ID, self.current_temperature
 
-        if room is not None:
+        if room:
             if (area := self.areas.get(room)) is None:
                 raise ServiceValidationError(f"{room} is not configured as a room of {self.entity_id}")
 

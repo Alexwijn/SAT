@@ -3,14 +3,18 @@
 from collections import deque
 from datetime import datetime, timedelta
 from math import ceil
+from pathlib import Path
 
 import pytest
 from homeassistant.components.climate import HVACMode
 from homeassistant.core import SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers.template import Template
 from homeassistant.util import dt as dt_util
+from homeassistant.util.yaml import load_yaml_dict
 from pytest_homeassistant_custom_component.common import async_mock_service
 
+import custom_components.sat
 from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_OUTSIDE_SENSOR_ENTITY_ID, CONF_ROOMS, DOMAIN, SERVICE_ESTIMATE_PREHEAT
 from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sat.preheat import PreheatEvaluator, PreheatMonitor, PreheatRate, RecoveryEpisode, RoomRecoveryTracker
@@ -200,6 +204,69 @@ async def test_service_reads_a_ready_time_without_timezone_as_local(room_states,
 
     expected = ready.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE) - timedelta(minutes=result["lead_minutes"])
     assert dt_util.parse_datetime(result["start_time"]) == expected
+
+
+@SETUP
+async def test_service_treats_an_empty_room_as_the_main_thermostat(room_states, hass, climate, domains, data, options, config):
+    climate.preheat._episodes = deque([_episode(1.0, room_id=MAIN_ROOM_ID)] * 3)
+
+    assert (await _estimate(hass, climate, target_temperature=21.0, room=""))["rate_per_hour"] == 1.0
+
+
+def _blueprint() -> dict:
+    return load_yaml_dict(str(Path(custom_components.sat.__file__).parents[2] / "blueprints/automation/sat/adaptive_preheat.yaml"))
+
+
+def _render(hass, template: str, **variables):
+    return Template(template, hass).async_render(variables)
+
+
+def test_blueprint_keeps_existing_inputs_and_adds_the_new_ones():
+    inputs = _blueprint()["blueprint"]["input"]
+
+    assert {"climate_entity", "ready_time", "target_temperature", "fallback_rate", "calendar_entity", "room_entity"} == set(inputs)
+    assert inputs["calendar_entity"]["default"] == ""
+    assert inputs["room_entity"]["default"] == ""
+
+
+async def test_blueprint_ready_time_comes_from_the_calendar_or_the_clock(hass):
+    ready = _blueprint()["variables"]["ready"]
+
+    assert dt_util.parse_datetime(str(_render(hass, ready, calendar_entity="", ready_time="07:00:00"))).hour == 7
+
+    hass.states.async_set("calendar.home", "off", {"start_time": "2030-01-02 16:30:00"})
+    result = dt_util.parse_datetime(str(_render(hass, ready, calendar_entity="calendar.home", ready_time="07:00:00")))
+
+    assert (result.year, result.hour, result.minute) == (2030, 16, 30)
+
+
+async def test_blueprint_falls_back_without_an_event(hass):
+    ready = _blueprint()["variables"]["ready"]
+    hass.states.async_set("calendar.home", "off", {})
+
+    assert dt_util.parse_datetime(str(_render(hass, ready, calendar_entity="calendar.home", ready_time="07:00:00"))).hour == 7
+
+
+async def test_blueprint_lead_uses_the_learned_estimate_or_the_fallback(hass):
+    lead = _blueprint()["actions"][1]["variables"]["lead_minutes"]
+    climate_entity = "climate.sat"
+
+    learned = _render(hass, lead, climate_entity=climate_entity, response={climate_entity: {"lead_minutes": 45}}, deficit=2.0, fallback_rate=1.0)
+    fallback = _render(hass, lead, climate_entity=climate_entity, response={climate_entity: {"lead_minutes": None}}, deficit=2.0, fallback_rate=1.0)
+
+    assert learned == 45
+    assert fallback == 120
+
+
+async def test_blueprint_deficit_is_never_negative_and_handles_a_missing_reading(hass):
+    deficit = _blueprint()["actions"][1]["variables"]["deficit"]
+
+    hass.states.async_set("climate.room", "heat", {"current_temperature": 18.0})
+    assert _render(hass, deficit, target_entity="climate.room", target_temperature=20.0) == 2.0
+    assert _render(hass, deficit, target_entity="climate.room", target_temperature=15.0) == 0
+
+    hass.states.async_set("climate.room", "heat", {})
+    assert _render(hass, deficit, target_entity="climate.room", target_temperature=20.0) == 0
 
 
 @SETUP
