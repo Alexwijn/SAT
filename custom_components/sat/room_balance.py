@@ -6,6 +6,7 @@ import logging
 from collections import deque
 from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
+from math import log
 from statistics import fmean, median
 from typing import Deque, Optional
 
@@ -33,6 +34,10 @@ WARM_UP_MINIMUM_SPAN_SECONDS = 1800.0
 WARM_UP_MINIMUM_SHORTFALL_CELSIUS = 0.3
 
 HEAT_RISE_MINIMUM_SPAN_SECONDS = 600.0
+
+COOLING_MINIMUM_SPAN_SECONDS = 7200.0
+COOLING_MINIMUM_DROP_CELSIUS = 0.3
+COOLING_MINIMUM_DIFFERENCE_CELSIUS = 5.0
 
 EVALUATION_WINDOW_DAYS = 14
 MINIMUM_DAILY_SAMPLES = 12
@@ -122,6 +127,8 @@ class BoilerObservation:
     heating: bool
     flame_active: bool
     flow_temperature: Optional[float]
+    sun_below_horizon: bool = False
+    outside_temperature: Optional[float] = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +161,7 @@ class RoomBalanceDay:
     warm_up_response: Optional[float] = None
     warm_up_episodes: int = 0
     implied_coefficient: Optional[float] = None
+    cooling_time_constant: Optional[float] = None
 
     @property
     def ordinal(self) -> int:
@@ -171,10 +179,11 @@ class RoomBalanceAccumulator:
     valve_positions: list[float] = field(default_factory=list)
     warm_up_responses: list[float] = field(default_factory=list)
     implied_coefficients: list[float] = field(default_factory=list)
+    cooling_time_constants: list[float] = field(default_factory=list)
 
     @property
     def has_data(self) -> bool:
-        return bool(self.implied_coefficients or self.warm_up_responses or self.heat_rises)
+        return bool(self.implied_coefficients or self.warm_up_responses or self.heat_rises or self.cooling_time_constants)
 
     def to_day(self, day: str, room_id: str) -> RoomBalanceDay:
         sample_count = len(self.implied_coefficients)
@@ -191,7 +200,45 @@ class RoomBalanceAccumulator:
             valve_position=median(self.valve_positions) if self.valve_positions else None,
             warm_up_response=median(self.warm_up_responses) if self.warm_up_responses else None,
             implied_coefficient=median(self.implied_coefficients) if self.implied_coefficients else None,
+            cooling_time_constant=median(self.cooling_time_constants) if self.cooling_time_constants else None,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class CoolingPoint:
+    """Temperatures seen while a room cools down."""
+
+    timestamp: float
+    temperature: float
+    outside_temperature: float
+
+
+class RoomCoolingTracker:
+    """Measure how slowly a room loses heat to the outside once the boiler stops."""
+
+    def __init__(self) -> None:
+        self._points: list[CoolingPoint] = []
+
+    def update(self, active: bool, point: Optional[CoolingPoint]) -> Optional[float]:
+        """Return the time constant in hours once enough cooling has been seen."""
+        if not active or point is None or point.temperature - point.outside_temperature < COOLING_MINIMUM_DIFFERENCE_CELSIUS:
+            self._points = []
+            return None
+
+        self._points.append(point)
+        first = self._points[0]
+        elapsed = point.timestamp - first.timestamp
+
+        if elapsed < COOLING_MINIMUM_SPAN_SECONDS or (first.temperature - point.temperature) < COOLING_MINIMUM_DROP_CELSIUS:
+            return None
+
+        outside_temperature = fmean(item.outside_temperature for item in self._points)
+        self._points = [point]
+
+        if point.temperature <= outside_temperature:
+            return None
+
+        return -(elapsed / 3600) / log((point.temperature - outside_temperature) / (first.temperature - outside_temperature))
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,6 +324,7 @@ class RoomBalance:
     warm_up_response: Optional[float] = None
     implied_coefficient: Optional[float] = None
     reference_coefficient: Optional[float] = None
+    cooling_time_constant: Optional[float] = None
     reference_warm_up_response: Optional[float] = None
 
 
@@ -336,6 +384,7 @@ class RoomBalanceEvaluator:
             calling_fraction=middle([day.calling_fraction for day in qualifying]),
             warm_up_response=middle([day.warm_up_response for day in days]),
             implied_coefficient=middle([day.implied_coefficient for day in qualifying]),
+            cooling_time_constant=middle([day.cooling_time_constant for day in days]),
         )
 
     @staticmethod
@@ -407,6 +456,7 @@ class RoomBalanceMonitor:
 
         self._warm_up: dict[str, RoomWarmUpTracker] = {}
         self._heat_rise: dict[str, RoomHeatRiseTracker] = {}
+        self._cooling: dict[str, RoomCoolingTracker] = {}
 
         self._faults: set[str] = set()
         self._balances: Optional[dict[str, RoomBalance]] = None
@@ -456,6 +506,7 @@ class RoomBalanceMonitor:
         for room in rooms:
             self._track_warm_up(boiler, room, now)
             self._track_heat_rise(boiler, room, now)
+            self._track_cooling(boiler, room, now)
 
         if not boiler.eligible or not boiler.heating:
             return
@@ -508,6 +559,17 @@ class RoomBalanceMonitor:
 
         if (rise := tracker.update(boiler.flame_active and boiler.eligible, room.signals.device_temperature, now)) is not None:
             self._current.setdefault(room.room_id, RoomBalanceAccumulator()).heat_rises.append(rise)
+
+    def _track_cooling(self, boiler: BoilerObservation, room: RoomObservation, now: float) -> None:
+        tracker = self._cooling.setdefault(room.room_id, RoomCoolingTracker())
+        active = not boiler.flame_active and boiler.sun_below_horizon and not self._is_excluded(room)
+
+        point = None
+        if room.temperature is not None and boiler.outside_temperature is not None:
+            point = CoolingPoint(timestamp=now, temperature=room.temperature, outside_temperature=boiler.outside_temperature)
+
+        if (time_constant := tracker.update(active, point)) is not None:
+            self._current.setdefault(room.room_id, RoomBalanceAccumulator()).cooling_time_constants.append(time_constant)
 
     @staticmethod
     def _is_excluded(room: RoomObservation) -> bool:

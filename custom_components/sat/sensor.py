@@ -338,6 +338,7 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
 
             "valve_position": balance.valve_position,
             "radiator_heat_rise": balance.heat_rise,
+            "cooling_time_constant_hours": balance.cooling_time_constant,
         }
 
     @property

@@ -5,6 +5,7 @@ import re
 from collections import deque
 from dataclasses import replace
 from datetime import date, datetime, timedelta
+from math import exp
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
@@ -21,10 +22,12 @@ from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sat.heating_curve import RECOMMENDATION_STEADY_WINDOW_SECONDS
 from custom_components.sat.room_balance import (
     BoilerObservation,
+    CoolingPoint,
     MAIN_ROOM_ID,
     RoomBalanceDay,
     RoomBalanceEvaluator,
     RoomBalanceMonitor,
+    RoomCoolingTracker,
     RoomHeatRiseTracker,
     RoomObservation,
     RoomSignalReading,
@@ -46,8 +49,8 @@ WITH_ROOM = pytest.mark.parametrize(
 )
 
 
-def _boiler(eligible: bool = True, heating: bool = True, flame_active: bool = True, flow_temperature: float = 50.0) -> BoilerObservation:
-    return BoilerObservation(eligible=eligible, heating=heating, flame_active=flame_active, flow_temperature=flow_temperature)
+def _boiler(eligible: bool = True, heating: bool = True, flame_active: bool = True, flow_temperature: float = 50.0, **kwargs) -> BoilerObservation:
+    return BoilerObservation(eligible=eligible, heating=heating, flame_active=flame_active, flow_temperature=flow_temperature, **kwargs)
 
 
 def _room(room_id: str = ROOM, **kwargs) -> RoomObservation:
@@ -227,6 +230,75 @@ def test_missing_device_temperature_gives_no_heat_rise():
     tracker.update(True, None, 0.0)
 
     assert tracker.update(False, None, 900.0) is None
+
+
+def _cooled(hours: float, time_constant: float = 40.0, start: float = 20.0, outside: float = 5.0) -> CoolingPoint:
+    return CoolingPoint(timestamp=hours * 3600, temperature=outside + (start - outside) * exp(-hours / time_constant), outside_temperature=outside)
+
+
+def test_known_cooling_curve_recovers_its_time_constant():
+    tracker = RoomCoolingTracker()
+
+    assert tracker.update(True, _cooled(0.0)) is None
+    assert tracker.update(True, _cooled(1.0)) is None
+    assert tracker.update(True, _cooled(2.0)) == pytest.approx(40.0)
+
+
+def test_cooling_needs_enough_drop():
+    tracker = RoomCoolingTracker()
+
+    tracker.update(True, CoolingPoint(timestamp=0.0, temperature=20.0, outside_temperature=5.0))
+
+    assert tracker.update(True, CoolingPoint(timestamp=7200.0, temperature=19.8, outside_temperature=5.0)) is None
+
+
+def test_cooling_needs_a_difference_with_outside():
+    tracker = RoomCoolingTracker()
+
+    tracker.update(True, CoolingPoint(timestamp=0.0, temperature=20.0, outside_temperature=16.0))
+
+    assert tracker.update(True, CoolingPoint(timestamp=7200.0, temperature=19.0, outside_temperature=16.0)) is None
+
+
+def test_inactive_period_restarts_cooling():
+    tracker = RoomCoolingTracker()
+
+    tracker.update(True, _cooled(0.0))
+    tracker.update(False, _cooled(1.0))
+
+    assert tracker.update(True, _cooled(2.0)) is None
+
+
+@pytest.mark.parametrize("boiler", [
+    _boiler(flame_active=True, sun_below_horizon=True, outside_temperature=5.0),
+    _boiler(flame_active=False, sun_below_horizon=False, outside_temperature=5.0),
+    _boiler(flame_active=False, sun_below_horizon=True, outside_temperature=None),
+])
+def test_monitor_only_measures_cooling_with_the_flame_off_after_sunset(boiler):
+    monitor = _monitor()
+
+    monitor.observe(boiler, [_room(steady=False, temperature=20.0, shortfall=0.0)], START)
+    monitor.observe(boiler, [_room(steady=False, temperature=19.0, shortfall=0.0)], START + 7200)
+    _complete_day(monitor, START)
+
+    assert monitor.days == [] or monitor.days[0].cooling_time_constant is None
+
+
+def test_monitor_records_cooling_without_changing_the_verdict():
+    monitor = _monitor()
+    boiler = _boiler(flame_active=False, sun_below_horizon=True, outside_temperature=5.0)
+
+    monitor.observe(boiler, [_room(steady=False, temperature=20.0, shortfall=0.0)], START)
+    monitor.observe(boiler, [_room(steady=False, temperature=19.0, shortfall=0.0)], START + 7200)
+    _complete_day(monitor)
+
+    assert monitor.days[0].cooling_time_constant > 0
+
+    plain = _evaluate(_days("cold", coefficient=3.0), _days("a"), _days("b"))
+    cooling = _evaluate([replace(day, cooling_time_constant=5.0) for day in _days("cold", coefficient=3.0)], _days("a"), _days("b"))
+
+    assert cooling["cold"].cooling_time_constant == 5.0
+    assert cooling["cold"].status == plain["cold"].status
 
 
 def _device_with_entities(hass, entities: list[dict]) -> None:

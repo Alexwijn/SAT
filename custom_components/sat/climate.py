@@ -614,6 +614,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             heating=self.hvac_action == HVACAction.HEATING,
             flame_active=self._coordinator.flame_active,
             flow_temperature=self._coordinator.boiler_temperature,
+            outside_temperature=self.current_outside_temperature,
+            sun_below_horizon=(sun_elevation := self._sun_elevation()) is not None and sun_elevation < 0,
         )
 
         main = RoomObservation(
