@@ -140,6 +140,18 @@ async def test_core_sensors_registered(hass, climate, entry, domains, data, opti
         assert entity_id is not None
 
 
+async def test_measurement_sensors_reach_long_term_statistics(hass, climate, entry, domains, data, options, config):
+    registry = er.async_get(hass)
+
+    for suffix in ("pid", "error-value", "heating-curve", "requested-setpoint"):
+        entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{suffix}")
+        assert registry.async_get(entity_id).capabilities == {"state_class": "measurement"}
+
+    for suffix in ("boiler-status", "manufacturer", "cycle-status", "heating-curve-recommendation"):
+        entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{suffix}")
+        assert "state_class" not in (registry.async_get(entity_id).capabilities or {})
+
+
 async def test_device_status_sensor_follows_heating_control(hass, heating_control, entry, domains, data, options, config):
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-boiler-status")

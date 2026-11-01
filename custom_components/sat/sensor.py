@@ -73,6 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
     _attr_translation_key = "requested_setpoint"
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     async def async_added_to_hass(self) -> None:
@@ -106,6 +107,7 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
 class SatPidSensor(SatClimateEntity, SensorEntity):
     _attr_translation_key = "pid"
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
@@ -191,6 +193,7 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
 
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def name(self) -> str:
@@ -240,6 +243,7 @@ def calculate_consumption_rate(coordinator: SatDataUpdateCoordinator, minimum_co
 
 
 class SatCurrentConsumptionSensor(SatEntity, SensorEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
         super().__init__(coordinator, config, heating_control)
@@ -333,6 +337,7 @@ class SatTotalConsumptionSensor(SatEntity, RestoreSensor):
 
 class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
     _attr_translation_key = "heating_curve"
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -431,6 +436,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
 
 class SatErrorValueSensor(SatClimateEntity, SensorEntity):
     _attr_translation_key = "error_value"
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property

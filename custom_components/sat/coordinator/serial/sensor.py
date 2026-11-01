@@ -91,6 +91,18 @@ SENSOR_INFO: dict[str, SatSensorInfo] = {
     OTGW_VREF: SatSensorInfo(None, None, "Gateway Reference Voltage Setting {}", [OTGW]),
 }
 
+MEASUREMENT_SENSORS: frozenset[str] = frozenset({
+    DATA_ROOM_TEMP,
+    DATA_EXHAUST_TEMP,
+    DATA_OUTSIDE_TEMP,
+    DATA_ROOM_SETPOINT,
+    DATA_CH_WATER_TEMP,
+    DATA_REL_MOD_LEVEL,
+    DATA_CH_WATER_PRESS,
+    DATA_CONTROL_SETPOINT,
+    DATA_RETURN_WATER_TEMP,
+})
+
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
     """Setup sensor platform."""
@@ -154,6 +166,11 @@ class SatSensor(SatEntity, sensor.SensorEntity):
     def device_class(self):
         """Return the device class."""
         return self._device_class
+
+    @property
+    def state_class(self):
+        """Return the state class for sensors that belong in long-term statistics."""
+        return sensor.SensorStateClass.MEASUREMENT if self._key in MEASUREMENT_SENSORS else None
 
     @property
     def native_unit_of_measurement(self):
