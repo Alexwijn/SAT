@@ -25,11 +25,13 @@ from homeassistant.components.climate import (
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNOWN, ATTR_ENTITY_ID, STATE_ON, STATE_OFF, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, Event, CoreState, EventStateChangedData, HassJob, callback
+from homeassistant.core import HomeAssistant, Event, CoreState, EventStateChangedData, HassJob, SupportsResponse, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 
 from .area import Area, Areas
 from .const import *
@@ -43,7 +45,7 @@ from .heating_curve import (
 )
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
-from .preheat import PreheatMonitor
+from .preheat import PreheatForecast, PreheatMonitor
 from .room_balance import BoilerObservation, MAIN_ROOM_ID, RoomBalanceMonitor, RoomObservation, RoomSignals
 from .seasonal_curve import SeasonalCurveMonitor
 from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, SolarGainSnapshot
@@ -85,6 +87,16 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(SERVICE_RESET_INTEGRAL, None, "async_reset_integral")
     platform.async_register_entity_service(SERVICE_PULSE_WIDTH_MODULATION, {vol.Required("enabled"): cv.boolean}, "async_set_pulse_width_modulation")
+    platform.async_register_entity_service(
+        SERVICE_ESTIMATE_PREHEAT,
+        {
+            vol.Required("target_temperature"): vol.Coerce(float),
+            vol.Optional("ready_time"): cv.datetime,
+            vol.Optional("room"): cv.entity_id,
+        },
+        "async_estimate_preheat",
+        supports_response=SupportsResponse.ONLY,
+    )
 
 
 class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
@@ -532,6 +544,43 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._heating_control.enable_pwm()
         else:
             self._heating_control.disable_pwm()
+
+    async def async_estimate_preheat(self, target_temperature: float, ready_time: Optional[datetime] = None, room: Optional[str] = None) -> dict[str, Any]:
+        """Service to estimate how long before the ready time heating has to start."""
+        room_id, current_temperature = MAIN_ROOM_ID, self.current_temperature
+
+        if room is not None:
+            if (area := self.areas.get(room)) is None:
+                raise ServiceValidationError(f"{room} is not configured as a room of {self.entity_id}")
+
+            room_id, current_temperature = room, area.current_temperature
+
+        if ready_time is not None and ready_time.tzinfo is None:
+            ready_time = ready_time.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+
+        forecast_temperature = None
+        if ready_time is not None:
+            forecast_temperature = await PreheatForecast.async_temperature(self.hass, ensure_list(self._config.sensors.outside_sensor_entity_id), ready_time)
+
+        outside_temperature = forecast_temperature if forecast_temperature is not None else self.current_outside_temperature
+        rate = self._preheat.rate(room_id, outside_temperature)
+
+        lead_minutes = None
+        if rate is not None and current_temperature is not None:
+            lead_minutes = rate.lead_minutes(target_temperature - current_temperature)
+
+        start_time = None
+        if lead_minutes is not None and ready_time is not None:
+            start_time = (ready_time - timedelta(minutes=lead_minutes)).isoformat()
+
+        return {
+            "start_time": start_time,
+            "lead_minutes": lead_minutes,
+            "outside_temperature": outside_temperature,
+            "forecast_used": forecast_temperature is not None,
+            "episodes": len(self._preheat.episodes(room_id)),
+            "rate_per_hour": rate.rate_per_hour if rate is not None else None,
+        }
 
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller."""

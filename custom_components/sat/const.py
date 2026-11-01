@@ -207,6 +207,7 @@ STORAGE_OVERSHOOT_PROTECTION_VALUE = "overshoot_protection_value"
 # Service names exposed by the integration.
 SERVICE_RESET_INTEGRAL = "reset_integral"
 SERVICE_PULSE_WIDTH_MODULATION = "pulse_width_modulation"
+SERVICE_ESTIMATE_PREHEAT = "estimate_preheat"
 SERVICE_SET_OVERSHOOT_PROTECTION_VALUE = "set_overshoot_protection_value"
 SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION = "start_overshoot_protection_calculation"
 

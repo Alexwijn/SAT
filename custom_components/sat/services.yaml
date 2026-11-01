@@ -13,3 +13,37 @@ pulse_width_modulation:
     enabled:
       required: true
       example: true
+
+estimate_preheat:
+  name: Estimate preheat
+  description: Estimate how long before a ready time heating has to start, based on how fast the room has recovered at similar outside temperatures.
+  target:
+    entity:
+      domain: climate
+      integration: "sat"
+  fields:
+    target_temperature:
+      name: Target temperature
+      description: The temperature the room should reach.
+      required: true
+      example: 20.0
+      selector:
+        number:
+          min: 5
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    ready_time:
+      name: Ready time
+      description: When the room should be at temperature. Used for the forecast and the start time.
+      example: "2026-11-02 07:00:00"
+      selector:
+        datetime:
+    room:
+      name: Room
+      description: A climate entity configured as a room. Leave empty for the main thermostat.
+      example: climate.bedroom
+      selector:
+        entity:
+          filter:
+            domain: climate

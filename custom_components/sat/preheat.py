@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import asdict, dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from math import ceil, floor
 from statistics import fmean, median
 from typing import Deque, Optional
@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .helpers import float_value
 from .room_balance import BoilerObservation, RoomObservation
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ RECOVERY_MAXIMUM_SECONDS = 12 * 60 * 60
 BAND_WIDTH_CELSIUS = 5
 MINIMUM_EPISODES = 3
 LEAD_TIME_MARGIN = 1.1
+FORECAST_MAXIMUM_GAP_SECONDS = 3 * 60 * 60
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +152,45 @@ class PreheatEvaluator:
     @staticmethod
     def _summarise(episodes: list[RecoveryEpisode]) -> PreheatRate:
         return PreheatRate(episodes=len(episodes), rate_per_hour=median(episode.rate_per_hour for episode in episodes))
+
+
+class PreheatForecast:
+    """Look up the outside temperature expected at a moment in the future."""
+
+    @staticmethod
+    async def async_temperature(hass: HomeAssistant, entity_ids: list[str], moment: datetime) -> Optional[float]:
+        """Return the temperature from the first weather entity with a nearby forecast entry."""
+        for entity_id in entity_ids:
+            if not entity_id.startswith("weather."):
+                continue
+
+            try:
+                response = await hass.services.async_call(
+                    "weather", "get_forecasts", {"entity_id": entity_id, "type": "hourly"}, blocking=True, return_response=True
+                )
+            except Exception as exception:
+                _LOGGER.debug("Unable to read the forecast of %s: %s", entity_id, exception)
+                continue
+
+            if (temperature := PreheatForecast._closest(response.get(entity_id, {}).get("forecast", []), moment)) is not None:
+                return temperature
+
+        return None
+
+    @staticmethod
+    def _closest(entries: list[dict], moment: datetime) -> Optional[float]:
+        best_gap, best_temperature = None, None
+
+        for entry in entries:
+            if (entry_time := dt_util.parse_datetime(str(entry.get("datetime")))) is None or (temperature := float_value(entry.get("temperature"))) is None:
+                continue
+
+            gap = abs((entry_time - moment).total_seconds())
+
+            if gap <= FORECAST_MAXIMUM_GAP_SECONDS and (best_gap is None or gap < best_gap):
+                best_gap, best_temperature = gap, temperature
+
+        return best_temperature
 
 
 class PreheatMonitor:

@@ -10,6 +10,8 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_DEVICE, CONF_MQTT_TOPIC
 from .entry_data import get_entry_data
+from .preheat import PreheatEvaluator
+from .room_balance import MAIN_ROOM_ID
 
 TO_REDACT = {CONF_DEVICE, CONF_MQTT_TOPIC}
 
@@ -112,6 +114,13 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
                 "suggested_coefficient": advice.suggested_coefficient,
                 "daily_coefficients": dict(advice.daily_coefficients),
             },
+            "preheat": _safe(lambda: {
+                room_id: {
+                    "episodes": len(climate.preheat.episodes(room_id)),
+                    "bands": {band: asdict(rate) for band, rate in PreheatEvaluator.bands(climate.preheat.episodes(room_id)).items()},
+                }
+                for room_id in [MAIN_ROOM_ID, *climate.areas.ids()]
+            }),
             "room_balance": _safe(lambda: {room_id: asdict(climate.room_balance.balance(room_id)) for room_id in climate.areas.ids()}),
             "seasonal_curve": _safe(lambda: {**asdict(climate.seasonal_curve.fit), "curve_mismatch": climate.seasonal_curve.fit.is_mismatch}),
         }
