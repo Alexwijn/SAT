@@ -21,6 +21,7 @@ from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
 from .helpers import timestamp
+from .room_balance import MAIN_ROOM_ID
 from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation, RoomBalanceStatus
 
 ROOM_BALANCE_ISSUES: dict[RoomBalanceStatus, str] = {
@@ -62,6 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatSeasonalCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingEfficiencySensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate, MAIN_ROOM_ID),
         SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
     ]
@@ -355,7 +357,7 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Room Balance ({self._area_id})"
+        return "Room Balance" if self._area_id == MAIN_ROOM_ID else f"Room Balance ({self._area_id})"
 
     @property
     def native_value(self) -> str:
@@ -395,7 +397,7 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         balance = self._climate.room_balance.balance(self._area_id)
-        room_state = self.hass.states.get(self._area_id)
+        room_state = self.hass.states.get(self._climate.entity_id if self._area_id == MAIN_ROOM_ID else self._area_id)
 
         for status, key in ROOM_BALANCE_ISSUES.items():
             if balance.status != status:

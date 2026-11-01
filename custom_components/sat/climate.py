@@ -667,7 +667,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._curve_advisor.record(self._curve_advice_sample)
 
     def _record_room_observations(self, now: float, temperature_state: TemperatureState) -> None:
-        """Feed the monitors; the room balance only has something to compare when rooms are configured."""
+        """Feed the monitors with the current state of the main climate and every room."""
         boiler = BoilerObservation(
             eligible=(
                     self.hvac_mode == HVACMode.HEAT
@@ -694,9 +694,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         rooms = [main, *(self._room_observation(area, now) for area in self.areas.items())]
         self._preheat.observe(boiler, rooms, now)
-
-        if self.areas.ids():
-            self._room_balance.observe(boiler, rooms, now)
+        self._room_balance.observe(boiler, rooms, now)
 
     def _room_observation(self, area: Area, now: float) -> RoomObservation:
         temperature_state = area.temperature_state

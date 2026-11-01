@@ -623,6 +623,30 @@ async def test_repair_issue_is_raised_and_cleared(room_states, hass, climate, co
 
 
 @WITH_ROOM
+async def test_main_climate_has_its_own_balance_sensor_and_issue(room_states, hass, climate, coordinator, entry, domains, data, options, config):
+    entity_id = er.async_get(hass).async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{MAIN_ROOM_ID}-room-balance")
+    issue_id = f"room_undersupplied_{entry.entry_id}_{MAIN_ROOM_ID}"
+
+    assert hass.states.get(entity_id).state == "insufficient_data"
+
+    _inject_days(climate.room_balance, _days(MAIN_ROOM_ID, coefficient=3.0, shortfall=1.0) + _days(ROOM) + _days("climate.other"))
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == "undersupplied"
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
+    assert issue.translation_placeholders["room"] == hass.states.get(climate.entity_id).name
+
+
+@pytest.mark.parametrize(("domains", "data", "options", "config"), [([], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, {}, {})])
+async def test_main_climate_has_a_balance_sensor_without_rooms(hass, climate, entry, domains, data, options, config):
+    entity_id = er.async_get(hass).async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{MAIN_ROOM_ID}-room-balance")
+
+    assert hass.states.get(entity_id).state == "insufficient_data"
+
+
+@WITH_ROOM
 async def test_fault_issue_follows_the_alarm(room_states, hass, climate, coordinator, entry, domains, data, options, config):
     issue_id = f"room_fault_{entry.entry_id}_{ROOM}"
     issues = ir.async_get(hass)
@@ -677,12 +701,12 @@ async def test_diagnostics_include_the_room_balance(room_states, hass, climate, 
 
 
 @pytest.mark.parametrize(("domains", "data", "options", "config"), [([], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, {}, {})])
-async def test_climate_skips_the_balance_but_not_preheat_without_rooms(hass, climate, monkeypatch, domains, data, options, config):
+async def test_climate_feeds_both_monitors_without_rooms(hass, climate, monkeypatch, domains, data, options, config):
     balance, preheat = [], []
     monkeypatch.setattr(climate.room_balance, "observe", lambda boiler, rooms, now: balance.append(rooms))
     monkeypatch.setattr(climate.preheat, "observe", lambda boiler, rooms, now: preheat.append(rooms))
 
     climate._record_room_observations(START, SimpleNamespace(error=0.5, current=20.5))
 
-    assert balance == []
+    assert [room.room_id for room in balance[0]] == [MAIN_ROOM_ID]
     assert [room.room_id for room in preheat[0]] == [MAIN_ROOM_ID]
