@@ -2,6 +2,7 @@
 
 import json
 from collections import deque
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +15,7 @@ import custom_components.sat
 from custom_components.sat.boiler_health import BoilerHealthDay, BoilerHealthMonitor, BoilerTrendEvaluator, HISTORY_RETENTION_DAYS, PRESSURE_SAMPLE_INTERVAL_SECONDS
 from custom_components.sat.const import CONF_HEATING_SYSTEM, DOMAIN
 from custom_components.sat.device import DeviceState
+from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sat.types import CycleKind, HeatingSystem, Percentiles
 
 START = dt_util.as_utc(datetime(2026, 11, 1, 12, 0, tzinfo=dt_util.DEFAULT_TIME_ZONE)).timestamp()
@@ -241,7 +243,116 @@ async def test_entity_stays_off_without_pressure(hass, coordinator, entry, domai
     assert state.attributes["pressure_trend_days"] == 0
 
 
-@pytest.mark.parametrize("key", ["boiler_pressure_trend"])
+def _heating_day(age: int, cycles: int = 10, on_seconds: float = 900.0, outside: float = 5.0, delta: float = 8.0) -> BoilerHealthDay:
+    return BoilerHealthDay(
+        date=(TODAY - timedelta(days=age)).isoformat(),
+        cycle_count=cycles,
+        median_on_seconds=on_seconds,
+        flow_return_delta=delta,
+        outside_temperature=outside,
+    )
+
+
+def _baseline_days(**kwargs) -> list[BoilerHealthDay]:
+    return [_heating_day(age, **kwargs) for age in range(30, 8, -1)]
+
+
+def _recent_days(**kwargs) -> list[BoilerHealthDay]:
+    return [_heating_day(age, **kwargs) for age in range(7, 0, -1)]
+
+
+def _trends(days: list[BoilerHealthDay]):
+    return BoilerTrendEvaluator.evaluate(days, TODAY.toordinal())
+
+
+def test_short_cycling_drift_is_a_problem():
+    trends = _trends(_baseline_days() + _recent_days(cycles=20, on_seconds=400.0))
+
+    assert trends.cycling.is_problem
+    assert trends.is_problem
+    assert trends.cycling.recent_cycles == 20
+    assert trends.cycling.baseline_cycles == 10
+
+
+def test_short_cycling_is_compared_with_similar_weather_only():
+    trends = _trends(_baseline_days(outside=-5.0) + _recent_days(cycles=20, on_seconds=400.0, outside=12.0))
+
+    assert trends.cycling.baseline_days == 0
+    assert trends.cycling.is_problem is False
+
+
+def test_on_time_above_target_is_not_short_cycling():
+    trends = _trends(_baseline_days(on_seconds=3000.0) + _recent_days(cycles=20, on_seconds=1500.0))
+
+    assert trends.cycling.is_problem is False
+
+
+def test_more_cycles_with_stable_on_time_is_not_short_cycling():
+    trends = _trends(_baseline_days(on_seconds=400.0) + _recent_days(cycles=20, on_seconds=400.0))
+
+    assert trends.cycling.is_problem is False
+
+
+def test_too_few_recent_heating_days_gives_no_trend():
+    trends = _trends(_baseline_days() + _recent_days(cycles=20, on_seconds=400.0)[-4:])
+
+    assert trends.cycling.recent_cycles is None
+    assert trends.is_problem is False
+
+
+def test_flow_return_drift_is_reported_without_being_a_problem():
+    trends = _trends(_baseline_days() + _recent_days(delta=12.0))
+
+    assert trends.flow_return.is_drifting
+    assert trends.flow_return.recent_delta == 12.0
+    assert trends.is_problem is False
+
+
+def test_small_flow_return_change_is_not_drift():
+    assert _trends(_baseline_days() + _recent_days(delta=9.0)).flow_return.is_drifting is False
+    assert _trends(_baseline_days(delta=20.0) + _recent_days(delta=23.0)).flow_return.is_drifting is False
+
+
+@SETUP
+async def test_entity_raises_and_clears_the_cycling_issue(hass, coordinator, heating_control, entry, domains, data, options, config):
+    monitor = heating_control.boiler_health
+    today = dt_util.now().date()
+    issue_id = f"boiler_short_cycling_trend_{entry.entry_id}"
+
+    def shifted(day: BoilerHealthDay) -> BoilerHealthDay:
+        age = TODAY.toordinal() - day.ordinal
+        return replace(day, date=(today - timedelta(days=age)).isoformat())
+
+    monitor._days = deque(shifted(day) for day in _baseline_days() + _recent_days(cycles=20, on_seconds=400.0))
+    monitor._trends = None
+
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(_trends_entity_id(hass, entry))
+    assert state.state == "on"
+    assert state.attributes["cycling_recent_cycles"] == 20
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is not None
+
+    monitor._days = deque()
+    monitor._trends = None
+
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+@SETUP
+async def test_diagnostics_include_boiler_trends(hass, heating_control, entry, domains, data, options, config):
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert diagnostics["heating_control"]["boiler_health"]["days"] == 0
+    assert diagnostics["heating_control"]["boiler_health"]["problem"] is False
+    assert diagnostics["heating_control"]["boiler_health"]["trends"]["pressure"]["top_ups"] == 0
+
+
+@pytest.mark.parametrize("key", ["boiler_pressure_trend", "boiler_short_cycling_trend"])
 def test_issues_are_translated_in_every_language(key):
     translations = Path(custom_components.sat.__file__).parent / "translations"
     placeholders = None

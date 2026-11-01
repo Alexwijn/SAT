@@ -379,6 +379,10 @@
     "boiler_pressure_trend": {
       "title": "Boiler slowly losing pressure",
       "description": "The heating system for {name} has lost about {loss} bar since its last top-up and was topped up {top_ups} times in the last 90 days. This can point to a slow leak or a failing expansion vessel. Check the system or contact your installer."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "Boiler short cycling more often",
+      "description": "The boiler for {name} now starts about {recent_cycles} times a day with a median run time of {on_time} minutes, compared with {baseline_cycles} starts a day in similar weather. Frequent short runs wear the boiler and waste gas. Check the heating curve, the PWM settings and the boiler's minimum output."
     }
   },
   "entity": {

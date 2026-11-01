@@ -539,13 +539,23 @@ class SatBoilerTrendsSensor(SatHeatingControlEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         """Return the values behind the trend decisions."""
-        pressure = self._heating_control.boiler_health.trends.pressure
+        trends = self._heating_control.boiler_health.trends
 
         return {
-            "pressure_trend_days": pressure.days,
-            "pressure_top_ups": pressure.top_ups,
-            "pressure_loss_bar": pressure.loss_bar,
-            "pressure_slope_bar_per_day": pressure.slope_bar_per_day,
+            "pressure_trend_days": trends.pressure.days,
+            "pressure_top_ups": trends.pressure.top_ups,
+            "pressure_loss_bar": trends.pressure.loss_bar,
+            "pressure_slope_bar_per_day": trends.pressure.slope_bar_per_day,
+
+            "cycling_baseline_days": trends.cycling.baseline_days,
+            "cycling_recent_cycles": trends.cycling.recent_cycles,
+            "cycling_baseline_cycles": trends.cycling.baseline_cycles,
+            "cycling_recent_on_seconds": trends.cycling.recent_on_seconds,
+            "cycling_baseline_on_seconds": trends.cycling.baseline_on_seconds,
+
+            "flow_return_drifting": trends.flow_return.is_drifting,
+            "flow_return_recent_delta": trends.flow_return.recent_delta,
+            "flow_return_baseline_delta": trends.flow_return.baseline_delta,
         }
 
     @property
@@ -555,7 +565,26 @@ class SatBoilerTrendsSensor(SatHeatingControlEntity, BinarySensorEntity):
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        pressure = self._heating_control.boiler_health.trends.pressure
+        trends = self._heating_control.boiler_health.trends
+        pressure, cycling = trends.pressure, trends.cycling
+
+        if cycling.is_problem:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_short_cycling_trend_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="boiler_short_cycling_trend",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "recent_cycles": f"{cycling.recent_cycles:.0f}",
+                    "baseline_cycles": f"{cycling.baseline_cycles:.0f}",
+                    "on_time": f"{cycling.recent_on_seconds / 60:.0f}",
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_short_cycling_trend_{self._config.entry_id}")
 
         if pressure.is_problem:
             ir.async_create_issue(

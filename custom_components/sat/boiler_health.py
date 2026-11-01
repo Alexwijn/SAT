@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .cycles import Cycle
+from .cycles.const import TARGET_MIN_ON_TIME_SECONDS
 from .device import DeviceState
 from .entry_data import SatConfig
 from .types import CycleKind
@@ -33,6 +34,18 @@ PRESSURE_TREND_MINIMUM_LOSS_BAR = 0.3
 PRESSURE_TREND_MINIMUM_SLOPE_BAR_PER_DAY = 0.01
 PRESSURE_TOP_UP_MINIMUM_RISE_BAR = 0.2
 PRESSURE_TOP_UP_PROBLEM_COUNT = 2
+
+DRIFT_RECENT_DAYS = 7
+DRIFT_MINIMUM_RECENT_DAYS = 5
+DRIFT_BASELINE_MAXIMUM_AGE_DAYS = 90
+DRIFT_BASELINE_MINIMUM_DAYS = 14
+DRIFT_WEATHER_TOLERANCE_CELSIUS = 3.0
+
+CYCLING_MINIMUM_COUNT_RATIO = 1.5
+CYCLING_MAXIMUM_ON_TIME_RATIO = 0.75
+
+FLOW_RETURN_MINIMUM_RATIO = 1.3
+FLOW_RETURN_MINIMUM_RISE_CELSIUS = 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,14 +112,66 @@ class PressureTrend:
 
 
 @dataclass(frozen=True, slots=True)
-class BoilerTrends:
-    """Evaluated long-term trends of the boiler."""
+class CyclingTrend:
+    """Recent cycling compared with days of similar weather."""
 
-    pressure: PressureTrend = PressureTrend()
+    baseline_days: int = 0
+    recent_cycles: Optional[float] = None
+    baseline_cycles: Optional[float] = None
+    recent_on_seconds: Optional[float] = None
+    baseline_on_seconds: Optional[float] = None
 
     @property
     def is_problem(self) -> bool:
-        return self.pressure.is_problem
+        if None in (self.recent_cycles, self.baseline_cycles, self.recent_on_seconds, self.baseline_on_seconds):
+            return False
+
+        if self.recent_on_seconds >= TARGET_MIN_ON_TIME_SECONDS:
+            return False
+
+        if self.recent_cycles < self.baseline_cycles * CYCLING_MINIMUM_COUNT_RATIO:
+            return False
+
+        return self.recent_on_seconds <= self.baseline_on_seconds * CYCLING_MAXIMUM_ON_TIME_RATIO
+
+
+@dataclass(frozen=True, slots=True)
+class FlowReturnTrend:
+    """Recent flow/return delta compared with days of similar weather."""
+
+    recent_delta: Optional[float] = None
+    baseline_delta: Optional[float] = None
+
+    @property
+    def is_drifting(self) -> bool:
+        if self.recent_delta is None or self.baseline_delta is None:
+            return False
+
+        if self.recent_delta - self.baseline_delta < FLOW_RETURN_MINIMUM_RISE_CELSIUS:
+            return False
+
+        return self.recent_delta >= self.baseline_delta * FLOW_RETURN_MINIMUM_RATIO
+
+
+@dataclass(frozen=True, slots=True)
+class BoilerTrends:
+    """Evaluated long-term trends of the boiler."""
+
+    cycling: CyclingTrend = CyclingTrend()
+    pressure: PressureTrend = PressureTrend()
+    flow_return: FlowReturnTrend = FlowReturnTrend()
+
+    @property
+    def is_problem(self) -> bool:
+        return self.pressure.is_problem or self.cycling.is_problem
+
+
+@dataclass(frozen=True, slots=True)
+class ComparableDays:
+    """Recent heating days and the older days that saw similar weather."""
+
+    recent: list[BoilerHealthDay]
+    baseline: list[BoilerHealthDay]
 
 
 class BoilerTrendEvaluator:
@@ -114,7 +179,53 @@ class BoilerTrendEvaluator:
 
     @staticmethod
     def evaluate(days: list[BoilerHealthDay], today: int) -> BoilerTrends:
-        return BoilerTrends(pressure=BoilerTrendEvaluator.pressure(days, today))
+        comparable = BoilerTrendEvaluator.comparable_days(days, today)
+
+        return BoilerTrends(
+            cycling=BoilerTrendEvaluator.cycling(comparable),
+            pressure=BoilerTrendEvaluator.pressure(days, today),
+            flow_return=BoilerTrendEvaluator.flow_return(comparable),
+        )
+
+    @staticmethod
+    def comparable_days(days: list[BoilerHealthDay], today: int) -> ComparableDays:
+        heating = [day for day in days if day.cycle_count > 0 and day.median_on_seconds is not None and day.outside_temperature is not None]
+        recent = [day for day in heating if today - DRIFT_RECENT_DAYS <= day.ordinal < today]
+
+        if len(recent) < DRIFT_MINIMUM_RECENT_DAYS:
+            return ComparableDays(recent=[], baseline=[])
+
+        outside_temperature = median(day.outside_temperature for day in recent)
+        baseline = [
+            day for day in heating
+            if today - DRIFT_BASELINE_MAXIMUM_AGE_DAYS <= day.ordinal < today - DRIFT_RECENT_DAYS
+            and abs(day.outside_temperature - outside_temperature) <= DRIFT_WEATHER_TOLERANCE_CELSIUS
+        ]
+
+        return ComparableDays(recent=recent, baseline=baseline)
+
+    @staticmethod
+    def cycling(comparable: ComparableDays) -> CyclingTrend:
+        if len(comparable.baseline) < DRIFT_BASELINE_MINIMUM_DAYS:
+            return CyclingTrend(baseline_days=len(comparable.baseline))
+
+        return CyclingTrend(
+            baseline_days=len(comparable.baseline),
+            recent_cycles=median(day.cycle_count for day in comparable.recent),
+            baseline_cycles=median(day.cycle_count for day in comparable.baseline),
+            recent_on_seconds=median(day.median_on_seconds for day in comparable.recent),
+            baseline_on_seconds=median(day.median_on_seconds for day in comparable.baseline),
+        )
+
+    @staticmethod
+    def flow_return(comparable: ComparableDays) -> FlowReturnTrend:
+        recent = [day.flow_return_delta for day in comparable.recent if day.flow_return_delta is not None]
+        baseline = [day.flow_return_delta for day in comparable.baseline if day.flow_return_delta is not None]
+
+        if len(recent) < DRIFT_MINIMUM_RECENT_DAYS or len(baseline) < DRIFT_BASELINE_MINIMUM_DAYS:
+            return FlowReturnTrend()
+
+        return FlowReturnTrend(recent_delta=median(recent), baseline_delta=median(baseline))
 
     @staticmethod
     def pressure(days: list[BoilerHealthDay], today: int) -> PressureTrend:

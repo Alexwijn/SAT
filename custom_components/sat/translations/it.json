@@ -379,6 +379,10 @@
     "boiler_pressure_trend": {
       "title": "La caldaia perde lentamente pressione",
       "description": "L'impianto di riscaldamento di {name} ha perso circa {loss} bar dall'ultimo rabbocco ed è stato rabboccato {top_ups} volte negli ultimi 90 giorni. Può indicare una piccola perdita o un vaso di espansione difettoso. Controllare l'impianto o contattare l'installatore."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "La caldaia esegue più cicli brevi",
+      "description": "La caldaia di {name} si avvia ora circa {recent_cycles} volte al giorno con una durata mediana di {on_time} minuti, rispetto a {baseline_cycles} avvii al giorno con un clima simile. I cicli brevi frequenti usurano la caldaia e sprecano gas. Controllare la curva di riscaldamento, le impostazioni PWM e la potenza minima della caldaia."
     }
   },
   "entity": {

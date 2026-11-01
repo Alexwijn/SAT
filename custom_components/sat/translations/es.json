@@ -379,6 +379,10 @@
     "boiler_pressure_trend": {
       "title": "La caldera pierde presión lentamente",
       "description": "El sistema de calefacción de {name} ha perdido unos {loss} bar desde el último llenado y se ha rellenado {top_ups} veces en los últimos 90 días. Esto puede indicar una pequeña fuga o un vaso de expansión defectuoso. Revise el sistema o contacte con su instalador."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "La caldera hace más ciclos cortos",
+      "description": "La caldera de {name} arranca ahora unas {recent_cycles} veces al día con una duración mediana de {on_time} minutos, frente a {baseline_cycles} arranques al día con un clima similar. Los ciclos cortos frecuentes desgastan la caldera y desperdician gas. Revise la curva de calefacción, los ajustes de PWM y la potencia mínima de la caldera."
     }
   },
   "entity": {

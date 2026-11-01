@@ -1,6 +1,7 @@
 """Diagnostics support for SAT."""
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any, Callable
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -74,6 +75,11 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
                 "kind": _safe(lambda: heating_control.last_cycle.kind if heating_control.last_cycle else None),
                 "control_mode": _safe(lambda: heating_control.last_cycle.control_mode if heating_control.last_cycle else None),
                 "classification": _safe(lambda: heating_control.last_cycle.classification if heating_control.last_cycle else None),
+            },
+            "boiler_health": {
+                "days": _safe(lambda: len(heating_control.boiler_health.days)),
+                "problem": _safe(lambda: heating_control.boiler_health.trends.is_problem),
+                "trends": _safe(lambda: asdict(heating_control.boiler_health.trends)),
             },
         },
     }

@@ -379,6 +379,10 @@
     "boiler_pressure_trend": {
       "title": "La chaudière perd lentement de la pression",
       "description": "Le système de chauffage de {name} a perdu environ {loss} bar depuis le dernier remplissage et a été rempli {top_ups} fois au cours des 90 derniers jours. Cela peut indiquer une petite fuite ou un vase d'expansion défectueux. Vérifiez le système ou contactez votre installateur."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "La chaudière effectue plus de cycles courts",
+      "description": "La chaudière de {name} démarre désormais environ {recent_cycles} fois par jour avec une durée médiane de {on_time} minutes, contre {baseline_cycles} démarrages par jour par temps similaire. Les cycles courts fréquents usent la chaudière et gaspillent du gaz. Vérifiez la courbe de chauffe, les réglages PWM et la puissance minimale de la chaudière."
     }
   },
   "entity": {
