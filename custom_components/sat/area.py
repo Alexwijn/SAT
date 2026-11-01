@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 from typing import Optional
 
 from homeassistant.components import sensor, climate
-from homeassistant.components.climate import HVACMode
+from homeassistant.components.climate import HVACAction, HVACMode
 from homeassistant.const import (
     STATE_UNKNOWN,
     STATE_UNAVAILABLE,
@@ -15,9 +15,10 @@ from homeassistant.helpers.event import async_track_time_interval
 
 from .const import COLD_SETPOINT, MINIMUM_SETPOINT
 from .entry_data import SatConfig
-from .heating_curve import HeatingCurve
-from .helpers import float_value, is_state_stale, state_age_seconds
+from .heating_curve import HeatingCurve, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS
+from .helpers import event_timestamp, float_value, is_state_stale, state_age_seconds
 from .pid import PID, PID_UPDATE_INTERVAL
+from .temperature.history import TemperatureHistory
 from .temperature.state import TemperatureState
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,10 +44,12 @@ class Area:
         self._entity_id: str = entity_id
         self._hass: Optional[HomeAssistant] = None
         self._sensor_max_value_age: float = config.sensors.sensor_max_value_age_seconds
+        self._climate_valve_offset: float = config.limits.climate_valve_offset
 
         # Create controllers.
         self.heating_curve: HeatingCurve = HeatingCurve.from_config(config)
         self.pid: PID = PID.from_config(self.heating_curve, config)
+        self._temperature_history: TemperatureHistory = TemperatureHistory()
 
         _LOGGER.debug("Area %s initialized", self._entity_id)
 
@@ -145,6 +148,28 @@ class Area:
             return None
 
     @property
+    def is_steady(self) -> bool:
+        """Return whether the room temperature has settled, wherever it settled relative to the target."""
+        return self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS)
+
+    @property
+    def is_calling(self) -> bool:
+        """Return whether the climate entity itself is asking for heat."""
+        if (climate_state := self.climate_state) is None:
+            return False
+
+        if (hvac_action := climate_state.attributes.get("hvac_action")) is not None:
+            return hvac_action == HVACAction.HEATING
+
+        target_temperature = float_value(climate_state.attributes.get(ATTR_TEMPERATURE))
+        current_temperature = float_value(climate_state.attributes.get(ATTR_CURRENT_TEMPERATURE))
+
+        if target_temperature is None or current_temperature is None:
+            return False
+
+        return target_temperature >= current_temperature + self._climate_valve_offset
+
+    @property
     def weight(self) -> Optional[float]:
         """Room heating demand weight in range [0, 2]."""
         target_temperature = self.target_temperature
@@ -199,6 +224,7 @@ class Area:
             return
 
         self.pid.update(temperature_state)
+        self._temperature_history.record(temperature_state.error, event_timestamp(_time))
 
 
 class Areas:

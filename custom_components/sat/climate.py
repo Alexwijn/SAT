@@ -31,7 +31,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval, async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .area import Areas
+from .area import Area, Areas
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
@@ -43,6 +43,7 @@ from .heating_curve import (
 )
 from .helpers import is_state_stale, state_age_seconds, clamp, ensure_list, event_timestamp, timestamp
 from .pid import PID, PID_UPDATE_INTERVAL
+from .room_balance import BoilerObservation, MAIN_ROOM_ID, RoomBalanceMonitor, RoomObservation, RoomSignals
 from .seasonal_curve import SeasonalCurveMonitor
 from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, SolarGainSnapshot
 from .summer_simmer import SummerSimmer
@@ -128,6 +129,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._curve_advisor = HeatingCurveAdvisor(self._config.pid.heating_curve_coefficient)
         self._curve_advice_sample: Optional[HeatingCurveAdviceSample] = None
         self._seasonal_curve = SeasonalCurveMonitor(self._config.entry_id)
+        self._room_balance = RoomBalanceMonitor(self._config.entry_id, self.areas.ids())
         self._target_temperature_changed_at: Optional[float] = None
         self._frost_protection_active: bool = False
         self._warm_up = WarmUpEstimator()
@@ -149,6 +151,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.id)
         await self._curve_advisor.async_added_to_hass(self.hass, self._config.entry_id)
         await self._seasonal_curve.async_added_to_hass(self.hass)
+        await self._room_balance.async_added_to_hass(self.hass)
         await self.areas.async_added_to_hass(self.hass, self._coordinator.id)
 
         if self.hass.state is CoreState.running:
@@ -183,6 +186,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
+        await self._room_balance.async_save_data()
         await self._coordinator.async_will_remove_from_hass()
 
         for area in self.areas.items():
@@ -315,6 +319,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def curve_advisor(self) -> HeatingCurveAdvisor:
         """Return the heating curve advisor."""
         return self._curve_advisor
+
+    @property
+    def room_balance(self) -> RoomBalanceMonitor:
+        """Return the per-room balance monitor."""
+        return self._room_balance
 
     @property
     def seasonal_curve(self) -> SeasonalCurveMonitor:
@@ -555,6 +564,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         )
 
         self._record_curve_advice_sample(now, temperature_state)
+        self._record_room_balance_samples(now, temperature_state)
 
         self._warm_up.update(
             active=(
@@ -588,6 +598,60 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         if self._curve_advice_sample is not None:
             self._curve_advisor.record(self._curve_advice_sample)
+
+    def _record_room_balance_samples(self, now: float, temperature_state: TemperatureState) -> None:
+        """Feed the room balance monitor, which only has something to compare when rooms are configured."""
+        if not self.areas.ids():
+            return
+
+        boiler = BoilerObservation(
+            eligible=(
+                    self.hvac_mode == HVACMode.HEAT
+                    and self.valves_open
+                    and not self._solar_gain_snapshot.active
+                    and not self._coordinator.hot_water_active
+            ),
+            heating=self.hvac_action == HVACAction.HEATING,
+            flame_active=self._coordinator.flame_active,
+            flow_temperature=self._coordinator.boiler_temperature,
+        )
+
+        main = RoomObservation(
+            room_id=MAIN_ROOM_ID,
+            shape=self.heating_curve.shape,
+            shortfall=temperature_state.error,
+            temperature=temperature_state.current,
+            calling=self.hvac_action == HVACAction.HEATING,
+            implied_coefficient=self._implied_room_coefficient(self.heating_curve, self.pid, now),
+            steady=self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS),
+        )
+
+        self._room_balance.observe(boiler, [main, *(self._room_observation(area, now) for area in self.areas.items())], now)
+
+    def _room_observation(self, area: Area, now: float) -> RoomObservation:
+        temperature_state = area.temperature_state
+
+        return RoomObservation(
+            room_id=area.id,
+            steady=area.is_steady,
+            calling=area.is_calling,
+            shape=area.heating_curve.shape,
+            valve_position=area.valve_position,
+            signals=RoomSignals.read(self.hass, area.id),
+            shortfall=temperature_state.error if temperature_state is not None else None,
+            temperature=temperature_state.current if temperature_state is not None else None,
+            implied_coefficient=self._implied_room_coefficient(area.heating_curve, area.pid, now),
+        )
+
+    def _implied_room_coefficient(self, heating_curve: HeatingCurve, pid: PID, now: float) -> Optional[float]:
+        if heating_curve.shape is None or not pid.available:
+            return None
+
+        return self._curve_advisor.implied_coefficient(HeatingCurveAdviceSample(
+            shape=heating_curve.shape,
+            timestamp=now,
+            correction=pid.proportional + pid.integral,
+        ))
 
     def _steady_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> Optional[HeatingCurveAdviceSample]:
         if self.hvac_mode != HVACMode.HEAT or not self.valves_open or self.hvac_action != HVACAction.HEATING:
