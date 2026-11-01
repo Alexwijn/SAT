@@ -45,6 +45,7 @@ OpenTherm ( MQTT / Serial / ESPHome / EMS-ESP / OTThing ):
 - Solar gain compensation to adjust heating based on passive solar heating
 - Boiler pressure monitoring
 - Adaptive preheat, presence, and holiday automation blueprints
+- Long-term insights: boiler trends, room balance, a seasonal heating curve fit and heating efficiency (see [Insights](#insights))
 - Config entry diagnostics for easy issue reporting
 
 PID ON/OFF thermostat:
@@ -351,11 +352,52 @@ Predefined temperature settings for different scenarios or activities: Home, Com
 
 ---
 
+# Insights
+
+SAT learns from your home over days and seasons and reports what it finds. These are advice only: none of them change how your heating is controlled. The thresholds behind them are starting estimates, so treat a warning as something to check rather than a diagnosis.
+
+## Heating Efficiency
+
+The gas your home needs for heating per degree day, over the last 365 days. Lower is better. A degree day is one degree of outside temperature below 18 °C for one day, which corrects for the weather, and the gas used on warm days (hot water, cooking) is subtracted first.
+
+SAT uses the gas meter from your Energy dashboard and the statistics of your outside temperature sensor, so with existing history it reports within a minute of starting. Without a meter it falls back to SAT's own gas estimate, which is less reliable; the `source` attribute shows which one is used.
+
+The most useful comparison is your home against itself: `change_percentage` compares the last 365 days with the 365 days before them. As a rough guide for a home of about 100 m², scaled to your floor area:
+
+| m³/°Cd | kWh/°Cd | Roughly means |
+|---|---|---|
+| Under 0.15 | Under 1.5 | Very well insulated |
+| 0.15 to 0.30 | 1.5 to 3 | Good |
+| 0.30 to 0.45 | 3 to 4.5 | Average older home |
+| Over 0.45 | Over 4.5 | Poorly insulated |
+
+These bands are approximate estimates, not a certified rating. A warmer setpoint, another heat source, more time at home or a sunny winter all move the number, so a change shows that demand shifted, not why.
+
+## Room Balance
+
+One sensor per room, plus one for the main climate, comparing how each room is supplied with heat. It needs at least 5 days of steady heating and another room to compare with.
+
+- *Balanced*: nothing stands out.
+- *Undersupplied*: the room needs more heat than the rest of the house, raising the flow temperature by about `flow_premium` °C. Check the radiator size, the lockshield balance, and drafts or open doors. Raises a repair issue.
+- *Oversupplied*: the room warms quickly while another room is short. Closing its lockshield a little sends more water to the short room.
+- *Sensor mismatch*: the room stays cold but its thermostat rarely asks for heat, so it probably reads warmer than the room. Raises a repair issue.
+- *Device fault*: the thermostat reports a valve alarm. Raises a repair issue.
+
+## Boiler Trends
+
+Keeps a daily history of the boiler and raises a repair issue for slow pressure loss, frequent top-ups, or short cycling that is getting worse compared with days of similar weather. It takes at least two to three weeks of data before it can warn.
+
+## Seasonal Curve Coefficient
+
+Where the heating curve recommendation looks at the last week, this looks at up to 180 days of steady heating. Its attributes show the coefficient per outside temperature band, and `curve_mismatch` turns on when no single coefficient suits both cold and mild weather.
+
+---
+
 # Blueprints
 
 SAT ships three automation blueprints in [`blueprints/automation/sat/`](blueprints/automation/sat) that you can import into Home Assistant:
 
-- *Adaptive Preheat*: starts heating early so the room is at temperature by a chosen time or the start of the next calendar event. The lead time comes from the `sat.estimate_preheat` service, which learns how fast each room recovers at different outside temperatures and uses the forecast when a weather entity is configured.
+- *Adaptive Preheat*: starts heating early so the room is at temperature by a chosen time or the start of the next calendar event. The lead time comes from the `sat.estimate_preheat` service, which learns how fast each room recovers at different outside temperatures. It uses the forecast when a weather entity with hourly forecasts is one of your outside sensors, and otherwise the current outside temperature.
 - *Presence Presets*: switches between the home and away presets based on a person, group, or device tracker.
 - *Holiday Mode*: follows a calendar; for the duration of an event it switches to the away preset and turns domestic hot water off, restoring both afterwards.
 
