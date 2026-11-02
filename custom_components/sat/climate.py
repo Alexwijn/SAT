@@ -56,7 +56,7 @@ from .temperature.history import TemperatureStatistics
 from .temperature.state import TemperatureState
 from .types import PWMStatus, HeatingMode
 from .warm_up import WarmUpEstimator, WARM_UP_MINIMUM_ERROR_CELSIUS
-from .wind import WindMonitor, WindReading
+from .wind import WIND_HISTORY_STARTUP_DELAY_SECONDS, WindHistory, WindMonitor, WindReading
 
 ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
@@ -141,6 +141,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.heating_curve = HeatingCurve.from_config(self._config)
         self.pid = PID.from_config(self.heating_curve, self._config)
         self._wind = WindMonitor(self._config.sensors)
+        self._wind_history = WindHistory(self._config.entry_id, self._config.sensors)
+        self._cancel_wind_backfill: Optional[Callable[[], None]] = None
         self._solar_gain = SolarGainController(self._config.solar_gain)
         self._curve_advisor = HeatingCurveAdvisor(self._config.pid.heating_curve_coefficient)
         self._curve_advice_sample: Optional[HeatingCurveAdviceSample] = None
@@ -168,6 +170,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._heating_control.async_added_to_hass()
         await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.id)
         await self._curve_advisor.async_added_to_hass(self.hass, self._config.entry_id)
+        self._cancel_wind_backfill = async_call_later(self.hass, WIND_HISTORY_STARTUP_DELAY_SECONDS, self._async_backfill_curve_advisor_wind)
         await self._seasonal_curve.async_added_to_hass(self.hass)
         await self._room_balance.async_added_to_hass(self.hass)
         await self._preheat.async_added_to_hass(self.hass)
@@ -199,6 +202,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Run when entity about to be removed."""
         self._event_listeners_registered = False
         self._cancel_scheduled_heating_control_loop()
+
+        if self._cancel_wind_backfill is not None:
+            self._cancel_wind_backfill()
+            self._cancel_wind_backfill = None
 
         if self._window_sensor_handle is not None:
             self._window_sensor_handle.cancel()
@@ -667,6 +674,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._frost_protection_active = False
 
         return self._frost_protection_active
+
+    async def _async_backfill_curve_advisor_wind(self, _now: Optional[datetime] = None) -> None:
+        """Fill in the wind speed of curve advisor samples recorded without one from the recorder."""
+        self._cancel_wind_backfill = None
+
+        if (start := self._curve_advisor.first_timestamp_without_wind) is None:
+            return
+
+        if filled := self._curve_advisor.backfill_wind(await self._wind_history.async_hourly(self.hass, start)):
+            _LOGGER.debug("Filled in the wind speed of %d heating curve advisor samples for %s.", filled, self.entity_id)
 
     def _record_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> None:
         """Feed the heating curve advisor when the system is in steady heating operation."""

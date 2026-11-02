@@ -2,6 +2,7 @@
 
 import pytest
 
+from custom_components.sat.wind import WindReading
 from custom_components.sat.device import DeviceState
 from custom_components.sat.const import EVENT_SAT_CYCLE_ENDED, CONF_HEATING_SYSTEM
 from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
@@ -146,7 +147,7 @@ async def test_core_sensors_registered(hass, climate, entry, domains, data, opti
 async def test_measurement_sensors_reach_long_term_statistics(hass, climate, entry, domains, data, options, config):
     registry = er.async_get(hass)
 
-    for suffix in ("pid", "error-value", "heating-curve", "requested-setpoint", "outside-temperature", "implied-curve-coefficient"):
+    for suffix in ("pid", "error-value", "heating-curve", "requested-setpoint", "outside-temperature", "wind-speed", "implied-curve-coefficient"):
         entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-{suffix}")
         assert registry.async_get(entity_id).capabilities == {"state_class": "measurement"}
 
@@ -232,6 +233,27 @@ async def test_outside_temperature_sensor_mirrors_the_climate(hass, climate, ent
     await hass.async_block_till_done()
 
     assert hass.states.get(entity_id).state == "4.3"
+
+
+async def test_wind_speed_sensor_mirrors_the_climate(hass, climate, entry, domains, data, options, config, monkeypatch):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-wind-speed")
+
+    monkeypatch.setattr(type(climate), "current_wind", property(lambda self: WindReading(speed=23.4, entity_id="weather.home")))
+    climate.async_write_ha_state()
+    await hass.async_block_till_done()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "23.4"
+    assert state.attributes["unit_of_measurement"] == "km/h"
+    assert state.attributes["source"] == "weather.home"
+
+
+async def test_wind_speed_sensor_is_unknown_without_wind(hass, climate, entry, domains, data, options, config):
+    entity_id = er.async_get(hass).async_get_entity_id("sensor", "sat", f"{entry.entry_id}-wind-speed")
+
+    assert hass.states.get(entity_id).state == "unknown"
 
 
 async def test_device_status_sensor_follows_heating_control(hass, heating_control, entry, domains, data, options, config):

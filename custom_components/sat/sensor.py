@@ -5,7 +5,7 @@ from typing import Optional, Mapping, Any
 
 from homeassistant.components.sensor import RestoreSensor, SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfVolume, UnitOfVolumeFlowRate, EntityCategory
+from homeassistant.const import UnitOfPower, UnitOfSpeed, UnitOfTemperature, UnitOfVolume, UnitOfVolumeFlowRate, EntityCategory
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -60,6 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatOutsideTemperatureSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatWindSpeedSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatSeasonalCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
         SatHeatingEfficiencySensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
@@ -153,6 +154,48 @@ class SatOutsideTemperatureSensor(SatClimateEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._config.entry_id}-outside-temperature"
+
+
+class SatWindSpeedSensor(SatClimateEntity, SensorEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    async def async_added_to_hass(self) -> None:
+        def on_pid_updated(_) -> None:
+            self.schedule_update_ha_state()
+
+        await super().async_added_to_hass()
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
+
+    @property
+    def name(self) -> str:
+        return "Wind Speed"
+
+    @property
+    def device_class(self) -> SensorDeviceClass:
+        return SensorDeviceClass.WIND_SPEED
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return UnitOfSpeed.KILOMETERS_PER_HOUR
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if (wind := self._climate.current_wind) is None:
+            return None
+
+        return wind.speed
+
+    @property
+    def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
+        wind = self._climate.current_wind
+
+        return {"source": wind.entity_id if wind is not None else None}
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._config.entry_id}-wind-speed"
 
 
 class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity):

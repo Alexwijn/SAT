@@ -1,6 +1,7 @@
 import logging
+import threading
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from statistics import median
 from typing import Deque, Mapping, Optional
 
@@ -11,7 +12,7 @@ from homeassistant.util import dt as dt_util
 from . import SatConfig
 from .helpers import clamp, timestamp, weighted_median
 from .types import HeatingCurveConfidence, HeatingCurveRecommendation, HeatingSystem
-from .wind import WindReading
+from .wind import WindHistory, WindReading
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -140,6 +141,7 @@ class HeatingCurveAdvisor:
         self._store: Optional[Store] = None
         self._hass: Optional[HomeAssistant] = None
         self._saved_at: Optional[float] = None
+        self._lock = threading.Lock()
         self._advice: Optional[HeatingCurveAdvice] = None
         self._samples: Deque[HeatingCurveAdviceSample] = deque()
 
@@ -166,14 +168,38 @@ class HeatingCurveAdvisor:
         if sample.shape < RECOMMENDATION_MINIMUM_SHAPE:
             return
 
-        if self._samples and (sample.timestamp - self._samples[-1].timestamp) < RECOMMENDATION_SAMPLE_INTERVAL_SECONDS:
-            return
+        with self._lock:
+            if self._samples and (sample.timestamp - self._samples[-1].timestamp) < RECOMMENDATION_SAMPLE_INTERVAL_SECONDS:
+                return
 
-        self._samples.append(sample)
-        self._prune(sample.timestamp)
-        self._advice = None
+            self._samples.append(sample)
+            self._prune(sample.timestamp)
+            self._advice = None
 
         self._schedule_save(sample.timestamp)
+
+    @property
+    def first_timestamp_without_wind(self) -> Optional[float]:
+        """Return when the oldest sample without a wind speed was recorded."""
+        return next((sample.timestamp for sample in list(self._samples) if sample.wind is None), None)
+
+    def backfill_wind(self, hourly: Mapping[float, WindReading]) -> int:
+        """Give the samples recorded without a wind speed the mean wind speed of their hour."""
+        filled = 0
+
+        with self._lock:
+            for index, sample in enumerate(self._samples):
+                if sample.wind is None and (wind := hourly.get(WindHistory.hour(sample.timestamp))) is not None:
+                    self._samples[index] = replace(sample, wind=wind)
+                    filled += 1
+
+            if filled:
+                self._advice = None
+
+        if filled and self._store is not None:
+            self._store.async_delay_save(self._data_to_save)
+
+        return filled
 
     def implied_coefficient(self, sample: Optional[HeatingCurveAdviceSample]) -> Optional[float]:
         """Return the coefficient that would have absorbed the correction of this sample."""

@@ -1,21 +1,30 @@
 """Wind speed from wind sensors or weather entities."""
 from __future__ import annotations
 
+import logging
 from collections import deque
 from dataclasses import dataclass
 from statistics import mean
-from typing import Deque, Optional
+from typing import Deque, Mapping, Optional
 
 from homeassistant.components import sensor, weather
 from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfSpeed
 from homeassistant.core import HomeAssistant, State
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import SpeedConverter
 
+from .const import DOMAIN
 from .entry_data import SensorsConfig
 from .helpers import ensure_list
 
+_LOGGER = logging.getLogger(__name__)
+
+RECORDER_DOMAIN = "recorder"
+
 WIND_SMOOTHING_WINDOW_SECONDS = 3600.0
+WIND_HISTORY_INTERVAL_SECONDS = 3600.0
+WIND_HISTORY_STARTUP_DELAY_SECONDS = 60
 WIND_SPEED_UNITS = frozenset(unit.value for unit in UnitOfSpeed)
 
 
@@ -95,3 +104,64 @@ class WindMonitor:
             return SpeedConverter.convert(float(value), unit, UnitOfSpeed.KILOMETERS_PER_HOUR)
         except (TypeError, ValueError):
             return None
+
+
+class WindHistory:
+    """Hourly mean wind speeds from the long-term statistics of the recorder."""
+
+    def __init__(self, entry_id: str, config: SensorsConfig) -> None:
+        self._entry_id = entry_id
+        self._sensor_ids = [entity_id for entity_id in WindMonitor.sources(config) if entity_id.startswith(f"{sensor.DOMAIN}.")]
+
+    @staticmethod
+    def hour(timestamp: float) -> float:
+        """Return the start of the hour that holds the timestamp."""
+        return float(int(timestamp // WIND_HISTORY_INTERVAL_SECONDS) * WIND_HISTORY_INTERVAL_SECONDS)
+
+    @staticmethod
+    def hourly(rows: Mapping[str, list[dict]], statistic_ids: list[str]) -> dict[float, WindReading]:
+        """Merge the hourly means, where an earlier statistic takes precedence over a later one."""
+        readings: dict[float, WindReading] = {}
+
+        for statistic_id in statistic_ids:
+            for row in rows.get(statistic_id, []):
+                if row.get("mean") is not None:
+                    readings.setdefault(WindHistory.hour(row["start"]), WindReading(speed=round(row["mean"], 1), entity_id=statistic_id))
+
+        return readings
+
+    async def async_hourly(self, hass: HomeAssistant, start: float) -> dict[float, WindReading]:
+        """Return the hourly mean wind speeds since the start, or nothing without a recorder."""
+        if RECORDER_DOMAIN not in hass.config.components:
+            return {}
+
+        mirror_id = er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{self._entry_id}-wind-speed")
+        statistic_ids = [*self._sensor_ids, *([mirror_id] if mirror_id is not None else [])]
+
+        if not statistic_ids:
+            return {}
+
+        try:
+            rows = await self._async_load_statistics(hass, set(statistic_ids), start)
+        except Exception as exception:
+            _LOGGER.warning("Unable to load wind speed statistics: %s", exception)
+            return {}
+
+        return self.hourly(rows, statistic_ids)
+
+    @staticmethod
+    async def _async_load_statistics(hass: HomeAssistant, statistic_ids: set[str], start: float) -> dict[str, list[dict]]:
+        # The recorder and its requirements may be absent, so they can only be imported once it is known to be loaded.
+        from homeassistant.components.recorder import get_instance
+        from homeassistant.components.recorder.statistics import statistics_during_period
+
+        return await get_instance(hass).async_add_executor_job(
+            statistics_during_period,
+            hass,
+            dt_util.utc_from_timestamp(WindHistory.hour(start)),
+            None,
+            statistic_ids,
+            "hour",
+            {SpeedConverter.UNIT_CLASS: UnitOfSpeed.KILOMETERS_PER_HOUR},
+            {"mean"},
+        )

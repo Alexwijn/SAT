@@ -34,7 +34,7 @@ from custom_components.sat.const import (
     SERVICE_PULSE_WIDTH_MODULATION,
     SERVICE_RESET_INTEGRAL,
 )
-from custom_components.sat.heating_curve import HeatingCurve
+from custom_components.sat.heating_curve import HeatingCurve, HeatingCurveAdviceSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.temperature.history import TemperatureHistory
 from custom_components.sat.temperature.state import TemperatureState
@@ -42,7 +42,7 @@ from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.pid import PID
 from custom_components.sat.types import HeaterState
 from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
-from custom_components.sat.wind import WindReading
+from custom_components.sat.wind import WindHistory, WindReading
 
 pytestmark = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
@@ -414,6 +414,28 @@ def test_curve_advice_sample_carries_the_current_wind(monkeypatch, climate):
     climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
 
     assert recorded[0].wind == WindReading(speed=42.0, entity_id="weather.home")
+
+
+async def test_curve_advisor_wind_is_filled_in_from_the_recorder(monkeypatch, climate):
+    sample = HeatingCurveAdviceSample(shape=10.0, timestamp=timestamp() - 7200.0, correction=1.0)
+    climate.curve_advisor._samples.append(sample)
+    hourly = {WindHistory.hour(sample.timestamp): WindReading(speed=33.0, entity_id="sensor.wind")}
+    monkeypatch.setattr(climate._wind_history, "async_hourly", AsyncMock(return_value=hourly))
+
+    await climate._async_backfill_curve_advisor_wind()
+
+    climate._wind_history.async_hourly.assert_awaited_once_with(climate.hass, sample.timestamp)
+    assert climate.curve_advisor._samples[-1].wind == WindReading(speed=33.0, entity_id="sensor.wind")
+
+
+async def test_curve_advisor_wind_backfill_skips_the_recorder_when_nothing_is_missing(monkeypatch, climate):
+    monkeypatch.setattr(climate._wind_history, "async_hourly", AsyncMock(return_value={}))
+
+    await climate._async_backfill_curve_advisor_wind()
+
+    climate._wind_history.async_hourly.assert_not_awaited()
+
+
 
 
 def test_curve_advice_sample_skipped_while_room_is_far_from_setpoint(monkeypatch, climate):

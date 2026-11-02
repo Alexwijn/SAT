@@ -15,7 +15,7 @@ from custom_components.sat.heating_curve import (
 )
 from custom_components.sat.helpers import timestamp, weighted_median
 from custom_components.sat.types import HeatingCurveConfidence, HeatingCurveRecommendation, HeatingSystem
-from custom_components.sat.wind import WindReading
+from custom_components.sat.wind import WindHistory, WindReading
 
 DAY_SECONDS = 24 * 60 * 60
 SHAPE = HeatingCurve.calculate(21.0, 5.0)
@@ -266,6 +266,41 @@ def test_daily_wind_speed_is_the_median_of_the_samples_with_wind():
 
     assert list(advisor.advice.daily_wind_speeds.values()) == [20.0]
     assert len(advisor.advice.daily_coefficients) == 2
+
+
+def test_backfill_gives_samples_without_wind_the_mean_of_their_hour():
+    advisor = HeatingCurveAdvisor(coefficient=1.8)
+    known = WindReading(speed=5.0, entity_id="sensor.wind")
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=START, correction=5.0))
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=START + 3600.0, correction=5.0, wind=known))
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=START + 7200.0, correction=5.0))
+
+    assert advisor.first_timestamp_without_wind == START
+
+    hourly = {WindHistory.hour(START): WindReading(speed=30.0, entity_id="sensor.sat_wind_speed"), WindHistory.hour(START + 3600.0): WindReading(speed=99.0, entity_id="sensor.sat_wind_speed")}
+
+    assert advisor.backfill_wind(hourly) == 1
+    assert [sample.wind for sample in advisor._samples] == [WindReading(speed=30.0, entity_id="sensor.sat_wind_speed"), known, None]
+    assert advisor.first_timestamp_without_wind == START + 7200.0
+
+
+def test_backfill_refreshes_the_daily_wind_speeds():
+    advisor = HeatingCurveAdvisor(coefficient=1.8)
+    _fill(advisor, 5.0, days=1, count=RECOMMENDATION_MINIMUM_DAILY_SAMPLES)
+
+    assert advisor.advice.daily_wind_speeds == {}
+
+    advisor.backfill_wind({WindHistory.hour(sample.timestamp): WindReading(speed=12.0, entity_id="sensor.wind") for sample in advisor._samples})
+
+    assert list(advisor.advice.daily_wind_speeds.values()) == [12.0]
+
+
+def test_backfill_without_history_changes_nothing():
+    advisor = HeatingCurveAdvisor(coefficient=1.8)
+    _fill(advisor, 5.0, days=1, count=3)
+
+    assert advisor.backfill_wind({}) == 0
+    assert advisor.first_timestamp_without_wind == START
 
 
 async def test_advisor_saves_periodically_while_recording(hass):
