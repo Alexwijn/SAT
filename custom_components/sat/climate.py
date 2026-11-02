@@ -56,6 +56,7 @@ from .temperature.history import TemperatureStatistics
 from .temperature.state import TemperatureState
 from .types import PWMStatus, HeatingMode
 from .warm_up import WarmUpEstimator, WARM_UP_MINIMUM_ERROR_CELSIUS
+from .wind import WindMonitor, WindReading
 
 ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
@@ -139,6 +140,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.areas = Areas.from_config(self._config)
         self.heating_curve = HeatingCurve.from_config(self._config)
         self.pid = PID.from_config(self.heating_curve, self._config)
+        self._wind = WindMonitor(self._config.sensors)
         self._solar_gain = SolarGainController(self._config.solar_gain)
         self._curve_advisor = HeatingCurveAdvisor(self._config.pid.heating_curve_coefficient)
         self._curve_advice_sample: Optional[HeatingCurveAdviceSample] = None
@@ -288,6 +290,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "heating_curve": self.heating_curve.value,
             "requested_setpoint": self.requested_setpoint,
             "outside_temperature": self.current_outside_temperature,
+            "wind_speed": self.current_wind.speed if self.current_wind is not None else None,
 
             "solar_gain_active": self._solar_gain_snapshot.active,
             "solar_gain_sun_elevation": self._solar_gain_snapshot.sun_elevation,
@@ -415,6 +418,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 return float(state.attributes.get("temperature"))
 
         return None
+
+    @property
+    def current_wind(self) -> Optional[WindReading]:
+        """Return the wind speed averaged over the last hour"""
+        return self._wind.reading
 
     @property
     def target_temperature_step(self) -> float:
@@ -611,6 +619,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return
 
         now = event_timestamp(_time)
+        self._wind.observe(self.hass, now)
         self._solar_gain_snapshot = self._solar_gain.update(
             SolarGainSignals(
                 sample=SolarGainSample(temperature=temperature_state.current, timestamp=now),
@@ -749,6 +758,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return HeatingCurveAdviceSample(
             shape=shape,
             timestamp=now,
+            wind=self.current_wind,
             correction=self.pid.output - curve_value,
         )
 

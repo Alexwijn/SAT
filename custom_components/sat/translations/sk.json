@@ -142,14 +142,16 @@
         "data": {
           "humidity_sensor_entity_id": "Entita snímača vlhkosti",
           "inside_sensor_entity_id": "Vnútorná entita senzora",
-          "outside_sensor_entity_id": "Entita vonkajšieho senzora"
+          "outside_sensor_entity_id": "Entita vonkajšieho senzora",
+          "wind_sensor_entity_id": "Entita snímača vetra"
         },
         "data_description": {
           "inside_sensor_entity_id": "Primárny vnútorný teplotný senzor.",
           "outside_sensor_entity_id": "Vonkajší senzor alebo entita počasia (možno vybrať viac).",
-          "humidity_sensor_entity_id": "Voliteľný senzor vlhkosti."
+          "humidity_sensor_entity_id": "Voliteľný senzor vlhkosti.",
+          "wind_sensor_entity_id": "Voliteľný snímač rýchlosti vetra alebo entita počasia (možno vybrať viac). Vyberte priemernú rýchlosť vetra, nie nárazy. Ak zostane prázdne, použije sa rýchlosť vetra entity počasia spomedzi vonkajších senzorov."
         },
-        "description": "Vyberte vnútorný senzor, vonkajší senzor(y) a voliteľný senzor vlhkosti.",
+        "description": "Vyberte vnútorný senzor, vonkajší senzor(y), voliteľný senzor vlhkosti a voliteľné snímače vetra.",
         "title": "Nakonfigurujte senzory"
       },
       "serial": {

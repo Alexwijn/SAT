@@ -35,6 +35,7 @@ class SensorsConfig:
     inside_sensor_entity_id: str
     humidity_sensor_entity_id: Optional[str]
     outside_sensor_entity_id: list[str] | str
+    wind_sensor_entity_id: list[str]
 
     sensor_max_value_age_seconds: float
     window_minimum_open_time_seconds: float
@@ -195,6 +196,7 @@ class SatConfig:
             inside_sensor_entity_id=self.data[CONF_INSIDE_SENSOR_ENTITY_ID],
             humidity_sensor_entity_id=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID),
             outside_sensor_entity_id=self.data[CONF_OUTSIDE_SENSOR_ENTITY_ID],
+            wind_sensor_entity_id=list(self.data.get(CONF_WIND_SENSOR_ENTITY_ID) or []),
 
             window_minimum_open_time_seconds=convert_time_str_to_seconds(
                 self.options.get(CONF_WINDOW_MINIMUM_OPEN_TIME)

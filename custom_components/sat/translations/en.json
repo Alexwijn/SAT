@@ -142,14 +142,16 @@
         "data": {
           "humidity_sensor_entity_id": "Humidity Sensor Entity",
           "inside_sensor_entity_id": "Inside Sensor Entity",
-          "outside_sensor_entity_id": "Outside Sensor Entity"
+          "outside_sensor_entity_id": "Outside Sensor Entity",
+          "wind_sensor_entity_id": "Wind Sensor Entity"
         },
         "data_description": {
           "inside_sensor_entity_id": "Primary indoor temperature sensor.",
           "outside_sensor_entity_id": "Outdoor sensor or weather entity (you can select multiple).",
-          "humidity_sensor_entity_id": "Optional humidity sensor."
+          "humidity_sensor_entity_id": "Optional humidity sensor.",
+          "wind_sensor_entity_id": "Optional wind speed sensor or weather entity (you can select multiple). Pick the sustained wind speed, not gusts. When left empty, the wind speed of a weather entity among the outside sensors is used."
         },
-        "description": "Select the inside sensor, the outside sensor(s), and an optional humidity sensor.",
+        "description": "Select the inside sensor, the outside sensor(s), an optional humidity sensor, and optional wind sensor(s).",
         "title": "Configure sensors"
       },
       "serial": {

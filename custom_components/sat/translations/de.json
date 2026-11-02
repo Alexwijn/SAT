@@ -142,14 +142,16 @@
         "data": {
           "humidity_sensor_entity_id": "Feuchtigkeitssensor-Entität",
           "inside_sensor_entity_id": "Innensensor-Entität",
-          "outside_sensor_entity_id": "Außensensor-Entität"
+          "outside_sensor_entity_id": "Außensensor-Entität",
+          "wind_sensor_entity_id": "Windsensor-Entität"
         },
         "data_description": {
           "inside_sensor_entity_id": "Primärer Innentemperatursensor.",
           "outside_sensor_entity_id": "Außensensor oder Wetter-Entität (Mehrfachauswahl möglich).",
-          "humidity_sensor_entity_id": "Optionaler Feuchtigkeitssensor."
+          "humidity_sensor_entity_id": "Optionaler Feuchtigkeitssensor.",
+          "wind_sensor_entity_id": "Optionaler Windgeschwindigkeitssensor oder Wetter-Entität (Mehrfachauswahl möglich). Wählen Sie die mittlere Windgeschwindigkeit, nicht die Böen. Bleibt das Feld leer, wird die Windgeschwindigkeit einer Wetter-Entität unter den Außensensoren verwendet."
         },
-        "description": "Wählen Sie den Innensensor, die Außensensor(en) und optional den Feuchtigkeitssensor.",
+        "description": "Wählen Sie den Innensensor, die Außensensor(en), optional den Feuchtigkeitssensor und optional Windsensor(en).",
         "title": "Sensoren konfigurieren"
       },
       "serial": {

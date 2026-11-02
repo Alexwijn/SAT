@@ -95,6 +95,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             "target_temperature": _safe(lambda: climate.target_temperature),
             "current_temperature": _safe(lambda: climate.current_temperature),
             "outside_temperature": _safe(lambda: climate.current_outside_temperature),
+            "wind": _safe(lambda: asdict(climate.current_wind) if climate.current_wind is not None else None),
             "requested_setpoint": _safe(lambda: climate.requested_setpoint),
             "valves_open": _safe(lambda: climate.valves_open),
             "heating_curve_value": _safe(lambda: climate.heating_curve.value),
@@ -113,6 +114,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
                 "estimated_coefficient": advice.estimated_coefficient,
                 "suggested_coefficient": advice.suggested_coefficient,
                 "daily_coefficients": dict(advice.daily_coefficients),
+                "daily_wind_speeds": dict(advice.daily_wind_speeds),
             },
             "efficiency": _safe(lambda: {**asdict(climate.efficiency.report), "change_percentage": climate.efficiency.report.change_percentage}),
             "preheat": _safe(lambda: {

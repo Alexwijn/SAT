@@ -647,6 +647,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
             "estimated_coefficient": advice.estimated_coefficient,
             "suggested_coefficient": advice.suggested_coefficient,
             "daily_coefficients": dict(advice.daily_coefficients),
+            "daily_wind_speeds": dict(advice.daily_wind_speeds),
 
             "recent_mean_error": recent.mean_error,
             "recent_sample_count": recent.sample_count,

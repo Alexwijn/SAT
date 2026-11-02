@@ -142,14 +142,16 @@
         "data": {
           "humidity_sensor_entity_id": "Entidad del Sensor de Humedad",
           "inside_sensor_entity_id": "Entidad del Sensor Interior",
-          "outside_sensor_entity_id": "Entidad del Sensor Exterior"
+          "outside_sensor_entity_id": "Entidad del Sensor Exterior",
+          "wind_sensor_entity_id": "Entidad del Sensor de Viento"
         },
         "data_description": {
           "inside_sensor_entity_id": "Sensor principal de temperatura interior.",
           "outside_sensor_entity_id": "Sensor exterior o entidad de clima (puede seleccionar varios).",
-          "humidity_sensor_entity_id": "Sensor de humedad opcional."
+          "humidity_sensor_entity_id": "Sensor de humedad opcional.",
+          "wind_sensor_entity_id": "Sensor de velocidad del viento o entidad de clima opcional (puede seleccionar varios). Elija la velocidad media del viento, no las ráfagas. Si se deja vacío, se usa la velocidad del viento de una entidad de clima entre los sensores exteriores."
         },
-        "description": "Seleccione el sensor interior, el/los sensores exteriores y un sensor de humedad opcional.",
+        "description": "Seleccione el sensor interior, el/los sensores exteriores, un sensor de humedad opcional y sensor(es) de viento opcionales.",
         "title": "Configurar sensores"
       },
       "serial": {

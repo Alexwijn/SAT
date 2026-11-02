@@ -142,14 +142,16 @@
         "data": {
           "humidity_sensor_entity_id": "Entité du capteur d'humidité",
           "inside_sensor_entity_id": "Entité du capteur intérieur",
-          "outside_sensor_entity_id": "Entité du capteur extérieur"
+          "outside_sensor_entity_id": "Entité du capteur extérieur",
+          "wind_sensor_entity_id": "Entité du capteur de vent"
         },
         "data_description": {
           "inside_sensor_entity_id": "Capteur de température intérieur principal.",
           "outside_sensor_entity_id": "Capteur extérieur ou entité météo (sélection multiple possible).",
-          "humidity_sensor_entity_id": "Capteur d’humidité optionnel."
+          "humidity_sensor_entity_id": "Capteur d’humidité optionnel.",
+          "wind_sensor_entity_id": "Capteur de vitesse du vent ou entité météo optionnel (sélection multiple possible). Choisissez la vitesse moyenne du vent, pas les rafales. S’il reste vide, la vitesse du vent d’une entité météo parmi les capteurs extérieurs est utilisée."
         },
-        "description": "Sélectionnez le capteur intérieur, le(s) capteur(s) extérieur(s) et un capteur d’humidité optionnel.",
+        "description": "Sélectionnez le capteur intérieur, le(s) capteur(s) extérieur(s), un capteur d’humidité optionnel et des capteurs de vent optionnels.",
         "title": "Configurer les capteurs"
       },
       "serial": {

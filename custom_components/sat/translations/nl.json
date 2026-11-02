@@ -142,14 +142,16 @@
         "data": {
           "humidity_sensor_entity_id": "Vochtigheidssensor Entiteit",
           "inside_sensor_entity_id": "Binnensensor Entiteit",
-          "outside_sensor_entity_id": "Buitensensor Entiteit"
+          "outside_sensor_entity_id": "Buitensensor Entiteit",
+          "wind_sensor_entity_id": "Windsensor Entiteit"
         },
         "data_description": {
           "inside_sensor_entity_id": "Primaire binnentemperatuursensor.",
           "outside_sensor_entity_id": "Buitensensor of weer-entiteit (meervoudige selectie mogelijk).",
-          "humidity_sensor_entity_id": "Optionele vochtigheidssensor."
+          "humidity_sensor_entity_id": "Optionele vochtigheidssensor.",
+          "wind_sensor_entity_id": "Optionele windsnelheidssensor of weer-entiteit (meervoudige selectie mogelijk). Kies de gemiddelde windsnelheid, niet de windstoten. Als dit leeg blijft, wordt de windsnelheid van een weer-entiteit uit de buitensensoren gebruikt."
         },
-        "description": "Selecteer de binnensensor, de buitensensor(en) en een optionele vochtigheidssensor.",
+        "description": "Selecteer de binnensensor, de buitensensor(en), een optionele vochtigheidssensor en optionele windsensor(en).",
         "title": "Configureer sensoren"
       },
       "serial": {

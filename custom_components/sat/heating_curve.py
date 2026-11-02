@@ -11,6 +11,7 @@ from homeassistant.util import dt as dt_util
 from . import SatConfig
 from .helpers import clamp, timestamp, weighted_median
 from .types import HeatingCurveConfidence, HeatingCurveRecommendation, HeatingSystem
+from .wind import WindReading
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class HeatingCurveAdviceSample:
     shape: float
     timestamp: float
     correction: float
+    wind: Optional[WindReading] = None
 
     @property
     def coefficient_delta(self) -> float:
@@ -98,6 +100,7 @@ class HeatingCurveDailyEstimate:
 
     sample_count: int
     coefficient_delta: float
+    wind_speed: Optional[float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +115,7 @@ class HeatingCurveAdvice:
     estimated_coefficient: Optional[float]
     suggested_coefficient: Optional[float]
     daily_coefficients: Mapping[str, float]
+    daily_wind_speeds: Mapping[str, float]
 
 
 class HeatingCurveAdvisor:
@@ -150,10 +154,7 @@ class HeatingCurveAdvisor:
         if data.get("coefficient") != self._coefficient:
             return
 
-        self._samples = deque(
-            HeatingCurveAdviceSample(shape=sample["shape"], timestamp=sample["timestamp"], correction=sample["correction"])
-            for sample in data.get("samples", [])
-        )
+        self._samples = deque(self._sample_from_data(sample) for sample in data.get("samples", []))
 
         self._prune(timestamp())
         self._advice = None
@@ -199,11 +200,23 @@ class HeatingCurveAdvisor:
     def _data_to_save(self) -> dict:
         return {
             "coefficient": self._coefficient,
-            "samples": [
-                {"shape": sample.shape, "timestamp": sample.timestamp, "correction": sample.correction}
-                for sample in list(self._samples)
-            ],
+            "samples": [self._sample_to_data(sample) for sample in list(self._samples)],
         }
+
+    @staticmethod
+    def _sample_to_data(sample: HeatingCurveAdviceSample) -> dict:
+        data = {"shape": sample.shape, "timestamp": sample.timestamp, "correction": sample.correction}
+
+        if sample.wind is not None:
+            data.update({"wind_speed": sample.wind.speed, "wind_entity_id": sample.wind.entity_id})
+
+        return data
+
+    @staticmethod
+    def _sample_from_data(data: dict) -> HeatingCurveAdviceSample:
+        wind = WindReading(speed=data["wind_speed"], entity_id=data["wind_entity_id"]) if data.get("wind_speed") is not None else None
+
+        return HeatingCurveAdviceSample(shape=data["shape"], timestamp=data["timestamp"], correction=data["correction"], wind=wind)
 
     @property
     def advice(self) -> HeatingCurveAdvice:
@@ -243,6 +256,7 @@ class HeatingCurveAdvisor:
             estimated_coefficient=estimated_coefficient,
             suggested_coefficient=self._suggested_for(recommendation, estimated_coefficient),
             daily_coefficients=self._daily_coefficients(estimates),
+            daily_wind_speeds=self._daily_wind_speeds(estimates),
         )
 
     def _insufficient(self, samples: list[HeatingCurveAdviceSample], estimates: Mapping[str, HeatingCurveDailyEstimate], estimated_coefficient: Optional[float]) -> HeatingCurveAdvice:
@@ -255,6 +269,7 @@ class HeatingCurveAdvisor:
             estimated_coefficient=estimated_coefficient,
             suggested_coefficient=None,
             daily_coefficients=self._daily_coefficients(estimates),
+            daily_wind_speeds=self._daily_wind_speeds(estimates),
         )
 
     @staticmethod
@@ -266,6 +281,10 @@ class HeatingCurveAdvisor:
 
     def _daily_coefficients(self, estimates: Mapping[str, HeatingCurveDailyEstimate]) -> dict[str, float]:
         return {day: self._coefficient_for(estimate.coefficient_delta) for day, estimate in estimates.items()}
+
+    @staticmethod
+    def _daily_wind_speeds(estimates: Mapping[str, HeatingCurveDailyEstimate]) -> dict[str, float]:
+        return {day: estimate.wind_speed for day, estimate in estimates.items() if estimate.wind_speed is not None}
 
     @staticmethod
     def _daily_estimates(samples: list[HeatingCurveAdviceSample]) -> dict[str, HeatingCurveDailyEstimate]:
@@ -282,9 +301,17 @@ class HeatingCurveAdvisor:
                     [sample.coefficient_delta for sample in day_samples],
                     [sample.shape for sample in day_samples],
                 ),
+                wind_speed=HeatingCurveAdvisor._median_wind_speed(day_samples),
             )
             for day, day_samples in sorted(grouped.items())
         }
+
+    @staticmethod
+    def _median_wind_speed(samples: list[HeatingCurveAdviceSample]) -> Optional[float]:
+        if not (speeds := [sample.wind.speed for sample in samples if sample.wind is not None]):
+            return None
+
+        return round(float(median(speeds)), 1)
 
     def _coefficient_for(self, coefficient_delta: float) -> float:
         return round(clamp(self._coefficient + coefficient_delta, MINIMUM_COEFFICIENT, MAXIMUM_COEFFICIENT), 1)

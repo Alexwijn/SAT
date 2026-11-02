@@ -15,6 +15,7 @@ from custom_components.sat.heating_curve import (
 )
 from custom_components.sat.helpers import timestamp, weighted_median
 from custom_components.sat.types import HeatingCurveConfidence, HeatingCurveRecommendation, HeatingSystem
+from custom_components.sat.wind import WindReading
 
 DAY_SECONDS = 24 * 60 * 60
 SHAPE = HeatingCurve.calculate(21.0, 5.0)
@@ -235,6 +236,36 @@ async def test_advisor_persists_and_restores_samples(hass):
 
     assert restored.advice.sample_count == advisor.advice.sample_count
     assert restored.advice.recommendation is advisor.advice.recommendation
+
+
+async def test_advisor_persists_and_restores_the_wind_of_each_sample(hass):
+    advisor = HeatingCurveAdvisor(coefficient=1.8)
+    await advisor.async_added_to_hass(hass, "entry4")
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=START, correction=5.0, wind=WindReading(speed=32.5, entity_id="weather.home")))
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=START + RECOMMENDATION_SAMPLE_INTERVAL_SECONDS, correction=5.0))
+    await advisor._store.async_save(advisor._data_to_save())
+
+    restored = HeatingCurveAdvisor(coefficient=1.8)
+    await restored.async_added_to_hass(hass, "entry4")
+
+    assert [sample.wind for sample in restored._samples] == [WindReading(speed=32.5, entity_id="weather.home"), None]
+
+
+def test_daily_wind_speed_is_the_median_of_the_samples_with_wind():
+    advisor = HeatingCurveAdvisor(coefficient=1.8)
+
+    for day, speeds in enumerate(([10.0, 20.0, 60.0], [None, None, None])):
+        for index in range(RECOMMENDATION_MINIMUM_DAILY_SAMPLES):
+            speed = speeds[index % len(speeds)]
+            advisor.record(HeatingCurveAdviceSample(
+                shape=SHAPE,
+                correction=5.0,
+                timestamp=START + day * DAY_SECONDS + index * RECOMMENDATION_SAMPLE_INTERVAL_SECONDS,
+                wind=WindReading(speed=speed, entity_id="weather.home") if speed is not None else None,
+            ))
+
+    assert list(advisor.advice.daily_wind_speeds.values()) == [20.0]
+    assert len(advisor.advice.daily_coefficients) == 2
 
 
 async def test_advisor_saves_periodically_while_recording(hass):

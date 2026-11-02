@@ -42,6 +42,7 @@ from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.pid import PID
 from custom_components.sat.types import HeaterState
 from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
+from custom_components.sat.wind import WindReading
 
 pytestmark = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
@@ -404,6 +405,15 @@ def test_curve_advice_sample_recorded_without_a_sun_entity(monkeypatch, climate)
     climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
 
     assert len(recorded) == 1
+
+
+def test_curve_advice_sample_carries_the_current_wind(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    monkeypatch.setattr(type(climate), "current_wind", property(lambda self: WindReading(speed=42.0, entity_id="weather.home")))
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.7, 21.0))
+
+    assert recorded[0].wind == WindReading(speed=42.0, entity_id="weather.home")
 
 
 def test_curve_advice_sample_skipped_while_room_is_far_from_setpoint(monkeypatch, climate):

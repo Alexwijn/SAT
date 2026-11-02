@@ -29,7 +29,7 @@ It can also function as a PID ON/OFF thermostat, providing advanced temperature 
 OpenTherm ( MQTT / Serial / ESPHome / EMS-ESP / OTThing ):
 - Multi-room temperature control with support for temperature synchronization for main climates
 - Adjustable heating curve coefficients to fine-tune your heating system
-- Heating curve recommendation with a suggested coefficient, learned from a week of steady heating after sunset, only while the boiler answers the main climate, and weighed per day so one stormy day cannot skew it
+- Heating curve recommendation with a suggested coefficient, learned from a week of steady heating after sunset, only while the boiler answers the main climate, and weighed per day so one stormy day cannot skew it. Each day also shows its median wind speed, so you can see how wind changes the heat your house needs
 - Target temperature step for adjusting the temperature in smaller increments
 - Presets for different modes such as Away, Sleep, Home, Comfort
 - Automatic gains for PID control
@@ -198,6 +198,7 @@ For more information about which other entities are available for OpenTherm plea
     - Inside Temperature sensor ( Your Room Temperature sensor )
     - Outside Temperature sensor ( Your Outside Temperature sensor )
     - Inside Humidity Sensor ( Your Room Humidity sensor )
+    - Wind Sensor ( Optional wind speed sensor or weather entity; when empty, the wind speed of a weather entity among the outside sensors is used )
 
 > [!NOTE]
 > For better results use an Inside Temperature sensor that reports two decimals and has a refresh rate of 30 seconds.
@@ -237,6 +238,7 @@ The PID ON/OFF mode allows SAT to control any switch, valve, or input_boolean en
     - Inside Temperature sensor ( Your Room Temperature sensor )
     - Outside Temperature sensor ( Your Outside Temperature sensor )
     - Inside Humidity Sensor ( Your Room Humidity sensor )
+    - Wind Sensor ( Optional wind speed sensor or weather entity; when empty, the wind speed of a weather entity among the outside sensors is used )
 
 3. Heating System: Select Radiators, Heat Pump, or Underfloor.
 

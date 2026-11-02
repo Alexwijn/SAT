@@ -361,6 +361,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if _user_input.get(CONF_HUMIDITY_SENSOR_ENTITY_ID) is None:
                 self.data[CONF_HUMIDITY_SENSOR_ENTITY_ID] = None
 
+            if _user_input.get(CONF_WIND_SENSOR_ENTITY_ID) is None:
+                self.data[CONF_WIND_SENSOR_ENTITY_ID] = []
+
             if self.data[CONF_MODE] in [
                 SatMode.ESPHOME,
                 SatMode.MQTT_OPENTHERM,
@@ -394,7 +397,16 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         domain=sensor.DOMAIN,
                         device_class=[sensor.SensorDeviceClass.HUMIDITY],
                     )
-                )
+                ),
+                vol.Optional(CONF_WIND_SENSOR_ENTITY_ID): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        multiple=True,
+                        filter=[
+                            selector.EntityFilterSelectorConfig(domain=weather.DOMAIN),
+                            selector.EntityFilterSelectorConfig(domain=sensor.DOMAIN, device_class=sensor.SensorDeviceClass.WIND_SPEED),
+                        ],
+                    )
+                ),
             }), self.data),
         )
 
