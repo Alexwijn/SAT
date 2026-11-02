@@ -178,6 +178,8 @@ async def test_seasonal_coefficient_sensor_exposes_the_fit(hass, climate, coordi
     state = hass.states.get(entity_id)
     assert state.state == "2.4"
     assert state.attributes["hours"] == 60
+    assert state.attributes["minimum_days"] == 5
+    assert state.attributes["minimum_hours"] == 48
     assert state.attributes["curve_mismatch"] is False
     assert state.attributes["bins"] == [{"minimum_temperature": 3, "coefficient": 2.4, "hours": 60}]
 

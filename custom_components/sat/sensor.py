@@ -20,6 +20,7 @@ from .entity import SatClimateEntity, SatEntity, SatHeatingControlEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
+from .seasonal_curve import MINIMUM_DAYS as SEASONAL_MINIMUM_DAYS, MINIMUM_HOURS as SEASONAL_MINIMUM_HOURS
 from .helpers import timestamp
 from .room_balance import MAIN_ROOM_ID
 from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation, RoomBalanceStatus
@@ -243,6 +244,8 @@ class SatSeasonalCurveCoefficientSensor(SatClimateEntity, SensorEntity):
         return {
             "days": fit.days,
             "hours": fit.hours,
+            "minimum_days": SEASONAL_MINIMUM_DAYS,
+            "minimum_hours": SEASONAL_MINIMUM_HOURS,
             "cold_coefficient": fit.cold_coefficient,
             "mild_coefficient": fit.mild_coefficient,
             "curve_mismatch": fit.is_mismatch,
