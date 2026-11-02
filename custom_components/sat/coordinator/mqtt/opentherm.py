@@ -12,6 +12,7 @@ from ...types import HeaterState
 
 STATE_ON = "ON"
 
+DATA_FAULT = "fault"
 DATA_FLAME_ACTIVE = "flame"
 DATA_DHW_SETPOINT = "TdhwSet"
 DATA_CONTROL_SETPOINT = "TSet"
@@ -23,6 +24,7 @@ DATA_DHW_ENABLE = "domestichotwater"
 DATA_CENTRAL_HEATING = "centralheating"
 DATA_CENTRAL_HEATING_WATER_PRESSURE = "CHPressure"
 DATA_SLAVE_MEMBERID = "slave_memberid_code"
+DATA_OEM_FAULT_CODE = "ASF_oemfaultcode"
 DATA_BOILER_CAPACITY = "MaxCapacityMinModLevel_hb_u8"
 DATA_REL_MIN_MOD_LEVEL = "MaxCapacityMinModLevel_lb_u8"
 DATA_REL_MIN_MOD_LEVEL_LEGACY = "MaxCapacityMinModLevell_lb_u8"
@@ -71,6 +73,20 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
     @property
     def supports_hot_water_management(self) -> bool:
         return True
+
+    @property
+    def fault_active(self) -> Optional[bool]:
+        if (fault := self.data.get(DATA_FAULT)) is None:
+            return None
+
+        return fault == STATE_ON
+
+    @property
+    def fault_code(self) -> Optional[int]:
+        if (code := self.data.get(DATA_OEM_FAULT_CODE)) is not None:
+            return int(code)
+
+        return None
 
     @property
     def hot_water_enabled(self) -> Optional[bool]:
@@ -184,6 +200,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
 
     def get_tracked_entities(self) -> list[str]:
         return [
+            DATA_FAULT,
             DATA_FLAME_ACTIVE,
             DATA_DHW_SETPOINT,
             DATA_CONTROL_SETPOINT,
@@ -195,6 +212,7 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
             DATA_CENTRAL_HEATING,
             DATA_CENTRAL_HEATING_WATER_PRESSURE,
             DATA_SLAVE_MEMBERID,
+            DATA_OEM_FAULT_CODE,
             DATA_BOILER_CAPACITY,
             DATA_REL_MIN_MOD_LEVEL,
             DATA_REL_MIN_MOD_LEVEL_LEGACY,

@@ -16,9 +16,11 @@ from custom_components.sat.coordinator.mqtt.opentherm import (
     DATA_DHW_SETPOINT,
     DATA_DHW_SETPOINT_MAXIMUM,
     DATA_DHW_SETPOINT_MINIMUM,
+    DATA_FAULT,
     DATA_FLAME_ACTIVE,
     DATA_MAXIMUM_CONTROL_SETPOINT,
     DATA_MAX_REL_MOD_LEVEL_SETTING,
+    DATA_OEM_FAULT_CODE,
     DATA_REL_MIN_MOD_LEVEL,
     DATA_REL_MIN_MOD_LEVEL_LEGACY,
     DATA_REL_MOD_LEVEL,
@@ -143,6 +145,27 @@ def test_member_id(coordinator):
 
 def test_member_id_none(coordinator):
     assert coordinator.member_id is None
+
+
+def test_fault_unknown_until_reported(coordinator):
+    assert coordinator.fault_active is None
+    assert coordinator.fault_code is None
+
+
+def test_fault_reported(coordinator):
+    coordinator._process_message_payload(DATA_FAULT, "ON")
+    coordinator._process_message_payload(DATA_OEM_FAULT_CODE, "42")
+    assert coordinator.fault_active is True
+    assert coordinator.fault_code == 42
+
+
+def test_fault_cleared(coordinator):
+    coordinator._process_message_payload(DATA_FAULT, "OFF")
+    assert coordinator.fault_active is False
+
+
+def test_fault_topics_are_tracked(coordinator):
+    assert {DATA_FAULT, DATA_OEM_FAULT_CODE} <= set(coordinator.get_tracked_entities())
 
 
 def test_dhw_setpoint_bounds(coordinator):
