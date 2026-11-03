@@ -18,6 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 RECOMMENDATION_WINDOW_SECONDS = 7 * 24 * 60 * 60
 RECOMMENDATION_SAMPLE_INTERVAL_SECONDS = 60.0
+RECOMMENDATION_COEFFICIENT_SETTLE_SECONDS = 3 * 60 * 60
 RECOMMENDATION_MINIMUM_DAYS = 2
 RECOMMENDATION_HIGH_CONFIDENCE_DAYS = 3
 RECOMMENDATION_MINIMUM_SAMPLES = 180
@@ -141,6 +142,7 @@ class HeatingCurveAdvisor:
         self._store: Optional[Store] = None
         self._hass: Optional[HomeAssistant] = None
         self._saved_at: Optional[float] = None
+        self._coefficient_changed_at: Optional[float] = None
         self._lock = threading.Lock()
         self._advice: Optional[HeatingCurveAdvice] = None
         self._samples: Deque[HeatingCurveAdviceSample] = deque()
@@ -154,8 +156,11 @@ class HeatingCurveAdvisor:
             return
 
         if data.get("coefficient") != self._coefficient:
+            self._coefficient_changed_at = timestamp()
+            self._store.async_delay_save(self._data_to_save)
             return
 
+        self._coefficient_changed_at = data.get("coefficient_changed_at")
         self._samples = deque(self._sample_from_data(sample) for sample in data.get("samples", []))
 
         self._prune(timestamp())
@@ -165,7 +170,7 @@ class HeatingCurveAdvisor:
 
     def record(self, sample: HeatingCurveAdviceSample) -> None:
         """Record the correction the PID currently applies on top of the curve."""
-        if sample.shape < RECOMMENDATION_MINIMUM_SHAPE:
+        if sample.shape < RECOMMENDATION_MINIMUM_SHAPE or self._settling(sample.timestamp):
             return
 
         with self._lock:
@@ -177,6 +182,9 @@ class HeatingCurveAdvisor:
             self._advice = None
 
         self._schedule_save(sample.timestamp)
+
+    def _settling(self, now: float) -> bool:
+        return self._coefficient_changed_at is not None and (now - self._coefficient_changed_at) < RECOMMENDATION_COEFFICIENT_SETTLE_SECONDS
 
     @property
     def first_timestamp_without_wind(self) -> Optional[float]:
@@ -226,6 +234,7 @@ class HeatingCurveAdvisor:
     def _data_to_save(self) -> dict:
         return {
             "coefficient": self._coefficient,
+            "coefficient_changed_at": self._coefficient_changed_at,
             "samples": [self._sample_to_data(sample) for sample in list(self._samples)],
         }
 

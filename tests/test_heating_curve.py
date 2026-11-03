@@ -6,6 +6,7 @@ from custom_components.sat.heating_curve import (
     HeatingCurve,
     HeatingCurveAdviceSample,
     HeatingCurveAdvisor,
+    RECOMMENDATION_COEFFICIENT_SETTLE_SECONDS,
     RECOMMENDATION_MINIMUM_DAILY_SAMPLES,
     RECOMMENDATION_MINIMUM_DAYS,
     RECOMMENDATION_MINIMUM_SAMPLES,
@@ -329,6 +330,47 @@ async def test_advisor_discards_samples_for_other_coefficient(hass):
     await restored.async_added_to_hass(hass, "entry2")
 
     assert restored.advice.sample_count == 0
+
+
+async def test_samples_wait_for_the_house_to_settle_after_a_coefficient_change(hass):
+    advisor = HeatingCurveAdvisor(coefficient=3.0)
+    await advisor.async_added_to_hass(hass, "entry5")
+    _fill(advisor, 5.0, days=1, count=3)
+    await advisor._store.async_save(advisor._data_to_save())
+
+    changed = HeatingCurveAdvisor(coefficient=2.2)
+    await changed.async_added_to_hass(hass, "entry5")
+    now = timestamp()
+
+    changed.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=now + RECOMMENDATION_COEFFICIENT_SETTLE_SECONDS - 60.0, correction=-5.0))
+    assert changed.advice.sample_count == 0
+
+    changed.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=now + RECOMMENDATION_COEFFICIENT_SETTLE_SECONDS + 60.0, correction=-5.0))
+    assert changed.advice.sample_count == 1
+
+
+async def test_settling_survives_a_restart(hass):
+    advisor = HeatingCurveAdvisor(coefficient=3.0)
+    await advisor.async_added_to_hass(hass, "entry6")
+    await advisor._store.async_save(advisor._data_to_save())
+
+    changed = HeatingCurveAdvisor(coefficient=2.2)
+    await changed.async_added_to_hass(hass, "entry6")
+    await changed._store.async_save(changed._data_to_save())
+
+    restarted = HeatingCurveAdvisor(coefficient=2.2)
+    await restarted.async_added_to_hass(hass, "entry6")
+    restarted.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=timestamp() + 60.0, correction=-5.0))
+
+    assert restarted.advice.sample_count == 0
+
+
+async def test_first_install_samples_without_settling(hass):
+    advisor = HeatingCurveAdvisor(coefficient=2.2)
+    await advisor.async_added_to_hass(hass, "entry7")
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=timestamp(), correction=1.0))
+
+    assert advisor.advice.sample_count == 1
 
 
 def test_mild_weather_never_earns_more_than_low_confidence():
