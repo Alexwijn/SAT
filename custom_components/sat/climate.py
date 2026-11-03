@@ -57,6 +57,7 @@ from .temperature.state import TemperatureState
 from .types import PWMStatus, HeatingMode
 from .warm_up import WarmUpEstimator, WARM_UP_MINIMUM_ERROR_CELSIUS
 from .wind import WIND_HISTORY_STARTUP_DELAY_SECONDS, WindHistory, WindMonitor, WindReading
+from .wind_sensitivity import WIND_SENSITIVITY_UPDATE_INTERVAL, WindSensitivityMonitor
 
 ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
@@ -141,6 +142,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.heating_curve = HeatingCurve.from_config(self._config)
         self.pid = PID.from_config(self.heating_curve, self._config)
         self._wind = WindMonitor(self._config.sensors)
+        self._wind_sensitivity = WindSensitivityMonitor()
         self._wind_history = WindHistory(self._config.entry_id, self._config.sensors)
         self._cancel_wind_backfill: Optional[Callable[[], None]] = None
         self._solar_gain = SolarGainController(self._config.solar_gain)
@@ -170,6 +172,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         await self._heating_control.async_added_to_hass()
         await self.pid.async_added_to_hass(self.hass, self.entity_id, self._coordinator.id)
         await self._curve_advisor.async_added_to_hass(self.hass, self._config.entry_id)
+        await self._wind_sensitivity.async_added_to_hass(self.hass, self._config.entry_id)
         self._cancel_wind_backfill = async_call_later(self.hass, WIND_HISTORY_STARTUP_DELAY_SECONDS, self._async_backfill_curve_advisor_wind)
         await self._seasonal_curve.async_added_to_hass(self.hass)
         await self._room_balance.async_added_to_hass(self.hass)
@@ -349,6 +352,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def curve_advisor(self) -> HeatingCurveAdvisor:
         """Return the heating curve advisor."""
         return self._curve_advisor
+
+    @property
+    def wind_sensitivity(self) -> WindSensitivityMonitor:
+        """Return the wind sensitivity monitor."""
+        return self._wind_sensitivity
 
     @property
     def efficiency(self) -> EfficiencyMonitor:
@@ -679,11 +687,16 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Fill in the wind speed of curve advisor samples recorded without one from the recorder."""
         self._cancel_wind_backfill = None
 
-        if (start := self._curve_advisor.first_timestamp_without_wind) is None:
-            return
+        if (start := self._curve_advisor.first_timestamp_without_wind) is not None:
+            if filled := self._curve_advisor.backfill_wind(await self._wind_history.async_hourly(self.hass, start)):
+                _LOGGER.debug("Filled in the wind speed of %d heating curve advisor samples for %s.", filled, self.entity_id)
 
-        if filled := self._curve_advisor.backfill_wind(await self._wind_history.async_hourly(self.hass, start)):
-            _LOGGER.debug("Filled in the wind speed of %d heating curve advisor samples for %s.", filled, self.entity_id)
+        self._update_wind_sensitivity()
+
+    @callback
+    def _update_wind_sensitivity(self, _now: Optional[datetime] = None) -> None:
+        """Hand the advisor days with wind to the wind sensitivity monitor."""
+        self._wind_sensitivity.update(self._curve_advisor.advice.wind_days, dt_util.now().date())
 
     def _record_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> None:
         """Feed the heating curve advisor when the system is in steady heating operation."""
@@ -1045,6 +1058,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_on_remove(
             async_track_time_interval(
                 self.hass, self.control_pid, timedelta(seconds=PID_UPDATE_INTERVAL), cancel_on_shutdown=True
+            )
+        )
+
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass, self._update_wind_sensitivity, WIND_SENSITIVITY_UPDATE_INTERVAL, cancel_on_shutdown=True
             )
         )
 

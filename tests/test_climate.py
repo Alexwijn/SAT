@@ -43,6 +43,7 @@ from custom_components.sat.pid import PID
 from custom_components.sat.types import HeaterState
 from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
 from custom_components.sat.wind import WindHistory, WindReading
+from custom_components.sat.wind_sensitivity import WindDay
 
 pytestmark = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
@@ -434,6 +435,16 @@ async def test_curve_advisor_wind_backfill_skips_the_recorder_when_nothing_is_mi
     await climate._async_backfill_curve_advisor_wind()
 
     climate._wind_history.async_hourly.assert_not_awaited()
+
+
+async def test_wind_sensitivity_receives_the_advisor_days(monkeypatch, climate):
+    days = [WindDay(date="2026-11-02", wind_speed=13.0, coefficient=2.2, sample_count=66)]
+    monkeypatch.setattr(type(climate.curve_advisor), "advice", property(lambda self: SimpleNamespace(wind_days=days)))
+    monkeypatch.setattr(climate._wind_history, "async_hourly", AsyncMock(return_value={}))
+
+    await climate._async_backfill_curve_advisor_wind()
+
+    assert climate.wind_sensitivity.days == days
 
 
 

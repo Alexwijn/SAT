@@ -675,6 +675,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
         advice = self._climate.curve_advisor.advice
+        wind_sensitivity = self._climate.wind_sensitivity.sensitivity
         daily = self._climate.temperature_statistics.window.daily
         recent = self._climate.temperature_statistics.window.recent
 
@@ -694,6 +695,11 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
             "suggested_coefficient": advice.suggested_coefficient,
             "daily_coefficients": dict(advice.daily_coefficients),
             "daily_wind_speeds": dict(advice.daily_wind_speeds),
+
+            "wind_days": wind_sensitivity.day_count,
+            "wind_spread": wind_sensitivity.wind_spread,
+            "calm_coefficient": wind_sensitivity.calm_coefficient,
+            "wind_sensitivity_percent_per_10_kmh": wind_sensitivity.percent_per_10_kmh,
 
             "recent_mean_error": recent.mean_error,
             "recent_sample_count": recent.sample_count,

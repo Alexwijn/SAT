@@ -116,6 +116,11 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
                 "daily_coefficients": dict(advice.daily_coefficients),
                 "daily_wind_speeds": dict(advice.daily_wind_speeds),
             },
+            "wind_sensitivity": _safe(lambda: {
+                **asdict(climate.wind_sensitivity.sensitivity),
+                "percent_per_10_kmh": climate.wind_sensitivity.sensitivity.percent_per_10_kmh,
+                "days": [asdict(day) for day in climate.wind_sensitivity.days],
+            }),
             "efficiency": _safe(lambda: {**asdict(climate.efficiency.report), "change_percentage": climate.efficiency.report.change_percentage}),
             "preheat": _safe(lambda: {
                 room_id: {

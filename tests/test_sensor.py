@@ -1,8 +1,9 @@
 """Tests for SAT sensor entities."""
 
+from datetime import date
+
 import pytest
 
-from custom_components.sat.wind import WindReading
 from custom_components.sat.device import DeviceState
 from custom_components.sat.const import EVENT_SAT_CYCLE_ENDED, CONF_HEATING_SYSTEM
 from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
@@ -13,6 +14,8 @@ from custom_components.sat.heating_control import ControlLoopSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
 from custom_components.sat.types import BoilerStatus, CycleClassification, CycleControlMode, CycleKind, Percentiles, PWMStatus, HeatingSystem
+from custom_components.sat.wind import WindReading
+from custom_components.sat.wind_sensitivity import WindDay
 from homeassistant.helpers import entity_registry as er
 
 pytestmark = pytest.mark.parametrize(
@@ -250,6 +253,20 @@ async def test_wind_speed_sensor_mirrors_the_climate(hass, climate, entry, domai
     assert state.state == "23.4"
     assert state.attributes["unit_of_measurement"] == "km/h"
     assert state.attributes["source"] == "weather.home"
+
+
+async def test_heating_curve_recommendation_shows_the_wind_sensitivity(hass, climate, coordinator, entry, domains, data, options, config):
+    entity_id = er.async_get(hass).async_get_entity_id("sensor", "sat", f"{entry.entry_id}-heating-curve-recommendation")
+    speeds = [2.0, 5.0, 10.0, 18.0, 30.0, 42.0, 55.0, 60.0]
+    climate.wind_sensitivity.update([WindDay(date=f"2026-11-{index + 1:02d}", wind_speed=speed, coefficient=2.3 * (1 + 0.005 * speed), sample_count=100) for index, speed in enumerate(speeds)], date(2026, 11, 20))
+
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    attributes = hass.states.get(entity_id).attributes
+    assert attributes["wind_days"] == 8
+    assert attributes["calm_coefficient"] == pytest.approx(2.3, abs=0.01)
+    assert attributes["wind_sensitivity_percent_per_10_kmh"] == pytest.approx(5.0, abs=0.1)
 
 
 async def test_wind_speed_sensor_is_unknown_without_wind(hass, climate, entry, domains, data, options, config):

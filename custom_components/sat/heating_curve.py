@@ -13,6 +13,7 @@ from . import SatConfig
 from .helpers import clamp, timestamp, weighted_median
 from .types import HeatingCurveConfidence, HeatingCurveRecommendation, HeatingSystem
 from .wind import WindHistory, WindReading
+from .wind_sensitivity import WindDay
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,6 +119,7 @@ class HeatingCurveAdvice:
     suggested_coefficient: Optional[float]
     daily_coefficients: Mapping[str, float]
     daily_wind_speeds: Mapping[str, float]
+    wind_days: list[WindDay]
 
 
 class HeatingCurveAdvisor:
@@ -292,6 +294,7 @@ class HeatingCurveAdvisor:
             suggested_coefficient=self._suggested_for(recommendation, estimated_coefficient),
             daily_coefficients=self._daily_coefficients(estimates),
             daily_wind_speeds=self._daily_wind_speeds(estimates),
+            wind_days=self._wind_days(estimates),
         )
 
     def _insufficient(self, samples: list[HeatingCurveAdviceSample], estimates: Mapping[str, HeatingCurveDailyEstimate], estimated_coefficient: Optional[float]) -> HeatingCurveAdvice:
@@ -305,6 +308,7 @@ class HeatingCurveAdvisor:
             suggested_coefficient=None,
             daily_coefficients=self._daily_coefficients(estimates),
             daily_wind_speeds=self._daily_wind_speeds(estimates),
+            wind_days=self._wind_days(estimates),
         )
 
     @staticmethod
@@ -316,6 +320,18 @@ class HeatingCurveAdvisor:
 
     def _daily_coefficients(self, estimates: Mapping[str, HeatingCurveDailyEstimate]) -> dict[str, float]:
         return {day: self._coefficient_for(estimate.coefficient_delta) for day, estimate in estimates.items()}
+
+    def _wind_days(self, estimates: Mapping[str, HeatingCurveDailyEstimate]) -> list[WindDay]:
+        return [
+            WindDay(
+                date=day,
+                wind_speed=estimate.wind_speed,
+                sample_count=estimate.sample_count,
+                coefficient=round(clamp(self._coefficient + estimate.coefficient_delta, MINIMUM_COEFFICIENT, MAXIMUM_COEFFICIENT), 3),
+            )
+            for day, estimate in estimates.items()
+            if estimate.wind_speed is not None
+        ]
 
     @staticmethod
     def _daily_wind_speeds(estimates: Mapping[str, HeatingCurveDailyEstimate]) -> dict[str, float]:
