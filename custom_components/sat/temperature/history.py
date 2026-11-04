@@ -82,6 +82,13 @@ class TemperatureHistory:
             in_band_fraction=self._in_band_fraction(errors),
         )
 
+    def median_error(self, window_seconds: int) -> Optional[float]:
+        """Return the median error over the window."""
+        if not (samples := self._recent_samples(window_seconds)):
+            return None
+
+        return float(median(sample.error for sample in samples))
+
     def is_steady(self, window_seconds: int, maximum_range: float) -> bool:
         """Whether the error has covered the whole window without drifting more than the given range."""
         samples = self._recent_samples(window_seconds)

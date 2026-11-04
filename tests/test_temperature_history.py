@@ -56,3 +56,16 @@ def test_temperature_history_steadiness():
     short.record(0.0, base + 120.0)
 
     assert short.is_steady(1800, 0.4) is False
+
+
+def test_temperature_history_median_error():
+    history = TemperatureHistory()
+    base = timestamp()
+
+    assert history.median_error(1800) is None
+
+    for index, error in enumerate([0.5, -0.3, -0.1, -0.2, -0.1]):
+        history.record(error, base + index * 300.0)
+
+    assert history.median_error(1800) == pytest.approx(-0.1)
+    assert history.median_error(600) == pytest.approx(-0.1)

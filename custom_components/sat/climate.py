@@ -779,6 +779,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if not self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS):
             return None
 
+        if (median_error := self._temperature_history.median_error(RECOMMENDATION_STEADY_WINDOW_SECONDS)) is None or abs(median_error) > RECOMMENDATION_MAXIMUM_ERROR_CELSIUS:
+            return None
+
         if self._target_temperature_changed_at is None or (now - self._target_temperature_changed_at) < HEATING_CURVE_SETTLE_SECONDS:
             return None
 
