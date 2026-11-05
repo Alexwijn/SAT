@@ -216,8 +216,7 @@ class SatHeatingControl:
 
     def restore(self, old_state: State) -> None:
         """Restore control state from the persisted climate attributes."""
-        if self._pwm is not None:
-            self._pwm.restore(old_state)
+        self._pwm.restore(old_state)
 
         if old_state.attributes.get("setpoint") is not None:
             self._control_setpoint = float_value(old_state.attributes.get("setpoint"))
