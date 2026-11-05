@@ -25,6 +25,11 @@ class PWMState:
     last_duty_cycle_percentage: Optional[float]
     last_switched_at: Optional[float] = None
     effective_on_temperature: Optional[float] = None
+    floor_observed: bool = False
+
+    @property
+    def floor_known(self) -> bool:
+        return self.effective_on_temperature is not None
 
     @property
     def on_time_seconds(self) -> Optional[int]:
@@ -48,8 +53,6 @@ class PWM:
         """Initialize the PWM control."""
         self._config: PwmConfig = config
         self._heating_system: HeatingSystem = heating_system
-        self._effective_on_temperature: Optional[float] = None
-        self._effective_on_temperature_update_window: float = HEATER_STARTUP_TIMEFRAME
 
         # Timing thresholds for duty cycle management
         self._on_time_lower_threshold: float = 180
@@ -63,6 +66,7 @@ class PWM:
         self._max_duty_cycle_percentage: float = 1 - self._min_duty_cycle_percentage
 
         self._enabled: bool = False
+        self._effective_on_temperature: Optional[float] = None
         self.reset()
 
         _LOGGER.debug(
@@ -85,6 +89,7 @@ class PWM:
             enabled=self._enabled,
             duty_cycle=self._duty_cycle,
             effective_on_temperature=self._effective_on_temperature,
+            floor_observed=self._floor_observed_at is not None,
             last_switched_at=self._last_update if self._status != PWMStatus.IDLE else None,
             last_duty_cycle_percentage=round(self._last_duty_cycle_percentage * 100, 2) if self._last_duty_cycle_percentage is not None else None
         )
@@ -95,7 +100,7 @@ class PWM:
         return self._on_time_maximum_threshold
 
     def reset(self) -> None:
-        """Reset the PWM cycle state while keeping the learned enablement."""
+        """Reset the PWM cycle state while keeping the learned enablement and boiler floor."""
         self._last_update: float = timestamp()
         self._status: PWMStatus = PWMStatus.IDLE
         self._duty_cycle: Optional[Tuple[int, int]] = None
@@ -104,8 +109,7 @@ class PWM:
         self._cycle_starts: list[float] = []
         self._last_duty_cycle_percentage: Optional[float] = None
         self._flame_on_at: Optional[float] = None
-
-        self._effective_on_temperature: Optional[float] = None
+        self._floor_observed_at: Optional[float] = None
 
     @property
     def cycles_this_hour(self) -> int:
@@ -132,6 +136,7 @@ class PWM:
 
         self._status = PWMStatus.OFF
         self._flame_on_at = None
+        self._floor_observed_at = None
         self._waiting_for_flame_on = False
 
     def restore(self, state: State) -> None:
@@ -189,27 +194,23 @@ class PWM:
 
             return
 
-        if self._effective_on_temperature is None and device_state.flame_active:
-            self._effective_on_temperature = device_state.flow_temperature
-            _LOGGER.debug("Initialized effective boiler temperature to %.1f°C", device_state.flow_temperature)
+        if self._status == PWMStatus.ON and device_state.flame_active:
+            if self._flame_on_at is None:
+                self._flame_on_at = timestamp
+
+            if (timestamp - self._flame_on_at) >= HEATER_STARTUP_TIMEFRAME:
+                self._observe_floor(device_state.flow_temperature, timestamp)
+
+        if self._status == PWMStatus.ON and not device_state.flame_active and self._flame_on_at is not None:
+            self._flame_on_at = None
+            self._floor_observed_at = None
+            _LOGGER.info("PWM ON phase lost the flame; the next ignition restarts the warm-up window.")
 
         elapsed = timestamp - self._last_update
         on_time_seconds, off_time_seconds = self._calculate_duty_cycle(requested_setpoint, device_state)
         self._duty_cycle = (on_time_seconds, off_time_seconds)
 
         self._cycle_starts = [start for start in self._cycle_starts if (timestamp - start) <= 3600]
-
-        # Update boiler temperature if heater has just started up
-        if self._status == PWMStatus.ON and device_state.flame_active:
-            if self._flame_on_at is None:
-                self._flame_on_at = timestamp
-
-            if (timestamp - self._flame_on_at) <= self._effective_on_temperature_update_window:
-                self._effective_on_temperature = (0.3 * device_state.flow_temperature + (1.0 - 0.3) * self._effective_on_temperature)
-
-        if self._status == PWMStatus.ON and not device_state.flame_active and self._flame_on_at is not None:
-            self._flame_on_at = None
-            _LOGGER.info("PWM ON phase lost the flame; the next ignition restarts the warm-up window.")
 
         # -------------------------
         # Start ON phase (OFF/IDLE -> ON)
@@ -225,9 +226,7 @@ class PWM:
                 self._last_update = timestamp
                 self._waiting_for_flame_on = not device_state.flame_active
                 self._flame_on_at = timestamp if device_state.flame_active else None
-
-                if device_state.flame_active:
-                    self._effective_on_temperature = device_state.flow_temperature
+                self._floor_observed_at = None
 
                 _LOGGER.info(
                     "Starting PWM Cycle (OFF->ON): elapsed=%.0fs active_on=%ds flow=%.1f active_off=%ds",
@@ -251,7 +250,6 @@ class PWM:
                     self._last_update = timestamp
                     self._flame_on_at = timestamp
                     self._waiting_for_flame_on = False
-                    self._effective_on_temperature = device_state.flow_temperature
                     _LOGGER.info("PWM ON phase synced to flame ignition.")
                     return
                 elif elapsed < PWM_IGNITION_TIMEOUT_SECONDS:
@@ -267,6 +265,7 @@ class PWM:
 
             if elapsed >= on_time_seconds:
                 self._flame_on_at = None
+                self._floor_observed_at = None
                 self._status = PWMStatus.OFF
                 self._last_update = timestamp
                 self._waiting_for_flame_on = False
@@ -278,6 +277,16 @@ class PWM:
                 return
 
         _LOGGER.debug("Cycle time elapsed: %.0f seconds in state: %s", elapsed, self._status)
+
+    def _observe_floor(self, flow_temperature: float, timestamp: float) -> None:
+        """Take the settled flow temperature of an established burn as the boiler floor."""
+        if self._floor_observed_at is None:
+            self._floor_observed_at = timestamp
+            self._effective_on_temperature = flow_temperature
+            _LOGGER.debug("Observed boiler floor at %.1f°C", flow_temperature)
+            return
+
+        self._effective_on_temperature = 0.3 * flow_temperature + 0.7 * self._effective_on_temperature
 
     def on_cycle_end(self, cycle: "Cycle") -> None:
         """Adjust PWM enablement based on the last completed cycle classification."""
@@ -293,6 +302,9 @@ class PWM:
         """Calculate the duty cycle in seconds based on the output of a PID controller and a heating curve value."""
         base_offset = self._heating_system.base_offset
         boiler_temperature = self._effective_on_temperature or device_state.flow_temperature
+
+        if self._effective_on_temperature is None:
+            _LOGGER.debug("Boiler floor not learned yet; using the flow temperature of %.1f°C for the duty cycle.", device_state.flow_temperature)
 
         # Ensure the boiler temperature is above the base offset
         boiler_temperature = max(boiler_temperature, base_offset + 1)

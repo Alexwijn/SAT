@@ -448,8 +448,13 @@ class SatHeatingControl:
         return (now - flame_on_since) >= HEATER_STARTUP_TIMEFRAME
 
     def _maybe_disable_pwm_on_sustained_saturation(self, demand: HeatingDemand) -> bool:
-        off_time_seconds = self._pwm.state.off_time_seconds
+        pwm_state = self._pwm.state
+        off_time_seconds = pwm_state.off_time_seconds
         if off_time_seconds is None or off_time_seconds > 0:
+            self._sustained_saturation_started_at = None
+            return False
+
+        if not self._saturation_is_evidence(demand, pwm_state):
             self._sustained_saturation_started_at = None
             return False
 
@@ -476,6 +481,18 @@ class SatHeatingControl:
         self._reset_pwm_disable_guards()
 
         return True
+
+    @staticmethod
+    def _saturation_is_evidence(demand: HeatingDemand, pwm_state: PWMState) -> bool:
+        """Whether a saturated duty cycle rests on an observed boiler floor, or on a prior the request clearly exceeds."""
+        if not pwm_state.floor_known:
+            _LOGGER.debug("Duty cycle saturated without a learned boiler floor; not evidence.")
+            return False
+
+        if pwm_state.floor_observed:
+            return True
+
+        return demand.requested_setpoint >= pwm_state.effective_on_temperature + OVERSHOOT_MARGIN_CELSIUS
 
     def _compute_pwm_control_setpoint(self, requested_setpoint: float) -> None:
         """Apply the PWM setpoint override based on the current device state."""

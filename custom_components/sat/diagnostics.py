@@ -72,6 +72,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
                 "enabled": _safe(lambda: heating_control.pwm_state.enabled),
                 "status": _safe(lambda: heating_control.pwm_state.status),
                 "duty_cycle": _safe(lambda: list(heating_control.pwm_state.duty_cycle) if heating_control.pwm_state.duty_cycle else None),
+                "effective_on_temperature": _safe(lambda: heating_control.pwm_state.effective_on_temperature),
             },
             "last_cycle": {
                 "kind": _safe(lambda: heating_control.last_cycle.kind if heating_control.last_cycle else None),

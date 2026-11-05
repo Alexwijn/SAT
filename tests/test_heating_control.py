@@ -1,5 +1,7 @@
 """Tests focused on heating control behavior."""
 
+from typing import Optional
+
 import pytest
 from homeassistant.components.climate import HVACMode
 
@@ -23,6 +25,7 @@ from custom_components.sat.const import (
     OPTIONS_DEFAULTS,
 )
 from custom_components.sat.const import OVERSHOOT_REFERENCE_WINDOW_SECONDS, OVERSHOOT_SUSTAIN_SECONDS
+from custom_components.sat.cycles.const import OVERSHOOT_MARGIN_CELSIUS
 from custom_components.sat.entry_data import SatConfig, SatMode
 from custom_components.sat.heating_control import (
     HeatingDemand,
@@ -340,6 +343,8 @@ async def test_disables_pwm_on_sustained_saturation(heating_control, coordinator
     await coordinator.async_set_heater_state(HeaterState.ON)
     await coordinator.async_set_boiler_temperature(requested_setpoint + 20.0)
     heating_control._pwm._duty_cycle = (300, 0)
+    heating_control._pwm._effective_on_temperature = 44.0
+    heating_control._pwm._floor_observed_at = start_time
 
     await heating_control.update(HeatingDemand(
         timestamp=start_time,
@@ -642,6 +647,8 @@ async def _saturated_demand(heating_control, coordinator, monkeypatch, target_ch
     heating_control._pwm._duty_cycle = (300, 0)
 
     now = timestamp()
+    heating_control._pwm._effective_on_temperature = 44.0
+    heating_control._pwm._floor_observed_at = now
     await heating_control.update(HeatingDemand(
         timestamp=now,
         valves_open=True,
@@ -679,3 +686,98 @@ async def test_burner_counts_as_recent_for_one_pwm_period(heating_control, coord
 
     monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: True))
     assert heating_control.burned_within_pwm_period(now) is True
+
+
+def _demand_at(requested_setpoint: float, at: float, target_temperature_changed_at: Optional[float] = None) -> HeatingDemand:
+    return HeatingDemand(
+        timestamp=at,
+        valves_open=True,
+        hvac_mode=HVACMode.HEAT,
+        outside_temperature=10.0,
+        requested_setpoint=requested_setpoint,
+        target_temperature_changed_at=target_temperature_changed_at,
+    )
+
+
+async def _prime_saturated_pwm(heating_control, coordinator, monkeypatch, floor: Optional[float], observed_at: Optional[float]) -> None:
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(21.0)
+
+    heating_control._pwm._duty_cycle = (2400, 0)
+    heating_control._pwm._effective_on_temperature = floor
+    heating_control._pwm._floor_observed_at = observed_at
+
+
+async def test_saturation_without_learned_floor_keeps_pwm(heating_control, coordinator, monkeypatch):
+    await _prime_saturated_pwm(heating_control, coordinator, monkeypatch, floor=None, observed_at=None)
+    now = timestamp()
+
+    await heating_control.update(_demand_at(32.0, now))
+    await heating_control.update(_demand_at(32.0, now + SATURATION_SUSTAIN_SECONDS + 1))
+
+    assert heating_control.pwm_state.enabled is True
+
+
+async def test_saturation_after_target_change_without_floor_keeps_pwm(heating_control, coordinator, monkeypatch):
+    await _prime_saturated_pwm(heating_control, coordinator, monkeypatch, floor=None, observed_at=None)
+    now = timestamp()
+
+    await heating_control.update(_demand_at(32.0, now, target_temperature_changed_at=now - 20.0))
+
+    assert heating_control.pwm_state.enabled is True
+
+
+async def test_saturation_on_a_prior_floor_needs_a_clear_margin(heating_control, coordinator, monkeypatch):
+    await _prime_saturated_pwm(heating_control, coordinator, monkeypatch, floor=44.0, observed_at=None)
+    now = timestamp()
+
+    await heating_control.update(_demand_at(46.0, now, target_temperature_changed_at=now - 20.0))
+    assert heating_control.pwm_state.enabled is True
+
+    await heating_control.update(_demand_at(44.0 + OVERSHOOT_MARGIN_CELSIUS, now + 1.0, target_temperature_changed_at=now - 20.0))
+    assert heating_control.pwm_state.enabled is False
+
+
+async def test_saturation_on_an_observed_floor_uses_plain_duty(heating_control, coordinator, monkeypatch):
+    now = timestamp()
+    await _prime_saturated_pwm(heating_control, coordinator, monkeypatch, floor=44.0, observed_at=now)
+
+    await heating_control.update(_demand_at(45.0, now))
+    assert heating_control.pwm_state.enabled is True
+
+    await heating_control.update(_demand_at(45.0, now + SATURATION_SUSTAIN_SECONDS + 1))
+    assert heating_control.pwm_state.enabled is False
+
+
+async def test_cold_ignition_keeps_pwm_with_a_known_floor(heating_control, coordinator, monkeypatch):
+    flame = {"active": False}
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: flame["active"]))
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(21.0)
+
+    now = timestamp()
+    pwm = heating_control._pwm
+    pwm._enabled = True
+    pwm._last_update = now
+    pwm._effective_on_temperature = 44.0
+
+    await heating_control.update(_demand_at(32.0, now, target_temperature_changed_at=now))
+    assert heating_control.pwm_state.status is PWMStatus.ON
+
+    await heating_control.update(_demand_at(32.0, now + SATURATION_SUSTAIN_SECONDS + 1, target_temperature_changed_at=now))
+    assert heating_control.pwm_state.enabled is True
+
+    flame["active"] = True
+    await coordinator.async_set_boiler_temperature(27.0)
+
+    await heating_control.update(_demand_at(32.0, now + SATURATION_SUSTAIN_SECONDS + 31, target_temperature_changed_at=now))
+    assert heating_control.pwm_state.enabled is True
+    assert heating_control.pwm_state.effective_on_temperature == 44.0
+
+    target_changed_at = now + SATURATION_SUSTAIN_SECONDS + 41
+    await heating_control.update(_demand_at(61.0, now + SATURATION_SUSTAIN_SECONDS + 61, target_temperature_changed_at=target_changed_at))
+    assert heating_control.pwm_state.enabled is False
