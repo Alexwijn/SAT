@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 RECORDER_DOMAIN = "recorder"
 
 HISTORY_DAYS = 180
-REFRESH_INTERVAL = timedelta(hours=24)
+REFRESH_INTERVAL = timedelta(hours=1)
 STARTUP_DELAY_SECONDS = 60
 
 MINIMUM_HOURS = 48
@@ -137,7 +137,7 @@ class SeasonalCurveEvaluator:
 
 
 class SeasonalCurveMonitor:
-    """Refresh the seasonal fit from the recorder once a day."""
+    """Refresh the seasonal fit from the recorder every hour."""
 
     def __init__(self, entry_id: str) -> None:
         self._entry_id = entry_id

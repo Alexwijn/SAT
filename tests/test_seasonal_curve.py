@@ -9,11 +9,12 @@ from homeassistant.components.recorder.statistics import async_import_statistics
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import TemperatureConverter
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.components.recorder.common import async_wait_recording_done
 
 from custom_components.sat.const import DOMAIN
 from custom_components.sat.heating_curve import HeatingCurveAdviceSample, HeatingCurveAdvisor, RECOMMENDATION_MINIMUM_SHAPE
-from custom_components.sat.seasonal_curve import SeasonalCurveEvaluator, SeasonalCurveHour, SeasonalCurveMonitor
+from custom_components.sat.seasonal_curve import STARTUP_DELAY_SECONDS, SeasonalCurveEvaluator, SeasonalCurveHour, SeasonalCurveMonitor
 
 HOUR_SECONDS = 3600.0
 
@@ -140,6 +141,23 @@ async def test_refresh_keeps_the_previous_fit_when_the_query_fails(hass, monkeyp
     await monitor.async_refresh()
 
     assert monitor.fit.coefficient == 2.3
+
+
+async def test_fit_refreshes_every_hour(hass, monkeypatch):
+    monitor = SeasonalCurveMonitor("entry")
+    refresh = AsyncMock()
+    monkeypatch.setattr(monitor, "async_refresh", refresh)
+
+    await monitor.async_added_to_hass(hass)
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=STARTUP_DELAY_SECONDS + 1))
+    await hass.async_block_till_done()
+    assert refresh.await_count == 1
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(hours=1, seconds=1))
+    await hass.async_block_till_done()
+    assert refresh.await_count == 2
+
+    await monitor.async_will_remove_from_hass()
 
 
 def _import(hass, statistic_id: str, unit, values: list[float]) -> None:
