@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import timedelta, datetime
 from typing import Optional
 
@@ -34,6 +35,17 @@ OVERSHOOT_MARGIN = 0.3
 COOLING_HEADROOM = 10.0
 
 
+@dataclass(frozen=True, slots=True)
+class DrivingRoom:
+    """Room whose PID output the boiler is asked to deliver, with what the curve advice reads from it."""
+
+    pid: PID
+    error: float
+    heating_curve: HeatingCurve
+    temperature_history: TemperatureHistory
+    target_temperature_changed_at: Optional[float]
+
+
 class Area:
     """Represents a single climate-controlled area."""
 
@@ -50,6 +62,8 @@ class Area:
         self.heating_curve: HeatingCurve = HeatingCurve.from_config(config)
         self.pid: PID = PID.from_config(self.heating_curve, config)
         self._temperature_history: TemperatureHistory = TemperatureHistory()
+        self._target_temperature: Optional[float] = None
+        self._target_temperature_changed_at: Optional[float] = None
 
         _LOGGER.debug("Area %s initialized", self._entity_id)
 
@@ -148,6 +162,20 @@ class Area:
             return None
 
     @property
+    def driving_room(self) -> Optional[DrivingRoom]:
+        """Return this area as the room the boiler heats for."""
+        if (temperature_state := self.temperature_state) is None:
+            return None
+
+        return DrivingRoom(
+            pid=self.pid,
+            error=temperature_state.error,
+            heating_curve=self.heating_curve,
+            temperature_history=self._temperature_history,
+            target_temperature_changed_at=self._target_temperature_changed_at,
+        )
+
+    @property
     def is_steady(self) -> bool:
         """Return whether the room temperature has settled, wherever it settled relative to the target."""
         return self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS)
@@ -223,8 +251,14 @@ class Area:
             _LOGGER.debug("Skipping control loop for %s because the temperature is not available.", self._entity_id)
             return
 
+        now = event_timestamp(_time)
+
+        if temperature_state.setpoint != self._target_temperature:
+            self._target_temperature = temperature_state.setpoint
+            self._target_temperature_changed_at = now
+
         self.pid.update(temperature_state)
-        self._temperature_history.record(temperature_state.error, event_timestamp(_time))
+        self._temperature_history.record(temperature_state.error, now)
 
 
 class Areas:

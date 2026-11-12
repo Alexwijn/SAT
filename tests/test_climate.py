@@ -34,6 +34,7 @@ from custom_components.sat.const import (
     SERVICE_PULSE_WIDTH_MODULATION,
     SERVICE_RESET_INTEGRAL,
 )
+from custom_components.sat.area import DrivingRoom
 from custom_components.sat.climate import SatClimate
 from custom_components.sat.heating_curve import HeatingCurve, HeatingCurveAdviceSample
 from custom_components.sat.helpers import timestamp
@@ -41,6 +42,7 @@ from custom_components.sat.temperature.history import TemperatureHistory
 from custom_components.sat.temperature.state import TemperatureState
 from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.pid import PID
+from custom_components.sat.room_balance import RoomSignalReading, RoomSignals
 from custom_components.sat.types import HeaterState
 from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
 from custom_components.sat.wind import WindHistory, WindReading
@@ -372,9 +374,64 @@ def test_curve_advice_sample_skipped_while_boiler_has_stopped_burning(monkeypatc
     assert recorded == []
 
 
-def test_curve_advice_sample_skipped_while_another_room_drives_the_boiler(monkeypatch, climate):
+def _driving_area(climate, *, output: float, error: float) -> SimpleNamespace:
+    heating_curve = HeatingCurve.from_config(climate._config)
+    heating_curve.update(19.0, 5.0)
+
+    history = TemperatureHistory()
+    for index in range(7):
+        history.record(error, HEATING_CURVE_SETTLE_SECONDS * 2 - 1800.0 + index * 300.0)
+
+    room = DrivingRoom(
+        pid=SimpleNamespace(output=output),
+        error=error,
+        heating_curve=heating_curve,
+        temperature_history=history,
+        target_temperature_changed_at=0.0,
+    )
+
+    return SimpleNamespace(id="climate.bedroom", pid=SimpleNamespace(available=True, output=output), requires_heat=True, driving_room=room)
+
+
+def test_curve_advice_sample_skipped_while_no_room_drives_the_boiler(monkeypatch, climate):
     recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
     monkeypatch.setattr(type(climate), "requested_setpoint", property(lambda self: self.pid.output + 5.0))
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.9, 21.0))
+
+    assert recorded == []
+
+
+def test_curve_advice_sample_measures_the_room_that_drives_the_boiler(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    area = _driving_area(climate, output=climate.pid.output + 5.0, error=0.1)
+    monkeypatch.setattr(climate.areas, "items", lambda: [area])
+    monkeypatch.setattr(type(climate), "requested_setpoint", property(lambda self: area.pid.output))
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.9, 21.0))
+
+    assert len(recorded) == 1
+    assert recorded[0].shape == HeatingCurve.calculate(19.0, 5.0)
+    assert recorded[0].correction == pytest.approx(area.pid.output - area.driving_room.heating_curve.value)
+
+
+def test_curve_advice_sample_skipped_while_the_driving_room_is_off_target(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    area = _driving_area(climate, output=climate.pid.output + 5.0, error=0.6)
+    monkeypatch.setattr(climate.areas, "items", lambda: [area])
+    monkeypatch.setattr(type(climate), "requested_setpoint", property(lambda self: area.pid.output))
+
+    climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.9, 21.0))
+
+    assert recorded == []
+
+
+def test_curve_advice_sample_skipped_while_the_driving_room_reports_a_valve_alarm(monkeypatch, climate):
+    recorded = _prepare_curve_advice(monkeypatch, climate, proportional=3.0, derivative=0.0)
+    area = _driving_area(climate, output=climate.pid.output + 5.0, error=0.1)
+    monkeypatch.setattr(climate.areas, "items", lambda: [area])
+    monkeypatch.setattr(type(climate), "requested_setpoint", property(lambda self: area.pid.output))
+    monkeypatch.setattr(RoomSignals, "read", staticmethod(lambda hass, entity_id: RoomSignalReading(valve_alarm=True)))
 
     climate._record_curve_advice_sample(HEATING_CURVE_SETTLE_SECONDS * 2, _temperature_state(20.9, 21.0))
 

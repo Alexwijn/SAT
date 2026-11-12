@@ -77,3 +77,21 @@ async def test_area_current_temperature_stale_override_sensor(hass, monkeypatch)
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
 
     assert area.current_temperature is None
+
+
+async def test_area_remembers_when_its_target_changed(hass):
+    hass.states.async_set("climate.room1", HVACMode.HEAT, {"temperature": 18.0, "current_temperature": 17.5})
+
+    config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=dict(OPTIONS_DEFAULTS))
+
+    area = Area(config, "climate.room1")
+    await area.async_added_to_hass(hass, "device.test")
+
+    area.control_pid(dt_util.utc_from_timestamp(1000.0))
+    area.control_pid(dt_util.utc_from_timestamp(1060.0))
+    assert area.driving_room.target_temperature_changed_at == 1000.0
+    assert area.driving_room.error == 0.5
+
+    hass.states.async_set("climate.room1", HVACMode.HEAT, {"temperature": 20.0, "current_temperature": 17.5})
+    area.control_pid(dt_util.utc_from_timestamp(1120.0))
+    assert area.driving_room.target_temperature_changed_at == 1120.0

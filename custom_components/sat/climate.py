@@ -33,7 +33,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
-from .area import Area, Areas
+from .area import Area, Areas, DrivingRoom
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
@@ -785,42 +785,60 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._solar_gain_snapshot.active or self._coordinator.hot_water_active:
             return None
 
-        if not self._boiler_answers_main_climate(now):
+        if (room := self._driving_room(now, temperature_state)) is None:
             return None
 
         if (sun_elevation := self._sun_elevation()) is not None and sun_elevation >= RECOMMENDATION_MAXIMUM_SUN_ELEVATION:
             return None
 
-        if abs(temperature_state.error) > RECOMMENDATION_MAXIMUM_ERROR_CELSIUS:
+        if abs(room.error) > RECOMMENDATION_MAXIMUM_ERROR_CELSIUS:
             return None
 
-        if not self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS):
+        if not room.temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS):
             return None
 
-        if (median_error := self._temperature_history.median_error(RECOMMENDATION_STEADY_WINDOW_SECONDS)) is None or abs(median_error) > RECOMMENDATION_MAXIMUM_ERROR_CELSIUS:
+        if (median_error := room.temperature_history.median_error(RECOMMENDATION_STEADY_WINDOW_SECONDS)) is None or abs(median_error) > RECOMMENDATION_MAXIMUM_ERROR_CELSIUS:
             return None
 
-        if self._target_temperature_changed_at is None or (now - self._target_temperature_changed_at) < HEATING_CURVE_SETTLE_SECONDS:
+        if room.target_temperature_changed_at is None or (now - room.target_temperature_changed_at) < HEATING_CURVE_SETTLE_SECONDS:
             return None
 
-        if (shape := self.heating_curve.shape) is None or (curve_value := self.heating_curve.value) is None:
+        if (shape := room.heating_curve.shape) is None or (curve_value := room.heating_curve.value) is None:
             return None
 
         return HeatingCurveAdviceSample(
             shape=shape,
             timestamp=now,
             wind=self.current_wind,
-            correction=self.pid.output - curve_value,
+            correction=room.pid.output - curve_value,
         )
 
-    def _boiler_answers_main_climate(self, now: float) -> bool:
-        """Whether the boiler is heating on the request of the main climate, the only demand the curve can be judged on."""
+    def _driving_room(self, now: float, temperature_state: TemperatureState) -> Optional[DrivingRoom]:
+        """Return the room whose request the boiler is heating on, the only demand the curve can be judged on."""
         requested_setpoint = self.requested_setpoint
 
-        if requested_setpoint <= COLD_SETPOINT or abs(requested_setpoint - self.pid.output) > RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS:
-            return False
+        if requested_setpoint <= COLD_SETPOINT or not self._heating_control.burned_within_pwm_period(now):
+            return None
 
-        return self._heating_control.burned_within_pwm_period(now)
+        if abs(requested_setpoint - self.pid.output) <= RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS:
+            return DrivingRoom(
+                pid=self.pid,
+                error=temperature_state.error,
+                heating_curve=self.heating_curve,
+                temperature_history=self._temperature_history,
+                target_temperature_changed_at=self._target_temperature_changed_at,
+            )
+
+        for area in self.areas.items():
+            if not area.pid.available or not area.requires_heat or abs(requested_setpoint - area.pid.output) > RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS:
+                continue
+
+            if (signals := RoomSignals.read(self.hass, area.id)).window_open or signals.valve_alarm:
+                return None
+
+            return area.driving_room
+
+        return None
 
     def _sun_elevation(self) -> Optional[float]:
         sun_state = self.hass.states.get("sun.sun")
