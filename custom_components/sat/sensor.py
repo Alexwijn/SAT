@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from typing import Optional, Mapping, Any
 
 from homeassistant.components.sensor import RestoreSensor, SensorDeviceClass, SensorEntity, SensorStateClass
@@ -10,6 +11,8 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 
 from .climate import SatClimate
 from .const import *
@@ -21,7 +24,7 @@ from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
 from .seasonal_curve import MINIMUM_DAYS as SEASONAL_MINIMUM_DAYS, MINIMUM_HOURS as SEASONAL_MINIMUM_HOURS
-from .helpers import timestamp
+from .helpers import float_value, timestamp
 from .room_balance import MAIN_ROOM_ID
 from .types import BoilerStatus, CycleClassification, HeatingCurveRecommendation, RoomBalanceStatus
 
@@ -199,18 +202,32 @@ class SatWindSpeedSensor(SatClimateEntity, SensorEntity):
         return f"{self._config.entry_id}-wind-speed"
 
 
-class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity):
+class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity, RestoreEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl, climate: SatClimate) -> None:
+        super().__init__(coordinator, config, heating_control, climate)
+
+        self._last_value: Optional[float] = None
+        self._last_measured_at: Optional[datetime] = None
 
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(entity_id: str) -> None:
             if entity_id != self._climate.entity_id:
                 return
 
+            if (value := self._climate.implied_curve_coefficient) is not None:
+                self._last_value, self._last_measured_at = value, dt_util.utcnow()
+
             self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
+
+        if (state := await self.async_get_last_state()) is not None and (last_value := float_value(state.attributes.get("last_value"))) is not None:
+            self._last_value = last_value
+            self._last_measured_at = dt_util.parse_datetime(str(state.attributes.get("last_measured_at")))
+
         self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
 
     @property
@@ -220,6 +237,10 @@ class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity):
     @property
     def native_value(self) -> Optional[float]:
         return self._climate.implied_curve_coefficient
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        return {"last_value": self._last_value, "last_measured_at": self._last_measured_at}
 
     @property
     def unique_id(self) -> str:

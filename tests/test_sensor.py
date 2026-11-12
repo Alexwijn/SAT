@@ -1,11 +1,12 @@
 """Tests for SAT sensor entities."""
 
-from datetime import date
+from datetime import date, datetime, timezone
+from unittest.mock import AsyncMock
 
 import pytest
 
 from custom_components.sat.device import DeviceState
-from custom_components.sat.const import EVENT_SAT_CYCLE_ENDED, CONF_HEATING_SYSTEM
+from custom_components.sat.const import EVENT_SAT_CYCLE_ENDED, CONF_HEATING_SYSTEM, SIGNAL_PID_UPDATED
 from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sat.efficiency import EfficiencyPeriod, EfficiencyReport
@@ -16,7 +17,9 @@ from custom_components.sat.pwm import PWMState
 from custom_components.sat.types import BoilerStatus, CycleClassification, CycleControlMode, CycleKind, Percentiles, PWMStatus, HeatingSystem
 from custom_components.sat.wind import WindReading
 from custom_components.sat.wind_sensitivity import WindDay
+from homeassistant.core import State
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 pytestmark = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
@@ -164,6 +167,46 @@ async def test_implied_coefficient_is_unknown_outside_steady_heating(hass, clima
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-implied-curve-coefficient")
 
     assert hass.states.get(entity_id).state == "unknown"
+
+
+async def test_implied_coefficient_keeps_the_last_measured_value(hass, climate, entry, domains, data, options, config, monkeypatch):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-implied-curve-coefficient")
+
+    monkeypatch.setattr(type(climate), "implied_curve_coefficient", property(lambda self: 2.3))
+    async_dispatcher_send(hass, SIGNAL_PID_UPDATED, climate.entity_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "2.3"
+    assert state.attributes["last_value"] == 2.3
+    measured_at = state.attributes["last_measured_at"]
+    assert measured_at is not None
+
+    monkeypatch.setattr(type(climate), "implied_curve_coefficient", property(lambda self: None))
+    async_dispatcher_send(hass, SIGNAL_PID_UPDATED, climate.entity_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "unknown"
+    assert state.attributes["last_value"] == 2.3
+    assert state.attributes["last_measured_at"] == measured_at
+
+
+async def test_implied_coefficient_restores_the_last_measured_value(hass, climate, entry, domains, data, options, config, monkeypatch):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-implied-curve-coefficient")
+    sensor = hass.data["sensor"].get_entity(entity_id)
+
+    last_state = State(entity_id, "unknown", {"last_value": 1.9, "last_measured_at": "2026-11-10T20:00:00+00:00"})
+    monkeypatch.setattr(sensor, "async_get_last_state", AsyncMock(return_value=last_state))
+    await sensor.async_added_to_hass()
+    sensor.async_write_ha_state()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "unknown"
+    assert state.attributes["last_value"] == 1.9
+    assert state.attributes["last_measured_at"] == datetime(2026, 11, 10, 20, 0, tzinfo=timezone.utc)
 
 
 async def test_seasonal_coefficient_sensor_exposes_the_fit(hass, climate, coordinator, entry, domains, data, options, config):
