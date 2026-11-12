@@ -39,7 +39,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 class SatWaterHeater(SatEntity, WaterHeaterEntity):
     _attr_operation_list = [STATE_GAS, STATE_OFF]
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
 
     def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl) -> None:
         super().__init__(coordinator, config, heating_control)
@@ -81,8 +80,21 @@ class SatWaterHeater(SatEntity, WaterHeaterEntity):
         return STATE_GAS if self._enabled else STATE_OFF
 
     @property
-    def target_temperature(self) -> Optional[float]:
+    def native_temperature_unit(self) -> str:
+        return UnitOfTemperature.CELSIUS
+
+    @property
+    def native_target_temperature(self) -> Optional[float]:
         return self._coordinator.hot_water_setpoint
+
+    # Home Assistant before 2026.11 only reads the non-native names.
+    @property
+    def temperature_unit(self) -> str:
+        return self.native_temperature_unit
+
+    @property
+    def target_temperature(self) -> Optional[float]:
+        return self.native_target_temperature
 
     @property
     def min_temp(self) -> float:

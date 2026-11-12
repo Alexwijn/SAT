@@ -93,8 +93,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         diagnostics["climate"] = {
             "hvac_mode": _safe(lambda: climate.hvac_mode),
             "preset_mode": _safe(lambda: climate.preset_mode),
-            "target_temperature": _safe(lambda: climate.target_temperature),
-            "current_temperature": _safe(lambda: climate.current_temperature),
+            "target_temperature": _safe(lambda: climate.native_target_temperature),
+            "current_temperature": _safe(lambda: climate.native_current_temperature),
             "outside_temperature": _safe(lambda: climate.current_outside_temperature),
             "wind": _safe(lambda: asdict(climate.current_wind) if climate.current_wind is not None else None),
             "requested_setpoint": _safe(lambda: climate.requested_setpoint),

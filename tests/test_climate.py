@@ -34,6 +34,7 @@ from custom_components.sat.const import (
     SERVICE_PULSE_WIDTH_MODULATION,
     SERVICE_RESET_INTEGRAL,
 )
+from custom_components.sat.climate import SatClimate
 from custom_components.sat.heating_curve import HeatingCurve, HeatingCurveAdviceSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.temperature.history import TemperatureHistory
@@ -536,3 +537,17 @@ async def test_overdue_scheduled_run_is_replaced(monkeypatch, climate):
     update_mock.assert_called_once()
     assert climate._control_heating_loop_unsub is None
     assert climate._control_heating_loop_scheduled_at is None
+
+
+async def test_climate_reports_its_temperatures_natively(climate):
+    climate.hass.states.async_set("sensor.test_inside_sensor", "20.4")
+    await climate.async_set_target_temperature(21.0)
+
+    assert climate.native_temperature_unit == climate.temperature_unit == climate.hass.config.units.temperature_unit
+    assert climate.native_current_temperature == climate.current_temperature == 20.4
+    assert climate.native_target_temperature == climate.target_temperature == 21.0
+
+
+def test_climate_provides_the_native_temperature_api_beside_the_legacy_one(climate):
+    for name in ("temperature_unit", "current_temperature", "target_temperature"):
+        assert {name, f"native_{name}"} <= set(vars(SatClimate))

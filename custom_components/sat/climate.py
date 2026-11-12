@@ -122,7 +122,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._window_sensor_handle: Optional[asyncio.Task[None]] = None
         self._solar_gain_snapshot = SolarGainSnapshot(active=False, rise_per_hour=None, sun_elevation=None)
 
-        self._attr_temperature_unit = unit
+        self._temperature_unit = unit
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_preset_mode = PRESET_NONE
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
@@ -293,8 +293,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "current_humidity": self.current_humidity,
             "setpoint": self._heating_control.control_setpoint,
 
-            "summer_simmer_index": SummerSimmer.index(self.current_temperature, self.current_humidity),
-            "summer_simmer_perception": SummerSimmer.perception(self.current_temperature, self.current_humidity),
+            "summer_simmer_index": SummerSimmer.index(self.native_current_temperature, self.current_humidity),
+            "summer_simmer_perception": SummerSimmer.perception(self.native_current_temperature, self.current_humidity),
 
             "valves_open": self.valves_open,
             "heating_curve": self.heating_curve.value,
@@ -320,12 +320,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         }
 
     @property
-    def target_temperature(self) -> Optional[float]:
+    def native_temperature_unit(self) -> str:
+        """Return the unit the temperatures are reported in."""
+        return self._temperature_unit
+
+    @property
+    def native_target_temperature(self) -> Optional[float]:
         """Return the temperature we try to reach."""
         return self._target_temperature
 
     @property
-    def current_temperature(self) -> Optional[float]:
+    def native_current_temperature(self) -> Optional[float]:
         """Return the sensor temperature."""
         if (current_temperature := self._get_entity_state_float(self._config.sensors.inside_sensor_entity_id)) is None:
             return None
@@ -334,6 +339,19 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             return SummerSimmer.index(current_temperature, self.current_humidity)
 
         return current_temperature
+
+    # Home Assistant before 2026.11 only reads the non-native names.
+    @property
+    def temperature_unit(self) -> str:
+        return self.native_temperature_unit
+
+    @property
+    def target_temperature(self) -> Optional[float]:
+        return self.native_target_temperature
+
+    @property
+    def current_temperature(self) -> Optional[float]:
+        return self.native_current_temperature
 
     @property
     def current_humidity(self) -> Optional[float]:
@@ -392,8 +410,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if (state := self.hass.states.get(self._config.sensors.inside_sensor_entity_id)) is None:
             return None
 
-        target_temperature = self.target_temperature
-        current_temperature = self.current_temperature
+        target_temperature = self.native_target_temperature
+        current_temperature = self.native_current_temperature
         if target_temperature is None or current_temperature is None:
             return None
 
@@ -579,7 +597,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_estimate_preheat(self, target_temperature: float, ready_time: Optional[datetime] = None, room: Optional[str] = None) -> dict[str, Any]:
         """Service to estimate how long before the ready time heating has to start."""
-        room_id, current_temperature = MAIN_ROOM_ID, self.current_temperature
+        room_id, current_temperature = MAIN_ROOM_ID, self.native_current_temperature
 
         if room:
             if (area := self.areas.get(room)) is None:
@@ -672,7 +690,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     def _update_frost_protection(self) -> bool:
         """Track whether the room is cold enough to require heating while off."""
         threshold = self._config.frost_protection_temperature
-        current_temperature = self.current_temperature
+        current_temperature = self.native_current_temperature
 
         if threshold <= 0 or current_temperature is None:
             self._frost_protection_active = False
@@ -1036,7 +1054,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     def _update_heating_curves(self) -> None:
         """Update the heating curves based on the current outside temperature."""
-        target_temperature = self.target_temperature
+        target_temperature = self.native_target_temperature
         outside_temperature = self.current_outside_temperature
 
         if target_temperature is None or outside_temperature is None:
@@ -1188,7 +1206,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 asyncio.sleep(self._config.sensors.window_minimum_open_time_seconds)
             )
             self._window_sensor_handle = handle
-            self._pre_activity_temperature = self.target_temperature or self.min_temp
+            self._pre_activity_temperature = self.native_target_temperature or self.min_temp
 
             try:
                 await handle
