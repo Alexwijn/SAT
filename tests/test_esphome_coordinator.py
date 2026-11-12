@@ -19,7 +19,7 @@ from aioesphomeapi import (
 )
 
 from custom_components.sat.const import CONF_DEVICE, CONF_MODE, OPTIONS_DEFAULTS
-from custom_components.sat.coordinator.esphome import SatEspHomeCoordinator, EspHomeEntityKeys
+from custom_components.sat.coordinator.esphome import EspHomeEntityKey, EspHomeEntityKeys, SatEspHomeCoordinator
 from custom_components.sat.entry_data import SatConfig, SatMode
 from custom_components.sat.types import HeaterState
 from tests.const import DEFAULT_USER_DATA
@@ -60,11 +60,24 @@ ESPHOME_ENTRY_ID = "esphome-test-entry"
 
 # Realistic entity key assignments (as an ESPHome device would assign them)
 KEYS = EspHomeEntityKeys(
-    t_boiler=1, t_ret=2, rel_mod_level=3, device_id=4,
-    max_capacity=5, min_mod_level=6, t_dhw_set_lb=7, t_dhw_set_ub=8, ch_pressure=9,
-    flame_on=10, dhw_active=11, ch_active=12,
-    t_set=20, t_dhw_set=21, max_t_set=22, max_rel_mod_level=23,
-    ch_enable=30, dhw_enable=31,
+    t_boiler=EspHomeEntityKey(0, 1),
+    t_ret=EspHomeEntityKey(0, 2),
+    rel_mod_level=EspHomeEntityKey(0, 3),
+    device_id=EspHomeEntityKey(0, 4),
+    max_capacity=EspHomeEntityKey(0, 5),
+    min_mod_level=EspHomeEntityKey(0, 6),
+    t_dhw_set_lb=EspHomeEntityKey(0, 7),
+    t_dhw_set_ub=EspHomeEntityKey(0, 8),
+    ch_pressure=EspHomeEntityKey(0, 9),
+    flame_on=EspHomeEntityKey(0, 10),
+    dhw_active=EspHomeEntityKey(0, 11),
+    ch_active=EspHomeEntityKey(0, 12),
+    t_set=EspHomeEntityKey(0, 20),
+    t_dhw_set=EspHomeEntityKey(0, 21),
+    max_t_set=EspHomeEntityKey(0, 22),
+    max_rel_mod_level=EspHomeEntityKey(0, 23),
+    ch_enable=EspHomeEntityKey(0, 30),
+    dhw_enable=EspHomeEntityKey(0, 31),
 )
 
 
@@ -128,6 +141,15 @@ def _build_state():
     return state
 
 
+def _build_state_new_ha():
+    """Build a state dict keyed by (device_id, key) as on Home Assistant 2026.10+."""
+    state = _build_state()
+    rekeyed = defaultdict(dict)
+    for state_type, entries in state.items():
+        rekeyed[state_type] = {(0, key): value for key, value in entries.items()}
+    return rekeyed
+
+
 def _make_esphome_config():
     data = {**DEFAULT_USER_DATA, CONF_MODE: SatMode.ESPHOME, CONF_DEVICE: ESPHOME_ENTRY_ID}
     return SatConfig(entry_id="esphome-test", data=data, options={**OPTIONS_DEFAULTS})
@@ -151,9 +173,7 @@ def runtime_data():
     )
 
 
-@pytest.fixture
-def esphome_coordinator(hass, runtime_data, monkeypatch):
-    """Create a SatEspHomeCoordinator backed by fake runtime data."""
+def _make_esphome_coordinator(hass, monkeypatch, runtime_data):
     fake_entry = _make_fake_esphome_entry(runtime_data)
 
     original_get = hass.config_entries.async_get_entry
@@ -166,6 +186,28 @@ def esphome_coordinator(hass, runtime_data, monkeypatch):
     monkeypatch.setattr(hass.config_entries, "async_get_entry", patched_get)
 
     return SatEspHomeCoordinator(hass, _make_esphome_config())
+
+
+@pytest.fixture
+def esphome_coordinator(hass, runtime_data, monkeypatch):
+    """Create a SatEspHomeCoordinator backed by fake runtime data."""
+    return _make_esphome_coordinator(hass, monkeypatch, runtime_data)
+
+
+@pytest.fixture
+def runtime_data_new_ha():
+    """Runtime data whose state dicts are keyed by (device_id, key)."""
+    return FakeRuntimeEntryData(
+        info=_build_info(),
+        state=_build_state_new_ha(),
+        device_info=SimpleNamespace(mac_address="AA:BB:CC:DD:EE:FF"),
+    )
+
+
+@pytest.fixture
+def esphome_coordinator_new_ha(hass, runtime_data_new_ha, monkeypatch):
+    """Create a SatEspHomeCoordinator backed by new Home Assistant state keys."""
+    return _make_esphome_coordinator(hass, monkeypatch, runtime_data_new_ha)
 
 
 # ── Discovery tests ───────────────────────────────────────────────────────────
@@ -279,6 +321,55 @@ async def test_missing_state_returns_none(esphome_coordinator, runtime_data):
     assert esphome_coordinator.boiler_temperature is None
 
 
+# ── New Home Assistant state key tests ────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_read_sensor_values_new_ha_state_keys(esphome_coordinator_new_ha):
+    """Home Assistant 2026.10+ keys state dicts by (device_id, key)."""
+    coordinator = esphome_coordinator_new_ha
+    coordinator._keys = coordinator._discover_entities()
+
+    assert coordinator.boiler_temperature == 45.2
+    assert coordinator.return_temperature == 38.1
+    assert coordinator.relative_modulation_value == 78.5
+    assert coordinator.boiler_capacity == 24.0
+    assert coordinator.minimum_relative_modulation_value == 20.0
+    assert coordinator.boiler_pressure == 1.5
+    assert coordinator.minimum_hot_water_setpoint == 35.0
+    assert coordinator.maximum_hot_water_setpoint == 65.0
+    assert coordinator.member_id == 95
+
+
+@pytest.mark.asyncio
+async def test_read_binary_sensor_values_new_ha_state_keys(esphome_coordinator_new_ha):
+    coordinator = esphome_coordinator_new_ha
+    coordinator._keys = coordinator._discover_entities()
+
+    assert coordinator.flame_active is True
+    assert coordinator.hot_water_active is False
+
+
+@pytest.mark.asyncio
+async def test_read_number_values_new_ha_state_keys(esphome_coordinator_new_ha):
+    coordinator = esphome_coordinator_new_ha
+    coordinator._keys = coordinator._discover_entities()
+
+    assert coordinator.setpoint == 55.0
+    assert coordinator.hot_water_setpoint == 50.0
+    assert coordinator.maximum_setpoint_value == 75.0
+    assert coordinator.maximum_relative_modulation_value == 100.0
+
+
+@pytest.mark.asyncio
+async def test_read_switch_values_new_ha_state_keys(esphome_coordinator_new_ha):
+    coordinator = esphome_coordinator_new_ha
+    coordinator._keys = coordinator._discover_entities()
+
+    assert coordinator.active is True
+    assert coordinator.hot_water_enabled is True
+
+
 # ── Command tests ─────────────────────────────────────────────────────────────
 
 
@@ -288,7 +379,7 @@ async def test_set_control_setpoint(esphome_coordinator, runtime_data):
 
     await esphome_coordinator.async_set_control_setpoint(42.5)
 
-    runtime_data.client.number_command.assert_called_once_with(KEYS.t_set, 42.5)
+    runtime_data.client.number_command.assert_called_once_with(KEYS.t_set.key, 42.5)
 
 
 @pytest.mark.asyncio
@@ -297,7 +388,7 @@ async def test_set_hot_water_setpoint(esphome_coordinator, runtime_data):
 
     await esphome_coordinator.async_set_control_hot_water_setpoint(48.0)
 
-    runtime_data.client.number_command.assert_called_once_with(KEYS.t_dhw_set, 48.0)
+    runtime_data.client.number_command.assert_called_once_with(KEYS.t_dhw_set.key, 48.0)
 
 
 @pytest.mark.asyncio
@@ -306,7 +397,7 @@ async def test_set_heater_state_on(esphome_coordinator, runtime_data):
 
     await esphome_coordinator.async_set_heater_state(HeaterState.ON)
 
-    runtime_data.client.switch_command.assert_called_once_with(KEYS.ch_enable, True)
+    runtime_data.client.switch_command.assert_called_once_with(KEYS.ch_enable.key, True)
 
 
 @pytest.mark.asyncio
@@ -315,7 +406,7 @@ async def test_set_heater_state_off(esphome_coordinator, runtime_data):
 
     await esphome_coordinator.async_set_heater_state(HeaterState.OFF)
 
-    runtime_data.client.switch_command.assert_called_once_with(KEYS.ch_enable, False)
+    runtime_data.client.switch_command.assert_called_once_with(KEYS.ch_enable.key, False)
 
 
 @pytest.mark.asyncio
@@ -324,7 +415,7 @@ async def test_set_max_relative_modulation(esphome_coordinator, runtime_data):
 
     await esphome_coordinator.async_set_control_max_relative_modulation(80)
 
-    runtime_data.client.number_command.assert_called_once_with(KEYS.max_rel_mod_level, 80.0)
+    runtime_data.client.number_command.assert_called_once_with(KEYS.max_rel_mod_level.key, 80.0)
 
 
 @pytest.mark.asyncio
@@ -333,7 +424,7 @@ async def test_set_max_setpoint(esphome_coordinator, runtime_data):
 
     await esphome_coordinator.async_set_control_max_setpoint(70.0)
 
-    runtime_data.client.number_command.assert_called_once_with(KEYS.max_t_set, 70.0)
+    runtime_data.client.number_command.assert_called_once_with(KEYS.max_t_set.key, 70.0)
 
 
 @pytest.mark.asyncio

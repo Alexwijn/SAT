@@ -11,6 +11,7 @@ from aioesphomeapi import (
     BinarySensorInfo,
     BinarySensorState,
     EntityInfo,
+    EntityState,
     NumberInfo,
     NumberState,
     SensorInfo,
@@ -64,37 +65,45 @@ ENTITY_MAP: dict[tuple[type[EntityInfo], str], str] = {
 }
 
 
+@dataclass(frozen=True)
+class EspHomeEntityKey:
+    """Identifies an ESPHome entity by device and key."""
+
+    device_id: int
+    key: int
+
+
 @dataclass
 class EspHomeEntityKeys:
-    """Resolved ESPHome numeric keys for OpenTherm data points."""
+    """Resolved ESPHome entity keys for OpenTherm data points."""
 
     # Sensors
-    t_boiler: Optional[int] = None
-    t_ret: Optional[int] = None
-    rel_mod_level: Optional[int] = None
-    device_id: Optional[int] = None
-    max_capacity: Optional[int] = None
-    min_mod_level: Optional[int] = None
-    t_dhw_set_lb: Optional[int] = None
-    t_dhw_set_ub: Optional[int] = None
-    ch_pressure: Optional[int] = None
+    t_boiler: Optional[EspHomeEntityKey] = None
+    t_ret: Optional[EspHomeEntityKey] = None
+    rel_mod_level: Optional[EspHomeEntityKey] = None
+    device_id: Optional[EspHomeEntityKey] = None
+    max_capacity: Optional[EspHomeEntityKey] = None
+    min_mod_level: Optional[EspHomeEntityKey] = None
+    t_dhw_set_lb: Optional[EspHomeEntityKey] = None
+    t_dhw_set_ub: Optional[EspHomeEntityKey] = None
+    ch_pressure: Optional[EspHomeEntityKey] = None
 
     # Binary sensors
-    flame_on: Optional[int] = None
-    dhw_active: Optional[int] = None
-    ch_active: Optional[int] = None
-    fault_indication: Optional[int] = None
-    oem_fault_code: Optional[int] = None
+    flame_on: Optional[EspHomeEntityKey] = None
+    dhw_active: Optional[EspHomeEntityKey] = None
+    ch_active: Optional[EspHomeEntityKey] = None
+    fault_indication: Optional[EspHomeEntityKey] = None
+    oem_fault_code: Optional[EspHomeEntityKey] = None
 
     # Numbers
-    t_set: Optional[int] = None
-    t_dhw_set: Optional[int] = None
-    max_t_set: Optional[int] = None
-    max_rel_mod_level: Optional[int] = None
+    t_set: Optional[EspHomeEntityKey] = None
+    t_dhw_set: Optional[EspHomeEntityKey] = None
+    max_t_set: Optional[EspHomeEntityKey] = None
+    max_rel_mod_level: Optional[EspHomeEntityKey] = None
 
     # Switches
-    ch_enable: Optional[int] = None
-    dhw_enable: Optional[int] = None
+    ch_enable: Optional[EspHomeEntityKey] = None
+    dhw_enable: Optional[EspHomeEntityKey] = None
 
 
 class SatEspHomeCoordinator(SatDataUpdateCoordinator):
@@ -293,24 +302,24 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_max_setpoint(value)
 
-    def _send_number_command(self, key: Optional[int], value: float, description: str) -> None:
-        if self._config.simulation.enabled or key is None or (client := self._client) is None:
+    def _send_number_command(self, entity_key: Optional[EspHomeEntityKey], value: float, description: str) -> None:
+        if self._config.simulation.enabled or entity_key is None or (client := self._client) is None:
             return
 
         try:
-            client.number_command(key, value)
+            client.number_command(entity_key.key, value)
         except APIConnectionError as error:
             _LOGGER.warning("Could not send %s to ESPHome: %s", description, error)
             return
 
         _LOGGER.debug("Sent %s %.1f to ESPHome", description, value)
 
-    def _send_switch_command(self, key: Optional[int], state: bool, description: str) -> None:
-        if self._config.simulation.enabled or key is None or (client := self._client) is None:
+    def _send_switch_command(self, entity_key: Optional[EspHomeEntityKey], state: bool, description: str) -> None:
+        if self._config.simulation.enabled or entity_key is None or (client := self._client) is None:
             return
 
         try:
-            client.switch_command(key, state)
+            client.switch_command(entity_key.key, state)
         except APIConnectionError as error:
             _LOGGER.warning("Could not send %s to ESPHome: %s", description, error)
             return
@@ -344,52 +353,51 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
 
         for info_type in (SensorInfo, BinarySensorInfo, NumberInfo, SwitchInfo):
             infos = entry_data.info.get(info_type, {})
-            for (_device_id, key), info in infos.items():
+            for (device_id, key), info in infos.items():
                 field_name = ENTITY_MAP.get((info_type, info.object_id))
                 if field_name is not None:
-                    setattr(keys, field_name, key)
+                    setattr(keys, field_name, EspHomeEntityKey(device_id, key))
 
         return keys
 
-    def _get_sensor_value(self, key: Optional[int]) -> Optional[float]:
+    def _get_entity_state(self, state_type: type[EntityState], entity_key: Optional[EspHomeEntityKey]) -> Optional[EntityState]:
+        """Look up a state entry by device and key, falling back to the bare key."""
+        if entity_key is None or (entry_data := self._entry_data) is None:
+            return None
+
+        states = entry_data.state[state_type]
+        state = states.get((entity_key.device_id, entity_key.key))
+        if state is None:
+            state = states.get(entity_key.key)
+        return state
+
+    def _get_sensor_value(self, entity_key: Optional[EspHomeEntityKey]) -> Optional[float]:
         """Read a sensor value from the ESPHome state cache."""
-        if key is None or (entry_data := self._entry_data) is None:
-            return None
-
-        state = entry_data.state[SensorState].get(key)
+        state = self._get_entity_state(SensorState, entity_key)
         if state is None or getattr(state, "missing_state", False):
             return None
 
         return state.state
 
-    def _get_binary_sensor_value(self, key: Optional[int]) -> Optional[bool]:
+    def _get_binary_sensor_value(self, entity_key: Optional[EspHomeEntityKey]) -> Optional[bool]:
         """Read a binary sensor value from the ESPHome state cache."""
-        if key is None or (entry_data := self._entry_data) is None:
-            return None
-
-        state = entry_data.state[BinarySensorState].get(key)
+        state = self._get_entity_state(BinarySensorState, entity_key)
         if state is None or getattr(state, "missing_state", False):
             return None
 
         return state.state
 
-    def _get_number_value(self, key: Optional[int]) -> Optional[float]:
+    def _get_number_value(self, entity_key: Optional[EspHomeEntityKey]) -> Optional[float]:
         """Read a number value from the ESPHome state cache."""
-        if key is None or (entry_data := self._entry_data) is None:
-            return None
-
-        state = entry_data.state[NumberState].get(key)
+        state = self._get_entity_state(NumberState, entity_key)
         if state is None or getattr(state, "missing_state", False):
             return None
 
         return state.state
 
-    def _get_switch_value(self, key: Optional[int]) -> Optional[bool]:
+    def _get_switch_value(self, entity_key: Optional[EspHomeEntityKey]) -> Optional[bool]:
         """Read a switch value from the ESPHome state cache."""
-        if key is None or (entry_data := self._entry_data) is None:
-            return None
-
-        state = entry_data.state[SwitchState].get(key)
+        state = self._get_entity_state(SwitchState, entity_key)
         if state is None:
             return None
 
