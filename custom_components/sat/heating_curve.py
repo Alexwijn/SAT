@@ -213,7 +213,7 @@ class HeatingCurveAdvisor:
 
     def implied_coefficient(self, sample: Optional[HeatingCurveAdviceSample]) -> Optional[float]:
         """Return the coefficient that would have absorbed the correction of this sample."""
-        if sample is None or sample.shape < RECOMMENDATION_MINIMUM_SHAPE:
+        if sample is None or sample.shape < RECOMMENDATION_MINIMUM_SHAPE or self._settling(sample.timestamp):
             return None
 
         return round(clamp(self._coefficient + sample.coefficient_delta, MINIMUM_COEFFICIENT, MAXIMUM_COEFFICIENT), 2)

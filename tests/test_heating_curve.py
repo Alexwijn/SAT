@@ -349,6 +349,19 @@ async def test_samples_wait_for_the_house_to_settle_after_a_coefficient_change(h
     assert changed.advice.sample_count == 1
 
 
+async def test_implied_coefficient_is_unknown_while_the_house_settles(hass):
+    advisor = HeatingCurveAdvisor(coefficient=3.0)
+    await advisor.async_added_to_hass(hass, "entry8")
+    await advisor._store.async_save(advisor._data_to_save())
+
+    changed = HeatingCurveAdvisor(coefficient=2.2)
+    await changed.async_added_to_hass(hass, "entry8")
+    now = timestamp()
+
+    assert changed.implied_coefficient(HeatingCurveAdviceSample(shape=SHAPE, timestamp=now + 60.0, correction=0.0)) is None
+    assert changed.implied_coefficient(HeatingCurveAdviceSample(shape=SHAPE, timestamp=now + RECOMMENDATION_COEFFICIENT_SETTLE_SECONDS + 60.0, correction=0.0)) == 2.2
+
+
 async def test_settling_survives_a_restart(hass):
     advisor = HeatingCurveAdvisor(coefficient=3.0)
     await advisor.async_added_to_hass(hass, "entry6")
