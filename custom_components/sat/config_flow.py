@@ -6,6 +6,7 @@ from typing import Any, Optional
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import sensor, switch, valve, weather, binary_sensor, climate, input_boolean
+from homeassistant.components.climate import PRESET_HOME
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 from homeassistant.helpers import selector, device_registry, entity_registry
@@ -19,7 +20,7 @@ from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entry_data import SatConfig, SatMode
-from .helpers import calculate_default_maximum_setpoint, snake_case
+from .helpers import calculate_default_maximum_setpoint, float_value, snake_case
 from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .presets import PRESET_TEMPERATURE_KEYS
 from .types import HeatingSystem, HeatingMode
@@ -32,7 +33,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SAT."""
-    VERSION = 12
+    VERSION = 13
     MINOR_VERSION = 0
 
     def __init__(self):
@@ -748,7 +749,11 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         schema = {vol.Required(CONF_ROOM_PRESET_FIXED, default=bool(current.get(CONF_ROOM_PRESET_FIXED))): bool}
         for preset, key in PRESET_TEMPERATURE_KEYS.items():
-            marker = vol.Optional(key, description={"suggested_value": temperatures[preset]}) if preset in temperatures else vol.Optional(key)
+            suggested_value = temperatures.get(preset)
+            if suggested_value is None and preset == PRESET_HOME:
+                suggested_value = self._room_target(self._room)
+
+            marker = vol.Optional(key) if suggested_value is None else vol.Optional(key, description={"suggested_value": suggested_value})
             schema[marker] = selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C"))
 
         return self.async_show_form(
@@ -761,6 +766,11 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         state = self.hass.states.get(entity_id)
 
         return state.name if state is not None else entity_id
+
+    def _room_target(self, entity_id: str) -> Optional[float]:
+        state = self.hass.states.get(entity_id)
+
+        return float_value(state.attributes.get("temperature")) if state is not None else None
 
     async def async_step_system_configuration(self, _user_input: Optional[dict[str, Any]] = None):
         if _user_input is not None:

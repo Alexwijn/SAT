@@ -1,15 +1,21 @@
 import logging
 import traceback
 
+from homeassistant.components.climate import PRESET_HOME
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
+from homeassistant.helpers.restore_state import DATA_RESTORE_STATE
 from homeassistant.helpers.storage import Store
 from sentry_sdk import Client, Hub
 
 from .const import (
     CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
     CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS,
+    CONF_ROOM_PRESET_FIXED,
+    CONF_ROOM_PRESET_TEMPERATURES,
+    CONF_ROOM_PRESETS,
+    CONF_ROOMS,
     DOMAIN,
     OPTIONS_DEFAULTS,
 )
@@ -214,11 +220,39 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if (push_setpoint := new_data.pop("push_setpoint_to_thermostat", None)) is not None:
                 new_options["push_setpoint_to_thermostat"] = push_setpoint
 
+        if entry.version < 13:
+            new_options[CONF_ROOM_PRESETS] = async_migrate_room_presets(hass, entry, new_data.get(CONF_ROOMS) or [], new_options.get(CONF_ROOM_PRESETS) or {})
+
         hass.config_entries.async_update_entry(entry, version=SatFlowHandler.VERSION, data=new_data, options=new_options)
 
     _LOGGER.info("Migration to version %s successful", entry.version)
 
     return True
+
+
+def async_migrate_room_presets(hass: HomeAssistant, entry: ConfigEntry, rooms: list[str], room_presets: dict) -> dict:
+    """Turn the home temperatures the climate entity remembered per room into room presets."""
+    remembered = {}
+    climate_id = entity_registry.async_get(hass).async_get_entity_id("climate", DOMAIN, entry.entry_id)
+    restore_state = hass.data.get(DATA_RESTORE_STATE)
+
+    if climate_id is not None and restore_state is not None and (stored := restore_state.last_states.get(climate_id)) is not None:
+        remembered = stored.state.attributes.get("rooms") or {}
+
+    migrated = {room: dict(settings or {}) for room, settings in room_presets.items()}
+
+    for room in rooms:
+        if (home_target := remembered.get(room)) is None:
+            continue
+
+        settings = migrated.setdefault(room, {})
+        temperatures = dict(settings.get(CONF_ROOM_PRESET_TEMPERATURES) or {})
+        temperatures.setdefault(PRESET_HOME, float(home_target))
+
+        settings[CONF_ROOM_PRESET_FIXED] = bool(settings.get(CONF_ROOM_PRESET_FIXED))
+        settings[CONF_ROOM_PRESET_TEMPERATURES] = temperatures
+
+    return migrated
 
 
 async def async_migrate_identifiers(hass: HomeAssistant, entry: ConfigEntry, config: SatConfig) -> None:

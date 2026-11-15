@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Préréglages par pièce",
-        "description": "Choisissez la pièce dont vous voulez définir les températures de préréglage. Les pièces sans valeurs propres suivent les préréglages de la maison : un préréglage ne fait que baisser une telle pièce, par rapport à sa propre température Maison, et ne la relève jamais.",
+        "description": "Choisissez la pièce dont vous voulez définir les températures de préréglage. La température Maison est la cible normale de la pièce ; une pièce qui n'en a pas n'est pas touchée. Les préréglages laissés vides ne font que baisser la pièce par rapport à sa température Maison et ne la relèvent jamais.",
         "data": {
           "room": "Pièce"
         }

@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Predefinições por quarto",
-        "description": "Escolha o quarto para o qual quer definir as temperaturas das predefinições. Os quartos sem valores próprios seguem as predefinições da casa: uma predefinição apenas baixa esse quarto, em relação à sua própria temperatura Em casa, e nunca o sobe.",
+        "description": "Escolha o quarto para o qual quer definir as temperaturas das predefinições. A temperatura Em casa é o alvo normal do quarto; um quarto sem ela não é alterado. As predefinições que deixar vazias apenas baixam o quarto em relação à sua temperatura Em casa e nunca o sobem.",
         "data": {
           "room": "Quarto"
         }

@@ -13,7 +13,6 @@ from homeassistant.components.climate import (
     HVACAction,
     HVACMode,
     PRESET_ACTIVITY,
-    PRESET_HOME,
     PRESET_NONE,
     ATTR_HVAC_MODE,
     ATTR_PRESET_MODE,
@@ -42,7 +41,6 @@ from .presets import RoomPresets, preset_temperatures
 from .summer_simmer import SummerSimmer
 from .types import PWMStatus
 
-ATTR_ROOMS = "rooms"
 ATTR_SETPOINT = "setpoint"
 ATTR_RELATIVE_MODULATION_VALUE = "relative_modulation_value"
 
@@ -94,7 +92,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._demand_control = demand_control
 
-        self._rooms: Optional[dict[str, float]] = None
         self._room_presets = RoomPresets(config.presets)
         self._presets: dict[str, float] = preset_temperatures(config.presets)
 
@@ -159,13 +156,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE):
                 self._pre_custom_temperature = old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE)
 
-            if old_state.attributes.get(ATTR_ROOMS):
-                self._rooms = old_state.attributes.get(ATTR_ROOMS)
-            else:
-                await self._async_update_rooms_from_climates()
-        elif self._rooms is None:
-            await self._async_update_rooms_from_climates()
-
         self._demand_control.restore(old_state, self.min_temp)
         self.async_write_ha_state()
 
@@ -196,7 +186,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "pre_custom_temperature": self._pre_custom_temperature,
             "pre_activity_temperature": self._pre_activity_temperature,
 
-            "rooms": self._rooms,
             "room_errors": self._demand_control.room_errors,
             "room_temperatures": self._demand_control.room_temperatures,
             "current_humidity": self.current_humidity,
@@ -375,8 +364,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if state is None or state.state == HVACMode.OFF:
                 continue
 
-            home_target = self._rooms.get(entity_id) if self._rooms is not None else None
-            target_temperature = self._room_presets.target(entity_id, preset_mode, home_target)
+            target_temperature = self._room_presets.target(entity_id, preset_mode)
 
             if target_temperature is None or float_value(state.attributes.get(ATTR_TEMPERATURE)) == target_temperature:
                 continue
@@ -413,38 +401,12 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._event_listeners_registered = True
 
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, self._demand_control.areas.ids(), self._async_room_changed
-            )
-        )
-
         if len(self._config.window_sensors) > 0:
             self.async_on_remove(
                 async_track_state_change_event(
                     self.hass, list(self._config.window_sensors), self._async_window_sensor_changed
                 )
             )
-
-    async def _async_room_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Remember the target temperature a room has while at home."""
-        new_state = event.data.get("new_state")
-        if not new_state or self._rooms is None:
-            return
-
-        if (target_temperature := new_state.attributes.get(ATTR_TEMPERATURE)) is None:
-            return
-
-        if new_state.entity_id in self._rooms and self.preset_mode not in (PRESET_HOME, PRESET_NONE):
-            return
-
-        if self._rooms.get(new_state.entity_id) == float(target_temperature):
-            return
-
-        self._rooms[new_state.entity_id] = float(target_temperature)
-        _LOGGER.debug(f"Updated area preset temperature for {new_state.entity_id} to {target_temperature}")
-
-        self.async_write_ha_state()
 
     async def _async_window_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle changes to the contact sensor entity."""
@@ -497,25 +459,6 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                     await self.async_set_temperature(temperature=self._pre_activity_temperature)
 
             return
-
-    async def _async_update_rooms_from_climates(self) -> None:
-        """Update the temperature setpoint for each room based on their associated climate entity."""
-        self._rooms = {}
-
-        # Iterate through each climate entity
-        for entity_id in self._demand_control.areas.ids():
-            state = self.hass.states.get(entity_id)
-
-            # Skip any entities that are unavailable or have an unknown state
-            if not state or state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-                continue
-
-            # Retrieve the target temperature from the climate entity's attributes
-            target_temperature = state.attributes.get("temperature")
-
-            # If the target temperature exists, store it in the _rooms dictionary with the climate entity as the key
-            if target_temperature is not None:
-                self._rooms[entity_id] = float(target_temperature)
 
     @staticmethod
     def _build_supported_features(rooms_only: bool) -> ClimateEntityFeature:

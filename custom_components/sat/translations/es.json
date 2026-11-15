@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Preajustes por habitación",
-        "description": "Elija la habitación para la que quiere definir temperaturas de preajuste. Las habitaciones sin valores propios siguen los preajustes de la casa: un preajuste solo baja esa habitación, en relación con su propia temperatura de En casa, y nunca la sube.",
+        "description": "Elija la habitación para la que quiere definir temperaturas de preajuste. La temperatura de En casa es el objetivo normal de la habitación; una habitación sin ella no se toca. Los preajustes que deje vacíos solo bajan la habitación en relación con su temperatura de En casa y nunca la suben.",
         "data": {
           "room": "Habitación"
         }

@@ -29,19 +29,18 @@ class RoomPresets:
         self._house = preset_temperatures(config)
         self._rooms = config.rooms
 
-    def target(self, room_id: str, preset: str, home_target: Optional[float]) -> Optional[float]:
+    def target(self, room_id: str, preset: str) -> Optional[float]:
         """Return the target a room gets under a preset, or None when the room is left alone."""
-        room = self._rooms.get(room_id)
-        preset = PRESET_HOME if preset == PRESET_NONE else preset
-
-        if room is not None and room.fixed:
+        if (room := self._rooms.get(room_id)) is None or room.fixed:
             return None
 
-        if room is not None and (temperature := room.temperatures.get(preset)) is not None:
+        preset = PRESET_HOME if preset == PRESET_NONE else preset
+
+        if (temperature := room.temperatures.get(preset)) is not None:
             return temperature
 
-        if preset == PRESET_HOME or home_target is None:
-            return home_target
+        if (home_target := room.temperatures.get(PRESET_HOME)) is None:
+            return None
 
         delta = self._house[preset] - self._house[PRESET_HOME]
         setback = min(home_target, home_target + delta)

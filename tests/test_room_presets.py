@@ -2,10 +2,12 @@
 
 import pytest
 from homeassistant.components.climate import ClimateEntityFeature, HVACMode, PRESET_AWAY, PRESET_COMFORT, PRESET_HOME, PRESET_NONE, PRESET_SLEEP
+from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
-from pytest_homeassistant_custom_component.common import async_mock_service
+from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service, mock_restore_cache
 
-from custom_components.sat.config_flow import SatOptionsFlowHandler
+from custom_components.sat.config_flow import SatFlowHandler, SatOptionsFlowHandler
 from custom_components.sat.const import (
     CONF_AWAY_TEMPERATURE,
     CONF_COMFORT_TEMPERATURE,
@@ -19,38 +21,44 @@ from custom_components.sat.const import (
     CONF_ROOMS,
     CONF_SLEEP_TEMPERATURE,
     CONF_SYNC_CLIMATES_WITH_PRESET,
+    DOMAIN,
 )
 from custom_components.sat.presets import RoomPresets
 from custom_components.sat.types import HeatingSystem
-from tests.const import make_config
+from tests.const import DEFAULT_USER_DATA, make_config
 
+HALL = "climate.hall"
+COUCH = "climate.couch"
 KITCHEN = "climate.kitchen"
 BEDROOM = "climate.bedroom"
-COUCH = "climate.couch"
 NURSERY = "climate.nursery"
+ROOMS = [KITCHEN, BEDROOM, COUCH, NURSERY, HALL]
 
 HOUSE = {CONF_HOME_TEMPERATURE: 21, CONF_SLEEP_TEMPERATURE: 19, CONF_AWAY_TEMPERATURE: 16, CONF_COMFORT_TEMPERATURE: 23}
 ROOM_PRESETS = {
-    COUCH: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_COMFORT: 23.0}},
+    KITCHEN: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_HOME: 21.0}},
+    BEDROOM: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_HOME: 18.0}},
+    COUCH: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_HOME: 21.0, PRESET_COMFORT: 23.0}},
     NURSERY: {CONF_ROOM_PRESET_FIXED: True, CONF_ROOM_PRESET_TEMPERATURES: {}},
 }
 
 WITH_MAIN_ROOM = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
-    [([], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS, CONF_ROOMS: [KITCHEN, BEDROOM, COUCH, NURSERY]}, {**HOUSE, CONF_SYNC_CLIMATES_WITH_PRESET: True, CONF_ROOM_PRESETS: ROOM_PRESETS}, {})],
+    [([], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS, CONF_ROOMS: ROOMS}, {**HOUSE, CONF_SYNC_CLIMATES_WITH_PRESET: True, CONF_ROOM_PRESETS: ROOM_PRESETS}, {})],
 )
 
 ROOMS_ONLY = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
-    [([], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS, CONF_INSIDE_SENSOR_ENTITY_ID: None, CONF_ROOMS: [KITCHEN, BEDROOM, COUCH, NURSERY]}, {**HOUSE, CONF_ROOM_PRESETS: ROOM_PRESETS}, {})],
+    [([], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS, CONF_INSIDE_SENSOR_ENTITY_ID: None, CONF_ROOMS: ROOMS}, {**HOUSE, CONF_ROOM_PRESETS: ROOM_PRESETS}, {})],
 )
 
 
 @pytest.fixture
 async def room_states(hass):
+    hass.states.async_set(HALL, HVACMode.HEAT, {"temperature": 20.5, "current_temperature": 20.0})
+    hass.states.async_set(COUCH, HVACMode.HEAT, {"temperature": 21.0, "current_temperature": 20.0})
     hass.states.async_set(KITCHEN, HVACMode.HEAT, {"temperature": 21.0, "current_temperature": 20.5})
     hass.states.async_set(BEDROOM, HVACMode.HEAT, {"temperature": 18.0, "current_temperature": 17.5})
-    hass.states.async_set(COUCH, HVACMode.HEAT, {"temperature": 21.0, "current_temperature": 20.0})
     hass.states.async_set(NURSERY, HVACMode.HEAT, {"temperature": 20.0, "current_temperature": 19.5})
     hass.states.async_set("sensor.test_inside_sensor", "20.0")
     hass.states.async_set("sensor.test_outside_sensor", "5.0")
@@ -64,42 +72,42 @@ def _set_temperature_calls(calls) -> dict[str, float]:
     return {call.data["entity_id"]: call.data["temperature"] for call in calls}
 
 
-def test_setbacks_lower_a_room_relative_to_its_home_target():
+def test_setbacks_lower_a_room_relative_to_its_home_temperature():
     presets = _presets()
 
-    assert presets.target(KITCHEN, PRESET_SLEEP, 21.0) == 19.0
-    assert presets.target(KITCHEN, PRESET_AWAY, 21.0) == 16.0
-    assert presets.target(BEDROOM, PRESET_SLEEP, 18.0) == 18.0
-    assert presets.target(BEDROOM, PRESET_AWAY, 18.0) == 16.0
+    assert presets.target(KITCHEN, PRESET_SLEEP) == 19.0
+    assert presets.target(KITCHEN, PRESET_AWAY) == 16.0
+    assert presets.target(BEDROOM, PRESET_SLEEP) == 18.0
+    assert presets.target(BEDROOM, PRESET_AWAY) == 16.0
 
 
 def test_boosts_never_raise_a_room():
     presets = _presets()
 
-    assert presets.target(KITCHEN, PRESET_COMFORT, 21.0) == 21.0
-    assert presets.target(BEDROOM, PRESET_COMFORT, 18.0) == 18.0
+    assert presets.target(KITCHEN, PRESET_COMFORT) == 21.0
+    assert presets.target(BEDROOM, PRESET_COMFORT) == 18.0
 
 
 def test_a_room_with_its_own_value_follows_it():
     presets = _presets()
 
-    assert presets.target(COUCH, PRESET_COMFORT, 21.0) == 23.0
-    assert presets.target(COUCH, PRESET_SLEEP, 21.0) == 19.0
+    assert presets.target(COUCH, PRESET_COMFORT) == 23.0
+    assert presets.target(COUCH, PRESET_SLEEP) == 19.0
 
 
-def test_a_fixed_room_is_left_alone():
+def test_home_and_no_preset_restore_the_home_temperature():
+    presets = _presets()
+
+    assert presets.target(KITCHEN, PRESET_HOME) == 21.0
+    assert presets.target(KITCHEN, PRESET_NONE) == 21.0
+
+
+def test_rooms_without_a_home_temperature_or_marked_fixed_are_left_alone():
     presets = _presets()
 
     for preset in (PRESET_HOME, PRESET_NONE, PRESET_SLEEP, PRESET_AWAY, PRESET_COMFORT):
-        assert presets.target(NURSERY, preset, 20.0) is None
-
-
-def test_home_and_no_preset_restore_the_home_target():
-    presets = _presets()
-
-    assert presets.target(KITCHEN, PRESET_HOME, 21.0) == 21.0
-    assert presets.target(KITCHEN, PRESET_NONE, 21.0) == 21.0
-    assert presets.target(KITCHEN, PRESET_SLEEP, None) is None
+        assert presets.target(NURSERY, preset) is None
+        assert presets.target(HALL, preset) is None
 
 
 @WITH_MAIN_ROOM
@@ -123,27 +131,16 @@ async def test_comfort_raises_only_the_room_that_asked_for_it(room_states, hass,
 
 
 @WITH_MAIN_ROOM
-async def test_leaving_the_preset_restores_the_home_targets(room_states, hass, climate, domains, data, options, config):
+async def test_leaving_the_preset_restores_the_home_temperatures(room_states, hass, climate, domains, data, options, config):
     await climate.async_set_preset_mode(PRESET_AWAY)
-    hass.states.async_set(KITCHEN, HVACMode.HEAT, {"temperature": 16.0, "current_temperature": 20.5})
-    hass.states.async_set(BEDROOM, HVACMode.HEAT, {"temperature": 16.0, "current_temperature": 17.5})
     hass.states.async_set(COUCH, HVACMode.HEAT, {"temperature": 16.0, "current_temperature": 20.0})
+    hass.states.async_set(KITCHEN, HVACMode.HEAT, {"temperature": 16.0, "current_temperature": 20.5})
+    hass.states.async_set(BEDROOM, HVACMode.HEAT, {"temperature": 15.0, "current_temperature": 17.5})
     calls = async_mock_service(hass, "climate", "set_temperature")
 
     await climate.async_set_preset_mode(PRESET_NONE)
 
     assert _set_temperature_calls(calls) == {KITCHEN: 21.0, BEDROOM: 18.0, COUCH: 21.0}
-    assert climate.extra_state_attributes["rooms"] == {KITCHEN: 21.0, BEDROOM: 18.0, COUCH: 21.0, NURSERY: 20.0}
-
-
-@WITH_MAIN_ROOM
-async def test_room_changes_while_away_are_not_remembered_as_home(room_states, hass, climate, domains, data, options, config):
-    await climate.async_set_preset_mode(PRESET_AWAY)
-
-    hass.states.async_set(BEDROOM, HVACMode.HEAT, {"temperature": 15.0, "current_temperature": 17.5})
-    await hass.async_block_till_done()
-
-    assert climate.extra_state_attributes["rooms"][BEDROOM] == 18.0
 
 
 @ROOMS_ONLY
@@ -176,11 +173,25 @@ async def test_options_flow_stores_the_room_presets(hass, entry, domains, data, 
     result = await flow.async_step_room_presets({CONF_ROOM: BEDROOM})
     assert result["step_id"] == "room_preset"
 
-    result = await flow.async_step_room_preset({CONF_ROOM_PRESET_FIXED: False, CONF_COMFORT_TEMPERATURE: 18.0})
+    result = await flow.async_step_room_preset({CONF_ROOM_PRESET_FIXED: False, CONF_HOME_TEMPERATURE: 18.0, CONF_COMFORT_TEMPERATURE: 18.5})
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_ROOM_PRESETS][BEDROOM] == {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_COMFORT: 18.0}}
+    assert result["data"][CONF_ROOM_PRESETS][BEDROOM] == {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_HOME: 18.0, PRESET_COMFORT: 18.5}}
     assert result["data"][CONF_ROOM_PRESETS][COUCH] == ROOM_PRESETS[COUCH]
+
+
+@ROOMS_ONLY
+async def test_options_flow_suggests_the_current_target_as_home_temperature(room_states, hass, entry, domains, data, options, config):
+    flow = SatOptionsFlowHandler(entry)
+    flow.hass = hass
+
+    await flow.async_step_room_presets({CONF_ROOM: HALL})
+    result = await flow.async_step_room_preset()
+
+    suggestions = {marker.schema: (marker.description or {}).get("suggested_value") for marker in result["data_schema"].schema}
+
+    assert suggestions[CONF_HOME_TEMPERATURE] == 20.5
+    assert suggestions[CONF_SLEEP_TEMPERATURE] is None
 
 
 @ROOMS_ONLY
@@ -189,3 +200,23 @@ async def test_options_menu_offers_room_presets(hass, entry, domains, data, opti
 
     assert "presets" in result["menu_options"]
     assert "room_presets" in result["menu_options"]
+
+
+async def test_migration_turns_the_remembered_home_temperatures_into_room_presets(hass):
+    entry = MockConfigEntry(domain=DOMAIN, version=12, data={**DEFAULT_USER_DATA, CONF_ROOMS: [KITCHEN, BEDROOM, HALL]}, options={CONF_ROOM_PRESETS: {BEDROOM: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_COMFORT: 18.5}}}})
+    entry.add_to_hass(hass)
+
+    climate_id = er.async_get(hass).async_get_or_create("climate", DOMAIN, entry.entry_id, config_entry=entry).entity_id
+    mock_restore_cache(hass, [State(climate_id, HVACMode.HEAT, {"temperature": 21.0, "rooms": {KITCHEN: 21.0, BEDROOM: 18.0, "climate.removed": 19.0}})])
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.version == SatFlowHandler.VERSION
+    assert entry.options[CONF_ROOM_PRESETS] == {
+        KITCHEN: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_HOME: 21.0}},
+        BEDROOM: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_COMFORT: 18.5, PRESET_HOME: 18.0}},
+    }
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()

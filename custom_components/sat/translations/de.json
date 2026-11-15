@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Zimmer-Voreinstellungen",
-        "description": "Wählen Sie das Zimmer, für das Sie Voreinstellungstemperaturen festlegen möchten. Zimmer ohne eigene Werte folgen den Voreinstellungen des Hauses: Eine Voreinstellung senkt ein solches Zimmer nur, relativ zu seiner eigenen Zuhause-Temperatur, und erhöht es nie.",
+        "description": "Wählen Sie das Zimmer, für das Sie Voreinstellungstemperaturen festlegen möchten. Die Zuhause-Temperatur ist die normale Zieltemperatur des Zimmers; ein Zimmer ohne diese bleibt unberührt. Leer gelassene Voreinstellungen senken das Zimmer nur relativ zu seiner Zuhause-Temperatur und erhöhen es nie.",
         "data": {
           "room": "Zimmer"
         }
