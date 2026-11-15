@@ -208,7 +208,7 @@ For more information about which other entities are available for OpenTherm plea
 4. Areas:  
    - Primary: Users can add their physical thermostat. SAT will syncronize the `hvac_action` of the physical thermostat with the SAT climate entity's `hvac action`, that means if the physical thermostat doesn't require heating then the SAT climate entity `hvac_action` will remain at idle. Also the physical thermostat's room setpoint stays in sync with SAT climate entity. Moreover the physical thermostat will act as a back up if any failure to HA occurs.
    - Rooms: Users can add their TRV climate entities. So when any of the rooms will ask for heating, SAT will start the boiler.
-   - Rooms only: If every heated room already has its own climate entity and there is no main room, leave the Inside Temperature sensor empty and add all rooms here. Each room then gets its own PID and heating curve, the boiler is asked for the highest room request, and it is only started while at least one room is calling for heat. The SAT climate entity stays, but only as the on/off switch of the whole system: it has no target temperature or presets, shows the median room temperature, and while off it protects the coldest room against frost. Without a main room there is no Eco heating mode and no main PID, error or heating curve sensors; the room sensors and the boiler sensors are still created.
+   - Rooms only: If every heated room already has its own climate entity and there is no main room, leave the Inside Temperature sensor empty and add all rooms here. Each room then gets its own PID and heating curve, the boiler is asked for the highest room request, and it is only started while at least one room is calling for heat. The SAT climate entity stays as the on/off switch and the preset selector of the whole system: it has no target temperature of its own, shows the median room temperature, applies presets to the rooms (see the Room Presets tab), and while off it protects the coldest room against frost. Without a main room there is no Eco heating mode and no main PID, error or heating curve sensors; the room sensors and the boiler sensors are still created.
 > [!Note]
 > If SAT is the only climate entity, skip this step.
 
@@ -306,11 +306,14 @@ Underfloor:
 *Contact Sensors*: You can add contact sensors (window/door/garage door) to avoid wasting energy when a door/window is open. When the door/window is closed again, SAT restores heating.
 
 ## Presets tab:
-Predefined temperature settings for different scenarios or activities: Home, Comfort, Sleep, Away, and Activity.
+Predefined temperature settings for different scenarios or activities: Home, Comfort, Sleep, Away, and Activity. These are the house-wide values: the main thermostat follows them directly, and the rooms follow them relative to their own home temperature.
 
 *Synchronize with thermostat attached to the boiler*: Send SAT's target temperature to the boiler thermostat.
 
-*Synchronize climates with preset*: When a preset is selected, apply that temperature to room climates.
+*Synchronize climates with preset*: When a preset is selected, also set the rooms. In rooms-only mode this is always the case.
+
+## Room Presets tab:
+Pick a room and set what each preset means for that room. A room without its own values follows the house presets with one rule: a preset only ever lowers the room, relative to its own home temperature and never below the house-wide preset, and never raises it. So with Home 21, Sleep 19 and Comfort 23 a bedroom that is normally at 18 stays at 18 during Sleep and Comfort and goes to 16 when Away, while the kitchen goes from 21 to 19 to 16. Give the living room its own Comfort value to let it rise, or tick *Leave this room alone* for a room presets must never touch. SAT remembers each room's home temperature while the Home preset (or no preset) is active and restores it when you return to Home.
 
 ## System Configuration tab:
 

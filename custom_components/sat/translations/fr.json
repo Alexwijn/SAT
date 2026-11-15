@@ -306,7 +306,8 @@
           "general": "Général",
           "presets": "Préréglages",
           "areas": "Zones",
-          "system_configuration": "Configuration du Système"
+          "system_configuration": "Configuration du Système",
+          "room_presets": "Préréglages par pièce"
         }
       },
       "areas": {
@@ -351,6 +352,28 @@
         },
         "description": "Réglages de temporisation et de synchronisation pour cycles, capteurs et mode HVAC.",
         "title": "Configuration du Système"
+      },
+      "room_presets": {
+        "title": "Préréglages par pièce",
+        "description": "Choisissez la pièce dont vous voulez définir les températures de préréglage. Les pièces sans valeurs propres suivent les préréglages de la maison : un préréglage ne fait que baisser une telle pièce, par rapport à sa propre température Maison, et ne la relève jamais.",
+        "data": {
+          "room": "Pièce"
+        }
+      },
+      "room_preset": {
+        "title": "Préréglages par pièce",
+        "description": "Ce que chaque préréglage signifie pour {room}. Laissez un préréglage vide pour suivre le préréglage de la maison.",
+        "data": {
+          "fixed": "Ne pas toucher à cette pièce",
+          "home_temperature": "Température Maison",
+          "comfort_temperature": "Température Confort",
+          "sleep_temperature": "Température Sommeil",
+          "away_temperature": "Température Absence",
+          "activity_temperature": "Température Activité"
+        },
+        "data_description": {
+          "fixed": "Les préréglages ne modifient jamais la température cible de cette pièce."
+        }
       }
     }
   },

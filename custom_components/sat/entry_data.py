@@ -77,10 +77,17 @@ class PressureHealthConfig:
 
 
 @dataclass(frozen=True)
+class RoomPresetConfig:
+    fixed: bool
+    temperatures: Mapping[str, float]
+
+
+@dataclass(frozen=True)
 class PresetConfig:
     thermal_comfort: bool
     heating_mode: HeatingMode
     presets: Mapping[str, float]
+    rooms: Mapping[str, RoomPresetConfig]
     sync_climates_with_mode: bool
     sync_climates_with_preset: bool
 
@@ -275,12 +282,22 @@ class SatConfig:
             CONF_ACTIVITY_TEMPERATURE: self.options.get(CONF_ACTIVITY_TEMPERATURE),
         }
 
+        rooms = {}
+        for room_id, settings in (self.options.get(CONF_ROOM_PRESETS) or {}).items():
+            temperatures = (settings or {}).get(CONF_ROOM_PRESET_TEMPERATURES) or {}
+
+            rooms[room_id] = RoomPresetConfig(
+                fixed=bool((settings or {}).get(CONF_ROOM_PRESET_FIXED)),
+                temperatures={preset: float(value) for preset, value in temperatures.items() if value is not None},
+            )
+
         return PresetConfig(
             heating_mode=heating_mode,
             thermal_comfort=bool(self.options.get(CONF_THERMAL_COMFORT)),
             sync_climates_with_mode=bool(self.options.get(CONF_SYNC_CLIMATES_WITH_MODE)),
             sync_climates_with_preset=bool(self.options.get(CONF_SYNC_CLIMATES_WITH_PRESET)),
 
+            rooms=rooms,
             presets={key: float(value) for key, value in preset_values.items()},
         )
 

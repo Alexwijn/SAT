@@ -306,7 +306,8 @@
           "general": "General",
           "presets": "Pre ajustes",
           "areas": "Áreas",
-          "system_configuration": "Configuración del Sistema"
+          "system_configuration": "Configuración del Sistema",
+          "room_presets": "Preajustes por habitación"
         }
       },
       "areas": {
@@ -351,6 +352,28 @@
         },
         "description": "Comportamiento de tiempos y sincronización para ciclos, sensores y modo HVAC.",
         "title": "Configuración del Sistema"
+      },
+      "room_presets": {
+        "title": "Preajustes por habitación",
+        "description": "Elija la habitación para la que quiere definir temperaturas de preajuste. Las habitaciones sin valores propios siguen los preajustes de la casa: un preajuste solo baja esa habitación, en relación con su propia temperatura de En casa, y nunca la sube.",
+        "data": {
+          "room": "Habitación"
+        }
+      },
+      "room_preset": {
+        "title": "Preajustes por habitación",
+        "description": "Qué significa cada preajuste para {room}. Deje un preajuste vacío para seguir el preajuste de la casa.",
+        "data": {
+          "fixed": "No tocar esta habitación",
+          "home_temperature": "Temperatura de Casa",
+          "comfort_temperature": "Temperatura de Confort",
+          "sleep_temperature": "Temperatura de Sueño",
+          "away_temperature": "Temperatura de Ausencia",
+          "activity_temperature": "Temperatura de Actividad"
+        },
+        "data_description": {
+          "fixed": "Los preajustes nunca cambian la temperatura objetivo de esta habitación."
+        }
       }
     }
   },

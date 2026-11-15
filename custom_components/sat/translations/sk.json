@@ -306,7 +306,8 @@
           "general": "Všeobecné",
           "presets": "Predvoľby",
           "areas": "Oblasti",
-          "system_configuration": "Konfigurácia systému"
+          "system_configuration": "Konfigurácia systému",
+          "room_presets": "Predvoľby izieb"
         }
       },
       "areas": {
@@ -351,6 +352,28 @@
         },
         "description": "Časovanie a synchronizácia pre cykly, senzory a režim HVAC.",
         "title": "Konfigurácia systému"
+      },
+      "room_presets": {
+        "title": "Predvoľby izieb",
+        "description": "Vyberte izbu, pre ktorú chcete nastaviť teploty predvolieb. Izby bez vlastných hodnôt sa riadia predvoľbami domu: predvoľba takú izbu iba znižuje, relatívne k jej vlastnej domácej teplote, a nikdy ju nezvyšuje.",
+        "data": {
+          "room": "Izba"
+        }
+      },
+      "room_preset": {
+        "title": "Predvoľby izieb",
+        "description": "Čo znamená každá predvoľba pre {room}. Nechajte predvoľbu prázdnu, aby sa riadila predvoľbou domu.",
+        "data": {
+          "fixed": "Túto izbu nechať tak",
+          "home_temperature": "Domáca teplota",
+          "comfort_temperature": "Komfortná teplota",
+          "sleep_temperature": "Teplota spánku",
+          "away_temperature": "Teplota pri neprítomnosti",
+          "activity_temperature": "Teplota aktivity"
+        },
+        "data_description": {
+          "fixed": "Predvoľby nikdy nemenia cieľovú teplotu tejto izby."
+        }
       }
     }
   },

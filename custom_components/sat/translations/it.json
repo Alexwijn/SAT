@@ -306,7 +306,8 @@
           "general": "Generale",
           "presets": "Pre-impostazioni",
           "areas": "Aree",
-          "system_configuration": "Configurazione del Sistema"
+          "system_configuration": "Configurazione del Sistema",
+          "room_presets": "Preset per stanza"
         }
       },
       "areas": {
@@ -351,6 +352,28 @@
         },
         "description": "Comportamento di temporizzazione e sincronizzazione per cicli, sensori e modalità HVAC.",
         "title": "Configurazione del Sistema"
+      },
+      "room_presets": {
+        "title": "Preset per stanza",
+        "description": "Scegli la stanza per cui impostare le temperature dei preset. Le stanze senza valori propri seguono i preset della casa: un preset abbassa soltanto la stanza, rispetto alla sua temperatura Casa, e non la alza mai.",
+        "data": {
+          "room": "Stanza"
+        }
+      },
+      "room_preset": {
+        "title": "Preset per stanza",
+        "description": "Cosa significa ogni preset per {room}. Lascia vuoto un preset per seguire quello della casa.",
+        "data": {
+          "fixed": "Non toccare questa stanza",
+          "home_temperature": "Temperatura Casa",
+          "comfort_temperature": "Temperatura Comfort",
+          "sleep_temperature": "Temperatura Sonno",
+          "away_temperature": "Temperatura Assente",
+          "activity_temperature": "Temperatura Attività"
+        },
+        "data_description": {
+          "fixed": "I preset non cambiano mai la temperatura target di questa stanza."
+        }
       }
     }
   },

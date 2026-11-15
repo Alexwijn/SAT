@@ -81,6 +81,10 @@ CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
 CONF_FROST_PROTECTION_TEMPERATURE = "frost_protection_temperature"
 CONF_SYNC_CLIMATES_WITH_MODE = "sync_climates_with_mode"
 CONF_SYNC_CLIMATES_WITH_PRESET = "sync_climates_with_preset"
+CONF_ROOM = "room"
+CONF_ROOM_PRESET_FIXED = "fixed"
+CONF_ROOM_PRESETS = "room_presets"
+CONF_ROOM_PRESET_TEMPERATURES = "temperatures"
 CONF_FORCE_PULSE_WIDTH_MODULATION = "force_pulse_width_modulation"
 CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
@@ -142,6 +146,7 @@ OPTIONS_DEFAULTS = {
     CONF_PUSH_SETPOINT_TO_THERMOSTAT: False,
     CONF_SYNC_CLIMATES_WITH_MODE: True,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
+    CONF_ROOM_PRESETS: {},
 
     # Simulation parameters.
     CONF_SIMULATED_HEATING: 20,

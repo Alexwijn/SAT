@@ -306,7 +306,8 @@
           "general": "General",
           "presets": "Presets",
           "areas": "Areas",
-          "system_configuration": "System Configuration"
+          "system_configuration": "System Configuration",
+          "room_presets": "Room Presets"
         }
       },
       "areas": {
@@ -326,7 +327,7 @@
         "description": "Set target temperatures for presets and how they sync with other climates.",
         "title": "Presets",
         "data_description": {
-          "sync_climates_with_preset": "When a preset is selected, apply that temperature to room climates.",
+          "sync_climates_with_preset": "When a preset is selected, also set the rooms (see Room Presets).",
           "push_setpoint_to_thermostat": "Send SAT's target temperature to the boiler thermostat."
         }
       },
@@ -351,6 +352,28 @@
         },
         "description": "Timing and synchronization behavior for cycles, sensors, and HVAC mode.",
         "title": "System Configuration"
+      },
+      "room_presets": {
+        "title": "Room Presets",
+        "description": "Pick the room to set preset temperatures for. Rooms without their own values follow the house presets: a preset only lowers such a room, relative to its own home temperature, and never raises it.",
+        "data": {
+          "room": "Room"
+        }
+      },
+      "room_preset": {
+        "title": "Room Presets",
+        "description": "What each preset means for {room}. Leave a preset empty to follow the house preset.",
+        "data": {
+          "fixed": "Leave this room alone",
+          "home_temperature": "Home Temperature",
+          "comfort_temperature": "Comfort Temperature",
+          "sleep_temperature": "Sleep Temperature",
+          "away_temperature": "Away Temperature",
+          "activity_temperature": "Activity Temperature"
+        },
+        "data_description": {
+          "fixed": "Presets never change the target temperature of this room."
+        }
       }
     }
   },

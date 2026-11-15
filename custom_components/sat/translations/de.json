@@ -306,7 +306,8 @@
           "general": "Allgemein",
           "presets": "Voreinstellungen",
           "areas": "Bereiche",
-          "system_configuration": "Systemkonfiguration"
+          "system_configuration": "Systemkonfiguration",
+          "room_presets": "Zimmer-Voreinstellungen"
         }
       },
       "areas": {
@@ -351,6 +352,28 @@
         },
         "description": "Zeit- und Synchronisationsverhalten für Zyklen, Sensoren und HVAC-Modus.",
         "title": "Systemkonfiguration"
+      },
+      "room_presets": {
+        "title": "Zimmer-Voreinstellungen",
+        "description": "Wählen Sie das Zimmer, für das Sie Voreinstellungstemperaturen festlegen möchten. Zimmer ohne eigene Werte folgen den Voreinstellungen des Hauses: Eine Voreinstellung senkt ein solches Zimmer nur, relativ zu seiner eigenen Zuhause-Temperatur, und erhöht es nie.",
+        "data": {
+          "room": "Zimmer"
+        }
+      },
+      "room_preset": {
+        "title": "Zimmer-Voreinstellungen",
+        "description": "Was jede Voreinstellung für {room} bedeutet. Lassen Sie eine Voreinstellung leer, um der Voreinstellung des Hauses zu folgen.",
+        "data": {
+          "fixed": "Dieses Zimmer in Ruhe lassen",
+          "home_temperature": "Heimtemperatur",
+          "comfort_temperature": "Komforttemperatur",
+          "sleep_temperature": "Schlafzimmertemperatur",
+          "away_temperature": "Abwesenheitstemperatur",
+          "activity_temperature": "Aktivitätstemperatur"
+        },
+        "data_description": {
+          "fixed": "Voreinstellungen ändern die Zieltemperatur dieses Zimmers nie."
+        }
       }
     }
   },

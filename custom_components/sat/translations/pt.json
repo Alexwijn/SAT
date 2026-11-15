@@ -306,7 +306,8 @@
           "general": "Geral",
           "presets": "Predefinições",
           "areas": "Áreas",
-          "system_configuration": "Configuração do Sistema"
+          "system_configuration": "Configuração do Sistema",
+          "room_presets": "Predefinições por quarto"
         }
       },
       "areas": {
@@ -351,6 +352,28 @@
         },
         "description": "Comportamento de tempo e sincronização para ciclos, sensores e modo HVAC.",
         "title": "Configuração do Sistema"
+      },
+      "room_presets": {
+        "title": "Predefinições por quarto",
+        "description": "Escolha o quarto para o qual quer definir as temperaturas das predefinições. Os quartos sem valores próprios seguem as predefinições da casa: uma predefinição apenas baixa esse quarto, em relação à sua própria temperatura Em casa, e nunca o sobe.",
+        "data": {
+          "room": "Quarto"
+        }
+      },
+      "room_preset": {
+        "title": "Predefinições por quarto",
+        "description": "O que cada predefinição significa para {room}. Deixe uma predefinição vazia para seguir a predefinição da casa.",
+        "data": {
+          "fixed": "Não mexer neste quarto",
+          "home_temperature": "Temperatura em Casa",
+          "comfort_temperature": "Temperatura de Conforto",
+          "sleep_temperature": "Temperatura de Sono",
+          "away_temperature": "Temperatura Ausente",
+          "activity_temperature": "Temperatura de Atividade"
+        },
+        "data_description": {
+          "fixed": "As predefinições nunca alteram a temperatura alvo deste quarto."
+        }
       }
     }
   },

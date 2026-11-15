@@ -306,7 +306,8 @@
           "general": "Algemeen",
           "presets": "Voorinstellingen",
           "areas": "Gebieden",
-          "system_configuration": "Systeemconfiguratie"
+          "system_configuration": "Systeemconfiguratie",
+          "room_presets": "Kamervoorinstellingen"
         }
       },
       "areas": {
@@ -351,6 +352,28 @@
         },
         "description": "Timing- en synchronisatiegedrag voor cycli, sensoren en HVAC-modus.",
         "title": "Systeemconfiguratie"
+      },
+      "room_presets": {
+        "title": "Kamervoorinstellingen",
+        "description": "Kies de kamer waarvoor u voorinstellingstemperaturen wilt instellen. Kamers zonder eigen waarden volgen de voorinstellingen van het huis: een voorinstelling verlaagt zo'n kamer alleen, ten opzichte van zijn eigen thuistemperatuur, en verhoogt hem nooit.",
+        "data": {
+          "room": "Kamer"
+        }
+      },
+      "room_preset": {
+        "title": "Kamervoorinstellingen",
+        "description": "Wat elke voorinstelling betekent voor {room}. Laat een voorinstelling leeg om de voorinstelling van het huis te volgen.",
+        "data": {
+          "fixed": "Deze kamer met rust laten",
+          "home_temperature": "Thuis Temperatuur",
+          "comfort_temperature": "Comfort Temperatuur",
+          "sleep_temperature": "Slaap Temperatuur",
+          "away_temperature": "Temperatuur bij Afwezigheid",
+          "activity_temperature": "Activiteit Temperatuur"
+        },
+        "data_description": {
+          "fixed": "Voorinstellingen veranderen de doeltemperatuur van deze kamer nooit."
+        }
       }
     }
   },

@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Mapping, Optional
+from typing import Any, Optional
 
 import voluptuous as vol
 from homeassistant.components.climate import (
@@ -13,11 +13,8 @@ from homeassistant.components.climate import (
     HVACAction,
     HVACMode,
     PRESET_ACTIVITY,
-    PRESET_AWAY,
-    PRESET_COMFORT,
     PRESET_HOME,
     PRESET_NONE,
-    PRESET_SLEEP,
     ATTR_HVAC_MODE,
     ATTR_PRESET_MODE,
     SERVICE_SET_HVAC_MODE,
@@ -40,6 +37,8 @@ from .demand_control import SatDemandControl
 from .entity import SatEntity
 from .entry_data import SatConfig, get_entry_data
 from .heating_control import SatHeatingControl
+from .helpers import float_value
+from .presets import RoomPresets, preset_temperatures
 from .summer_simmer import SummerSimmer
 from .types import PWMStatus
 
@@ -96,23 +95,20 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._demand_control = demand_control
 
         self._rooms: Optional[dict[str, float]] = None
-        self._presets: dict[str, float] = self._build_presets(config.presets.presets)
+        self._room_presets = RoomPresets(config.presets)
+        self._presets: dict[str, float] = preset_temperatures(config.presets)
 
         self._event_listeners_registered: bool = False
+        self._pre_activity_preset: Optional[str] = None
         self._pre_custom_temperature: Optional[float] = None
         self._pre_activity_temperature: Optional[float] = None
         self._window_sensor_handle: Optional[asyncio.Task[None]] = None
 
         self._temperature_unit = unit
+        self._attr_preset_mode = PRESET_NONE
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
+        self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
         self._attr_supported_features = self._build_supported_features(config.rooms_only)
-
-        if config.rooms_only:
-            self._attr_preset_mode = None
-            self._attr_preset_modes = None
-        else:
-            self._attr_preset_mode = PRESET_NONE
-            self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
 
         # System Configuration
         self._attr_name = self._config.name
@@ -345,10 +341,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """Set the preset mode for the thermostat."""
-        if self._config.rooms_only:
-            raise ServiceValidationError(f"{self.entity_id} has no presets without a primary room")
-
+        """Set the preset mode for the thermostat and the rooms."""
         if preset_mode not in self.preset_modes:
             raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
 
@@ -356,33 +349,40 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if preset_mode == self._attr_preset_mode:
             return
 
-        # Reset the preset mode if `PRESET_NONE` is given
-        if preset_mode == PRESET_NONE:
-            self._attr_preset_mode = PRESET_NONE
-            await self.async_set_target_temperature(self._pre_custom_temperature)
-        else:
-            # Save the current target temperature if the preset mode is being set for the first time
-            if self._attr_preset_mode == PRESET_NONE:
-                self._pre_custom_temperature = self.native_target_temperature
+        previous_preset_mode = self._attr_preset_mode
+        self._attr_preset_mode = preset_mode
 
-            # Set the preset mode and target temperature
-            self._attr_preset_mode = preset_mode
-            await self.async_set_target_temperature(self._presets[preset_mode])
+        if not self._config.rooms_only:
+            if preset_mode == PRESET_NONE:
+                if self._pre_custom_temperature is not None:
+                    await self.async_set_target_temperature(self._pre_custom_temperature)
+            else:
+                # Save the current target temperature if the preset mode is being set for the first time
+                if previous_preset_mode == PRESET_NONE:
+                    self._pre_custom_temperature = self.native_target_temperature
 
-            # Set the temperature for each room, when enabled
-            if self._config.presets.sync_climates_with_preset:
-                for entity_id in self._demand_control.areas.ids():
-                    state = self.hass.states.get(entity_id)
-                    if state is None or state.state == HVACMode.OFF:
-                        continue
+                await self.async_set_target_temperature(self._presets[preset_mode])
 
-                    if preset_mode != PRESET_HOME:
-                        target_temperature = self._presets[preset_mode]
-                    else:
-                        target_temperature = self._rooms.get(entity_id, self._presets[preset_mode])
+        if self._config.rooms_only or self._config.presets.sync_climates_with_preset:
+            await self._async_apply_preset_to_rooms(preset_mode)
 
-                    data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: target_temperature}
-                    await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
+        self.async_write_ha_state()
+
+    async def _async_apply_preset_to_rooms(self, preset_mode: str) -> None:
+        """Set every room to what the preset means for that room."""
+        for entity_id in self._demand_control.areas.ids():
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state == HVACMode.OFF:
+                continue
+
+            home_target = self._rooms.get(entity_id) if self._rooms is not None else None
+            target_temperature = self._room_presets.target(entity_id, preset_mode, home_target)
+
+            if target_temperature is None or float_value(state.attributes.get(ATTR_TEMPERATURE)) == target_temperature:
+                continue
+
+            data = {ATTR_ENTITY_ID: entity_id, ATTR_TEMPERATURE: target_temperature}
+            await self.hass.services.async_call(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE, data, blocking=True)
 
     async def async_set_target_temperature(self, temperature: float, cascade: bool = True) -> None:
         """Set the temperature setpoint for all main climates."""
@@ -419,7 +419,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        if len(self._config.window_sensors) > 0 and not self._config.rooms_only:
+        if len(self._config.window_sensors) > 0:
             self.async_on_remove(
                 async_track_state_change_event(
                     self.hass, list(self._config.window_sensors), self._async_window_sensor_changed
@@ -435,7 +435,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if (target_temperature := new_state.attributes.get(ATTR_TEMPERATURE)) is None:
             return
 
-        if new_state.entity_id in self._rooms and self.preset_mode != PRESET_HOME:
+        if new_state.entity_id in self._rooms and self.preset_mode not in (PRESET_HOME, PRESET_NONE):
             return
 
         if self._rooms.get(new_state.entity_id) == float(target_temperature):
@@ -469,6 +469,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 asyncio.sleep(self._config.sensors.window_minimum_open_time_seconds)
             )
             self._window_sensor_handle = handle
+            self._pre_activity_preset = self.preset_mode
             self._pre_activity_temperature = self.native_target_temperature or self.min_temp
 
             try:
@@ -489,7 +490,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
             if self.preset_mode == PRESET_ACTIVITY:
                 _LOGGER.debug(f"Restoring original target temperature.")
-                await self.async_set_temperature(temperature=self._pre_activity_temperature)
+
+                if self._config.rooms_only:
+                    await self.async_set_preset_mode(self._pre_activity_preset or PRESET_NONE)
+                else:
+                    await self.async_set_temperature(temperature=self._pre_activity_temperature)
 
             return
 
@@ -515,7 +520,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
     @staticmethod
     def _build_supported_features(rooms_only: bool) -> ClimateEntityFeature:
         """Determine supported features based on the configuration and the Home Assistant version."""
-        supported = ClimateEntityFeature(0) if rooms_only else ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+        supported = ClimateEntityFeature.PRESET_MODE
+        if not rooms_only:
+            supported |= ClimateEntityFeature.TARGET_TEMPERATURE
+
         if hasattr(ClimateEntityFeature, "TURN_ON"):
             supported |= ClimateEntityFeature.TURN_ON
 
@@ -523,9 +531,3 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             supported |= ClimateEntityFeature.TURN_OFF
 
         return supported
-
-    @staticmethod
-    def _build_presets(config_options: Mapping[str, float]) -> dict[str, float]:
-        """Build preset temperature mapping from config options."""
-        conf_presets = {p: f"{p}_temperature" for p in (PRESET_ACTIVITY, PRESET_AWAY, PRESET_HOME, PRESET_SLEEP, PRESET_COMFORT)}
-        return {key: config_options[value] for key, value in conf_presets.items() if key in conf_presets}

@@ -80,10 +80,10 @@ async def test_areas_step_allows_no_rooms_with_an_inside_sensor(hass):
 
 
 @ROOMS_ONLY
-async def test_options_menu_has_no_presets(hass, entry, domains, data, options, config):
+async def test_options_menu_keeps_the_house_presets(hass, entry, domains, data, options, config):
     result = await hass.config_entries.options.async_init(entry.entry_id)
 
-    assert "presets" not in result["menu_options"]
+    assert "presets" in result["menu_options"]
     assert "general" in result["menu_options"]
 
 
@@ -95,9 +95,9 @@ async def test_climate_is_only_the_switch_of_the_system(hass, entry, climate, de
     assert climate.hvac_modes == [HVACMode.OFF, HVACMode.HEAT]
     assert climate.hvac_mode == HVACMode.OFF
     assert climate.target_temperature is None
-    assert climate.preset_modes is None
+    assert "home" in climate.preset_modes
     assert not climate.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
-    assert not climate.supported_features & ClimateEntityFeature.PRESET_MODE
+    assert climate.supported_features & ClimateEntityFeature.PRESET_MODE
     assert climate.supported_features & ClimateEntityFeature.TURN_ON
     assert climate.supported_features & ClimateEntityFeature.TURN_OFF
 
@@ -121,12 +121,9 @@ async def test_climate_shows_the_rooms(room_states, hass, climate, domains, data
 
 
 @ROOMS_ONLY
-async def test_climate_rejects_a_target_temperature_and_presets(climate, domains, data, options, config):
+async def test_climate_rejects_a_target_temperature(climate, domains, data, options, config):
     with pytest.raises(ServiceValidationError):
         await climate.async_set_temperature(temperature=21.0)
-
-    with pytest.raises(ServiceValidationError):
-        await climate.async_set_preset_mode("home")
 
 
 @ROOMS_ONLY
