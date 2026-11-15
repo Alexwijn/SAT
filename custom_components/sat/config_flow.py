@@ -358,6 +358,9 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if _user_input is not None:
             self.data.update(_user_input)
 
+            if _user_input.get(CONF_INSIDE_SENSOR_ENTITY_ID) is None:
+                self.data[CONF_INSIDE_SENSOR_ENTITY_ID] = None
+
             if _user_input.get(CONF_HUMIDITY_SENSOR_ENTITY_ID) is None:
                 self.data[CONF_HUMIDITY_SENSOR_ENTITY_ID] = None
 
@@ -380,7 +383,7 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=False,
             step_id="sensors",
             data_schema=self.add_suggested_values_to_schema(vol.Schema({
-                vol.Required(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
+                vol.Optional(CONF_INSIDE_SENSOR_ENTITY_ID): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         domain=sensor.DOMAIN,
                         device_class=[sensor.SensorDeviceClass.TEMPERATURE],
@@ -445,17 +448,23 @@ class SatFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_areas(self, _user_input: Optional[dict[str, Any]] = None):
+        errors = {}
+
         if _user_input is not None:
             self.data.update(_user_input)
 
             if _user_input.get(CONF_THERMOSTAT) is None:
                 self.data[CONF_THERMOSTAT] = None
 
-            return await self.async_step_automatic_gains()
+            if self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID) is None and not self.data.get(CONF_ROOMS):
+                errors[CONF_ROOMS] = "rooms_required"
+            else:
+                return await self.async_step_automatic_gains()
 
         return self.async_show_form(
             last_step=False,
             step_id="areas",
+            errors=errors,
             data_schema=self.add_suggested_values_to_schema(vol.Schema({
                 vol.Optional(CONF_THERMOSTAT): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=climate.DOMAIN)
@@ -597,8 +606,15 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         self._config_entry = config_entry
         self._options = dict(config_entry.options)
 
+    @property
+    def _rooms_only(self) -> bool:
+        return self._config_entry.data.get(CONF_INSIDE_SENSOR_ENTITY_ID) is None
+
     async def async_step_init(self, _user_input: Optional[dict[str, Any]] = None):
-        menu_options = ["general", "presets", "system_configuration"]
+        menu_options = ["general", "system_configuration"]
+
+        if not self._rooms_only:
+            menu_options.insert(1, "presets")
 
         if self.show_advanced_options:
             menu_options.append("advanced")
@@ -618,7 +634,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         default_maximum_setpoint = calculate_default_maximum_setpoint(self._config_entry.data.get(CONF_HEATING_SYSTEM))
         maximum_setpoint = float(options.get(CONF_MAXIMUM_SETPOINT, default_maximum_setpoint))
 
-        if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0:
+        if len(self._config_entry.data.get(CONF_ROOMS, [])) > 0 and not self._rooms_only:
             schema[vol.Required(CONF_HEATING_MODE, default=str(options[CONF_HEATING_MODE]))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=[
                     selector.SelectOptionDict(value=HeatingMode.COMFORT, label="Comfort"),
@@ -639,21 +655,22 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
             schema[vol.Required(CONF_INTEGRAL, default=options[CONF_INTEGRAL])] = str
             schema[vol.Required(CONF_DERIVATIVE, default=options[CONF_DERIVATIVE])] = str
 
-        entities = entity_registry.async_get(self.hass)
-        window_id = entities.async_get_entity_id(binary_sensor.DOMAIN, DOMAIN, f"{self.config_entry.entry_id}-window-sensor")
+        if not self._rooms_only:
+            entities = entity_registry.async_get(self.hass)
+            window_id = entities.async_get_entity_id(binary_sensor.DOMAIN, DOMAIN, f"{self.config_entry.entry_id}-window-sensor")
 
-        schema[vol.Optional(CONF_WINDOW_SENSORS, default=options[CONF_WINDOW_SENSORS])] = selector.EntitySelector(
-            selector.EntitySelectorConfig(
-                multiple=True,
-                domain=binary_sensor.DOMAIN,
-                exclude_entities=[window_id] if window_id else [],
-                device_class=[
-                    binary_sensor.BinarySensorDeviceClass.DOOR,
-                    binary_sensor.BinarySensorDeviceClass.WINDOW,
-                    binary_sensor.BinarySensorDeviceClass.GARAGE_DOOR
-                ]
+            schema[vol.Optional(CONF_WINDOW_SENSORS, default=options[CONF_WINDOW_SENSORS])] = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    multiple=True,
+                    domain=binary_sensor.DOMAIN,
+                    exclude_entities=[window_id] if window_id else [],
+                    device_class=[
+                        binary_sensor.BinarySensorDeviceClass.DOOR,
+                        binary_sensor.BinarySensorDeviceClass.WINDOW,
+                        binary_sensor.BinarySensorDeviceClass.GARAGE_DOOR
+                    ]
+                )
             )
-        )
 
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
@@ -719,13 +736,15 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 ])),
             ))
 
-        schema_entries.append((vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]), bool))
         schema_entries.append((vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE]), selector.TimeSelector()))
-        schema_entries.append((vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]), selector.TimeSelector()))
-        schema_entries.append((
-            vol.Required(CONF_FROST_PROTECTION_TEMPERATURE, default=options[CONF_FROST_PROTECTION_TEMPERATURE]),
-            selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=10, step=0.5, unit_of_measurement="°C")),
-        ))
+
+        if not self._rooms_only:
+            schema_entries.append((vol.Required(CONF_SYNC_CLIMATES_WITH_MODE, default=options[CONF_SYNC_CLIMATES_WITH_MODE]), bool))
+            schema_entries.append((vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]), selector.TimeSelector()))
+            schema_entries.append((
+                vol.Required(CONF_FROST_PROTECTION_TEMPERATURE, default=options[CONF_FROST_PROTECTION_TEMPERATURE]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=10, step=0.5, unit_of_measurement="°C")),
+            ))
 
         return self.async_show_form(
             step_id="system_configuration",
@@ -740,19 +759,23 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         schema_entries: list[tuple[Marker, Any]] = [
             (vol.Required(CONF_SIMULATION, default=options[CONF_SIMULATION]), bool),
             (vol.Required(CONF_ERROR_MONITORING, default=options[CONF_ERROR_MONITORING]), bool),
-            (vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]), bool),
-            (vol.Required(CONF_SOLAR_GAIN_COMPENSATION, default=options[CONF_SOLAR_GAIN_COMPENSATION]), bool),
-            (vol.Required(CONF_SOLAR_GAIN_FREEZE_INTEGRAL, default=options[CONF_SOLAR_GAIN_FREEZE_INTEGRAL]), bool),
         ]
+
+        if not self._rooms_only:
+            schema_entries.append((vol.Required(CONF_THERMAL_COMFORT, default=options[CONF_THERMAL_COMFORT]), bool))
+
+        schema_entries.append((vol.Required(CONF_SOLAR_GAIN_COMPENSATION, default=options[CONF_SOLAR_GAIN_COMPENSATION]), bool))
+        schema_entries.append((vol.Required(CONF_SOLAR_GAIN_FREEZE_INTEGRAL, default=options[CONF_SOLAR_GAIN_FREEZE_INTEGRAL]), bool))
 
         supports_modulation = self._config_entry.data.get(CONF_MODE) in [SatMode.MQTT_OPENTHERM, SatMode.SERIAL, SatMode.SIMULATOR]
         if supports_modulation:
             schema_entries.append((vol.Required(CONF_FORCE_PULSE_WIDTH_MODULATION, default=options[CONF_FORCE_PULSE_WIDTH_MODULATION]), bool))
 
-        schema_entries.append((
-            vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=options[CONF_TARGET_TEMPERATURE_STEP]),
-            selector.NumberSelector(selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)),
-        ))
+        if not self._rooms_only:
+            schema_entries.append((
+                vol.Required(CONF_TARGET_TEMPERATURE_STEP, default=options[CONF_TARGET_TEMPERATURE_STEP]),
+                selector.NumberSelector(selector.NumberSelectorConfig(min=0.1, max=1, step=0.05)),
+            ))
         schema_entries.append((
             vol.Required(CONF_CLIMATE_VALVE_OFFSET, default=options[CONF_CLIMATE_VALVE_OFFSET]),
             selector.NumberSelector(selector.NumberSelectorConfig(min=-1, max=1, step=0.1)),

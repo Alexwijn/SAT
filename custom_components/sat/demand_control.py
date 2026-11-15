@@ -66,8 +66,8 @@ class SatDemandControl:
 
         self._frost_protection_active: bool = False
         self._target_temperature: Optional[float] = None
-        self._hvac_mode: Optional[Union[HVACMode, str]] = None
         self._target_temperature_changed_at: Optional[float] = None
+        self._hvac_mode: Optional[Union[HVACMode, str]] = HVACMode.HEAT if config.rooms_only else None
         self._solar_gain_snapshot = SolarGainSnapshot(active=False, rise_per_hour=None, sun_elevation=None)
 
         self._event_listeners_registered: bool = False
@@ -266,21 +266,24 @@ class SatDemandControl:
     @property
     def requested_setpoint(self) -> float:
         """Get the requested setpoint based on the heating curve and PIDs."""
-        if self.heating_curve.value is None:
-            return MINIMUM_SETPOINT
+        if self._config.rooms_only:
+            setpoint = self.areas.pids.output
+        else:
+            if self.heating_curve.value is None:
+                return MINIMUM_SETPOINT
 
-        setpoint = self.pid.output
+            setpoint = self.pid.output
 
-        # ECO: only follow the primary PID.
-        if self._config.presets.heating_mode == HeatingMode.ECO:
-            return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
+            # ECO: only follow the primary PID.
+            if self._config.presets.heating_mode == HeatingMode.ECO:
+                return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
-        # Secondary rooms: heating and overshoot information.
-        secondary_heating = self.areas.pids.output
+            # Secondary rooms: heating information.
+            if (secondary_heating := self.areas.pids.output) is not None:
+                setpoint = max(setpoint, secondary_heating)
+
+        # Rooms that are overshooting cap the request.
         overshoot_cap = self.areas.pids.overshoot_cap
-
-        if secondary_heating is not None:
-            setpoint = max(setpoint, secondary_heating)
 
         if overshoot_cap is not None:
             setpoint = min(setpoint, overshoot_cap)
@@ -314,8 +317,11 @@ class SatDemandControl:
         # Get the list of all controlled climates
         climates = self._config.radiators + self.areas.ids()
 
-        # If there are no radiators attached, there is no way to detect a closed valve
+        # Without radiators only rooms-only mode can detect a closed valve
         if len(self._config.radiators) == 0:
+            if self._config.rooms_only:
+                return any(area.is_calling for area in self.areas.items())
+
             return True
 
         # Iterate through each controlled thermostat
@@ -515,59 +521,66 @@ class SatDemandControl:
         }
 
     def control_pid(self, _time: Optional[datetime] = None) -> None:
-        """Control the PID controller."""
+        """Control the PID controller of the primary room and feed the monitors."""
         self._curve_advice_sample = None
-        sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
+        temperature_state = self.temperature_state
 
-        if sensor_max_value_age > 0:
-            state = self._hass.states.get(self._config.sensors.inside_sensor_entity_id)
-            if is_state_stale(state, sensor_max_value_age):
-                _LOGGER.debug(
-                    "Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)",
-                    self._id, self._config.sensors.inside_sensor_entity_id, state_age_seconds(state), sensor_max_value_age
-                )
-                self.pid.reset()
+        if not self._config.rooms_only:
+            sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
+
+            if sensor_max_value_age > 0:
+                state = self._hass.states.get(self._config.sensors.inside_sensor_entity_id)
+                if is_state_stale(state, sensor_max_value_age):
+                    _LOGGER.debug(
+                        "Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)",
+                        self._id, self._config.sensors.inside_sensor_entity_id, state_age_seconds(state), sensor_max_value_age
+                    )
+                    self.pid.reset()
+                    return
+
+            if temperature_state is None:
+                _LOGGER.debug("Skipping control loop for %s because temperature is not available.", self._id)
                 return
-
-        if (temperature_state := self.temperature_state) is None:
-            _LOGGER.debug("Skipping control loop for %s because temperature is not available.", self._id)
-            return
 
         now = event_timestamp(_time)
         self._wind.observe(self._hass, now)
-        self._solar_gain_snapshot = self._solar_gain.update(
-            SolarGainSignals(
-                sample=SolarGainSample(temperature=temperature_state.current, timestamp=now),
-                valves_open=self.valves_open,
-                sun_elevation=self._sun_elevation(),
-                flame_active=self._coordinator.flame_active,
-                is_heating_mode=self.hvac_mode == HVACMode.HEAT,
-                relative_modulation=self._coordinator.relative_modulation_value,
+
+        if temperature_state is not None:
+            self._solar_gain_snapshot = self._solar_gain.update(
+                SolarGainSignals(
+                    sample=SolarGainSample(temperature=temperature_state.current, timestamp=now),
+                    valves_open=self.valves_open,
+                    sun_elevation=self._sun_elevation(),
+                    flame_active=self._coordinator.flame_active,
+                    is_heating_mode=self.hvac_mode == HVACMode.HEAT,
+                    relative_modulation=self._coordinator.relative_modulation_value,
+                )
             )
-        )
 
         if self.hvac_mode == HVACMode.HEAT and self.valves_open and (median_error := self.median_error) is not None:
             self._temperature_history.record(median_error, now)
 
-        self.pid.update(
-            temperature_state,
-            freeze_integral=self._solar_gain_snapshot.active and self._config.solar_gain.freeze_integral,
-        )
+        if temperature_state is not None:
+            self.pid.update(
+                temperature_state,
+                freeze_integral=self._solar_gain_snapshot.active and self._config.solar_gain.freeze_integral,
+            )
 
         self._record_curve_advice_sample(now, temperature_state)
         self._record_room_observations(now, temperature_state)
 
-        self._warm_up.update(
-            active=(
-                    self.hvac_mode == HVACMode.HEAT
-                    and self.valves_open
-                    and self._coordinator.flame_active
-                    and not self._solar_gain_snapshot.active
-                    and temperature_state.error > WARM_UP_MINIMUM_ERROR_CELSIUS
-            ),
-            temperature=temperature_state.current,
-            timestamp=now,
-        )
+        if temperature_state is not None:
+            self._warm_up.update(
+                active=(
+                        self.hvac_mode == HVACMode.HEAT
+                        and self.valves_open
+                        and self._coordinator.flame_active
+                        and not self._solar_gain_snapshot.active
+                        and temperature_state.error > WARM_UP_MINIMUM_ERROR_CELSIUS
+                ),
+                temperature=temperature_state.current,
+                timestamp=now,
+            )
 
     def _update_frost_protection(self) -> bool:
         """Track whether the room is cold enough to require heating while off."""
@@ -598,14 +611,14 @@ class SatDemandControl:
         """Hand the advisor days with wind to the wind sensitivity monitor."""
         self._wind_sensitivity.update(self._curve_advisor.advice.wind_days, dt_util.now().date())
 
-    def _record_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> None:
+    def _record_curve_advice_sample(self, now: float, temperature_state: Optional[TemperatureState]) -> None:
         """Feed the heating curve advisor when the system is in steady heating operation."""
         self._curve_advice_sample = self._steady_curve_advice_sample(now, temperature_state)
 
         if self._curve_advice_sample is not None:
             self._curve_advisor.record(self._curve_advice_sample)
 
-    def _record_room_observations(self, now: float, temperature_state: TemperatureState) -> None:
+    def _record_room_observations(self, now: float, temperature_state: Optional[TemperatureState]) -> None:
         """Feed the monitors with the current state of the primary room and every room."""
         boiler = BoilerObservation(
             eligible=(
@@ -621,17 +634,19 @@ class SatDemandControl:
             sun_below_horizon=(sun_elevation := self._sun_elevation()) is not None and sun_elevation < 0,
         )
 
-        main = RoomObservation(
-            room_id=MAIN_ROOM_ID,
-            shape=self.heating_curve.shape,
-            shortfall=temperature_state.error,
-            temperature=temperature_state.current,
-            calling=self.hvac_action == HVACAction.HEATING,
-            implied_coefficient=self._implied_room_coefficient(self.heating_curve, self.pid, now),
-            steady=self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS),
-        )
+        rooms = [self._room_observation(area, now) for area in self.areas.items()]
 
-        rooms = [main, *(self._room_observation(area, now) for area in self.areas.items())]
+        if temperature_state is not None:
+            rooms.insert(0, RoomObservation(
+                room_id=MAIN_ROOM_ID,
+                shape=self.heating_curve.shape,
+                shortfall=temperature_state.error,
+                temperature=temperature_state.current,
+                calling=self.hvac_action == HVACAction.HEATING,
+                implied_coefficient=self._implied_room_coefficient(self.heating_curve, self.pid, now),
+                steady=self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS),
+            ))
+
         self._preheat.observe(boiler, rooms, now)
         self._room_balance.observe(boiler, rooms, now)
 
@@ -660,7 +675,7 @@ class SatDemandControl:
             correction=pid.proportional + pid.integral,
         ))
 
-    def _steady_curve_advice_sample(self, now: float, temperature_state: TemperatureState) -> Optional[HeatingCurveAdviceSample]:
+    def _steady_curve_advice_sample(self, now: float, temperature_state: Optional[TemperatureState]) -> Optional[HeatingCurveAdviceSample]:
         if self.hvac_mode != HVACMode.HEAT or not self.valves_open:
             return None
 
@@ -695,14 +710,14 @@ class SatDemandControl:
             correction=room.pid.output - curve_value,
         )
 
-    def _driving_room(self, now: float, temperature_state: TemperatureState) -> Optional[DrivingRoom]:
+    def _driving_room(self, now: float, temperature_state: Optional[TemperatureState]) -> Optional[DrivingRoom]:
         """Return the room whose request the boiler is heating on, the only demand the curve can be judged on."""
         requested_setpoint = self.requested_setpoint
 
         if requested_setpoint <= COLD_SETPOINT or not self._heating_control.burned_within_pwm_period(now):
             return None
 
-        if abs(requested_setpoint - self.pid.output) <= RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS:
+        if temperature_state is not None and abs(requested_setpoint - self.pid.output) <= RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS:
             return DrivingRoom(
                 pid=self.pid,
                 error=temperature_state.error,
@@ -840,11 +855,13 @@ class SatDemandControl:
         target_temperature = self.target_temperature
         outside_temperature = self.current_outside_temperature
 
-        if target_temperature is None or outside_temperature is None:
+        if outside_temperature is None:
             return
 
         self.areas.heating_curves.update(outside_temperature)
-        self.heating_curve.update(target_temperature, outside_temperature)
+
+        if target_temperature is not None:
+            self.heating_curve.update(target_temperature, outside_temperature)
 
     def _register_event_listeners(self) -> None:
         """Register event listeners."""
@@ -871,11 +888,12 @@ class SatDemandControl:
             )
         )
 
-        self._unsubscribers.append(
-            async_track_state_change_event(
-                self._hass, [self._config.sensors.inside_sensor_entity_id], self._async_entity_changed
+        if self._config.sensors.inside_sensor_entity_id is not None:
+            self._unsubscribers.append(
+                async_track_state_change_event(
+                    self._hass, [self._config.sensors.inside_sensor_entity_id], self._async_entity_changed
+                )
             )
-        )
 
         self._unsubscribers.append(
             async_track_state_change_event(

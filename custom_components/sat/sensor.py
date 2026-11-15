@@ -48,21 +48,25 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         await simulator_sensor.async_setup_entry(hass, config_entry, async_add_entities)
 
     sensors: list[SensorEntity] = [
-        SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatCycleSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatDeviceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatManufacturerSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
-        SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatOutsideTemperatureSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatWindSpeedSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatSeasonalCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatHeatingEfficiencySensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
-        SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control, MAIN_ROOM_ID),
-        SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
     ]
+
+    if not entry_data.config.rooms_only:
+        sensors.extend([
+            SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+            SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+            SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control, MAIN_ROOM_ID),
+            SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        ])
 
     for entity_id in entry_data.config.rooms:
         sensors.append(SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control, entity_id))

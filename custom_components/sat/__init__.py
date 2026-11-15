@@ -53,6 +53,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_added_to_hass(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    if config.rooms_only:
+        await demand_control.async_added_to_hass(entry.entry_id)
+
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True
@@ -69,6 +72,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except ValueError:
         _LOGGER.debug("Platforms already unloaded for entry %s.", entry.entry_id)
         unload_successful = True
+
+    try:
+        await entry_data.demand_control.async_will_remove_from_hass()
+    except Exception as error:
+        _LOGGER.error("Error during demand control cleanup: %s", error)
 
     try:
         if getattr(entry_data, "coordinator", None) is not None:

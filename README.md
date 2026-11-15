@@ -195,7 +195,7 @@ For more information about which other entities are available for OpenTherm plea
 </details>
 
 2. Configure sensors:
-    - Inside Temperature sensor ( Your Room Temperature sensor )
+    - Inside Temperature sensor ( Your Room Temperature sensor; optional, see Rooms only under Areas )
     - Outside Temperature sensor ( Your Outside Temperature sensor )
     - Inside Humidity Sensor ( Your Room Humidity sensor )
     - Wind Sensor ( Optional wind speed sensor or weather entity; when empty, the wind speed of a weather entity among the outside sensors is used )
@@ -208,6 +208,7 @@ For more information about which other entities are available for OpenTherm plea
 4. Areas:  
    - Primary: Users can add their physical thermostat. SAT will syncronize the `hvac_action` of the physical thermostat with the SAT climate entity's `hvac action`, that means if the physical thermostat doesn't require heating then the SAT climate entity `hvac_action` will remain at idle. Also the physical thermostat's room setpoint stays in sync with SAT climate entity. Moreover the physical thermostat will act as a back up if any failure to HA occurs.
    - Rooms: Users can add their TRV climate entities. So when any of the rooms will ask for heating, SAT will start the boiler.
+   - Rooms only: If every heated room already has its own climate entity and there is no main room, leave the Inside Temperature sensor empty and add all rooms here. SAT then creates no thermostat of its own: each room gets its own PID and heating curve, the boiler is asked for the highest room request, and it is only started while at least one room is calling for heat. Without a main room there are no presets, no Eco heating mode and no main PID, error or heating curve sensors; the room sensors and the boiler sensors are still created.
 > [!Note]
 > If SAT is the only climate entity, skip this step.
 
@@ -235,7 +236,7 @@ The PID ON/OFF mode allows SAT to control any switch, valve, or input_boolean en
    - Minimum Setpoint ( the operating temperature of your heater )
 
 2. Configure sensors:
-    - Inside Temperature sensor ( Your Room Temperature sensor )
+    - Inside Temperature sensor ( Your Room Temperature sensor; optional, see Rooms only under Areas )
     - Outside Temperature sensor ( Your Outside Temperature sensor )
     - Inside Humidity Sensor ( Your Room Humidity sensor )
     - Wind Sensor ( Optional wind speed sensor or weather entity; when empty, the wind speed of a weather entity among the outside sensors is used )
@@ -255,7 +256,7 @@ The PID ON/OFF mode allows SAT to control any switch, valve, or input_boolean en
 *Heating Mode*:
 
 > [!NOTE]
-> Available only for multiroom installations
+> Available only for multiroom installations with a main room
 
 - Comfort ( SAT monitors the climates in other rooms to determine the error. It selects the highest error value as the PID error value for the current room )
 - Eco ( SAT monitors **only** the Main thermostat's error and it is used as the PID error )

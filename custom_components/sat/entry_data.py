@@ -32,7 +32,7 @@ class SatMode(StrEnum):
 
 @dataclass(frozen=True)
 class SensorsConfig:
-    inside_sensor_entity_id: str
+    inside_sensor_entity_id: Optional[str]
     humidity_sensor_entity_id: Optional[str]
     outside_sensor_entity_id: list[str] | str
     wind_sensor_entity_id: list[str]
@@ -163,6 +163,11 @@ class SatConfig:
         return self.data.get(CONF_RADIATORS) or []
 
     @property
+    def rooms_only(self) -> bool:
+        """Whether the heating demand comes from the rooms alone."""
+        return self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID) is None
+
+    @property
     def rooms(self) -> list[str]:
         return self.data.get(CONF_ROOMS) or []
 
@@ -193,7 +198,7 @@ class SatConfig:
     @property
     def sensors(self) -> SensorsConfig:
         return SensorsConfig(
-            inside_sensor_entity_id=self.data[CONF_INSIDE_SENSOR_ENTITY_ID],
+            inside_sensor_entity_id=self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID),
             humidity_sensor_entity_id=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID),
             outside_sensor_entity_id=self.data[CONF_OUTSIDE_SENSOR_ENTITY_ID],
             wind_sensor_entity_id=list(self.data.get(CONF_WIND_SENSOR_ENTITY_ID) or []),

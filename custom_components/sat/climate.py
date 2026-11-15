@@ -59,6 +59,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         config_entry.entry_id
     )
 
+    if entry_data.config.rooms_only:
+        return
+
     climate = SatClimate(
         entry_data.coordinator,
         entry_data.heating_control,
