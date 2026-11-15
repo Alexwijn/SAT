@@ -8,7 +8,8 @@
       "invalid_device": "Este es un dispositivo inválido.",
       "connection": "No se puede conectar a la puerta de enlace.",
       "mqtt_component": "El componente MQTT no está disponible.",
-      "unable_to_calibrate": "El proceso de calibración ha encontrado un problema y no se pudo completar con éxito. Por favor, asegúrese de que su sistema de calefacción está funcionando correctamente y que todos los sensores necesarios están conectados y funcionando correctamente.\n\nSi continúa experimentando problemas con la calibración, considere contactarnos para obtener más ayuda. Pedimos disculpas por cualquier inconveniente causado."
+      "unable_to_calibrate": "El proceso de calibración ha encontrado un problema y no se pudo completar con éxito. Por favor, asegúrese de que su sistema de calefacción está funcionando correctamente y que todos los sensores necesarios están conectados y funcionando correctamente.\n\nSi continúa experimentando problemas con la calibración, considere contactarnos para obtener más ayuda. Pedimos disculpas por cualquier inconveniente causado.",
+      "rooms_required": "Sin sensor interior se requiere al menos una habitación, ya que las habitaciones son entonces la única fuente de demanda de calefacción."
     },
     "progress": {
       "calibration": "Calibrando y encontrando el valor de protección contra sobrecalentamiento...\n\nPor favor, espere mientras optimizamos su sistema de calefacción. Este proceso puede tomar aproximadamente 20 minutos."
@@ -23,7 +24,7 @@
         "data_description": {
           "thermostat": "Termostato existente opcional para sincronizar los puntos de consigna.",
           "main_climates": "Radiadores en la misma habitación que el sensor interior.",
-          "secondary_climates": "Habitaciones con sus propias temperaturas objetivo."
+          "secondary_climates": "Habitaciones con sus propias temperaturas objetivo. Obligatorio cuando no hay un sensor interior configurado."
         },
         "description": "Configuraciones relacionadas con climas, múltiples habitaciones y control de temperatura. Los climas principales están en la misma habitación que el sensor interior y las habitaciones tienen sus propias temperaturas objetivo separadas del sistema.",
         "title": "Áreas"
@@ -146,12 +147,12 @@
           "wind_sensor_entity_id": "Entidad del Sensor de Viento"
         },
         "data_description": {
-          "inside_sensor_entity_id": "Sensor principal de temperatura interior.",
+          "inside_sensor_entity_id": "Sensor principal de temperatura interior. Déjelo vacío cuando cada habitación calefactada tenga su propia entidad climate; SAT seguirá entonces solo las habitaciones y no creará un termostato propio.",
           "outside_sensor_entity_id": "Sensor exterior o entidad de clima (puede seleccionar varios).",
           "humidity_sensor_entity_id": "Sensor de humedad opcional.",
           "wind_sensor_entity_id": "Sensor de velocidad del viento o entidad de clima opcional (puede seleccionar varios). Elija la velocidad media del viento, no las ráfagas. Si se deja vacío, se usa la velocidad del viento de una entidad de clima entre los sensores exteriores."
         },
-        "description": "Seleccione el sensor interior, el/los sensores exteriores, un sensor de humedad opcional y sensor(es) de viento opcionales.",
+        "description": "Seleccione el sensor interior, el/los sensores exteriores, un sensor de humedad opcional y sensor(es) de viento opcionales. El sensor interior es opcional cuando solo usa habitaciones.",
         "title": "Configurar sensores"
       },
       "serial": {

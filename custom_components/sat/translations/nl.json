@@ -8,7 +8,8 @@
       "invalid_device": "Dit is een ongeldig apparaat.",
       "connection": "Kan geen verbinding maken met de gateway.",
       "mqtt_component": "Het MQTT-component is niet beschikbaar.",
-      "unable_to_calibrate": "Het kalibratieproces is op een probleem gestuit en kon niet succesvol worden voltooid. Zorg ervoor dat uw verwarmingssysteem correct functioneert en dat alle vereiste sensoren zijn aangesloten en correct werken.\n\nAls u problemen blijft ondervinden met de kalibratie, overweeg dan om contact met ons op te nemen voor verdere hulp. Onze excuses voor het ongemak."
+      "unable_to_calibrate": "Het kalibratieproces is op een probleem gestuit en kon niet succesvol worden voltooid. Zorg ervoor dat uw verwarmingssysteem correct functioneert en dat alle vereiste sensoren zijn aangesloten en correct werken.\n\nAls u problemen blijft ondervinden met de kalibratie, overweeg dan om contact met ons op te nemen voor verdere hulp. Onze excuses voor het ongemak.",
+      "rooms_required": "Zonder binnensensor is minimaal één kamer vereist, omdat de kamers dan de enige bron van warmtevraag zijn."
     },
     "progress": {
       "calibration": "Kalibreren en de waarde van de overschot beveiliging vinden...\n\nEven geduld a.u.b. terwijl wij uw verwarmingssysteem optimaliseren. Dit proces kan ongeveer 20 minuten duren."
@@ -23,7 +24,7 @@
         "data_description": {
           "thermostat": "Optionele bestaande thermostaat om setpoints te synchroniseren.",
           "main_climates": "Radiatoren in dezelfde ruimte als de binnensensor.",
-          "secondary_climates": "Kamers met hun eigen doeltemperaturen."
+          "secondary_climates": "Kamers met hun eigen doeltemperaturen. Vereist wanneer er geen binnensensor is geconfigureerd."
         },
         "description": "Instellingen met betrekking tot klimaten, multi-kamer en temperatuurregeling. Primaire klimaten bevinden zich in dezelfde kamer als de binnensensor en de kamers hebben hun eigen doeltemperaturen los van het systeem.",
         "title": "Gebieden"
@@ -146,12 +147,12 @@
           "wind_sensor_entity_id": "Windsensor Entiteit"
         },
         "data_description": {
-          "inside_sensor_entity_id": "Primaire binnentemperatuursensor.",
+          "inside_sensor_entity_id": "Primaire binnentemperatuursensor. Laat leeg wanneer elke verwarmde kamer een eigen climate-entiteit heeft; SAT volgt dan alleen de kamers en maakt geen eigen thermostaat aan.",
           "outside_sensor_entity_id": "Buitensensor of weer-entiteit (meervoudige selectie mogelijk).",
           "humidity_sensor_entity_id": "Optionele vochtigheidssensor.",
           "wind_sensor_entity_id": "Optionele windsnelheidssensor of weer-entiteit (meervoudige selectie mogelijk). Kies de gemiddelde windsnelheid, niet de windstoten. Als dit leeg blijft, wordt de windsnelheid van een weer-entiteit uit de buitensensoren gebruikt."
         },
-        "description": "Selecteer de binnensensor, de buitensensor(en), een optionele vochtigheidssensor en optionele windsensor(en).",
+        "description": "Selecteer de binnensensor, de buitensensor(en), een optionele vochtigheidssensor en optionele windsensor(en). De binnensensor is optioneel wanneer u alleen kamers gebruikt.",
         "title": "Configureer sensoren"
       },
       "serial": {

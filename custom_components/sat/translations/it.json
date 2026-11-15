@@ -8,7 +8,8 @@
       "invalid_device": "Questo è un dispositivo non valido.",
       "connection": "Impossibile connettersi al gateway.",
       "mqtt_component": "Il componente MQTT non è disponibile.",
-      "unable_to_calibrate": "Il processo di calibrazione ha incontrato un problema e non è stato completato con successo. Si prega di assicurarsi che il sistema di riscaldamento funzioni correttamente e che tutti i sensori richiesti siano connessi e funzionanti correttamente.\n\nSe continui a riscontrare problemi con la calibrazione, considera di contattarci per ulteriore assistenza. Ci scusiamo per eventuali inconvenienti causati."
+      "unable_to_calibrate": "Il processo di calibrazione ha incontrato un problema e non è stato completato con successo. Si prega di assicurarsi che il sistema di riscaldamento funzioni correttamente e che tutti i sensori richiesti siano connessi e funzionanti correttamente.\n\nSe continui a riscontrare problemi con la calibrazione, considera di contattarci per ulteriore assistenza. Ci scusiamo per eventuali inconvenienti causati.",
+      "rooms_required": "Senza sensore interno è necessaria almeno una stanza, poiché le stanze sono allora l’unica fonte di richiesta di calore."
     },
     "progress": {
       "calibration": "Calibrazione e ricerca del valore di protezione dal superamento in corso...\n\nSi prega di attendere mentre ottimizziamo il tuo sistema di riscaldamento. Questo processo può richiedere circa 20 minuti."
@@ -23,7 +24,7 @@
         "data_description": {
           "thermostat": "Termostato esistente opzionale per sincronizzare i setpoint.",
           "main_climates": "Radiatori nella stessa stanza del sensore interno.",
-          "secondary_climates": "Stanze con le proprie temperature target."
+          "secondary_climates": "Stanze con le proprie temperature target. Obbligatorio quando non è configurato un sensore interno."
         },
         "description": "Impostazioni relative ai climi, alle stanze multiple e al controllo della temperatura. I climi primari sono nella stessa stanza del sensore interno e le stanze hanno le loro temperature obiettivo separate dal sistema.",
         "title": "Aree"
@@ -146,12 +147,12 @@
           "wind_sensor_entity_id": "Entità Sensore Vento"
         },
         "data_description": {
-          "inside_sensor_entity_id": "Sensore principale della temperatura interna.",
+          "inside_sensor_entity_id": "Sensore principale della temperatura interna. Lascia vuoto quando ogni stanza riscaldata ha la propria entità climate; SAT segue allora solo le stanze e non crea un termostato proprio.",
           "outside_sensor_entity_id": "Sensore esterno o entità meteo (selezione multipla possibile).",
           "humidity_sensor_entity_id": "Sensore di umidità opzionale.",
           "wind_sensor_entity_id": "Sensore di velocità del vento o entità meteo opzionale (selezione multipla possibile). Scegli la velocità media del vento, non le raffiche. Se lasciato vuoto, viene usata la velocità del vento di un'entità meteo tra i sensori esterni."
         },
-        "description": "Seleziona il sensore interno, il/i sensore/i esterno/i, un sensore di umidità opzionale e sensori di vento opzionali.",
+        "description": "Seleziona il sensore interno, il/i sensore/i esterno/i, un sensore di umidità opzionale e sensori di vento opzionali. Il sensore interno è opzionale quando usi solo le stanze.",
         "title": "Configura sensori"
       },
       "serial": {

@@ -8,7 +8,8 @@
       "invalid_device": "Dies ist ein ungültiges Gerät.",
       "connection": "Verbindung zum Gateway konnte nicht hergestellt werden.",
       "mqtt_component": "Die MQTT-Komponente ist nicht verfügbar.",
-      "unable_to_calibrate": "Der Kalibrierungsprozess ist auf ein Problem gestoßen und konnte nicht erfolgreich abgeschlossen werden. Bitte stellen Sie sicher, dass Ihr Heizsystem ordnungsgemäß funktioniert und dass alle erforderlichen Sensoren angeschlossen und funktionsfähig sind.\n\nWenn Sie weiterhin Probleme mit der Kalibrierung haben, ziehen Sie in Erwägung, uns für weitere Unterstützung zu kontaktieren. Wir entschuldigen uns für etwaige Unannehmlichkeiten."
+      "unable_to_calibrate": "Der Kalibrierungsprozess ist auf ein Problem gestoßen und konnte nicht erfolgreich abgeschlossen werden. Bitte stellen Sie sicher, dass Ihr Heizsystem ordnungsgemäß funktioniert und dass alle erforderlichen Sensoren angeschlossen und funktionsfähig sind.\n\nWenn Sie weiterhin Probleme mit der Kalibrierung haben, ziehen Sie in Erwägung, uns für weitere Unterstützung zu kontaktieren. Wir entschuldigen uns für etwaige Unannehmlichkeiten.",
+      "rooms_required": "Ohne Innensensor ist mindestens ein Zimmer erforderlich, da die Zimmer dann die einzige Quelle für den Wärmebedarf sind."
     },
     "progress": {
       "calibration": "Kalibrierung und Ermittlung des Überschwingungsschutzwertes...\n\nBitte warten Sie, während wir Ihr Heizsystem optimieren. Dieser Prozess kann etwa 20 Minuten dauern."
@@ -23,7 +24,7 @@
         "data_description": {
           "thermostat": "Optionales vorhandenes Thermostat zum Synchronisieren der Sollwerte.",
           "main_climates": "Heizkörper im selben Raum wie der Innensensor.",
-          "secondary_climates": "Zimmer mit eigenen Zieltemperaturen."
+          "secondary_climates": "Zimmer mit eigenen Zieltemperaturen. Erforderlich, wenn kein Innensensor konfiguriert ist."
         },
         "description": "Einstellungen im Zusammenhang mit Klimazonen, Mehrzimmern und Temperaturregelung. Primäre Klimazonen befinden sich im selben Raum wie der Innensensor, und die Zimmer haben ihre eigenen Zieltemperaturen, getrennt vom System.",
         "title": "Bereiche"
@@ -146,12 +147,12 @@
           "wind_sensor_entity_id": "Windsensor-Entität"
         },
         "data_description": {
-          "inside_sensor_entity_id": "Primärer Innentemperatursensor.",
+          "inside_sensor_entity_id": "Primärer Innentemperatursensor. Leer lassen, wenn jedes beheizte Zimmer eine eigene Klimaentität hat; SAT folgt dann nur den Zimmern und erstellt kein eigenes Thermostat.",
           "outside_sensor_entity_id": "Außensensor oder Wetter-Entität (Mehrfachauswahl möglich).",
           "humidity_sensor_entity_id": "Optionaler Feuchtigkeitssensor.",
           "wind_sensor_entity_id": "Optionaler Windgeschwindigkeitssensor oder Wetter-Entität (Mehrfachauswahl möglich). Wählen Sie die mittlere Windgeschwindigkeit, nicht die Böen. Bleibt das Feld leer, wird die Windgeschwindigkeit einer Wetter-Entität unter den Außensensoren verwendet."
         },
-        "description": "Wählen Sie den Innensensor, die Außensensor(en), optional den Feuchtigkeitssensor und optional Windsensor(en).",
+        "description": "Wählen Sie den Innensensor, die Außensensor(en), optional den Feuchtigkeitssensor und optional Windsensor(en). Der Innensensor ist optional, wenn Sie nur Zimmer verwenden.",
         "title": "Sensoren konfigurieren"
       },
       "serial": {

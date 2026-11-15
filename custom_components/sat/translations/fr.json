@@ -8,7 +8,8 @@
       "invalid_device": "Cet appareil est invalide.",
       "connection": "Impossible de se connecter à la passerelle.",
       "mqtt_component": "Le composant MQTT n'est pas disponible.",
-      "unable_to_calibrate": "Le processus de calibration a rencontré un problème et n'a pas pu être complété avec succès. Veuillez vous assurer que votre système de chauffage fonctionne correctement et que tous les capteurs requis sont connectés et fonctionnent correctement.\n\nSi vous continuez à rencontrer des problèmes avec la calibration, envisagez de nous contacter pour obtenir de l'aide supplémentaire. Nous nous excusons pour tout désagrément causé."
+      "unable_to_calibrate": "Le processus de calibration a rencontré un problème et n'a pas pu être complété avec succès. Veuillez vous assurer que votre système de chauffage fonctionne correctement et que tous les capteurs requis sont connectés et fonctionnent correctement.\n\nSi vous continuez à rencontrer des problèmes avec la calibration, envisagez de nous contacter pour obtenir de l'aide supplémentaire. Nous nous excusons pour tout désagrément causé.",
+      "rooms_required": "Sans capteur intérieur, au moins une pièce est requise, car les pièces sont alors la seule source de demande de chauffage."
     },
     "progress": {
       "calibration": "Calibration et recherche de la valeur de protection contre les dépassements en cours...\n\nVeuillez patienter pendant que nous optimisons votre système de chauffage. Ce processus peut prendre environ 20 minutes."
@@ -23,7 +24,7 @@
         "data_description": {
           "thermostat": "Thermostat existant optionnel pour synchroniser les consignes.",
           "main_climates": "Radiateurs dans la même pièce que le capteur intérieur.",
-          "secondary_climates": "Pièces avec leurs propres températures cibles."
+          "secondary_climates": "Pièces avec leurs propres températures cibles. Requis lorsqu’aucun capteur intérieur n’est configuré."
         },
         "description": "Paramètres liés aux climats, aux pièces multiples et au contrôle de la température. Les climats principaux se trouvent dans la même pièce que le capteur intérieur et les pièces ont leurs propres températures cibles séparées du système.",
         "title": "Zones"
@@ -146,12 +147,12 @@
           "wind_sensor_entity_id": "Entité du capteur de vent"
         },
         "data_description": {
-          "inside_sensor_entity_id": "Capteur de température intérieur principal.",
+          "inside_sensor_entity_id": "Capteur de température intérieur principal. Laissez vide lorsque chaque pièce chauffée a sa propre entité climate ; SAT suit alors uniquement les pièces et ne crée pas de thermostat propre.",
           "outside_sensor_entity_id": "Capteur extérieur ou entité météo (sélection multiple possible).",
           "humidity_sensor_entity_id": "Capteur d’humidité optionnel.",
           "wind_sensor_entity_id": "Capteur de vitesse du vent ou entité météo optionnel (sélection multiple possible). Choisissez la vitesse moyenne du vent, pas les rafales. S’il reste vide, la vitesse du vent d’une entité météo parmi les capteurs extérieurs est utilisée."
         },
-        "description": "Sélectionnez le capteur intérieur, le(s) capteur(s) extérieur(s), un capteur d’humidité optionnel et des capteurs de vent optionnels.",
+        "description": "Sélectionnez le capteur intérieur, le(s) capteur(s) extérieur(s), un capteur d’humidité optionnel et des capteurs de vent optionnels. Le capteur intérieur est optionnel lorsque vous n’utilisez que des pièces.",
         "title": "Configurer les capteurs"
       },
       "serial": {
