@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from . import SatConfig
+from .entry_data import SatConfig
 from .helpers import clamp, timestamp, weighted_median
 from .types import HeatingCurveConfidence, HeatingCurveRecommendation, HeatingSystem
 from .wind import WindHistory, WindReading

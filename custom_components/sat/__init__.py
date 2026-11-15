@@ -14,6 +14,7 @@ from .const import (
     OPTIONS_DEFAULTS,
 )
 from .coordinator import SatDataUpdateCoordinatorFactory
+from .demand_control import SatDemandControl
 from .entry_data import SatConfig, SatEntryData
 from .heating_control import SatHeatingControl
 
@@ -30,11 +31,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = SatDataUpdateCoordinatorFactory().resolve(hass=hass, config=config)
     heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=config)
-    
+    demand_control = SatDemandControl(hass=hass, coordinator=coordinator, heating_control=heating_control, config=config)
+
     hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(
         config=config,
         coordinator=coordinator,
         heating_control=heating_control,
+        demand_control=demand_control,
     )
 
     try:

@@ -172,8 +172,8 @@ def _forecast_at(moment: datetime, temperature: float) -> dict:
 
 
 @SETUP
-async def test_service_estimates_the_main_thermostat(room_states, hass, climate, domains, data, options, config):
-    climate.preheat._episodes = deque([_episode(1.0, room_id=MAIN_ROOM_ID)] * 3)
+async def test_service_estimates_the_main_thermostat(room_states, hass, climate, demand_control, domains, data, options, config):
+    demand_control.preheat._episodes = deque([_episode(1.0, room_id=MAIN_ROOM_ID)] * 3)
 
     result = await _estimate(hass, climate, target_temperature=21.0)
 
@@ -185,8 +185,8 @@ async def test_service_estimates_the_main_thermostat(room_states, hass, climate,
 
 
 @SETUP
-async def test_service_estimates_a_room_with_a_start_time(room_states, hass, climate, domains, data, options, config):
-    climate.preheat._episodes = deque([_episode(2.0)] * 3)
+async def test_service_estimates_a_room_with_a_start_time(room_states, hass, climate, demand_control, domains, data, options, config):
+    demand_control.preheat._episodes = deque([_episode(2.0)] * 3)
     ready = dt_util.now().replace(microsecond=0) + timedelta(hours=8)
 
     result = await _estimate(hass, climate, target_temperature=21.0, room=ROOM, ready_time=ready.isoformat())
@@ -196,8 +196,8 @@ async def test_service_estimates_a_room_with_a_start_time(room_states, hass, cli
 
 
 @SETUP
-async def test_service_reads_a_ready_time_without_timezone_as_local(room_states, hass, climate, domains, data, options, config):
-    climate.preheat._episodes = deque([_episode(2.0)] * 3)
+async def test_service_reads_a_ready_time_without_timezone_as_local(room_states, hass, climate, demand_control, domains, data, options, config):
+    demand_control.preheat._episodes = deque([_episode(2.0)] * 3)
     ready = dt_util.now().replace(microsecond=0, tzinfo=None) + timedelta(hours=8)
 
     result = await _estimate(hass, climate, target_temperature=21.0, room=ROOM, ready_time=ready.isoformat())
@@ -207,8 +207,8 @@ async def test_service_reads_a_ready_time_without_timezone_as_local(room_states,
 
 
 @SETUP
-async def test_service_treats_an_empty_room_as_the_main_thermostat(room_states, hass, climate, domains, data, options, config):
-    climate.preheat._episodes = deque([_episode(1.0, room_id=MAIN_ROOM_ID)] * 3)
+async def test_service_treats_an_empty_room_as_the_main_thermostat(room_states, hass, climate, demand_control, domains, data, options, config):
+    demand_control.preheat._episodes = deque([_episode(1.0, room_id=MAIN_ROOM_ID)] * 3)
 
     assert (await _estimate(hass, climate, target_temperature=21.0, room=""))["rate_per_hour"] == 1.0
 
@@ -286,19 +286,19 @@ async def test_service_without_an_estimate_returns_nulls(room_states, hass, clim
 
 
 @SETUP
-async def test_service_with_no_deficit_gives_zero_lead(room_states, hass, climate, domains, data, options, config):
-    climate.preheat._episodes = deque([_episode(1.0, room_id=MAIN_ROOM_ID)] * 3)
+async def test_service_with_no_deficit_gives_zero_lead(room_states, hass, climate, demand_control, domains, data, options, config):
+    demand_control.preheat._episodes = deque([_episode(1.0, room_id=MAIN_ROOM_ID)] * 3)
 
     assert (await _estimate(hass, climate, target_temperature=15.0))["lead_minutes"] == 0
 
 
 @SETUP
-async def test_forecast_selects_the_band_for_the_ready_time(room_states, hass, climate, domains, data, options, config):
+async def test_forecast_selects_the_band_for_the_ready_time(room_states, hass, climate, demand_control, domains, data, options, config):
     ready = dt_util.now().replace(microsecond=0) + timedelta(hours=8)
     forecast = [_forecast_at(ready - timedelta(hours=6), 20.0), _forecast_at(ready, -6.0), _forecast_at(ready + timedelta(hours=6), 20.0)]
 
     async_mock_service(hass, "weather", "get_forecasts", response={WEATHER: {"forecast": forecast}}, supports_response=SupportsResponse.ONLY)
-    climate.preheat._episodes = deque([_episode(1.0, outside=5.0, room_id=MAIN_ROOM_ID)] * 3 + [_episode(0.5, outside=-7.0, room_id=MAIN_ROOM_ID)] * 3)
+    demand_control.preheat._episodes = deque([_episode(1.0, outside=5.0, room_id=MAIN_ROOM_ID)] * 3 + [_episode(0.5, outside=-7.0, room_id=MAIN_ROOM_ID)] * 3)
 
     result = await _estimate(hass, climate, target_temperature=21.0, ready_time=ready.isoformat())
 
@@ -328,8 +328,8 @@ async def test_forecast_failure_falls_back_to_the_current_temperature(room_state
 
 
 @SETUP
-async def test_diagnostics_include_the_learned_bands(room_states, hass, climate, entry, domains, data, options, config):
-    climate.preheat._episodes = deque([_episode(1.0, outside=6.0)] * 3)
+async def test_diagnostics_include_the_learned_bands(room_states, hass, climate, demand_control, entry, domains, data, options, config):
+    demand_control.preheat._episodes = deque([_episode(1.0, outside=6.0)] * 3)
 
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
 

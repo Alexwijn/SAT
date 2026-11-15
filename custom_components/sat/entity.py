@@ -4,18 +4,18 @@ import logging
 import typing
 
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, SIGNAL_HEATING_CONTROL_UPDATED
+from .const import DOMAIN, NAME, SIGNAL_DEMAND_CONTROL_UPDATED, SIGNAL_HEATING_CONTROL_UPDATED
 from .entry_data import SatConfig
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
-    from .climate import SatClimate
     from .coordinator import SatDataUpdateCoordinator
+    from .demand_control import SatDemandControl
     from .heating_control import SatHeatingControl
 
 
@@ -55,18 +55,21 @@ class SatHeatingControlEntity(SatEntity):
         self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_HEATING_CONTROL_UPDATED, on_heating_control_updated))
 
 
-class SatClimateEntity(SatEntity):
-    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, climate: SatClimate):
+class SatDemandControlEntity(SatEntity):
+    """Entity whose state derives from the demand control, refreshed whenever it reports a change."""
+
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, demand_control: SatDemandControl):
         super().__init__(coordinator, config, heating_control)
 
-        self._climate = climate
+        self._demand_control = demand_control
 
     async def async_added_to_hass(self) -> None:
-        def on_state_change(_event):
+        @callback
+        def on_demand_control_updated(device_id: str) -> None:
+            if device_id != self._coordinator.id:
+                return
+
             self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
-
-        self.async_on_remove(
-            async_track_state_change_event(self.hass, [self._climate.entity_id], on_state_change)
-        )
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_DEMAND_CONTROL_UPDATED, on_demand_control_updated))

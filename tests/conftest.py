@@ -9,6 +9,7 @@ from custom_components.sat import SatHeatingControl
 from custom_components.sat.climate import SatClimate
 from custom_components.sat.const import DOMAIN
 from custom_components.sat.coordinator.fake import SatFakeCoordinator
+from custom_components.sat.demand_control import SatDemandControl
 from tests.const import DEFAULT_USER_DATA
 
 
@@ -51,3 +52,8 @@ async def coordinator(hass, entry: MockConfigEntry) -> SatFakeCoordinator:
 @pytest.fixture
 async def heating_control(hass, entry: MockConfigEntry) -> SatHeatingControl:
     return hass.data[DOMAIN][entry.entry_id].heating_control
+
+
+@pytest.fixture
+async def demand_control(hass, entry: MockConfigEntry) -> SatDemandControl:
+    return hass.data[DOMAIN][entry.entry_id].demand_control

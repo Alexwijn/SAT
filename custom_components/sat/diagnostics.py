@@ -87,51 +87,51 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         },
     }
 
-    if (climate := entry_data.climate) is not None:
-        advice = climate.curve_advisor.advice
+    demand_control = entry_data.demand_control
+    advice = demand_control.curve_advisor.advice
 
-        diagnostics["climate"] = {
-            "hvac_mode": _safe(lambda: climate.hvac_mode),
-            "preset_mode": _safe(lambda: climate.preset_mode),
-            "target_temperature": _safe(lambda: climate.native_target_temperature),
-            "current_temperature": _safe(lambda: climate.native_current_temperature),
-            "outside_temperature": _safe(lambda: climate.current_outside_temperature),
-            "wind": _safe(lambda: asdict(climate.current_wind) if climate.current_wind is not None else None),
-            "requested_setpoint": _safe(lambda: climate.requested_setpoint),
-            "valves_open": _safe(lambda: climate.valves_open),
-            "heating_curve_value": _safe(lambda: climate.heating_curve.value),
-            "pid": {
-                "output": _safe(lambda: climate.pid.output),
-                "proportional": _safe(lambda: climate.pid.proportional),
-                "integral": _safe(lambda: climate.pid.integral),
-                "derivative": _safe(lambda: climate.pid.derivative),
-            },
-            "curve_advisor": {
-                "recommendation": _safe(lambda: advice.recommendation),
-                "confidence": _safe(lambda: advice.confidence),
-                "sample_count": advice.sample_count,
-                "sample_days": advice.sample_days,
-                "median_correction": advice.median_correction,
-                "estimated_coefficient": advice.estimated_coefficient,
-                "suggested_coefficient": advice.suggested_coefficient,
-                "daily_coefficients": dict(advice.daily_coefficients),
-                "daily_wind_speeds": dict(advice.daily_wind_speeds),
-            },
-            "wind_sensitivity": _safe(lambda: {
-                **asdict(climate.wind_sensitivity.sensitivity),
-                "percent_per_10_kmh": climate.wind_sensitivity.sensitivity.percent_per_10_kmh,
-                "days": [asdict(day) for day in climate.wind_sensitivity.days],
-            }),
-            "efficiency": _safe(lambda: {**asdict(climate.efficiency.report), "change_percentage": climate.efficiency.report.change_percentage}),
-            "preheat": _safe(lambda: {
-                room_id: {
-                    "episodes": len(climate.preheat.episodes(room_id)),
-                    "bands": {band: asdict(rate) for band, rate in PreheatEvaluator.bands(climate.preheat.episodes(room_id)).items()},
-                }
-                for room_id in [MAIN_ROOM_ID, *climate.areas.ids()]
-            }),
-            "room_balance": _safe(lambda: {room_id: asdict(climate.room_balance.balance(room_id)) for room_id in [MAIN_ROOM_ID, *climate.areas.ids()]}),
-            "seasonal_curve": _safe(lambda: {**asdict(climate.seasonal_curve.fit), "curve_mismatch": climate.seasonal_curve.fit.is_mismatch}),
-        }
+    diagnostics["climate"] = {
+        "hvac_mode": _safe(lambda: demand_control.hvac_mode),
+        "preset_mode": _safe(lambda: entry_data.climate.preset_mode if entry_data.climate is not None else None),
+        "target_temperature": _safe(lambda: demand_control.target_temperature),
+        "current_temperature": _safe(lambda: demand_control.current_temperature),
+        "outside_temperature": _safe(lambda: demand_control.current_outside_temperature),
+        "wind": _safe(lambda: asdict(demand_control.current_wind) if demand_control.current_wind is not None else None),
+        "requested_setpoint": _safe(lambda: demand_control.requested_setpoint),
+        "valves_open": _safe(lambda: demand_control.valves_open),
+        "heating_curve_value": _safe(lambda: demand_control.heating_curve.value),
+        "pid": {
+            "output": _safe(lambda: demand_control.pid.output),
+            "proportional": _safe(lambda: demand_control.pid.proportional),
+            "integral": _safe(lambda: demand_control.pid.integral),
+            "derivative": _safe(lambda: demand_control.pid.derivative),
+        },
+        "curve_advisor": {
+            "recommendation": _safe(lambda: advice.recommendation),
+            "confidence": _safe(lambda: advice.confidence),
+            "sample_count": advice.sample_count,
+            "sample_days": advice.sample_days,
+            "median_correction": advice.median_correction,
+            "estimated_coefficient": advice.estimated_coefficient,
+            "suggested_coefficient": advice.suggested_coefficient,
+            "daily_coefficients": dict(advice.daily_coefficients),
+            "daily_wind_speeds": dict(advice.daily_wind_speeds),
+        },
+        "wind_sensitivity": _safe(lambda: {
+            **asdict(demand_control.wind_sensitivity.sensitivity),
+            "percent_per_10_kmh": demand_control.wind_sensitivity.sensitivity.percent_per_10_kmh,
+            "days": [asdict(day) for day in demand_control.wind_sensitivity.days],
+        }),
+        "efficiency": _safe(lambda: {**asdict(demand_control.efficiency.report), "change_percentage": demand_control.efficiency.report.change_percentage}),
+        "preheat": _safe(lambda: {
+            room_id: {
+                "episodes": len(demand_control.preheat.episodes(room_id)),
+                "bands": {band: asdict(rate) for band, rate in PreheatEvaluator.bands(demand_control.preheat.episodes(room_id)).items()},
+            }
+            for room_id in [MAIN_ROOM_ID, *demand_control.areas.ids()]
+        }),
+        "room_balance": _safe(lambda: {room_id: asdict(demand_control.room_balance.balance(room_id)) for room_id in [MAIN_ROOM_ID, *demand_control.areas.ids()]}),
+        "seasonal_curve": _safe(lambda: {**asdict(demand_control.seasonal_curve.fit), "curve_mismatch": demand_control.seasonal_curve.fit.is_mismatch}),
+    }
 
     return diagnostics

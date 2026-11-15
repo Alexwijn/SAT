@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from typing import Optional, Mapping, Any
 
@@ -14,12 +13,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
-from .climate import SatClimate
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .coordinator.serial import sensor as serial_sensor
 from .coordinator.simulator import sensor as simulator_sensor
-from .entity import SatClimateEntity, SatEntity, SatHeatingControlEntity
+from .demand_control import SatDemandControl
+from .entity import SatDemandControlEntity, SatEntity, SatHeatingControlEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .heating_control import SatHeatingControl
 from .heating_curve import RECOMMENDATION_MINIMUM_DAYS, RECOMMENDATION_MINIMUM_SAMPLES, RECOMMENDATION_WINDOW_SECONDS
@@ -41,14 +40,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         return
 
     entry_data = get_entry_data(hass, config_entry.entry_id)
-    if entry_data.climate is None:
-        try:
-            await asyncio.wait_for(entry_data.climate_ready.wait(), timeout=10)
-        except asyncio.TimeoutError:
-            return
-
-        if entry_data.climate is None:
-            return
 
     if entry_data.config.mode == SatMode.SERIAL:
         await serial_sensor.async_setup_entry(hass, config_entry, async_add_entities)
@@ -57,25 +48,25 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         await simulator_sensor.async_setup_entry(hass, config_entry, async_add_entities)
 
     sensors: list[SensorEntity] = [
-        SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
         SatCycleSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatDeviceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatManufacturerSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
-        SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatOutsideTemperatureSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatWindSpeedSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatSeasonalCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatHeatingEfficiencySensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate, MAIN_ROOM_ID),
-        SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
-        SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatErrorValueSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatRequestedSetpoint(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatOutsideTemperatureSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatWindSpeedSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatImpliedCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatSeasonalCurveCoefficientSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatHeatingEfficiencySensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control, MAIN_ROOM_ID),
+        SatHeatingCurveSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+        SatHeatingCurveRecommendationSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
     ]
 
     for entity_id in entry_data.config.rooms:
-        sensors.append(SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate, entity_id))
-        sensors.append(SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate, entity_id))
+        sensors.append(SatPidSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control, entity_id))
+        sensors.append(SatRoomBalanceSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control, entity_id))
 
     if entry_data.coordinator.supports_relative_modulation_management:
         sensors.append(SatCurrentPowerSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
@@ -90,7 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     async_add_entities(sensors)
 
 
-class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
+class SatRequestedSetpoint(SatDemandControlEntity, SensorEntity):
     _attr_translation_key = "requested_setpoint"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -117,14 +108,14 @@ class SatRequestedSetpoint(SatClimateEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[float]:
-        return self._climate.requested_setpoint
+        return self._demand_control.requested_setpoint
 
     @property
     def unique_id(self) -> str:
         return f"{self._config.entry_id}-requested-setpoint"
 
 
-class SatOutsideTemperatureSensor(SatClimateEntity, SensorEntity):
+class SatOutsideTemperatureSensor(SatDemandControlEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -150,7 +141,7 @@ class SatOutsideTemperatureSensor(SatClimateEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[float]:
-        if (temperature := self._climate.current_outside_temperature) is None:
+        if (temperature := self._demand_control.current_outside_temperature) is None:
             return None
 
         return round(temperature, 1)
@@ -160,7 +151,7 @@ class SatOutsideTemperatureSensor(SatClimateEntity, SensorEntity):
         return f"{self._config.entry_id}-outside-temperature"
 
 
-class SatWindSpeedSensor(SatClimateEntity, SensorEntity):
+class SatWindSpeedSensor(SatDemandControlEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -186,14 +177,14 @@ class SatWindSpeedSensor(SatClimateEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[float]:
-        if (wind := self._climate.current_wind) is None:
+        if (wind := self._demand_control.current_wind) is None:
             return None
 
         return wind.speed
 
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
-        wind = self._climate.current_wind
+        wind = self._demand_control.current_wind
 
         return {"source": wind.entity_id if wind is not None else None}
 
@@ -202,22 +193,22 @@ class SatWindSpeedSensor(SatClimateEntity, SensorEntity):
         return f"{self._config.entry_id}-wind-speed"
 
 
-class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity, RestoreEntity):
+class SatImpliedCurveCoefficientSensor(SatDemandControlEntity, SensorEntity, RestoreEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl, climate: SatClimate) -> None:
-        super().__init__(coordinator, config, heating_control, climate)
+    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl, demand_control: SatDemandControl) -> None:
+        super().__init__(coordinator, config, heating_control, demand_control)
 
         self._last_value: Optional[float] = None
         self._last_measured_at: Optional[datetime] = None
 
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(entity_id: str) -> None:
-            if entity_id != self._climate.entity_id:
+            if entity_id != self._demand_control.id:
                 return
 
-            if (value := self._climate.implied_curve_coefficient) is not None:
+            if (value := self._demand_control.implied_curve_coefficient) is not None:
                 self._last_value, self._last_measured_at = value, dt_util.utcnow()
 
             self.schedule_update_ha_state()
@@ -236,7 +227,7 @@ class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity, RestoreEn
 
     @property
     def native_value(self) -> Optional[float]:
-        return self._climate.implied_curve_coefficient
+        return self._demand_control.implied_curve_coefficient
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
@@ -247,7 +238,7 @@ class SatImpliedCurveCoefficientSensor(SatClimateEntity, SensorEntity, RestoreEn
         return f"{self._config.entry_id}-implied-curve-coefficient"
 
 
-class SatSeasonalCurveCoefficientSensor(SatClimateEntity, SensorEntity):
+class SatSeasonalCurveCoefficientSensor(SatDemandControlEntity, SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -256,11 +247,11 @@ class SatSeasonalCurveCoefficientSensor(SatClimateEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[float]:
-        return self._climate.seasonal_curve.fit.coefficient
+        return self._demand_control.seasonal_curve.fit.coefficient
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
-        fit = self._climate.seasonal_curve.fit
+        fit = self._demand_control.seasonal_curve.fit
 
         return {
             "days": fit.days,
@@ -278,7 +269,7 @@ class SatSeasonalCurveCoefficientSensor(SatClimateEntity, SensorEntity):
         return f"{self._config.entry_id}-seasonal-curve-coefficient"
 
 
-class SatHeatingEfficiencySensor(SatClimateEntity, SensorEntity):
+class SatHeatingEfficiencySensor(SatDemandControlEntity, SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -288,19 +279,19 @@ class SatHeatingEfficiencySensor(SatClimateEntity, SensorEntity):
     @property
     def native_unit_of_measurement(self) -> Optional[str]:
         """Return the gas used per degree day, in the unit of the gas statistics."""
-        report = self._climate.efficiency.report
+        report = self._demand_control.efficiency.report
 
         return f"{report.unit}/°Cd" if report.unit is not None else None
 
     @property
     def native_value(self) -> Optional[float]:
-        report = self._climate.efficiency.report
+        report = self._demand_control.efficiency.report
 
         return report.current.gas_per_degree_day if report.current is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
-        report = self._climate.efficiency.report
+        report = self._demand_control.efficiency.report
         current, previous = report.current, report.previous
 
         return {
@@ -318,7 +309,7 @@ class SatHeatingEfficiencySensor(SatClimateEntity, SensorEntity):
         return f"{self._config.entry_id}-heating-efficiency"
 
 
-class SatPidSensor(SatClimateEntity, SensorEntity):
+class SatPidSensor(SatDemandControlEntity, SensorEntity):
     _attr_translation_key = "pid"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -328,29 +319,28 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
             coordinator: SatDataUpdateCoordinator,
             config: SatConfig,
             heating_control: SatHeatingControl,
-            climate: SatClimate,
+            demand_control: SatDemandControl,
             area_id: Optional[str] = None,
     ):
-        super().__init__(coordinator, config, heating_control, climate)
+        super().__init__(coordinator, config, heating_control, demand_control)
         self._area_id: Optional[str] = area_id
 
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(entity_id: str) -> None:
-            if entity_id != self._signal_entity_id:
+            if entity_id != (self._area_id or self._demand_control.id):
                 return
 
             self.schedule_update_ha_state()
 
         await super().async_added_to_hass()
-        self._signal_entity_id = self._area_id or self._climate.entity_id
         self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_PID_UPDATED, on_pid_updated))
 
     @property
     def _pid(self):
         if self._area_id is None:
-            return self._climate.pid
+            return self._demand_control.pid
 
-        if (area := self._climate.areas.get(self._area_id)) is None:
+        if (area := self._demand_control.areas.get(self._area_id)) is None:
             return None
 
         return area.pid
@@ -405,7 +395,7 @@ class SatPidSensor(SatClimateEntity, SensorEntity):
         }
 
 
-class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
+class SatRoomBalanceSensor(SatDemandControlEntity, SensorEntity):
     _attr_translation_key = "room_balance"
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -416,10 +406,10 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
             coordinator: SatDataUpdateCoordinator,
             config: SatConfig,
             heating_control: SatHeatingControl,
-            climate: SatClimate,
+            demand_control: SatDemandControl,
             area_id: str,
     ):
-        super().__init__(coordinator, config, heating_control, climate)
+        super().__init__(coordinator, config, heating_control, demand_control)
         self._area_id: str = area_id
 
     @property
@@ -428,11 +418,11 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._climate.room_balance.balance(self._area_id).status.value
+        return self._demand_control.room_balance.balance(self._area_id).status.value
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
-        balance = self._climate.room_balance.balance(self._area_id)
+        balance = self._demand_control.room_balance.balance(self._area_id)
 
         return {
             "days": balance.days,
@@ -463,8 +453,8 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        balance = self._climate.room_balance.balance(self._area_id)
-        room_state = self.hass.states.get(self._climate.entity_id if self._area_id == MAIN_ROOM_ID else self._area_id)
+        balance = self._demand_control.room_balance.balance(self._area_id)
+        room_name = self._config.name if self._area_id == MAIN_ROOM_ID else self._room_name()
 
         for status, key in ROOM_BALANCE_ISSUES.items():
             if balance.status != status:
@@ -480,7 +470,7 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
                 translation_key=key,
                 translation_placeholders={
                     "name": self._config.name,
-                    "room": room_state.name if room_state is not None else self._area_id,
+                    "room": room_name,
                     "flow_premium": f"{balance.flow_premium or 0.0:.1f}",
                 },
             )
@@ -489,6 +479,12 @@ class SatRoomBalanceSensor(SatClimateEntity, SensorEntity):
 
     def _issue_id(self, key: str) -> str:
         return f"{key}_{self._config.entry_id}_{self._area_id}"
+
+    def _room_name(self) -> str:
+        if (room_state := self.hass.states.get(self._area_id)) is None:
+            return self._area_id
+
+        return room_state.name
 
 
 class SatCurrentPowerSensor(SatEntity, SensorEntity):
@@ -634,7 +630,7 @@ class SatTotalConsumptionSensor(SatEntity, RestoreSensor):
         super()._handle_coordinator_update()
 
 
-class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
+class SatHeatingCurveSensor(SatDemandControlEntity, SensorEntity):
     _attr_translation_key = "heating_curve"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -656,12 +652,12 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._climate.heating_curve.value is not None
+        return self._demand_control.heating_curve.value is not None
 
     @property
     def native_value(self) -> Optional[float]:
         """Return the state of the device in native units."""
-        return self._climate.heating_curve.value
+        return self._demand_control.heating_curve.value
 
     @property
     def unique_id(self) -> str:
@@ -669,7 +665,7 @@ class SatHeatingCurveSensor(SatClimateEntity, SensorEntity):
         return f"{self._config.entry_id}-heating-curve"
 
 
-class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
+class SatHeatingCurveRecommendationSensor(SatDemandControlEntity, SensorEntity):
     _attr_translation_key = "heating_curve_recommendation"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.ENUM
@@ -677,7 +673,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         def on_pid_updated(entity_id: str) -> None:
-            if entity_id != self._climate.entity_id:
+            if entity_id != self._demand_control.id:
                 return
 
             self.schedule_update_ha_state()
@@ -691,14 +687,14 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._climate.curve_advisor.advice.recommendation.value
+        return self._demand_control.curve_advisor.advice.recommendation.value
 
     @property
     def extra_state_attributes(self) -> Optional[Mapping[str, Any]]:
-        advice = self._climate.curve_advisor.advice
-        wind_sensitivity = self._climate.wind_sensitivity.sensitivity
-        daily = self._climate.temperature_statistics.window.daily
-        recent = self._climate.temperature_statistics.window.recent
+        advice = self._demand_control.curve_advisor.advice
+        wind_sensitivity = self._demand_control.wind_sensitivity.sensitivity
+        daily = self._demand_control.temperature_statistics.window.daily
+        recent = self._demand_control.temperature_statistics.window.recent
 
         return {
             "confidence": advice.confidence.value if advice.confidence is not None else None,
@@ -740,7 +736,7 @@ class SatHeatingCurveRecommendationSensor(SatClimateEntity, SensorEntity):
         return f"{self._config.entry_id}-heating-curve-recommendation"
 
 
-class SatErrorValueSensor(SatClimateEntity, SensorEntity):
+class SatErrorValueSensor(SatDemandControlEntity, SensorEntity):
     _attr_translation_key = "error_value"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -762,7 +758,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
     @property
     def native_value(self) -> Optional[float]:
         """Return the state of the device in native units."""
-        if (temperature_state := self._climate.temperature_state) is None:
+        if (temperature_state := self._demand_control.temperature_state) is None:
             return None
 
         return temperature_state.error
@@ -770,7 +766,7 @@ class SatErrorValueSensor(SatClimateEntity, SensorEntity):
     @property
     def available(self):
         """Return availability of the sensor."""
-        return self._climate.temperature_state is not None
+        return self._demand_control.temperature_state is not None
 
     @property
     def unique_id(self) -> str:

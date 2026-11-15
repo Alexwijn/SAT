@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Mapping, Optional, TYPE_CHECKING
 
@@ -15,6 +14,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .climate import SatClimate
+    from .demand_control import SatDemandControl
     from .heating_control import SatHeatingControl
     from .coordinator import SatDataUpdateCoordinator
 
@@ -304,10 +304,10 @@ class SatEntryData:
     config: SatConfig
     coordinator: SatDataUpdateCoordinator
     heating_control: "SatHeatingControl"
+    demand_control: "SatDemandControl"
 
     sentry: Optional[Client] = None
     climate: Optional[SatClimate] = None
-    climate_ready: asyncio.Event = field(default_factory=asyncio.Event)
 
 
 def get_entry_data(hass: HomeAssistant, entry_id: str) -> SatEntryData:

@@ -29,8 +29,8 @@ async def room_states(hass):
     hass.states.async_set("sensor.test_outside_sensor", "5.0")
 
 
-async def test_room_pids_available_right_after_setup(room_states, climate):
-    area = climate.areas.get("climate.room1")
+async def test_room_pids_available_right_after_setup(room_states, climate, demand_control):
+    area = demand_control.areas.get("climate.room1")
 
     assert area is not None
     assert area.heating_curve.value is not None

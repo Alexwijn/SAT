@@ -84,7 +84,7 @@ def _make_sample(sample_time: float) -> ControlLoopSample:
     )
 
 
-async def test_cycle_sensor_extra_attributes(hass, climate, coordinator, entry, domains, data, options, config):
+async def test_cycle_sensor_extra_attributes(hass, climate, demand_control, coordinator, entry, domains, data, options, config):
     end_time = timestamp()
     duration = 240.0
     metrics = _metrics(0.2)
@@ -105,7 +105,7 @@ async def test_cycle_sensor_extra_attributes(hass, climate, coordinator, entry, 
         fraction_domestic_hot_water=0.0,
     )
 
-    climate._heating_control._cycles.record_cycle(cycle)
+    demand_control._heating_control._cycles.record_cycle(cycle)
     hass.bus.async_fire(EVENT_SAT_CYCLE_ENDED, {"cycle": cycle})
     await hass.async_block_till_done()
 
@@ -169,12 +169,12 @@ async def test_implied_coefficient_is_unknown_outside_steady_heating(hass, clima
     assert hass.states.get(entity_id).state == "unknown"
 
 
-async def test_implied_coefficient_keeps_the_last_measured_value(hass, climate, entry, domains, data, options, config, monkeypatch):
+async def test_implied_coefficient_keeps_the_last_measured_value(hass, climate, demand_control, entry, domains, data, options, config, monkeypatch):
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-implied-curve-coefficient")
 
-    monkeypatch.setattr(type(climate), "implied_curve_coefficient", property(lambda self: 2.3))
-    async_dispatcher_send(hass, SIGNAL_PID_UPDATED, climate.entity_id)
+    monkeypatch.setattr(type(demand_control), "implied_curve_coefficient", property(lambda self: 2.3))
+    async_dispatcher_send(hass, SIGNAL_PID_UPDATED, demand_control.id)
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -183,8 +183,8 @@ async def test_implied_coefficient_keeps_the_last_measured_value(hass, climate, 
     measured_at = state.attributes["last_measured_at"]
     assert measured_at is not None
 
-    monkeypatch.setattr(type(climate), "implied_curve_coefficient", property(lambda self: None))
-    async_dispatcher_send(hass, SIGNAL_PID_UPDATED, climate.entity_id)
+    monkeypatch.setattr(type(demand_control), "implied_curve_coefficient", property(lambda self: None))
+    async_dispatcher_send(hass, SIGNAL_PID_UPDATED, demand_control.id)
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -209,7 +209,7 @@ async def test_implied_coefficient_restores_the_last_measured_value(hass, climat
     assert state.attributes["last_measured_at"] == datetime(2026, 11, 10, 20, 0, tzinfo=timezone.utc)
 
 
-async def test_seasonal_coefficient_sensor_exposes_the_fit(hass, climate, coordinator, entry, domains, data, options, config):
+async def test_seasonal_coefficient_sensor_exposes_the_fit(hass, climate, demand_control, coordinator, entry, domains, data, options, config):
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-seasonal-curve-coefficient")
 
@@ -217,7 +217,7 @@ async def test_seasonal_coefficient_sensor_exposes_the_fit(hass, climate, coordi
     assert hass.states.get(entity_id).attributes["hours"] == 0
 
     hours = [SeasonalCurveHour(start=index * 21600.0, coefficient=2.4, outside_temperature=4.0) for index in range(60)]
-    climate.seasonal_curve._fit = SeasonalCurveEvaluator.fit(hours)
+    demand_control.seasonal_curve._fit = SeasonalCurveEvaluator.fit(hours)
     coordinator.async_update_listeners()
     await hass.async_block_till_done()
 
@@ -230,7 +230,7 @@ async def test_seasonal_coefficient_sensor_exposes_the_fit(hass, climate, coordi
     assert state.attributes["bins"] == [{"minimum_temperature": 3, "coefficient": 2.4, "hours": 60}]
 
 
-async def test_efficiency_sensor_exposes_the_report(hass, climate, coordinator, entry, domains, data, options, config):
+async def test_efficiency_sensor_exposes_the_report(hass, climate, demand_control, coordinator, entry, domains, data, options, config):
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-heating-efficiency")
 
@@ -239,7 +239,7 @@ async def test_efficiency_sensor_exposes_the_report(hass, climate, coordinator, 
 
     current = EfficiencyPeriod(days=365, baseload=1.0, degree_days=1800.0, gas_per_degree_day=0.55)
     previous = EfficiencyPeriod(days=365, baseload=1.0, degree_days=1900.0, gas_per_degree_day=0.5)
-    climate.efficiency._report = EfficiencyReport(source="meter", unit="m³", current=current, previous=previous, gas_estimate_ratio=1.2)
+    demand_control.efficiency._report = EfficiencyReport(source="meter", unit="m³", current=current, previous=previous, gas_estimate_ratio=1.2)
     coordinator.async_update_listeners()
     await hass.async_block_till_done()
 
@@ -254,8 +254,8 @@ async def test_efficiency_sensor_exposes_the_report(hass, climate, coordinator, 
     assert state.attributes["gas_estimate_ratio"] == 1.2
 
 
-async def test_diagnostics_include_the_efficiency_report(hass, climate, entry, domains, data, options, config):
-    climate.efficiency._report = EfficiencyReport(source="estimate", unit="m³", current=EfficiencyPeriod(days=365, baseload=1.0, degree_days=1800.0, gas_per_degree_day=0.5))
+async def test_diagnostics_include_the_efficiency_report(hass, climate, demand_control, entry, domains, data, options, config):
+    demand_control.efficiency._report = EfficiencyReport(source="estimate", unit="m³", current=EfficiencyPeriod(days=365, baseload=1.0, degree_days=1800.0, gas_per_degree_day=0.5))
 
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
 
@@ -271,24 +271,24 @@ async def test_diagnostics_include_the_seasonal_fit(hass, climate, entry, domain
     assert diagnostics["climate"]["seasonal_curve"]["curve_mismatch"] is False
 
 
-async def test_outside_temperature_sensor_mirrors_the_climate(hass, climate, entry, domains, data, options, config, monkeypatch):
+async def test_outside_temperature_sensor_mirrors_the_climate(hass, climate, demand_control, entry, domains, data, options, config, monkeypatch):
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-outside-temperature")
 
-    monkeypatch.setattr(type(climate), "current_outside_temperature", property(lambda self: 4.26))
-    climate.async_write_ha_state()
+    monkeypatch.setattr(type(demand_control), "current_outside_temperature", property(lambda self: 4.26))
+    demand_control.async_update_listeners()
     await hass.async_block_till_done()
     await hass.async_block_till_done()
 
     assert hass.states.get(entity_id).state == "4.3"
 
 
-async def test_wind_speed_sensor_mirrors_the_climate(hass, climate, entry, domains, data, options, config, monkeypatch):
+async def test_wind_speed_sensor_mirrors_the_climate(hass, climate, demand_control, entry, domains, data, options, config, monkeypatch):
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-wind-speed")
 
-    monkeypatch.setattr(type(climate), "current_wind", property(lambda self: WindReading(speed=23.4, entity_id="weather.home")))
-    climate.async_write_ha_state()
+    monkeypatch.setattr(type(demand_control), "current_wind", property(lambda self: WindReading(speed=23.4, entity_id="weather.home")))
+    demand_control.async_update_listeners()
     await hass.async_block_till_done()
     await hass.async_block_till_done()
 
@@ -298,10 +298,10 @@ async def test_wind_speed_sensor_mirrors_the_climate(hass, climate, entry, domai
     assert state.attributes["source"] == "weather.home"
 
 
-async def test_heating_curve_recommendation_shows_the_wind_sensitivity(hass, climate, coordinator, entry, domains, data, options, config):
+async def test_heating_curve_recommendation_shows_the_wind_sensitivity(hass, climate, demand_control, coordinator, entry, domains, data, options, config):
     entity_id = er.async_get(hass).async_get_entity_id("sensor", "sat", f"{entry.entry_id}-heating-curve-recommendation")
     speeds = [2.0, 5.0, 10.0, 18.0, 30.0, 42.0, 55.0, 60.0]
-    climate.wind_sensitivity.update([WindDay(date=f"2026-11-{index + 1:02d}", wind_speed=speed, coefficient=2.3 * (1 + 0.005 * speed), sample_count=100) for index, speed in enumerate(speeds)], date(2026, 11, 20))
+    demand_control.wind_sensitivity.update([WindDay(date=f"2026-11-{index + 1:02d}", wind_speed=speed, coefficient=2.3 * (1 + 0.005 * speed), sample_count=100) for index, speed in enumerate(speeds)], date(2026, 11, 20))
 
     coordinator.async_update_listeners()
     await hass.async_block_till_done()

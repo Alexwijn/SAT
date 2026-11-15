@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections import deque
 from dataclasses import dataclass
 from typing import Optional
@@ -16,10 +15,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from . import SatHeatingControl
-from .climate import SatClimate
+from .demand_control import SatDemandControl
 from .const import *
 from .coordinator.serial import binary_sensor as serial_binary_sensor
-from .entity import SatClimateEntity, SatEntity, SatHeatingControlEntity
+from .entity import SatDemandControlEntity, SatEntity, SatHeatingControlEntity
 from .entry_data import SatConfig, SatMode, get_entry_data
 from .helpers import float_value, seconds_since, timestamp
 from .types import BoilerStatus, CycleClassification
@@ -47,14 +46,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         return
 
     entry_data = get_entry_data(hass, config_entry.entry_id)
-    if entry_data.climate is None:
-        try:
-            await asyncio.wait_for(entry_data.climate_ready.wait(), timeout=10)
-        except asyncio.TimeoutError:
-            return
-
-        if entry_data.climate is None:
-            return
 
     if entry_data.config.mode == SatMode.SERIAL:
         await serial_binary_sensor.async_setup_entry(hass, config_entry, async_add_entities)
@@ -65,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         SatDeviceHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatPressureHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
         SatBoilerTrendsSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
-        SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.climate),
+        SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
     ]
 
     if len(entry_data.config.window_sensors) > 0:
@@ -178,12 +169,12 @@ class SatRelativeModulationSyncSensor(SatSyncSensor, SatHeatingControlEntity, Bi
         return f"{self._config.entry_id}-relative-modulation-synchro"
 
 
-class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorEntity):
+class SatCentralHeatingSyncSensor(SatSyncSensor, SatDemandControlEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, climate: SatClimate):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, demand_control: SatDemandControl):
         SatSyncSensor.__init__(self)
-        SatClimateEntity.__init__(self, coordinator, config, heating_control, climate)
+        SatDemandControlEntity.__init__(self, coordinator, config, heating_control, demand_control)
 
     @property
     def name(self) -> str:
@@ -196,15 +187,10 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatClimateEntity, BinarySensorE
         return BinarySensorDeviceClass.PROBLEM
 
     @property
-    def available(self) -> bool:
-        """Return availability of the sensor."""
-        return self._climate is not None
-
-    @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
         device_active = self._coordinator.active
-        climate_hvac_action = self._climate.state_attributes.get("hvac_action")
+        climate_hvac_action = self._demand_control.hvac_action
 
         should_be_off = climate_hvac_action == HVACAction.OFF and not device_active
         should_be_idle = climate_hvac_action == HVACAction.IDLE and not device_active
