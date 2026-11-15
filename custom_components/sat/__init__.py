@@ -233,11 +233,20 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 def async_migrate_room_presets(hass: HomeAssistant, entry: ConfigEntry, rooms: list[str], room_presets: dict) -> dict:
     """Turn the home temperatures the climate entity remembered per room into room presets."""
     remembered = {}
-    climate_id = entity_registry.async_get(hass).async_get_entity_id("climate", DOMAIN, entry.entry_id)
+    registry = entity_registry.async_get(hass)
+    climate_id = registry.async_get_entity_id("climate", DOMAIN, entry.entry_id)
     restore_state = hass.data.get(DATA_RESTORE_STATE)
 
-    if climate_id is not None and restore_state is not None and (stored := restore_state.last_states.get(climate_id)) is not None:
-        remembered = stored.state.attributes.get("rooms") or {}
+    if climate_id is not None and restore_state is not None:
+        registry_entry = registry.async_get(climate_id)
+        stored = (
+                (getattr(restore_state, "last_states", None) or {}).get(climate_id)
+                or (getattr(restore_state, "last_states_by_entity_id", None) or {}).get(climate_id)
+                or ((getattr(restore_state, "last_states_by_entity_registry_id", None) or {}).get(registry_entry.id) if registry_entry is not None else None)
+        )
+
+        if stored is not None:
+            remembered = stored.state.attributes.get("rooms") or {}
 
     migrated = {room: dict(settings or {}) for room, settings in room_presets.items()}
 

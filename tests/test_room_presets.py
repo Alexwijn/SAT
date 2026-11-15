@@ -1,12 +1,16 @@
 """Tests for presets applied per room."""
 
+from types import SimpleNamespace
+
 import pytest
 from homeassistant.components.climate import ClimateEntityFeature, HVACMode, PRESET_AWAY, PRESET_COMFORT, PRESET_HOME, PRESET_NONE, PRESET_SLEEP
 from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.restore_state import DATA_RESTORE_STATE
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service, mock_restore_cache
 
+from custom_components.sat import async_migrate_room_presets
 from custom_components.sat.config_flow import SatFlowHandler, SatOptionsFlowHandler
 from custom_components.sat.const import (
     CONF_AWAY_TEMPERATURE,
@@ -220,3 +224,14 @@ async def test_migration_turns_the_remembered_home_temperatures_into_room_preset
 
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_migration_reads_states_stored_by_entity_registry_id(hass):
+    entry = MockConfigEntry(domain=DOMAIN, version=12, data={**DEFAULT_USER_DATA, CONF_ROOMS: [KITCHEN]})
+    entry.add_to_hass(hass)
+
+    registry_entry = er.async_get(hass).async_get_or_create("climate", DOMAIN, entry.entry_id, config_entry=entry)
+    stored = SimpleNamespace(state=State(registry_entry.entity_id, HVACMode.HEAT, {"rooms": {KITCHEN: 20.5}}))
+    hass.data[DATA_RESTORE_STATE] = SimpleNamespace(last_states_by_entity_id={}, last_states_by_entity_registry_id={registry_entry.id: stored})
+
+    assert async_migrate_room_presets(hass, entry, [KITCHEN], {}) == {KITCHEN: {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_HOME: 20.5}}}
