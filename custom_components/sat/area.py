@@ -116,6 +116,22 @@ class Area:
         return None
 
     @property
+    def room_temperature(self) -> Optional[float]:
+        """Retrieve the temperature of the room from its sensor or its climate entity."""
+        if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
+            return None
+
+        if state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            return None
+
+        if (sensor_temperature_id := state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
+            sensor_state = self._hass.states.get(sensor_temperature_id)
+            if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+                return float_value(sensor_state.state)
+
+        return float_value(state.attributes.get(ATTR_CURRENT_TEMPERATURE))
+
+    @property
     def target_temperature(self) -> Optional[float]:
         """Retrieve the target temperature from the climate entity."""
         if (self._hass is None) or (state := self.climate_state) is None:

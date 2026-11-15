@@ -66,8 +66,8 @@ class SatDemandControl:
 
         self._frost_protection_active: bool = False
         self._target_temperature: Optional[float] = None
+        self._hvac_mode: Optional[Union[HVACMode, str]] = None
         self._target_temperature_changed_at: Optional[float] = None
-        self._hvac_mode: Optional[Union[HVACMode, str]] = HVACMode.HEAT if config.rooms_only else None
         self._solar_gain_snapshot = SolarGainSnapshot(active=False, rise_per_hour=None, sun_elevation=None)
 
         self._event_listeners_registered: bool = False
@@ -136,7 +136,10 @@ class SatDemandControl:
 
     @property
     def current_temperature(self) -> Optional[float]:
-        """Return the temperature of the primary room."""
+        """Return the temperature of the primary room, or the median room temperature in rooms-only mode."""
+        if self._config.rooms_only:
+            return self.median_room_temperature
+
         if (current_temperature := self._get_entity_state_float(self._config.sensors.inside_sensor_entity_id)) is None:
             return None
 
@@ -144,6 +147,28 @@ class SatDemandControl:
             return SummerSimmer.index(current_temperature, self.current_humidity)
 
         return current_temperature
+
+    @property
+    def room_temperatures(self) -> dict[str, Optional[float]]:
+        """Return the temperature of every room."""
+        return {area.id: area.room_temperature for area in self.areas.items()}
+
+    @property
+    def room_errors(self) -> dict[str, Optional[float]]:
+        """Return how far every room is below its target."""
+        return {area.id: temperature_state.error if (temperature_state := area.temperature_state) is not None else None for area in self.areas.items()}
+
+    @property
+    def median_room_temperature(self) -> Optional[float]:
+        temperatures = [temperature for temperature in self.room_temperatures.values() if temperature is not None]
+
+        return round(median(temperatures), 2) if temperatures else None
+
+    @property
+    def coldest_room_temperature(self) -> Optional[float]:
+        temperatures = [temperature for temperature in self.room_temperatures.values() if temperature is not None]
+
+        return min(temperatures) if temperatures else None
 
     @property
     def current_humidity(self) -> Optional[float]:
@@ -362,7 +387,7 @@ class SatDemandControl:
         if old_state is not None:
             self._warm_up.restore(old_state.attributes.get(ATTR_WARM_UP_RATE_PER_HOUR))
 
-            if self._target_temperature is None:
+            if self._target_temperature is None and not self._config.rooms_only:
                 if old_state.attributes.get(ATTR_TEMPERATURE) is None:
                     self.pid.control_setpoint = fallback_target_temperature
                     self._target_temperature = fallback_target_temperature
@@ -375,7 +400,7 @@ class SatDemandControl:
 
             return
 
-        if self._target_temperature is None:
+        if self._target_temperature is None and not self._config.rooms_only:
             self.pid.control_setpoint = fallback_target_temperature
             self._target_temperature = fallback_target_temperature
             _LOGGER.warning("No previously saved temperature, setting to %s", self._target_temperature)
@@ -583,9 +608,9 @@ class SatDemandControl:
             )
 
     def _update_frost_protection(self) -> bool:
-        """Track whether the room is cold enough to require heating while off."""
+        """Track whether the primary room, or the coldest room in rooms-only mode, is cold enough to require heating while off."""
         threshold = self._config.frost_protection_temperature
-        current_temperature = self.current_temperature
+        current_temperature = self.coldest_room_temperature if self._config.rooms_only else self.current_temperature
 
         if threshold <= 0 or current_temperature is None:
             self._frost_protection_active = False

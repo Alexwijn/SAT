@@ -53,9 +53,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_added_to_hass(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    if config.rooms_only:
-        await demand_control.async_added_to_hass(entry.entry_id)
-
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True

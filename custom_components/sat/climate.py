@@ -27,6 +27,7 @@ from homeassistant.components.climate import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import CoreState, Event, EventStateChangedData, HomeAssistant, SupportsResponse, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -58,9 +59,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         hass,
         config_entry.entry_id
     )
-
-    if entry_data.config.rooms_only:
-        return
 
     climate = SatClimate(
         entry_data.coordinator,
@@ -106,10 +104,15 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._window_sensor_handle: Optional[asyncio.Task[None]] = None
 
         self._temperature_unit = unit
-        self._attr_preset_mode = PRESET_NONE
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
-        self._attr_supported_features = self._build_supported_features()
-        self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
+        self._attr_supported_features = self._build_supported_features(config.rooms_only)
+
+        if config.rooms_only:
+            self._attr_preset_mode = None
+            self._attr_preset_modes = None
+        else:
+            self._attr_preset_mode = PRESET_NONE
+            self._attr_preset_modes = [PRESET_NONE] + list(self._presets.keys())
 
         # System Configuration
         self._attr_name = self._config.name
@@ -198,6 +201,8 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "pre_activity_temperature": self._pre_activity_temperature,
 
             "rooms": self._rooms,
+            "room_errors": self._demand_control.room_errors,
+            "room_temperatures": self._demand_control.room_temperatures,
             "current_humidity": self.current_humidity,
             "setpoint": self._heating_control.control_setpoint,
 
@@ -299,6 +304,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set the target temperature."""
+        if self._config.rooms_only:
+            raise ServiceValidationError(f"{self.entity_id} has no target temperature of its own, set the temperature of the rooms instead")
+
         if (temperature := kwargs.get(ATTR_TEMPERATURE)) is None:
             return None
 
@@ -338,6 +346,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode for the thermostat."""
+        if self._config.rooms_only:
+            raise ServiceValidationError(f"{self.entity_id} has no presets without a primary room")
+
         if preset_mode not in self.preset_modes:
             raise ValueError(f"Got unsupported preset_mode {preset_mode}. Must be one of {self.preset_modes}")
 
@@ -408,7 +419,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             )
         )
 
-        if len(self._config.window_sensors) > 0:
+        if len(self._config.window_sensors) > 0 and not self._config.rooms_only:
             self.async_on_remove(
                 async_track_state_change_event(
                     self.hass, list(self._config.window_sensors), self._async_window_sensor_changed
@@ -502,9 +513,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._rooms[entity_id] = float(target_temperature)
 
     @staticmethod
-    def _build_supported_features() -> ClimateEntityFeature:
-        """Determine supported features based on Home Assistant version."""
-        supported = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+    def _build_supported_features(rooms_only: bool) -> ClimateEntityFeature:
+        """Determine supported features based on the configuration and the Home Assistant version."""
+        supported = ClimateEntityFeature(0) if rooms_only else ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
         if hasattr(ClimateEntityFeature, "TURN_ON"):
             supported |= ClimateEntityFeature.TURN_ON
 

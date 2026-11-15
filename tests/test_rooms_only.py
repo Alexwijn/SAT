@@ -4,14 +4,15 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from homeassistant.components.climate import HVACAction, HVACMode
+from homeassistant.components.climate import ClimateEntityFeature, HVACAction, HVACMode
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.sat.config_flow import SatFlowHandler
 from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_INSIDE_SENSOR_ENTITY_ID, CONF_OUTSIDE_SENSOR_ENTITY_ID, CONF_ROOMS, DOMAIN
 from custom_components.sat.room_balance import MAIN_ROOM_ID
-from custom_components.sat.types import HeatingSystem
+from custom_components.sat.types import HeaterState, HeatingSystem
 from tests.const import DEFAULT_USER_DATA, make_config
 
 ROOM = "climate.bedroom"
@@ -87,11 +88,21 @@ async def test_options_menu_has_no_presets(hass, entry, domains, data, options, 
 
 
 @ROOMS_ONLY
-async def test_no_climate_entity_and_no_main_room_sensors(hass, entry, demand_control, domains, data, options, config):
+async def test_climate_is_only_the_switch_of_the_system(hass, entry, climate, demand_control, domains, data, options, config):
     registry = er.async_get(hass)
 
-    assert hass.data[DOMAIN][entry.entry_id].climate is None
-    assert registry.async_get_entity_id("climate", DOMAIN, entry.entry_id) is None
+    assert climate is not None
+    assert climate.hvac_modes == [HVACMode.OFF, HVACMode.HEAT]
+    assert climate.hvac_mode == HVACMode.OFF
+    assert climate.target_temperature is None
+    assert climate.preset_modes is None
+    assert not climate.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    assert not climate.supported_features & ClimateEntityFeature.PRESET_MODE
+    assert climate.supported_features & ClimateEntityFeature.TURN_ON
+    assert climate.supported_features & ClimateEntityFeature.TURN_OFF
+
+    assert demand_control.id == climate.entity_id
+    assert demand_control.temperature_state is None
 
     for suffix in ("pid", "error-value", "heating-curve", f"{MAIN_ROOM_ID}-room-balance"):
         assert registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}-{suffix}") is None
@@ -99,9 +110,23 @@ async def test_no_climate_entity_and_no_main_room_sensors(hass, entry, demand_co
     for suffix in ("requested-setpoint", "outside-temperature", "heating-curve-recommendation", f"{ROOM}-pid", f"{ROOM}-room-balance"):
         assert registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}-{suffix}") is not None
 
-    assert demand_control.id == entry.entry_id
-    assert demand_control.hvac_mode == HVACMode.HEAT
-    assert demand_control.temperature_state is None
+
+@ROOMS_ONLY
+async def test_climate_shows_the_rooms(room_states, hass, climate, domains, data, options, config):
+    assert climate.current_temperature == 19.5
+
+    attributes = climate.extra_state_attributes
+    assert attributes["room_temperatures"] == {ROOM: 19.0, OTHER_ROOM: 20.0}
+    assert attributes["room_errors"] == {ROOM: 2.0, OTHER_ROOM: 0.0}
+
+
+@ROOMS_ONLY
+async def test_climate_rejects_a_target_temperature_and_presets(climate, domains, data, options, config):
+    with pytest.raises(ServiceValidationError):
+        await climate.async_set_temperature(temperature=21.0)
+
+    with pytest.raises(ServiceValidationError):
+        await climate.async_set_preset_mode("home")
 
 
 @ROOMS_ONLY
@@ -140,7 +165,8 @@ async def test_rooms_get_a_heating_curve_without_a_primary(room_states, hass, de
 
 
 @ROOMS_ONLY
-async def test_control_pid_feeds_the_monitors_from_the_rooms(room_states, hass, demand_control, monkeypatch, domains, data, options, config):
+async def test_control_pid_feeds_the_monitors_from_the_rooms(room_states, hass, climate, demand_control, monkeypatch, domains, data, options, config):
+    await climate.async_set_hvac_mode(HVACMode.HEAT)
     demand_control._update_heating_curves()
     demand_control.areas.control_pid()
 
@@ -156,16 +182,41 @@ async def test_control_pid_feeds_the_monitors_from_the_rooms(room_states, hass, 
 
 
 @ROOMS_ONLY
-async def test_heating_loop_runs_from_the_rooms(room_states, hass, demand_control, monkeypatch, domains, data, options, config):
+async def test_heating_loop_runs_from_the_rooms_once_switched_on(room_states, hass, climate, demand_control, monkeypatch, domains, data, options, config):
     update_mock = AsyncMock()
     monkeypatch.setattr(demand_control._heating_control, "update", update_mock)
 
+    await climate.async_set_hvac_mode(HVACMode.HEAT)
     await demand_control.async_control_heating_loop()
 
     demand = update_mock.call_args.args[0]
     assert demand.hvac_mode == HVACMode.HEAT
     assert demand.valves_open is True
     assert demand.outside_temperature == 5.0
+    assert demand.heater_state == HeaterState.ON
+
+
+@ROOMS_ONLY
+async def test_frost_protection_watches_the_coldest_room(room_states, hass, climate, demand_control, monkeypatch, domains, data, options, config):
+    update_mock = AsyncMock()
+    monkeypatch.setattr(demand_control._heating_control, "update", update_mock)
+    hass.states.async_set(ROOM, HVACMode.OFF, {"temperature": 21.0, "current_temperature": 4.0})
+
+    await demand_control.async_control_heating_loop()
+
+    demand = update_mock.call_args.args[0]
+    assert climate.hvac_mode == HVACMode.OFF
+    assert demand_control.frost_protection_active is True
+    assert demand.hvac_mode == HVACMode.HEAT
+    assert demand.heater_state == HeaterState.ON
+
+    hass.states.async_set(ROOM, HVACMode.OFF, {"temperature": 21.0, "current_temperature": 18.0})
+
+    await demand_control.async_control_heating_loop()
+
+    demand = update_mock.call_args.args[0]
+    assert demand_control.frost_protection_active is False
+    assert demand.heater_state == HeaterState.OFF
 
 
 @ROOMS_ONLY
