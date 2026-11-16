@@ -6,7 +6,6 @@ from typing import Any, Optional
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import sensor, switch, valve, weather, binary_sensor, climate, input_boolean
-from homeassistant.components.climate import PRESET_HOME
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 from homeassistant.helpers import selector, device_registry, entity_registry
@@ -20,7 +19,7 @@ from . import SatDataUpdateCoordinatorFactory
 from .const import *
 from .coordinator import SatDataUpdateCoordinator
 from .entry_data import SatConfig, SatMode
-from .helpers import calculate_default_maximum_setpoint, float_value, snake_case
+from .helpers import calculate_default_maximum_setpoint, snake_case
 from .manufacturer import ManufacturerFactory, MANUFACTURERS
 from .presets import PRESET_TEMPERATURE_KEYS
 from .types import HeatingSystem, HeatingMode
@@ -750,8 +749,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         temperatures = current.get(CONF_ROOM_PRESET_TEMPERATURES) or {}
 
         defaults = {preset: temperatures.get(preset, float(options[key])) for preset, key in PRESET_TEMPERATURE_KEYS.items()}
-        if PRESET_HOME not in temperatures and (room_target := self._room_target(self._room)) is not None:
-            defaults[PRESET_HOME] = room_target
 
         schema = {
             vol.Required(CONF_ROOM_PRESET_FIXED, default=bool(current.get(CONF_ROOM_PRESET_FIXED))): bool,
@@ -774,10 +771,6 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
 
         return state.name if state is not None else entity_id
 
-    def _room_target(self, entity_id: str) -> Optional[float]:
-        state = self.hass.states.get(entity_id)
-
-        return float_value(state.attributes.get("temperature")) if state is not None else None
 
     async def async_step_system_configuration(self, _user_input: Optional[dict[str, Any]] = None):
         if _user_input is not None:

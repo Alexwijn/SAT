@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Kamervoorinstellingen",
-        "description": "Kies de kamer waarvoor u voorinstellingstemperaturen wilt instellen. De thuistemperatuur is de normale doeltemperatuur van de kamer; een kamer zonder thuistemperatuur wordt met rust gelaten. Leeg gelaten voorinstellingen verlagen de kamer alleen ten opzichte van zijn thuistemperatuur en verhogen hem nooit.",
+        "description": "Kies de kamer waarvoor u voorinstellingstemperaturen wilt instellen. De thuistemperatuur is de normale doeltemperatuur van de kamer en is standaard de thuistemperatuur van het huis. Niet aangevinkte voorinstellingen verlagen de kamer alleen ten opzichte daarvan en verhogen hem nooit.",
         "data": {
           "room": "Kamer"
         }

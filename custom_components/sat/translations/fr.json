@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Préréglages par pièce",
-        "description": "Choisissez la pièce dont vous voulez définir les températures de préréglage. La température Maison est la cible normale de la pièce ; une pièce qui n'en a pas n'est pas touchée. Les préréglages laissés vides ne font que baisser la pièce par rapport à sa température Maison et ne la relèvent jamais.",
+        "description": "Choisissez la pièce dont vous voulez définir les températures de préréglage. La température Maison est la cible normale de la pièce et vaut par défaut la température Maison de la maison. Les préréglages non cochés ne font que baisser la pièce par rapport à elle et ne la relèvent jamais.",
         "data": {
           "room": "Pièce"
         }

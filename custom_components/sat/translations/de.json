@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Zimmer-Voreinstellungen",
-        "description": "Wählen Sie das Zimmer, für das Sie Voreinstellungstemperaturen festlegen möchten. Die Zuhause-Temperatur ist die normale Zieltemperatur des Zimmers; ein Zimmer ohne diese bleibt unberührt. Leer gelassene Voreinstellungen senken das Zimmer nur relativ zu seiner Zuhause-Temperatur und erhöhen es nie.",
+        "description": "Wählen Sie das Zimmer, für das Sie Voreinstellungstemperaturen festlegen möchten. Die Zuhause-Temperatur ist die normale Zieltemperatur des Zimmers und entspricht standardmäßig der Zuhause-Temperatur des Hauses. Nicht angekreuzte Voreinstellungen senken das Zimmer nur relativ dazu und erhöhen es nie.",
         "data": {
           "room": "Zimmer"
         }

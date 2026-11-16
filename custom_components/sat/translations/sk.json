@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Predvoľby izieb",
-        "description": "Vyberte izbu, pre ktorú chcete nastaviť teploty predvolieb. Domáca teplota je bežný cieľ izby; izba bez nej ostáva nedotknutá. Prázdne predvoľby izbu iba znižujú relatívne k jej domácej teplote a nikdy ju nezvyšujú.",
+        "description": "Vyberte izbu, pre ktorú chcete nastaviť teploty predvolieb. Domáca teplota je bežný cieľ izby a predvolene sa rovná domácej teplote domu. Nezaškrtnuté predvoľby izbu iba znižujú relatívne k nej a nikdy ju nezvyšujú.",
         "data": {
           "room": "Izba"
         }

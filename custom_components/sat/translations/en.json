@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Room Presets",
-        "description": "Pick the room to set preset temperatures for. The home temperature is the room's normal target; a room without one is left alone. Presets you leave empty only lower the room relative to its home temperature and never raise it.",
+        "description": "Pick the room to set preset temperatures for. The home temperature is the room's normal target and defaults to the house home temperature. Presets you do not tick only lower the room relative to it and never raise it.",
         "data": {
           "room": "Room"
         }

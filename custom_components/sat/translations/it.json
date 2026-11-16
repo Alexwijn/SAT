@@ -355,7 +355,7 @@
       },
       "room_presets": {
         "title": "Preset per stanza",
-        "description": "Scegli la stanza per cui impostare le temperature dei preset. La temperatura Casa è il target normale della stanza; una stanza senza di essa non viene toccata. I preset lasciati vuoti abbassano soltanto la stanza rispetto alla sua temperatura Casa e non la alzano mai.",
+        "description": "Scegli la stanza per cui impostare le temperature dei preset. La temperatura Casa è il target normale della stanza e per impostazione predefinita è la temperatura Casa della casa. I preset non selezionati abbassano soltanto la stanza rispetto a essa e non la alzano mai.",
         "data": {
           "room": "Stanza"
         }

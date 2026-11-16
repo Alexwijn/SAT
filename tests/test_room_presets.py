@@ -107,12 +107,21 @@ def test_home_and_no_preset_restore_the_home_temperature():
     assert presets.target(KITCHEN, PRESET_NONE) == 21.0
 
 
-def test_rooms_without_a_home_temperature_or_marked_fixed_are_left_alone():
+def test_a_fixed_room_is_left_alone():
     presets = _presets()
 
     for preset in (PRESET_HOME, PRESET_NONE, PRESET_SLEEP, PRESET_AWAY, PRESET_COMFORT):
         assert presets.target(NURSERY, preset) is None
-        assert presets.target(HALL, preset) is None
+
+
+def test_a_room_without_its_own_home_temperature_follows_the_house():
+    presets = _presets()
+
+    assert presets.target(HALL, PRESET_HOME) == 21.0
+    assert presets.target(HALL, PRESET_NONE) == 21.0
+    assert presets.target(HALL, PRESET_SLEEP) == 19.0
+    assert presets.target(HALL, PRESET_AWAY) == 16.0
+    assert presets.target(HALL, PRESET_COMFORT) == 21.0
 
 
 @WITH_MAIN_ROOM
@@ -122,7 +131,7 @@ async def test_sleep_lowers_the_rooms_relatively(room_states, hass, climate, dom
     await climate.async_set_preset_mode(PRESET_SLEEP)
 
     assert climate.target_temperature == 19.0
-    assert _set_temperature_calls(calls) == {KITCHEN: 19.0, COUCH: 19.0}
+    assert _set_temperature_calls(calls) == {KITCHEN: 19.0, COUCH: 19.0, HALL: 19.0}
 
 
 @WITH_MAIN_ROOM
@@ -132,7 +141,7 @@ async def test_comfort_raises_only_the_room_that_asked_for_it(room_states, hass,
     await climate.async_set_preset_mode(PRESET_COMFORT)
 
     assert climate.target_temperature == 23.0
-    assert _set_temperature_calls(calls) == {COUCH: 23.0}
+    assert _set_temperature_calls(calls) == {COUCH: 23.0, HALL: 21.0}
 
 
 @WITH_MAIN_ROOM
@@ -145,7 +154,7 @@ async def test_leaving_the_preset_restores_the_home_temperatures(room_states, ha
 
     await climate.async_set_preset_mode(PRESET_NONE)
 
-    assert _set_temperature_calls(calls) == {KITCHEN: 21.0, BEDROOM: 18.0, COUCH: 21.0}
+    assert _set_temperature_calls(calls) == {KITCHEN: 21.0, BEDROOM: 18.0, COUCH: 21.0, HALL: 21.0}
 
 
 @ROOMS_ONLY
@@ -163,11 +172,11 @@ async def test_rooms_only_presets_set_the_rooms(room_states, hass, climate, doma
     await climate.async_set_preset_mode(PRESET_COMFORT)
     assert climate.preset_mode == PRESET_COMFORT
     assert climate.target_temperature is None
-    assert _set_temperature_calls(calls) == {COUCH: 23.0}
+    assert _set_temperature_calls(calls) == {COUCH: 23.0, HALL: 21.0}
 
     calls.clear()
     await climate.async_set_preset_mode(PRESET_AWAY)
-    assert _set_temperature_calls(calls) == {KITCHEN: 16.0, BEDROOM: 16.0, COUCH: 16.0}
+    assert _set_temperature_calls(calls) == {KITCHEN: 16.0, BEDROOM: 16.0, COUCH: 16.0, HALL: 16.0}
 
 
 @ROOMS_ONLY
@@ -196,7 +205,7 @@ def _defaults(result) -> dict:
 
 
 @ROOMS_ONLY
-async def test_options_flow_defaults_to_the_current_target_and_the_house_presets(room_states, hass, entry, domains, data, options, config):
+async def test_options_flow_defaults_to_the_house_presets(room_states, hass, entry, domains, data, options, config):
     flow = SatOptionsFlowHandler(entry)
     flow.hass = hass
 
@@ -204,7 +213,7 @@ async def test_options_flow_defaults_to_the_current_target_and_the_house_presets
     defaults = _defaults(await flow.async_step_room_preset())
 
     assert defaults[CONF_ROOM_PRESET_OWN] == []
-    assert defaults[CONF_HOME_TEMPERATURE] == 20.5
+    assert defaults[CONF_HOME_TEMPERATURE] == 21.0
     assert defaults[CONF_SLEEP_TEMPERATURE] == 19.0
 
     await flow.async_step_room_presets({CONF_ROOM: COUCH})
