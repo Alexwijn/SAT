@@ -754,7 +754,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
                 suggested_value = self._room_target(self._room)
 
             marker = vol.Optional(key) if suggested_value is None else vol.Optional(key, description={"suggested_value": suggested_value})
-            schema[marker] = selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C"))
+            schema[marker] = selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C", mode=selector.NumberSelectorMode.BOX))
 
         return self.async_show_form(
             step_id="room_preset",

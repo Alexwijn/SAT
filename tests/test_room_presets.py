@@ -193,9 +193,11 @@ async def test_options_flow_suggests_the_current_target_as_home_temperature(room
     result = await flow.async_step_room_preset()
 
     suggestions = {marker.schema: (marker.description or {}).get("suggested_value") for marker in result["data_schema"].schema}
+    modes = {marker.schema: field.config.get("mode") for marker, field in result["data_schema"].schema.items() if marker.schema != CONF_ROOM_PRESET_FIXED}
 
     assert suggestions[CONF_HOME_TEMPERATURE] == 20.5
     assert suggestions[CONF_SLEEP_TEMPERATURE] is None
+    assert set(modes.values()) == {"box"}
 
 
 @ROOMS_ONLY
