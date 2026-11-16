@@ -8,7 +8,7 @@
       "invalid_device": "Toto je neplatné zariadenie.",
       "connection": "Nedá sa pripojiť k gateway.",
       "mqtt_component": "MQTT komponent je nedostupný.",
-      "unable_to_calibrate": "V procese kalibrácie sa vyskytol problém a nebolo možné ho úspešne dokončiť. Uistite sa, že váš vykurovací systém funguje správne a že všetky požadované senzory sú pripojené a fungujú správne.\n\nAk budete mať aj naďalej problémy s kalibráciou, zvážte kontaktovanie nás so žiadosťou o ďalšiu pomoc. Ospravedlňujeme sa za spôsobené nepríjemnosti."
+      "unable_to_calibrate": "V procese kalibrácie sa vyskytol problém a nebolo možné ho úspešne dokončiť. Uistite sa, že váš vykurovací systém funguje správne a že všetky požadované snímače sú pripojené a fungujú správne.\n\nAk budete mať aj naďalej problémy s kalibráciou, zvážte kontaktovanie nás so žiadosťou o ďalšiu pomoc. Ospravedlňujeme sa za spôsobené nepríjemnosti."
     },
     "progress": {
       "calibration": "Kalibrácia a nájdenie hodnoty ochrany proti prekročeniu...\n\nPočkajte, prosím, kým optimalizujeme váš vykurovací systém. Tento proces môže trvať približne 20 minút."
@@ -97,11 +97,11 @@
       "sensors": {
         "data": {
           "humidity_sensor_entity_id": "Entita snímača vlhkosti",
-          "inside_sensor_entity_id": "Vnútorná entita senzora",
-          "outside_sensor_entity_id": "Entita vonkajšieho senzora"
+          "inside_sensor_entity_id": "Vnútorná entita snímača",
+          "outside_sensor_entity_id": "Entita vonkajšieho snímača"
         },
-        "description": "Vyberte senzory, ktoré sa budú používať na sledovanie teploty.",
-        "title": "Nakonfigurujte senzory"
+        "description": "Vyberte snímače, ktoré sa budú používať na sledovanie teploty.",
+        "title": "Nakonfigurujte snímače"
       },
       "serial": {
         "data": {
@@ -137,7 +137,7 @@
         "menu_options": {
           "mosquitto": "MQTT Gateway (OpenTherm, EMS-ESP, iné)",
           "serial": "Sériová brána (napr. OpenTherm)",
-          "esphome": "ESPHome (Systémové služby a senzory)",
+          "esphome": "ESPHome (Systémové služby a snímače)",
           "simulator": "Simulovaná brána (Len pre vývojárov)",
           "switch": "PID Termostat (PWM režim Zap/Vyp)"
         },
@@ -192,7 +192,7 @@
           "dynamic_minimum_setpoint_version": "Verzia regulátora minimálnej požadovanej hodnoty",
           "pid_controller_version": "Verzia PID regulátora",
           "proportional": "Proporcionálna (kP)",
-          "window_sensors": "Kontaktné senzory",
+          "window_sensors": "Kontaktné snímače",
           "heating_mode": "Režim vykurovania"
         },
         "data_description": {
@@ -204,7 +204,7 @@
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",
           "maximum_setpoint": "Optimálna teplota pre efektívnu prevádzku kotla.",
           "proportional": "Proporcionálny člen (kP) v PID regulátore, zodpovedný za okamžitú reakciu na chyby.",
-          "window_sensors": "Kontaktné senzory, ktoré spúšťajú reakciu systému, keď je okno alebo dvere otvorené po určitú dobu."
+          "window_sensors": "Kontaktné snímače, ktoré spúšťajú reakciu systému, keď je okno alebo dvere otvorené po určitú dobu."
         },
         "description": "Všeobecné nastavenia a konfigurácie.",
         "title": "Všeobecné"
