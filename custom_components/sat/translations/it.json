@@ -362,9 +362,10 @@
       },
       "room_preset": {
         "title": "Preset per stanza",
-        "description": "Cosa significa ogni preset per {room}. Lascia vuoto un preset per seguire quello della casa.",
+        "description": "Cosa significa ogni preset per {room}. Seleziona i preset per cui questa stanza ha una temperatura propria.",
         "data": {
           "fixed": "Non toccare questa stanza",
+          "own": "Preset con temperatura propria",
           "home_temperature": "Temperatura Casa",
           "comfort_temperature": "Temperatura Comfort",
           "sleep_temperature": "Temperatura Sonno",
@@ -372,7 +373,8 @@
           "activity_temperature": "Temperatura Attività"
         },
         "data_description": {
-          "fixed": "I preset non cambiano mai la temperatura target di questa stanza."
+          "fixed": "I preset non cambiano mai la temperatura target di questa stanza.",
+          "own": "Solo i preset selezionati usano la temperatura impostata sotto; gli altri seguono il preset della casa."
         }
       }
     }
@@ -444,6 +446,17 @@
           "sensor_mismatch": "Discrepanza del sensore",
           "insufficient_data": "Dati insufficienti"
         }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Casa",
+        "comfort": "Comfort",
+        "sleep": "Notte",
+        "away": "Assente",
+        "activity": "Attività"
       }
     }
   }

@@ -362,9 +362,10 @@
       },
       "room_preset": {
         "title": "Préréglages par pièce",
-        "description": "Ce que chaque préréglage signifie pour {room}. Laissez un préréglage vide pour suivre le préréglage de la maison.",
+        "description": "Ce que chaque préréglage signifie pour {room}. Cochez les préréglages pour lesquels cette pièce a sa propre température.",
         "data": {
           "fixed": "Ne pas toucher à cette pièce",
+          "own": "Préréglages avec leur propre température",
           "home_temperature": "Température Maison",
           "comfort_temperature": "Température Confort",
           "sleep_temperature": "Température Sommeil",
@@ -372,7 +373,8 @@
           "activity_temperature": "Température Activité"
         },
         "data_description": {
-          "fixed": "Les préréglages ne modifient jamais la température cible de cette pièce."
+          "fixed": "Les préréglages ne modifient jamais la température cible de cette pièce.",
+          "own": "Seuls les préréglages cochés utilisent la température définie ci-dessous ; les autres suivent le préréglage de la maison."
         }
       }
     }
@@ -444,6 +446,17 @@
           "sensor_mismatch": "Écart de capteur",
           "insufficient_data": "Données insuffisantes"
         }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Maison",
+        "comfort": "Confort",
+        "sleep": "Sommeil",
+        "away": "Absent",
+        "activity": "Activité"
       }
     }
   }

@@ -362,9 +362,10 @@
       },
       "room_preset": {
         "title": "Predefinições por quarto",
-        "description": "O que cada predefinição significa para {room}. Deixe uma predefinição vazia para seguir a predefinição da casa.",
+        "description": "O que cada predefinição significa para {room}. Assinale as predefinições para as quais este quarto tem a sua própria temperatura.",
         "data": {
           "fixed": "Não mexer neste quarto",
+          "own": "Predefinições com temperatura própria",
           "home_temperature": "Temperatura em Casa",
           "comfort_temperature": "Temperatura de Conforto",
           "sleep_temperature": "Temperatura de Sono",
@@ -372,7 +373,8 @@
           "activity_temperature": "Temperatura de Atividade"
         },
         "data_description": {
-          "fixed": "As predefinições nunca alteram a temperatura alvo deste quarto."
+          "fixed": "As predefinições nunca alteram a temperatura alvo deste quarto.",
+          "own": "Apenas as predefinições assinaladas usam a temperatura definida abaixo; as restantes seguem a predefinição da casa."
         }
       }
     }
@@ -444,6 +446,17 @@
           "sensor_mismatch": "Discrepância do sensor",
           "insufficient_data": "Dados insuficientes"
         }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Em casa",
+        "comfort": "Conforto",
+        "sleep": "Dormir",
+        "away": "Ausente",
+        "activity": "Atividade"
       }
     }
   }

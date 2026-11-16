@@ -735,10 +735,12 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         room_presets = {room: dict(settings or {}) for room, settings in (options.get(CONF_ROOM_PRESETS) or {}).items()}
 
         if _user_input is not None:
+            own = set(_user_input.get(CONF_ROOM_PRESET_OWN) or [])
+
             room_presets[self._room] = {
                 CONF_ROOM_PRESET_FIXED: bool(_user_input.get(CONF_ROOM_PRESET_FIXED)),
                 CONF_ROOM_PRESET_TEMPERATURES: {
-                    preset: float(_user_input[key]) for preset, key in PRESET_TEMPERATURE_KEYS.items() if _user_input.get(key) is not None
+                    preset: float(_user_input[key]) for preset, key in PRESET_TEMPERATURE_KEYS.items() if preset in own and _user_input.get(key) is not None
                 },
             }
 
@@ -747,14 +749,19 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         current = room_presets.get(self._room) or {}
         temperatures = current.get(CONF_ROOM_PRESET_TEMPERATURES) or {}
 
-        schema = {vol.Required(CONF_ROOM_PRESET_FIXED, default=bool(current.get(CONF_ROOM_PRESET_FIXED))): bool}
-        for preset, key in PRESET_TEMPERATURE_KEYS.items():
-            suggested_value = temperatures.get(preset)
-            if suggested_value is None and preset == PRESET_HOME:
-                suggested_value = self._room_target(self._room)
+        defaults = {preset: temperatures.get(preset, float(options[key])) for preset, key in PRESET_TEMPERATURE_KEYS.items()}
+        if PRESET_HOME not in temperatures and (room_target := self._room_target(self._room)) is not None:
+            defaults[PRESET_HOME] = room_target
 
-            marker = vol.Optional(key) if suggested_value is None else vol.Optional(key, description={"suggested_value": suggested_value})
-            schema[marker] = selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C", mode=selector.NumberSelectorMode.BOX))
+        schema = {
+            vol.Required(CONF_ROOM_PRESET_FIXED, default=bool(current.get(CONF_ROOM_PRESET_FIXED))): bool,
+            vol.Required(CONF_ROOM_PRESET_OWN, default=[preset for preset in PRESET_TEMPERATURE_KEYS if preset in temperatures]): selector.SelectSelector(
+                selector.SelectSelectorConfig(multiple=True, mode=SelectSelectorMode.LIST, translation_key="room_preset", options=list(PRESET_TEMPERATURE_KEYS))
+            ),
+        }
+
+        for preset, key in PRESET_TEMPERATURE_KEYS.items():
+            schema[vol.Required(key, default=defaults[preset])] = selector.NumberSelector(selector.NumberSelectorConfig(min=5, max=35, step=0.5, unit_of_measurement="°C"))
 
         return self.async_show_form(
             step_id="room_preset",

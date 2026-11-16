@@ -362,9 +362,10 @@
       },
       "room_preset": {
         "title": "Predvoľby izieb",
-        "description": "Čo znamená každá predvoľba pre {room}. Nechajte predvoľbu prázdnu, aby sa riadila predvoľbou domu.",
+        "description": "Čo znamená každá predvoľba pre {room}. Zaškrtnite predvoľby, pre ktoré má táto izba vlastnú teplotu.",
         "data": {
           "fixed": "Túto izbu nechať tak",
+          "own": "Predvoľby s vlastnou teplotou",
           "home_temperature": "Domáca teplota",
           "comfort_temperature": "Komfortná teplota",
           "sleep_temperature": "Teplota spánku",
@@ -372,7 +373,8 @@
           "activity_temperature": "Teplota aktivity"
         },
         "data_description": {
-          "fixed": "Predvoľby nikdy nemenia cieľovú teplotu tejto izby."
+          "fixed": "Predvoľby nikdy nemenia cieľovú teplotu tejto izby.",
+          "own": "Iba zaškrtnuté predvoľby používajú teplotu nastavenú nižšie; ostatné sa riadia predvoľbou domu."
         }
       }
     }
@@ -444,6 +446,17 @@
           "sensor_mismatch": "Nesúlad senzora",
           "insufficient_data": "Nedostatok údajov"
         }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Doma",
+        "comfort": "Komfort",
+        "sleep": "Spánok",
+        "away": "Mimo domu",
+        "activity": "Aktivita"
       }
     }
   }

@@ -362,9 +362,10 @@
       },
       "room_preset": {
         "title": "Preajustes por habitación",
-        "description": "Qué significa cada preajuste para {room}. Deje un preajuste vacío para seguir el preajuste de la casa.",
+        "description": "Qué significa cada preajuste para {room}. Marque los preajustes para los que esta habitación tiene su propia temperatura.",
         "data": {
           "fixed": "No tocar esta habitación",
+          "own": "Preajustes con temperatura propia",
           "home_temperature": "Temperatura de Casa",
           "comfort_temperature": "Temperatura de Confort",
           "sleep_temperature": "Temperatura de Sueño",
@@ -372,7 +373,8 @@
           "activity_temperature": "Temperatura de Actividad"
         },
         "data_description": {
-          "fixed": "Los preajustes nunca cambian la temperatura objetivo de esta habitación."
+          "fixed": "Los preajustes nunca cambian la temperatura objetivo de esta habitación.",
+          "own": "Solo los preajustes marcados usan la temperatura indicada abajo; los demás siguen el preajuste de la casa."
         }
       }
     }
@@ -444,6 +446,17 @@
           "sensor_mismatch": "Discrepancia del sensor",
           "insufficient_data": "Datos insuficientes"
         }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "En casa",
+        "comfort": "Confort",
+        "sleep": "Dormir",
+        "away": "Ausente",
+        "activity": "Actividad"
       }
     }
   }

@@ -362,9 +362,10 @@
       },
       "room_preset": {
         "title": "Room Presets",
-        "description": "What each preset means for {room}. Leave a preset empty to follow the house preset.",
+        "description": "What each preset means for {room}. Tick the presets this room has its own temperature for.",
         "data": {
           "fixed": "Leave this room alone",
+          "own": "Presets with their own temperature",
           "home_temperature": "Home Temperature",
           "comfort_temperature": "Comfort Temperature",
           "sleep_temperature": "Sleep Temperature",
@@ -372,7 +373,8 @@
           "activity_temperature": "Activity Temperature"
         },
         "data_description": {
-          "fixed": "Presets never change the target temperature of this room."
+          "fixed": "Presets never change the target temperature of this room.",
+          "own": "Only the ticked presets use the temperature set below; the others follow the house preset."
         }
       }
     }
@@ -444,6 +446,17 @@
           "sensor_mismatch": "Sensor mismatch",
           "insufficient_data": "Insufficient data"
         }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Home",
+        "comfort": "Comfort",
+        "sleep": "Sleep",
+        "away": "Away",
+        "activity": "Activity"
       }
     }
   }

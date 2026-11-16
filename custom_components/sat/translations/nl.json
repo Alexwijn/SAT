@@ -362,9 +362,10 @@
       },
       "room_preset": {
         "title": "Kamervoorinstellingen",
-        "description": "Wat elke voorinstelling betekent voor {room}. Laat een voorinstelling leeg om de voorinstelling van het huis te volgen.",
+        "description": "Wat elke voorinstelling betekent voor {room}. Vink de voorinstellingen aan waarvoor deze kamer een eigen temperatuur heeft.",
         "data": {
           "fixed": "Deze kamer met rust laten",
+          "own": "Voorinstellingen met eigen temperatuur",
           "home_temperature": "Thuis Temperatuur",
           "comfort_temperature": "Comfort Temperatuur",
           "sleep_temperature": "Slaap Temperatuur",
@@ -372,7 +373,8 @@
           "activity_temperature": "Activiteit Temperatuur"
         },
         "data_description": {
-          "fixed": "Voorinstellingen veranderen de doeltemperatuur van deze kamer nooit."
+          "fixed": "Voorinstellingen veranderen de doeltemperatuur van deze kamer nooit.",
+          "own": "Alleen de aangevinkte voorinstellingen gebruiken de hieronder ingestelde temperatuur; de andere volgen de voorinstelling van het huis."
         }
       }
     }
@@ -444,6 +446,17 @@
           "sensor_mismatch": "Sensorafwijking",
           "insufficient_data": "Onvoldoende gegevens"
         }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Thuis",
+        "comfort": "Comfort",
+        "sleep": "Slapen",
+        "away": "Afwezig",
+        "activity": "Activiteit"
       }
     }
   }

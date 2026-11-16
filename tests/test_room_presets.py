@@ -20,6 +20,7 @@ from custom_components.sat.const import (
     CONF_INSIDE_SENSOR_ENTITY_ID,
     CONF_ROOM,
     CONF_ROOM_PRESET_FIXED,
+    CONF_ROOM_PRESET_OWN,
     CONF_ROOM_PRESET_TEMPERATURES,
     CONF_ROOM_PRESETS,
     CONF_ROOMS,
@@ -177,27 +178,41 @@ async def test_options_flow_stores_the_room_presets(hass, entry, domains, data, 
     result = await flow.async_step_room_presets({CONF_ROOM: BEDROOM})
     assert result["step_id"] == "room_preset"
 
-    result = await flow.async_step_room_preset({CONF_ROOM_PRESET_FIXED: False, CONF_HOME_TEMPERATURE: 18.0, CONF_COMFORT_TEMPERATURE: 18.5})
+    result = await flow.async_step_room_preset({
+        CONF_ROOM_PRESET_FIXED: False,
+        CONF_ROOM_PRESET_OWN: [PRESET_HOME, PRESET_COMFORT],
+        CONF_HOME_TEMPERATURE: 18.0,
+        CONF_SLEEP_TEMPERATURE: 17.0,
+        CONF_COMFORT_TEMPERATURE: 18.5,
+    })
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_ROOM_PRESETS][BEDROOM] == {CONF_ROOM_PRESET_FIXED: False, CONF_ROOM_PRESET_TEMPERATURES: {PRESET_HOME: 18.0, PRESET_COMFORT: 18.5}}
     assert result["data"][CONF_ROOM_PRESETS][COUCH] == ROOM_PRESETS[COUCH]
 
 
+def _defaults(result) -> dict:
+    return {marker.schema: marker.default() for marker in result["data_schema"].schema}
+
+
 @ROOMS_ONLY
-async def test_options_flow_suggests_the_current_target_as_home_temperature(room_states, hass, entry, domains, data, options, config):
+async def test_options_flow_defaults_to_the_current_target_and_the_house_presets(room_states, hass, entry, domains, data, options, config):
     flow = SatOptionsFlowHandler(entry)
     flow.hass = hass
 
     await flow.async_step_room_presets({CONF_ROOM: HALL})
-    result = await flow.async_step_room_preset()
+    defaults = _defaults(await flow.async_step_room_preset())
 
-    suggestions = {marker.schema: (marker.description or {}).get("suggested_value") for marker in result["data_schema"].schema}
-    modes = {marker.schema: field.config.get("mode") for marker, field in result["data_schema"].schema.items() if marker.schema != CONF_ROOM_PRESET_FIXED}
+    assert defaults[CONF_ROOM_PRESET_OWN] == []
+    assert defaults[CONF_HOME_TEMPERATURE] == 20.5
+    assert defaults[CONF_SLEEP_TEMPERATURE] == 19.0
 
-    assert suggestions[CONF_HOME_TEMPERATURE] == 20.5
-    assert suggestions[CONF_SLEEP_TEMPERATURE] is None
-    assert set(modes.values()) == {"box"}
+    await flow.async_step_room_presets({CONF_ROOM: COUCH})
+    defaults = _defaults(await flow.async_step_room_preset())
+
+    assert defaults[CONF_ROOM_PRESET_OWN] == [PRESET_HOME, PRESET_COMFORT]
+    assert defaults[CONF_HOME_TEMPERATURE] == 21.0
+    assert defaults[CONF_COMFORT_TEMPERATURE] == 23.0
 
 
 @ROOMS_ONLY
