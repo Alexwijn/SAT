@@ -7,12 +7,7 @@
     "error": {
       "invalid_device": "Dies ist ein ungültiges Gerät.",
       "connection": "Verbindung zum Gateway konnte nicht hergestellt werden.",
-      "mqtt_component": "Die MQTT-Komponente ist nicht verfügbar.",
-      "unable_to_calibrate": "Der Kalibrierungsprozess ist auf ein Problem gestoßen und konnte nicht erfolgreich abgeschlossen werden. Bitte stellen Sie sicher, dass Ihr Heizsystem ordnungsgemäß funktioniert und dass alle erforderlichen Sensoren angeschlossen und funktionsfähig sind.\n\nWenn Sie weiterhin Probleme mit der Kalibrierung haben, ziehen Sie in Erwägung, uns für weitere Unterstützung zu kontaktieren. Wir entschuldigen uns für etwaige Unannehmlichkeiten.",
       "rooms_required": "Ohne Innensensor ist mindestens ein Zimmer erforderlich, da die Zimmer dann die einzige Quelle für den Wärmebedarf sind."
-    },
-    "progress": {
-      "calibration": "Kalibrierung und Ermittlung des Überschwingungsschutzwertes...\n\nBitte warten Sie, während wir Ihr Heizsystem optimieren. Dieser Prozess kann etwa 20 Minuten dauern."
     },
     "step": {
       "areas": {
@@ -35,23 +30,6 @@
         },
         "description": "Diese Funktion passt die Steuerungsparameter Ihres Heizsystems dynamisch an, um die Temperaturregelung für mehr Komfort und Energieeffizienz zu optimieren. Die Aktivierung dieser Option ermöglicht es SAT, die Heizeinstellungen kontinuierlich anzupassen und auf der Grundlage der Umgebungsbedingungen fein abzustimmen. Dies hilft, eine stabile und komfortable Umgebung ohne manuelle Eingriffe aufrechtzuerhalten.\n\nHinweis: Wenn Sie sich entscheiden, automatische Verstärkungen nicht zu aktivieren, müssen Sie die PID-Werte manuell eingeben, um eine präzise Temperaturregelung zu gewährleisten. Bitte stellen Sie sicher, dass Sie genaue PID-Werte für Ihr spezifisches Heizsystem haben, um eine optimale Leistung zu erzielen.",
         "title": "Automatische Verstärkungen"
-      },
-      "calibrate_system": {
-        "description": "Optimieren Sie Ihr Heizsystem, indem Sie die optimalen PID-Werte für Ihre Einrichtung automatisch bestimmen. Bitte beachten Sie, dass das System bei Auswahl von Automatischen Verstärkungen einen Kalibrierungsprozess durchläuft, der etwa 20 Minuten dauern kann.\n\nAutomatische Verstärkungen werden für die meisten Benutzer empfohlen, da sie den Einrichtungsprozess vereinfachen und eine optimale Leistung gewährleisten. Wenn Sie jedoch mit der PID-Steuerung vertraut sind und die Werte lieber manuell eingeben möchten, können Sie sich entscheiden, Automatische Verstärkungen zu überspringen.\n\nBitte beachten Sie, dass die Entscheidung gegen Automatische Verstärkungen ein gutes Verständnis der PID-Steuerung erfordert und möglicherweise zusätzliche manuelle Anpassungen für eine optimale Leistung notwendig sind.",
-        "menu_options": {
-          "calibrate": "Kalibrieren und Ihren Überschwingungsschutzwert bestimmen (ca. 20 Min.).",
-          "overshoot_protection": "Den Überschwingungsschutzwert manuell eingeben.",
-          "pid_controller": "PID-Werte manuell eingeben (nicht empfohlen)."
-        },
-        "title": "System kalibrieren"
-      },
-      "calibrated": {
-        "description": "Der Kalibrierungsprozess wurde erfolgreich abgeschlossen.\n\nHerzlichen Glückwunsch! Ihr Smart Autotune Thermostat (SAT) wurde kalibriert, um die Heizleistung Ihres Systems zu optimieren. Während des Kalibrierungsprozesses hat SAT die Heizeigenschaften sorgfältig analysiert und den angemessenen Überschwingungsschutzwert bestimmt, um eine präzise Temperaturregelung zu gewährleisten.\n\nÜberschwingungsschutzwert: {minimum_setpoint} °C\n\nDieser Wert stellt die maximale Menge an Überschwingen dar, die während des Heizprozesses erlaubt ist. SAT wird aktiv die Heizung überwachen und anpassen, um übermäßiges Überschwingen zu verhindern und eine komfortable und effiziente Heizerfahrung in Ihrem Zuhause zu gewährleisten.\n\nBitte beachten Sie, dass der Überschwingungsschutzwert je nach den spezifischen Eigenschaften Ihres Heizsystems und Umweltfaktoren variieren kann. Er wurde fein abgestimmt, um basierend auf den Kalibrierungsergebnissen eine optimale Leistung zu bieten.",
-        "menu_options": {
-          "calibrate": "Kalibrierung erneut versuchen",
-          "finish": "Mit der aktuellen Kalibrierung fortfahren"
-        },
-        "title": "Kalibrierung abgeschlossen"
       },
       "heating_system": {
         "data": {
@@ -122,13 +100,6 @@
           "device": "Zu verwendendes ESPHome-Gerät."
         },
         "title": "ESPHome Einrichtung"
-      },
-      "overshoot_protection": {
-        "data": {
-          "minimum_setpoint": "Wert"
-        },
-        "description": "Durch Angabe des Überschwingungsschutzwertes wird SAT die Steuerungsparameter entsprechend anpassen, um eine stabile und komfortable Heizumgebung zu erhalten. Diese manuelle Konfiguration ermöglicht es Ihnen, das System basierend auf Ihrer spezifischen Einrichtung fein abzustimmen.\n\nHinweis: Wenn Sie sich nicht sicher über den Überschwingungsschutzwert sind oder den Kalibrierungsprozess nicht durchgeführt haben, wird empfohlen, die Konfiguration abzubrechen und den Kalibrierungsprozess durchzuführen, damit SAT den Wert automatisch für eine optimale Leistung bestimmt.",
-        "title": "Überschwingungsschutz"
       },
       "pid_controller": {
         "data": {
@@ -224,11 +195,10 @@
           "minimum_consumption": "Mindestverbrauch",
           "modulation_suppression_offset_celsius": "Offset der Modulationsunterdrückung",
           "flow_setpoint_offset_celsius": "Vorlauf-Sollwert-Offset",
-          "minimum_boiler_pressure": "Minimum boiler pressure",
-          "maximum_boiler_pressure": "Maximum boiler pressure",
-          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
-          "pressure_max_value_age": "Pressure max value age",
-          "sample_time": "Abtastzeit",
+          "minimum_boiler_pressure": "Minimaler Kesseldruck",
+          "maximum_boiler_pressure": "Maximaler Kesseldruck",
+          "maximum_pressure_drop_rate": "Maximaler Druckabfall pro Stunde",
+          "pressure_max_value_age": "Maximales Alter des Druckwerts",
           "simulation": "Simulation",
           "solar_gain_compensation": "Solargewinn-Kompensation",
           "solar_gain_freeze_integral": "Integral bei Solargewinn einfrieren",
@@ -237,8 +207,6 @@
           "solar_gain_setpoint_offset_celsius": "Solargewinn-Sollwert-Offset",
           "target_temperature_step": "Schrittweite der Zieltemperatur",
           "thermal_comfort": "Thermischer Komfort",
-          "enable_flame_off_setpoint": "Flamme-aus-Sollwert aktivieren",
-          "enable_modulation_suppression": "Modulationsunterdrückung aktivieren",
           "flame_off_setpoint_offset_celsius": "Flamme-aus-Sollwertversatz",
           "modulation_suppression_delay_seconds": "Verzögerung der Modulationsunterdrückung"
         },
@@ -247,7 +215,6 @@
           "maximum_consumption": "Gasverbrauch bei maximaler Modulation, zur Verbrauchsschätzung.",
           "maximum_relative_modulation": "Begrenzt die Modulation des Kessels in Prozent (0–100), um die Maximalleistung zu begrenzen.",
           "minimum_consumption": "Gasverbrauch bei minimaler Modulation, zur Verbrauchsschätzung.",
-          "sample_time": "Das minimale Zeitintervall zwischen Aktualisierungen des PID-Reglers.",
           "solar_gain_compensation": "Reduziert die angeforderte Heizleistung, wenn die Innentemperatur durch Sonneneinstrahlung schnell steigt.",
           "solar_gain_freeze_integral": "Verhindert das Aufschaukeln des Integralanteils, während die Solargewinn-Kompensation aktiv ist.",
           "solar_gain_min_elevation": "Minimale Sonnenhöhe (Grad), bevor die Solargewinn-Erkennung auslösen kann.",
@@ -262,35 +229,25 @@
           "modulation_suppression_delay_seconds": "Zeit nach dem Flammenstart, bevor die Unterdrückung greift (nur Pulsweitenmodulation).",
           "modulation_suppression_offset_celsius": "Absenkung des Vorlauf-Sollwerts während der Unterdrückung (nur Pulsweitenmodulation).",
           "flow_setpoint_offset_celsius": "Minimaler Abstand unter der Kesseltemperatur beim Begrenzen des Sollwerts (kontinuierlicher Modus).",
-          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
-          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
-          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
-          "enable_flame_off_setpoint": "Einen vorübergehenden Sollwertversatz anwenden, während die Flamme aus ist (nur Pulsweitenmodulation).",
-          "enable_modulation_suppression": "Modulation verringern, indem der Sollwert nach dem Zünden vorübergehend gesenkt wird (nur Pulsweitenmodulation)."
+          "minimum_boiler_pressure": "Untere Druckgrenze für die Zustandserkennung (bar).",
+          "maximum_boiler_pressure": "Obere Druckgrenze für die Zustandserkennung (bar).",
+          "maximum_pressure_drop_rate": "Maximal zulässiger Druckabfall, bevor der Druck als auffällig gemeldet wird (bar/h).",
+          "pressure_max_value_age": "Maximales Alter eines Druckmesswerts, bevor der Druck als auffällig gemeldet wird."
         },
         "title": "Erweitert"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Automatischer Verstärkungswert",
           "derivative": "Ableitung (kD)",
-          "derivative_time_weight": "Zeitgewicht der Ableitung",
-          "duty_cycle": "Maximaler Tastgrad für Pulsweitenmodulation",
           "heating_curve_coefficient": "Koeffizient der Heizkurve",
-          "heating_curve_version": "Version der Heizkurve",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximaler Sollwert",
-          "pid_controller_version": "PID-Regler version",
           "proportional": "Proportional (kP)",
           "window_sensors": "Kontaktsensoren",
           "heating_mode": "Heizbetrieb"
         },
         "data_description": {
-          "automatic_gains_value": "Der Wert, der für automatische Verstärkungen im PID-Regler verwendet wird.",
           "derivative": "Der Ableitungsterm (kD) im PID-Regler, verantwortlich für die Minderung von Überschwingen.",
-          "derivative_time_weight": "Ein Parameter zur Anpassung des Einflusses des Ableitungsterms über die Zeit, besonders nützlich, um Unterschwingen während der Aufwärmphase zu reduzieren, wenn der Heizkurvenkoeffizient korrekt eingestellt ist.",
-          "duty_cycle": "Der maximale Tastgrad für Pulsweitenmodulation , der die Ein-Aus-Zyklen des Kessels steuert.",
           "heating_curve_coefficient": "Der Koeffizient, der zur Anpassung der Heizkurve verwendet wird.",
           "integral": "Der Integral term (kI) im PID-Regler, verantwortlich für die Reduzierung des stationären Fehlers.",
           "maximum_setpoint": "Die optimale Temperatur für einen effizienten Kesselbetrieb.",
@@ -305,14 +262,9 @@
           "advanced": "Erweiterte Optionen",
           "general": "Allgemein",
           "presets": "Voreinstellungen",
-          "areas": "Bereiche",
           "system_configuration": "Systemkonfiguration",
           "room_presets": "Zimmer-Voreinstellungen"
         }
-      },
-      "areas": {
-        "description": "Raumgewichte festlegen, um Räume mit höherem Bedarf zu priorisieren.",
-        "title": "Bereiche"
       },
       "presets": {
         "data": {
@@ -334,8 +286,6 @@
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Taktzyklen pro Stunde",
-          "automatic_duty_cycle": "Automatischer Tastgrad",
-          "overshoot_protection": "Überschwingungsschutz (mit Pulsweitenmodulation )",
           "sync_climates_with_mode": "Klimazonen mit Modus synchronisieren",
           "sensor_max_value_age": "Maximales Alter des Temperatursensorwerts",
           "window_minimum_open_time": "Mindestzeit für geöffnetes Fenster",
@@ -343,8 +293,6 @@
         },
         "data_description": {
           "cycles_per_hour": "Maximale Anzahl von Taktzyklen pro Stunde.",
-          "automatic_duty_cycle": "Automatischen Tastgrad für Pulsweitenmodulation aktivieren oder deaktivieren.",
-          "overshoot_protection": "Überschwingungsschutz mit Pulsweitenmodulation aktivieren, um die Temperaturüberschreitung des Kessels zu verhindern.",
           "sensor_max_value_age": "Das maximale Alter des Temperatursensorwerts, bevor er als gestoppt betrachtet wird.",
           "window_minimum_open_time": "Die Mindestzeit, die ein Fenster geöffnet sein muss, bevor das System reagiert.",
           "sync_climates_with_mode": "Setzt den HVAC-Modus auch auf Raum-Klimageräten, wenn er hier geändert wird.",

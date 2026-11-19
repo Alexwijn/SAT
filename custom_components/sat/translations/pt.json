@@ -7,12 +7,7 @@
     "error": {
       "invalid_device": "Este é um dispositivo inválido.",
       "connection": "Não foi possível ligar ao gateway.",
-      "mqtt_component": "O componente MQTT não está disponível.",
-      "unable_to_calibrate": "O processo de calibração encontrou um problema e não pôde ser concluído com sucesso. Por favor, assegure-se de que o seu sistema de aquecimento está a funcionar corretamente e que todos os sensores necessários estão ligados e a funcionar corretamente.\n\nSe continuar a ter problemas com a calibração, considere contactar-nos para obter mais assistência. Pedimos desculpa por qualquer inconveniente causado.",
       "rooms_required": "Sem sensor interno é necessário pelo menos um quarto, pois os quartos são então a única fonte de demanda de aquecimento."
-    },
-    "progress": {
-      "calibration": "A calibrar e a encontrar o valor de proteção contra overshoot...\n\nPor favor, aguarde enquanto otimizamos o seu sistema de aquecimento. Este processo pode demorar aproximadamente 20 minutos."
     },
     "step": {
       "areas": {
@@ -35,23 +30,6 @@
         },
         "description": "Esta funcionalidade ajusta os parâmetros de controlo do seu sistema de aquecimento dinamicamente, otimizando o controlo de temperatura para melhor conforto e eficiência energética. Ao ativar esta opção, o SAT adapta-se continuamente e afina as definições de aquecimento com base nas condições ambientais. Isto ajuda a manter um ambiente estável e confortável sem intervenção manual.\n\nNota: Se optar por não ativar os ganhos automáticos, terá de introduzir manualmente os valores PID para controlo preciso da temperatura. Por favor, certifique-se de que tem valores PID precisos para o seu sistema de aquecimento específico para obter desempenho ideal.",
         "title": "Ganhos Automáticos"
-      },
-      "calibrate_system": {
-        "description": "Otimize o seu sistema de aquecimento determinando automaticamente os valores PID ótimos para a sua configuração. Ao selecionar Ganhos Automáticos, por favor note que o sistema passará por um processo de calibração que pode demorar aproximadamente 20 minutos a completar.\n\nGanhos Automáticos é recomendado para a maioria dos utilizadores, pois simplifica o processo de configuração e assegura desempenho ideal. No entanto, se estiver familiarizado com controlo PID e preferir definir os valores manualmente, pode optar por ignorar os Ganhos Automáticos.\n\nPor favor note que escolher ignorar os Ganhos Automáticos requer um bom entendimento de controlo PID e pode requerer ajustes manuais adicionais para alcançar desempenho ótimo.",
-        "menu_options": {
-          "calibrate": "Calibrar e determinar o valor de proteção contra overshoot (aprox. 20 min).",
-          "overshoot_protection": "Introduzir manualmente o valor de proteção contra overshoot.",
-          "pid_controller": "Introduzir manualmente os valores PID (não recomendado)."
-        },
-        "title": "Calibrar Sistema"
-      },
-      "calibrated": {
-        "description": "O processo de calibração foi concluído com sucesso.\n\nParabéns! O seu Termóstato Smart Autotune (SAT) foi calibrado para otimizar o desempenho de aquecimento do seu sistema. Durante o processo de calibração, o SAT analisou cuidadosamente as características de aquecimento e determinou o valor apropriado de proteção contra overshoot para assegurar controlo de temperatura preciso.\n\nValor de Proteção contra Overshoot: {minimum_setpoint} °C\n\nEste valor representa a quantidade máxima de overshoot permitida durante o processo de aquecimento. O SAT irá monitorizar ativamente e ajustar o aquecimento para prevenir overshoot excessivo, mantendo uma experiência de aquecimento confortável e eficiente na sua casa.\n\nPor favor note que o valor de proteção contra overshoot pode variar dependendo das características específicas do seu sistema de aquecimento e fatores ambientais. Foi afinado para fornecer desempenho ótimo com base nos resultados da calibração.",
-        "menu_options": {
-          "calibrate": "Repetir calibração",
-          "finish": "Continuar com a calibração atual"
-        },
-        "title": "Calibração Concluída"
       },
       "heating_system": {
         "data": {
@@ -122,13 +100,6 @@
           "device": "Dispositivo ESPHome a usar."
         },
         "title": "Configuração ESPHome"
-      },
-      "overshoot_protection": {
-        "data": {
-          "minimum_setpoint": "Valor"
-        },
-        "description": "Ao fornecer o valor de proteção contra overshoot, o SAT ajustará os parâmetros de controlo em conformidade para manter um ambiente de aquecimento confortável e estável. Esta configuração manual permite-lhe afinar o sistema com base na sua configuração específica.\n\nNota: Se não tiver certeza sobre o valor de proteção contra overshoot ou não tiver realizado o processo de calibração, é recomendado cancelar a configuração e passar pelo processo de calibração para permitir que o SAT determine automaticamente o valor para desempenho ótimo.",
-        "title": "Proteção contra Overshoot"
       },
       "pid_controller": {
         "data": {
@@ -224,11 +195,10 @@
           "minimum_consumption": "Consumo Mínimo",
           "modulation_suppression_offset_celsius": "Deslocamento da supressão de modulação",
           "flow_setpoint_offset_celsius": "Deslocamento do setpoint de ida",
-          "minimum_boiler_pressure": "Minimum boiler pressure",
-          "maximum_boiler_pressure": "Maximum boiler pressure",
-          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
-          "pressure_max_value_age": "Pressure max value age",
-          "sample_time": "Tempo de Amostragem",
+          "minimum_boiler_pressure": "Pressão mínima da caldeira",
+          "maximum_boiler_pressure": "Pressão máxima da caldeira",
+          "maximum_pressure_drop_rate": "Queda de pressão máxima por hora",
+          "pressure_max_value_age": "Idade máxima do valor de pressão",
           "simulation": "Simulação",
           "solar_gain_compensation": "Compensação de ganho solar",
           "solar_gain_freeze_integral": "Congelar integral durante ganho solar",
@@ -237,8 +207,6 @@
           "solar_gain_setpoint_offset_celsius": "Offset de setpoint por ganho solar",
           "target_temperature_step": "Passo da Temperatura Alvo",
           "thermal_comfort": "Conforto Térmico",
-          "enable_flame_off_setpoint": "Ativar setpoint com chama apagada",
-          "enable_modulation_suppression": "Ativar supressão de modulação",
           "flame_off_setpoint_offset_celsius": "Desvio do setpoint com chama apagada",
           "modulation_suppression_delay_seconds": "Atraso da supressão de modulação"
         },
@@ -247,7 +215,6 @@
           "maximum_consumption": "Consumo de gás na modulação máxima, usado para estimar o consumo.",
           "maximum_relative_modulation": "Limita a porcentagem de modulação da caldeira (0–100) para restringir a potência máxima.",
           "minimum_consumption": "Consumo de gás na modulação mínima, usado para estimar o consumo.",
-          "sample_time": "O intervalo de tempo mínimo entre atualizações do controlador PID.",
           "solar_gain_compensation": "Reduz o aquecimento solicitado quando a temperatura interna sobe rapidamente devido a provável luz solar.",
           "solar_gain_freeze_integral": "Evita acúmulo integral enquanto a compensação de ganho solar está ativa.",
           "solar_gain_min_elevation": "Elevação solar mínima (graus) necessária antes de a detecção de ganho solar poder atuar.",
@@ -262,35 +229,25 @@
           "modulation_suppression_delay_seconds": "Tempo após a chama ligar antes de aplicar a supressão (somente Modulação por Largura de Pulso).",
           "modulation_suppression_offset_celsius": "Quanto reduzir o setpoint de ida durante a supressão (somente Modulação por Largura de Pulso).",
           "flow_setpoint_offset_celsius": "Diferença mínima abaixo da temperatura da caldeira ao limitar o setpoint (modo contínuo).",
-          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
-          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
-          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
-          "enable_flame_off_setpoint": "Aplicar um desvio temporário do setpoint enquanto a chama está apagada (apenas modulação por largura de impulso).",
-          "enable_modulation_suppression": "Reduzir a modulação baixando temporariamente o setpoint após o acender da chama (apenas modulação por largura de impulso)."
+          "minimum_boiler_pressure": "Limite inferior de pressão para a deteção do estado (bar).",
+          "maximum_boiler_pressure": "Limite superior de pressão para a deteção do estado (bar).",
+          "maximum_pressure_drop_rate": "Queda de pressão máxima permitida antes de assinalar um problema (bar/h).",
+          "pressure_max_value_age": "Idade máxima de uma leitura de pressão antes de assinalar um problema."
         },
         "title": "Avançado"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Valor de Ganhos Automáticos",
           "derivative": "Derivativo (kD)",
-          "derivative_time_weight": "Peso Temporal do Derivativo",
-          "duty_cycle": "Ciclo de Trabalho Máximo para Modulação por Largura de Pulso",
           "heating_curve_coefficient": "Coeficiente da Curva de Aquecimento",
-          "heating_curve_version": "Versão da Curva de Aquecimento",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Setpoint Máximo",
-          "pid_controller_version": "Versão do Controlador PID",
           "proportional": "Proporcional (kP)",
           "window_sensors": "Sensores de Contato",
           "heating_mode": "Modo de Aquecimento"
         },
         "data_description": {
-          "automatic_gains_value": "O valor usado para ganhos automáticos no controlador PID.",
           "derivative": "O termo derivativo (kD) no controlador PID, responsável por mitigar overshooting.",
-          "derivative_time_weight": "Um parâmetro para ajustar a influência do termo derivativo ao longo do tempo, particularmente útil para reduzir undershoot durante a fase de aquecimento quando o coeficiente da curva de aquecimento está corretamente definido.",
-          "duty_cycle": "O ciclo de trabalho máximo para Modulação por Largura de Pulso , controlando os ciclos de ligar/desligar da caldeira.",
           "heating_curve_coefficient": "O coeficiente usado para ajustar a curva de aquecimento.",
           "integral": "O termo integral (kI) no controlador PID, responsável por reduzir o erro em regime permanente.",
           "maximum_setpoint": "A temperatura ótima para operação eficiente da caldeira.",
@@ -305,14 +262,9 @@
           "advanced": "Opções Avançadas",
           "general": "Geral",
           "presets": "Predefinições",
-          "areas": "Áreas",
           "system_configuration": "Configuração do Sistema",
           "room_presets": "Predefinições por quarto"
         }
-      },
-      "areas": {
-        "description": "Defina pesos por ambiente para priorizar os de maior demanda.",
-        "title": "Áreas"
       },
       "presets": {
         "data": {
@@ -334,17 +286,13 @@
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Ciclos por hora",
-          "automatic_duty_cycle": "Ciclo de trabalho automático",
           "sync_climates_with_mode": "Sincronizar climas com o modo",
-          "overshoot_protection": "Proteção contra Overshoot (com Modulação por Largura de Pulso )",
           "sensor_max_value_age": "Idade máxima do valor do sensor de temperatura",
           "window_minimum_open_time": "Tempo mínimo para a janela estar aberta",
           "frost_protection_temperature": "Temperatura de proteção anticongelamento"
         },
         "data_description": {
           "cycles_per_hour": "A quantidade máxima de ciclos por hora.",
-          "automatic_duty_cycle": "Ativar ou desativar ciclo de trabalho automático para Modulação por Largura de Pulso .",
-          "overshoot_protection": "Ativar proteção contra overshoot com Modulação por Largura de Pulso para evitar overshooting da temperatura da caldeira.",
           "sensor_max_value_age": "A idade máxima do valor do sensor de temperatura antes de ser considerado como estagnado.",
           "window_minimum_open_time": "O tempo mínimo que uma janela deve estar aberta antes de o sistema reagir.",
           "sync_climates_with_mode": "Também aplica o modo HVAC aos climas dos ambientes quando alterado aqui.",

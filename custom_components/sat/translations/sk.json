@@ -7,12 +7,7 @@
     "error": {
       "invalid_device": "Toto je neplatné zariadenie.",
       "connection": "Nedá sa pripojiť k gateway.",
-      "mqtt_component": "MQTT komponent je nedostupný.",
-      "unable_to_calibrate": "V procese kalibrácie sa vyskytol problém a nebolo možné ho úspešne dokončiť. Uistite sa, že váš vykurovací systém funguje správne a že všetky požadované senzory sú pripojené a fungujú správne.\n\nAk budete mať aj naďalej problémy s kalibráciou, zvážte kontaktovanie nás so žiadosťou o ďalšiu pomoc. Ospravedlňujeme sa za spôsobené nepríjemnosti.",
       "rooms_required": "Bez vnútorného senzora je potrebná aspoň jedna izba, pretože izby sú potom jediným zdrojom požiadavky na vykurovanie."
-    },
-    "progress": {
-      "calibration": "Kalibrácia a nájdenie hodnoty ochrany proti prekročeniu...\n\nPočkajte, prosím, kým optimalizujeme váš vykurovací systém. Tento proces môže trvať približne 20 minút."
     },
     "step": {
       "areas": {
@@ -35,23 +30,6 @@
         },
         "description": "Táto funkcia dynamicky upravuje parametre regulácie vášho vykurovacieho systému, čím optimalizuje reguláciu teploty pre lepší komfort a energetickú účinnosť. Povolenie tejto možnosti umožňuje SAT nepretržite prispôsobovať a dolaďovať nastavenia vykurovania na základe podmienok prostredia. Pomáha to udržiavať stabilné a pohodlné prostredie bez manuálneho zásahu.\n\nPoznámka: Ak sa rozhodnete nepovoliť automatické zosilnenie, budete musieť manuálne zadať hodnoty PID pre presnú reguláciu teploty. Uistite sa, že máte presné hodnoty PID pre váš konkrétny vykurovací systém, aby ste dosiahli optimálny výkon.",
         "title": "Automatické zisky"
-      },
-      "calibrate_system": {
-        "description": "Optimalizujte svoj vykurovací systém automatickým určením optimálnych hodnôt PID pre vaše nastavenie. Pri výbere automatického zisku majte na pamäti, že systém prejde procesom kalibrácie, ktorý môže trvať približne 20 minút.\n\nAutomatické zisky sa odporúčajú pre väčšinu používateľov, pretože zjednodušujú proces nastavenia a zaisťujú optimálny výkon. Ak však poznáte reguláciu PID a dávate prednosť manuálnemu nastaveniu hodnôt, môžete automatické zosilnenie preskočiť.\n\nUpozorňujeme, že ak sa rozhodnete preskočiť automatické zosilnenie, musíte dobre porozumieť regulácii PID a môže vyžadovať ďalšie manuálne úpravy na dosiahnutie optimálneho výkonu.",
-        "menu_options": {
-          "calibrate": "Kalibrujte a určte hodnotu ochrany proti prekročeniu (približne 20 min).",
-          "overshoot_protection": "Manuálne zadajte hodnotu ochrany proti prekročeniu.",
-          "pid_controller": "Ručne zadajte hodnoty PID (neodporúča sa)."
-        },
-        "title": "Kalibrovať systém"
-      },
-      "calibrated": {
-        "description": "Proces kalibrácie bol úspešne dokončený.\n\nBlahoželáme! Váš Smart Autotune Thermostat (SAT) bol kalibrovaný tak, aby optimalizoval vykurovací výkon vášho systému. Počas procesu kalibrácie SAT starostlivo analyzoval vykurovacie charakteristiky a určil vhodnú hodnotu ochrany proti prekročeniu, aby sa zabezpečila presná kontrola teploty.\n\nHodnota ochrany proti prekročeniu: {minimum_setpoint} °C\n\nTáto hodnota predstavuje maximálnu hodnotu prekročenia povolenú počas proces zahrievania. SAT bude aktívne monitorovať a upravovať vykurovanie, aby sa zabránilo nadmernému pretáčaniu, a udrží tak komfortné a efektívne vykurovanie vo vašej domácnosti.\n\nUpozorňujeme, že hodnota ochrany proti prekročeniu sa môže líšiť v závislosti od konkrétnych charakteristík vášho vykurovacieho systému a faktorov prostredia. Bol jemne vyladený tak, aby poskytoval optimálny výkon na základe výsledkov kalibrácie.",
-        "menu_options": {
-          "calibrate": "Zopakujte kalibráciu",
-          "finish": "Pokračujte v aktuálnej kalibrácii"
-        },
-        "title": "Kalibrácia dokončená"
       },
       "heating_system": {
         "data": {
@@ -122,13 +100,6 @@
           "device": "Zariadenie ESPHome na použitie."
         },
         "title": "Nastavenie ESPHome"
-      },
-      "overshoot_protection": {
-        "data": {
-          "minimum_setpoint": "Hodnota"
-        },
-        "description": "Poskytnutím hodnoty ochrany proti prekročeniu SAT prispôsobí parametre ovládania tak, aby sa udržalo stabilné a pohodlné vykurovacie prostredie. Táto manuálna konfigurácia vám umožňuje doladiť systém na základe vášho špecifického nastavenia.\n\nPoznámka: Ak si nie ste istí hodnotou ochrany proti prekročeniu alebo ste nevykonali proces kalibrácie, odporúča sa zrušiť konfiguráciu a prejsť proces kalibrácie, aby SAT automaticky určil hodnotu pre optimálny výkon.",
-        "title": "Ochrana proti prestreleniu"
       },
       "pid_controller": {
         "data": {
@@ -224,11 +195,10 @@
           "minimum_consumption": "Minimálna spotreba",
           "modulation_suppression_offset_celsius": "Offset potlačenia modulácie",
           "flow_setpoint_offset_celsius": "Offset setpointu prívodu",
-          "minimum_boiler_pressure": "Minimum boiler pressure",
-          "maximum_boiler_pressure": "Maximum boiler pressure",
-          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
-          "pressure_max_value_age": "Pressure max value age",
-          "sample_time": "Čas vzorky",
+          "minimum_boiler_pressure": "Minimálny tlak kotla",
+          "maximum_boiler_pressure": "Maximálny tlak kotla",
+          "maximum_pressure_drop_rate": "Maximálny pokles tlaku za hodinu",
+          "pressure_max_value_age": "Maximálny vek hodnoty tlaku",
           "simulation": "Simulácia",
           "solar_gain_compensation": "Kompenzácia solárnych ziskov",
           "solar_gain_freeze_integral": "Zmraziť integrál pri solárnom zisku",
@@ -237,8 +207,6 @@
           "solar_gain_setpoint_offset_celsius": "Offset setpointu pri solárnom zisku",
           "target_temperature_step": "Krok cieľovej teploty",
           "thermal_comfort": "Tepelný komfort",
-          "enable_flame_off_setpoint": "Povoliť žiadanú teplotu pri zhasnutom plameni",
-          "enable_modulation_suppression": "Povoliť potlačenie modulácie",
           "flame_off_setpoint_offset_celsius": "Posun žiadanej teploty pri zhasnutom plameni",
           "modulation_suppression_delay_seconds": "Oneskorenie potlačenia modulácie"
         },
@@ -247,7 +215,6 @@
           "maximum_consumption": "Spotreba plynu pri maximálnej modulácii, používa sa na odhad spotreby.",
           "maximum_relative_modulation": "Obmedzí percento modulácie kotla (0–100) na zníženie maximálneho výkonu.",
           "minimum_consumption": "Spotreba plynu pri minimálnej modulácii, používa sa na odhad spotreby.",
-          "sample_time": "Minimálny časový interval medzi aktualizáciami PID regulátora.",
           "solar_gain_compensation": "Znižuje požadované kúrenie, keď vnútorná teplota rýchlo stúpa vplyvom pravdepodobného slnečného žiarenia.",
           "solar_gain_freeze_integral": "Zabraňuje wind-up efektu integračnej zložky, keď je aktívna kompenzácia solárnych ziskov.",
           "solar_gain_min_elevation": "Minimálna výška slnka (stupne) potrebná na spustenie detekcie solárnych ziskov.",
@@ -262,35 +229,25 @@
           "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len modulácia šírky impulzu).",
           "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len modulácia šírky impulzu).",
           "flow_setpoint_offset_celsius": "Minimálny rozdiel pod teplotou kotla pri obmedzení setpointu (kontinuálny režim).",
-          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
-          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
-          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
-          "enable_flame_off_setpoint": "Použiť dočasný posun žiadanej teploty, kým je plameň zhasnutý (iba pulzná šírková modulácia).",
-          "enable_modulation_suppression": "Znížiť moduláciu dočasným znížením žiadanej teploty po zapálení plameňa (iba pulzná šírková modulácia)."
+          "minimum_boiler_pressure": "Dolná hranica tlaku pre kontrolu stavu (bar).",
+          "maximum_boiler_pressure": "Horná hranica tlaku pre kontrolu stavu (bar).",
+          "maximum_pressure_drop_rate": "Maximálny povolený pokles tlaku pred nahlásením problému (bar/h).",
+          "pressure_max_value_age": "Maximálny vek merania tlaku pred nahlásením problému."
         },
         "title": "Rozšírené"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Hodnota automatického zosilnenia",
           "derivative": "Derivačná (kD)",
-          "derivative_time_weight": "Časová váha derivácie",
-          "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu",
           "heating_curve_coefficient": "Koeficient vykurovacej krivky",
-          "heating_curve_version": "Verzia vykurovacej krivky",
           "integral": "Integračná (kI)",
           "maximum_setpoint": "Maximálna požadovaná hodnota",
-          "pid_controller_version": "Verzia PID regulátora",
           "proportional": "Proporcionálna (kP)",
           "window_sensors": "Kontaktné senzory",
           "heating_mode": "Režim vykurovania"
         },
         "data_description": {
-          "automatic_gains_value": "Hodnota používaná pre automatické zosilnenie v PID regulátore.",
           "derivative": "Odvodený člen (kD) v PID regulátore, zodpovedný za zmiernenie prekročenia.",
-          "derivative_time_weight": "Parameter na úpravu vplyvu derivačného členu v priebehu času, obzvlášť užitočný na zníženie podkmitu počas zahrievacej fázy, keď je koeficient vykurovacej krivky správne nastavený.",
-          "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu , ktorá riadi cykly zapnutia a vypnutia kotla.",
           "heating_curve_coefficient": "Koeficient použitý na úpravu vykurovacej krivky.",
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",
           "maximum_setpoint": "Optimálna teplota pre efektívnu prevádzku kotla.",
@@ -305,14 +262,9 @@
           "advanced": "Rozšírené možnosti",
           "general": "Všeobecné",
           "presets": "Predvoľby",
-          "areas": "Oblasti",
           "system_configuration": "Konfigurácia systému",
           "room_presets": "Predvoľby izieb"
         }
-      },
-      "areas": {
-        "description": "Nastavte váhy miestností, aby sa viac kúrilo tam, kde je vyšší dopyt.",
-        "title": "Oblasti"
       },
       "presets": {
         "data": {
@@ -334,17 +286,13 @@
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Pracovné cykly za hodinu",
-          "automatic_duty_cycle": "Automatický pracovný cyklus",
           "sync_climates_with_mode": "Synchronizujte klímu s režimom",
-          "overshoot_protection": "Ochrana proti prekročeniu (s moduláciou šírky impulzu )",
           "sensor_max_value_age": "Vek maximálnej hodnoty snímača teploty",
           "window_minimum_open_time": "Minimálny čas na otvorenie okna",
           "frost_protection_temperature": "Teplota protimrazovej ochrany"
         },
         "data_description": {
           "cycles_per_hour": "Maximálny počet pracovných cyklov za hodinu.",
-          "automatic_duty_cycle": "Povoliť alebo zakázať automatický pracovný cyklus pre moduláciu šírky impulzu .",
-          "overshoot_protection": "Aktivujte ochranu proti prekročeniu pomocou modulácie šírky impulzov , aby ste zabránili prekročeniu teploty kotla.",
           "sensor_max_value_age": "Maximálny vek hodnoty teplotného snímača pred tým, než sa považuje za prerušenie.",
           "window_minimum_open_time": "Minimálny čas, počas ktorého musí byť okno otvorené, kým systém zareaguje.",
           "sync_climates_with_mode": "Pri zmene tu nastaví režim HVAC aj na klímach miestností.",

@@ -7,12 +7,7 @@
     "error": {
       "invalid_device": "This is an invalid device.",
       "connection": "Unable to connect to the gateway.",
-      "mqtt_component": "The MQTT component is unavailable.",
-      "unable_to_calibrate": "The calibration process has encountered an issue and could not be completed successfully. Please ensure that your heating system is functioning properly and that all required sensors are connected and working correctly.\n\nIf you continue to experience issues with calibration, consider contacting us for further assistance. We apologize for any inconvenience caused.",
       "rooms_required": "Without an inside sensor at least one room is required, since the rooms are then the only source of heating demand."
-    },
-    "progress": {
-      "calibration": "Calibrating and finding the overshoot protection value...\n\nPlease wait while we optimize your heating system. This process may take approximately 20 minutes."
     },
     "step": {
       "areas": {
@@ -35,23 +30,6 @@
         },
         "description": "This feature adjusts the control parameters of your heating system dynamically, optimizing temperature control for better comfort and energy efficiency. Enabling this option allows SAT to continuously adapt and fine-tune the heating settings based on the environmental conditions. This helps maintain a stable and comfortable environment without manual intervention.\n\nNote: If you choose not to enable automatic gains, you will need to manually enter the PID values for precise temperature control. Please ensure that you have accurate PID values for your specific heating system to achieve optimal performance.",
         "title": "Automatic Gains"
-      },
-      "calibrate_system": {
-        "description": "Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.\n\nAutomatic Gains is recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.\n\nPlease note that choosing to skip Automatic Gains requires a good understanding of PID control and may require additional manual adjustments to achieve optimal performance.",
-        "menu_options": {
-          "calibrate": "Calibrate and determine your overshoot protection value (approx. 20 min).",
-          "overshoot_protection": "Manually enter the overshoot protection value.",
-          "pid_controller": "Manually enter PID values (not recommended)."
-        },
-        "title": "Calibrate System"
-      },
-      "calibrated": {
-        "description": "The calibration process has completed successfully.\n\nCongratulations! Your Smart Autotune Thermostat (SAT) has been calibrated to optimize the heating performance of your system. During the calibration process, SAT carefully analyzed the heating characteristics and determined the appropriate overshoot protection value to ensure precise temperature control.\n\nOvershoot Protection Value: {minimum_setpoint} °C\n\nThis value represents the maximum amount of overshoot allowed during the heating process. SAT will actively monitor and adjust the heating to prevent excessive overshooting, maintaining a comfortable and efficient heating experience in your home.\n\nPlease note that the overshoot protection value may vary depending on the specific characteristics of your heating system and environmental factors. It has been fine-tuned to provide optimal performance based on the calibration results.",
-        "menu_options": {
-          "calibrate": "Retry calibration",
-          "finish": "Continue with current calibration"
-        },
-        "title": "Calibration Completed"
       },
       "heating_system": {
         "data": {
@@ -122,13 +100,6 @@
           "device": "ESPHome device to use."
         },
         "title": "ESPHome Setup"
-      },
-      "overshoot_protection": {
-        "data": {
-          "minimum_setpoint": "Value"
-        },
-        "description": "By providing the overshoot protection value, SAT will adjust the control parameters accordingly to maintain a stable and comfortable heating environment. This manual configuration allows you to fine-tune the system based on your specific setup.\n\nNote: If you are unsure about the overshoot protection value or have not performed the calibration process, it is recommended to cancel the configuration and go through the calibration process to let SAT automatically determine the value for optimal performance.",
-        "title": "Overshoot Protection"
       },
       "pid_controller": {
         "data": {
@@ -218,8 +189,6 @@
         "data": {
           "error_monitoring": "Enable error monitoring",
           "climate_valve_offset": "Climate valve offset",
-          "enable_flame_off_setpoint": "Enable flame-off setpoint",
-          "enable_modulation_suppression": "Enable modulation suppression",
           "flame_off_setpoint_offset_celsius": "Flame-off setpoint offset",
           "force_pulse_width_modulation": "Force Pulse Width Modulation ",
           "maximum_consumption": "Maximum Consumption",
@@ -232,7 +201,6 @@
           "maximum_boiler_pressure": "Maximum boiler pressure",
           "maximum_pressure_drop_rate": "Maximum pressure drop rate",
           "pressure_max_value_age": "Pressure max value age",
-          "sample_time": "Sample Time",
           "simulation": "Simulation",
           "solar_gain_compensation": "Solar gain compensation",
           "solar_gain_freeze_integral": "Freeze integral during solar gain",
@@ -244,8 +212,6 @@
         },
         "data_description": {
           "climate_valve_offset": "Temperature gap (target vs current) required to treat a valve as open.",
-          "enable_flame_off_setpoint": "Apply a temporary setpoint offset while the flame is off (Pulse Width Modulation only).",
-          "enable_modulation_suppression": "Reduce modulation by temporarily lowering the setpoint after flame-on (Pulse Width Modulation only).",
           "flame_off_setpoint_offset_celsius": "When the flame is off, hold a temporary setpoint at return temperature + offset (Pulse Width Modulation only).",
           "maximum_consumption": "Gas use at maximum modulation, used for consumption estimation.",
           "maximum_relative_modulation": "Cap the boiler modulation percentage (0–100) to limit maximum output.",
@@ -257,7 +223,6 @@
           "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
           "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
           "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
-          "sample_time": "The minimum time interval between updates to the PID controller.",
           "solar_gain_compensation": "Reduce requested heat when indoor temperature rises quickly from likely sunlight.",
           "solar_gain_freeze_integral": "Avoid integral wind-up while solar gain compensation is active.",
           "solar_gain_min_elevation": "Minimum sun elevation (degrees) required before solar gain detection can trigger.",
@@ -273,24 +238,16 @@
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Automatic Gains Value",
           "derivative": "Derivative (kD)",
-          "derivative_time_weight": "Derivative Time Weight",
-          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "heating_curve_coefficient": "Heating Curve Coefficient",
-          "heating_curve_version": "Heating Curve Version",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximum Setpoint",
-          "pid_controller_version": "PID Controller Version",
           "proportional": "Proportional (kP)",
           "window_sensors": "Contact Sensors",
           "heating_mode": "Heating Mode"
         },
         "data_description": {
-          "automatic_gains_value": "The value used for automatic gains in the PID controller.",
           "derivative": "The derivative term (kD) in the PID controller, responsible for mitigating overshooting.",
-          "derivative_time_weight": "A parameter to adjust the influence of the derivative term over time, particularly useful for reducing undershoot during the warm-up phase when the heating curve coefficient is correctly set.",
-          "duty_cycle": "The maximum duty cycle for Pulse Width Modulation , controlling the boiler's on-off cycles.",
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
           "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
           "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
@@ -305,14 +262,9 @@
           "advanced": "Advanced Options",
           "general": "General",
           "presets": "Presets",
-          "areas": "Areas",
           "system_configuration": "System Configuration",
           "room_presets": "Room Presets"
         }
-      },
-      "areas": {
-        "description": "Set room weights to bias heating toward rooms with higher demand.",
-        "title": "Areas"
       },
       "presets": {
         "data": {
@@ -334,17 +286,13 @@
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Duty Cycles per hour",
-          "automatic_duty_cycle": "Automatic duty cycle",
           "sync_climates_with_mode": "Synchronize climates with mode",
-          "overshoot_protection": "Overshoot Protection (with Pulse Width Modulation )",
           "sensor_max_value_age": "Temperature Sensor maximum value age",
           "window_minimum_open_time": "Minimum time for window to be open",
           "frost_protection_temperature": "Frost Protection Temperature"
         },
         "data_description": {
           "cycles_per_hour": "The maximum amount of duty cycles per hour.",
-          "automatic_duty_cycle": "Enable or disable automatic duty cycle for Pulse Width Modulation .",
-          "overshoot_protection": "Enable overshoot protection with Pulse Width Modulation to prevent boiler temperature overshooting.",
           "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall.",
           "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
           "sync_climates_with_mode": "Also set HVAC mode on room climates when it changes here.",

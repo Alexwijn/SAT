@@ -7,12 +7,7 @@
     "error": {
       "invalid_device": "Dit is een ongeldig apparaat.",
       "connection": "Kan geen verbinding maken met de gateway.",
-      "mqtt_component": "Het MQTT-component is niet beschikbaar.",
-      "unable_to_calibrate": "Het kalibratieproces is op een probleem gestuit en kon niet succesvol worden voltooid. Zorg ervoor dat uw verwarmingssysteem correct functioneert en dat alle vereiste sensoren zijn aangesloten en correct werken.\n\nAls u problemen blijft ondervinden met de kalibratie, overweeg dan om contact met ons op te nemen voor verdere hulp. Onze excuses voor het ongemak.",
       "rooms_required": "Zonder binnensensor is minimaal één kamer vereist, omdat de kamers dan de enige bron van warmtevraag zijn."
-    },
-    "progress": {
-      "calibration": "Kalibreren en de waarde van de overschot beveiliging vinden...\n\nEven geduld a.u.b. terwijl wij uw verwarmingssysteem optimaliseren. Dit proces kan ongeveer 20 minuten duren."
     },
     "step": {
       "areas": {
@@ -35,23 +30,6 @@
         },
         "description": "Deze functie past de regelparameters van uw verwarmingssysteem dynamisch aan, waardoor de temperatuurregeling wordt geoptimaliseerd voor meer comfort en energie-efficiëntie. Het inschakelen van deze optie stelt SAT in staat om de verwarmingsinstellingen voortdurend aan te passen en te verfijnen op basis van de omgevingsomstandigheden. Dit helpt een stabiele en comfortabele omgeving te handhaven zonder handmatige tussenkomst.\n\nLet op: Als u ervoor kiest om automatische versterkingen niet in te schakelen, moet u handmatig de PID-waarden invoeren voor nauwkeurige temperatuurregeling. Zorg ervoor dat u nauwkeurige PID-waarden heeft voor uw specifieke verwarmingssysteem om optimale prestaties te bereiken.",
         "title": "Automatische Versterkingen"
-      },
-      "calibrate_system": {
-        "description": "Optimaliseer uw verwarmingssysteem door automatisch de optimale PID-waarden voor uw opstelling te bepalen. Let op dat het systeem bij het selecteren van Automatische Versterkingen een kalibratieproces zal ondergaan dat ongeveer 20 minuten kan duren.\n\nAutomatische Versterkingen worden aanbevolen voor de meeste gebruikers omdat het het instelproces vereenvoudigt en optimale prestaties verzekert. Echter, als u bekend bent met PID-regeling en de voorkeur geeft aan het handmatig instellen van de waarden, kunt u ervoor kiezen om Automatische Versterkingen over te slaan.\n\nLet op dat het kiezen om Automatische Versterkingen over te slaan een goede kennis van PID-regeling vereist en mogelijk extra handmatige aanpassingen nodig heeft om optimale prestaties te bereiken.",
-        "menu_options": {
-          "calibrate": "Kalibreer en bepaal uw overshoot-beveiligingswaarde (ong. 20 min).",
-          "overshoot_protection": "Voer handmatig de overshoot-beveiligingswaarde in.",
-          "pid_controller": "Voer handmatig PID-waarden in (niet aanbevolen)."
-        },
-        "title": "Systeem Kalibreren"
-      },
-      "calibrated": {
-        "description": "Het kalibratieproces is succesvol voltooid.\n\nGefeliciteerd! Uw Slimme Autotune Thermostaat (SAT) is gekalibreerd om de verwarmingsprestaties van uw systeem te optimaliseren. Tijdens het kalibratieproces heeft SAT zorgvuldig de verwarmingskenmerken geanalyseerd en de geschikte overshoot-beveiligingswaarde bepaald om nauwkeurige temperatuurregeling te verzekeren.\n\nOvershoot-beveiligingswaarde: {minimum_setpoint} °C\n\nDeze waarde vertegenwoordigt de maximale hoeveelheid overshoot die is toegestaan tijdens het verwarmingsproces. SAT zal actief de verwarming monitoren en aanpassen om overmatig overshoot te voorkomen, en zo een comfortabele en efficiënte verwarmingservaring in uw huis te handhaven.\n\nLet op dat de overshoot-beveiligingswaarde kan variëren afhankelijk van de specifieke kenmerken van uw verwarmingssysteem en omgevingsfactoren. Het is fijn afgestemd om optimale prestaties te bieden op basis van de kalibratieresultaten.",
-        "menu_options": {
-          "calibrate": "Kalibratie opnieuw proberen",
-          "finish": "Doorgaan met huidige kalibratie"
-        },
-        "title": "Kalibratie Voltooid"
       },
       "heating_system": {
         "data": {
@@ -122,13 +100,6 @@
           "device": "Te gebruiken ESPHome-apparaat."
         },
         "title": "ESPHome-configuratie"
-      },
-      "overshoot_protection": {
-        "data": {
-          "minimum_setpoint": "Waarde"
-        },
-        "description": "Door het verstrekken van de overshoot-beveiligingswaarde zal SAT de regelparameters dienovereenkomstig aanpassen om een stabiele en comfortabele verwarmingsomgeving te behouden. Deze handmatige configuratie stelt u in staat het systeem fijn af te stemmen op basis van uw specifieke opstelling.\n\nLet op: Als u niet zeker bent over de overshoot-beveiligingswaarde of het kalibratieproces niet heeft uitgevoerd, wordt aanbevolen de configuratie te annuleren en het kalibratieproces te doorlopen zodat SAT automatisch de waarde voor optimale prestaties kan bepalen.",
-        "title": "Overshoot-beveiliging"
       },
       "pid_controller": {
         "data": {
@@ -224,11 +195,10 @@
           "minimum_consumption": "Minimaal Verbruik",
           "modulation_suppression_offset_celsius": "Offset voor modulatie-onderdrukking",
           "flow_setpoint_offset_celsius": "Aanvoer-setpoint-offset",
-          "minimum_boiler_pressure": "Minimum boiler pressure",
-          "maximum_boiler_pressure": "Maximum boiler pressure",
-          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
-          "pressure_max_value_age": "Pressure max value age",
-          "sample_time": "Sampletijd",
+          "minimum_boiler_pressure": "Minimale keteldruk",
+          "maximum_boiler_pressure": "Maximale keteldruk",
+          "maximum_pressure_drop_rate": "Maximale drukdaling per uur",
+          "pressure_max_value_age": "Maximale leeftijd van de drukwaarde",
           "simulation": "Simulatie",
           "solar_gain_compensation": "Compensatie voor zonnewinst",
           "solar_gain_freeze_integral": "Integraal bevriezen bij zonnewinst",
@@ -237,8 +207,6 @@
           "solar_gain_setpoint_offset_celsius": "Setpoint-offset bij zonnewinst",
           "target_temperature_step": "Stap van Doeltemperatuur",
           "thermal_comfort": "Thermisch Comfort",
-          "enable_flame_off_setpoint": "Vlam-uit setpoint inschakelen",
-          "enable_modulation_suppression": "Modulatieonderdrukking inschakelen",
           "flame_off_setpoint_offset_celsius": "Vlam-uit setpointcorrectie",
           "modulation_suppression_delay_seconds": "Vertraging modulatieonderdrukking"
         },
@@ -247,7 +215,6 @@
           "maximum_consumption": "Gasverbruik bij maximale modulatie, gebruikt voor verbruiksschatting.",
           "maximum_relative_modulation": "Begrenst het modulatiepercentage van de ketel (0–100) om de maximale output te beperken.",
           "minimum_consumption": "Gasverbruik bij minimale modulatie, gebruikt voor verbruiksschatting.",
-          "sample_time": "Het minimale tijdsinterval tussen updates aan de PID-regelaar.",
           "solar_gain_compensation": "Verlaagt de gevraagde warmte wanneer de binnentemperatuur snel stijgt door waarschijnlijk zonlicht.",
           "solar_gain_freeze_integral": "Voorkomt integraal-opbouw terwijl de zonnewinstcompensatie actief is.",
           "solar_gain_min_elevation": "Minimale zonshoogte (graden) voordat zonnewinstdetectie kan activeren.",
@@ -262,35 +229,25 @@
           "modulation_suppression_delay_seconds": "Tijd na vlam-aan voordat onderdrukking start (alleen Pulsbreedtemodulatie).",
           "modulation_suppression_offset_celsius": "Hoeveel de aanvoer-setpoint wordt verlaagd tijdens onderdrukking (alleen Pulsbreedtemodulatie).",
           "flow_setpoint_offset_celsius": "Minimale marge onder de keteltemperatuur bij het begrenzen van het setpoint (continue modus).",
-          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
-          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
-          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
-          "enable_flame_off_setpoint": "Pas een tijdelijke setpointcorrectie toe terwijl de vlam uit is (alleen pulsbreedtemodulatie).",
-          "enable_modulation_suppression": "Verminder modulatie door het setpoint tijdelijk te verlagen na het ontsteken van de vlam (alleen pulsbreedtemodulatie)."
+          "minimum_boiler_pressure": "Ondergrens van de druk voor de gezondheidscontrole (bar).",
+          "maximum_boiler_pressure": "Bovengrens van de druk voor de gezondheidscontrole (bar).",
+          "maximum_pressure_drop_rate": "Maximaal toegestane drukdaling voordat de druk als ongezond wordt gemarkeerd (bar/u).",
+          "pressure_max_value_age": "Maximale leeftijd van een drukmeting voordat de druk als ongezond wordt gemarkeerd."
         },
         "title": "Geavanceerd"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Automatische Versterkingswaarde",
           "derivative": "Afgeleide (kD)",
-          "derivative_time_weight": "Tijdgewicht van de Afgeleide",
-          "duty_cycle": "Maximale Inschakelduur voor Pulsbreedtemodulatie",
           "heating_curve_coefficient": "Coëfficiënt van de Verwarmingscurve",
-          "heating_curve_version": "Versie van de Verwarmingscurve",
           "integral": "Integraal (kI)",
           "maximum_setpoint": "Maximaal Setpoint",
-          "pid_controller_version": "Versie van de PID-regelaar",
           "proportional": "Proportioneel (kP)",
           "window_sensors": "Contact Sensoren",
           "heating_mode": "Verwarmingsmodus"
         },
         "data_description": {
-          "automatic_gains_value": "De waarde die wordt gebruikt voor automatische versterkingen in de PID-regelaar.",
           "derivative": "De afgeleide term (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
-          "derivative_time_weight": "Een parameter om de invloed van de afgeleide term over tijd aan te passen, vooral nuttig om undershoot te verminderen tijdens de opwarmfase wanneer de coëfficiënt van de verwarmingscurve correct is ingesteld.",
-          "duty_cycle": "De maximale inschakelduur voor Pulsbreedtemodulatie , die de aan/uit-cycli van de ketel regelt.",
           "heating_curve_coefficient": "De coëfficiënt die wordt gebruikt om de verwarmingscurve aan te passen.",
           "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
           "maximum_setpoint": "De optimale temperatuur voor efficiënte werking van de ketel.",
@@ -305,14 +262,9 @@
           "advanced": "Geavanceerde Opties",
           "general": "Algemeen",
           "presets": "Voorinstellingen",
-          "areas": "Gebieden",
           "system_configuration": "Systeemconfiguratie",
           "room_presets": "Kamervoorinstellingen"
         }
-      },
-      "areas": {
-        "description": "Stel kamergewichten in om verwarming te sturen naar kamers met hogere vraag.",
-        "title": "Gebieden"
       },
       "presets": {
         "data": {
@@ -334,8 +286,6 @@
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Cycli per uur",
-          "automatic_duty_cycle": "Automatische inschakelduur",
-          "overshoot_protection": "Overshoot Bescherming (met Pulsbreedtemodulatie )",
           "sync_climates_with_mode": "Synchroniseer klimaten met modus",
           "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor",
           "window_minimum_open_time": "Minimale open tijd van het raam",
@@ -343,8 +293,6 @@
         },
         "data_description": {
           "cycles_per_hour": "Het maximale aantal cycli per uur.",
-          "automatic_duty_cycle": "Automatische inschakelduur voor Pulsbreedtemodulatie in- of uitschakelen.",
-          "overshoot_protection": "Overshoot Bescherming inschakelen met Pulsbreedtemodulatie om temperatuur-overshoot van de ketel te voorkomen.",
           "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd.",
           "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert.",
           "sync_climates_with_mode": "Stel ook de HVAC-modus in op kamerklimaten wanneer die hier verandert.",

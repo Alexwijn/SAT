@@ -7,12 +7,7 @@
     "error": {
       "invalid_device": "Este es un dispositivo inválido.",
       "connection": "No se puede conectar a la puerta de enlace.",
-      "mqtt_component": "El componente MQTT no está disponible.",
-      "unable_to_calibrate": "El proceso de calibración ha encontrado un problema y no se pudo completar con éxito. Por favor, asegúrese de que su sistema de calefacción está funcionando correctamente y que todos los sensores necesarios están conectados y funcionando correctamente.\n\nSi continúa experimentando problemas con la calibración, considere contactarnos para obtener más ayuda. Pedimos disculpas por cualquier inconveniente causado.",
       "rooms_required": "Sin sensor interior se requiere al menos una habitación, ya que las habitaciones son entonces la única fuente de demanda de calefacción."
-    },
-    "progress": {
-      "calibration": "Calibrando y encontrando el valor de protección contra sobrecalentamiento...\n\nPor favor, espere mientras optimizamos su sistema de calefacción. Este proceso puede tomar aproximadamente 20 minutos."
     },
     "step": {
       "areas": {
@@ -35,23 +30,6 @@
         },
         "description": "Esta característica ajusta los parámetros de control de su sistema de calefacción de forma dinámica, optimizando el control de la temperatura para mayor comodidad y eficiencia energética. Habilitar esta opción permite que SAT se adapte y ajuste finamente los ajustes de calefacción basándose en las condiciones ambientales. Esto ayuda a mantener un ambiente estable y cómodo sin intervención manual.\n\nNota: Si elige no habilitar las ganancias automáticas, necesitará introducir manualmente los valores PID para un control preciso de la temperatura. Por favor, asegúrese de tener valores PID precisos para su sistema de calefacción específico para lograr un rendimiento óptimo.",
         "title": "Ganancias Automáticas"
-      },
-      "calibrate_system": {
-        "description": "Optimice su sistema de calefacción determinando automáticamente los valores PID óptimos para su configuración. Al seleccionar Ganancias Automáticas, tenga en cuenta que el sistema pasará por un proceso de calibración que puede tardar aproximadamente 20 minutos en completarse.\n\nSe recomienda Ganancias Automáticas para la mayoría de los usuarios, ya que simplifica el proceso de configuración y asegura un rendimiento óptimo. Sin embargo, si está familiarizado con el control PID y prefiere configurar los valores manualmente, puede optar por omitir las Ganancias Automáticas.\n\nTenga en cuenta que elegir omitir las Ganancias Automáticas requiere un buen entendimiento del control PID y puede requerir ajustes manuales adicionales para lograr un rendimiento óptimo.",
-        "menu_options": {
-          "calibrate": "Calibrar y determinar su valor de protección contra sobrecalentamiento (approx. 20 min).",
-          "overshoot_protection": "Introducir manualmente el valor de protección contra sobrecalentamiento.",
-          "pid_controller": "Introducir manualmente los valores PID (no recomendado)."
-        },
-        "title": "Calibrar Sistema"
-      },
-      "calibrated": {
-        "description": "El proceso de calibración se ha completado con éxito.\n\n¡Felicitaciones! Su Smart Autotune Thermostat (SAT) ha sido calibrado para optimizar el rendimiento de calefacción de su sistema. Durante el proceso de calibración, SAT analizó cuidadosamente las características de calefacción y determinó el valor de protección contra sobrecalentamiento adecuado para asegurar un control preciso de la temperatura.\n\nValor de Protección contra Sobrecalentamiento: {minimum_setpoint} °C\n\nEste valor representa la cantidad máxima de sobrecalentamiento permitido durante el proceso de calefacción. SAT monitorizará activamente y ajustará la calefacción para prevenir un sobrecalentamiento excesivo, manteniendo una experiencia de calefacción cómoda y eficiente en su hogar.\n\nTenga en cuenta que el valor de protección contra sobrecalentamiento puede variar dependiendo de las características específicas de su sistema de calefacción y factores ambientales. Ha sido ajustado finamente para proporcionar un rendimiento óptimo basado en los resultados de calibración.",
-        "menu_options": {
-          "calibrate": "Reintentar calibración",
-          "finish": "Continuar con la calibración actual"
-        },
-        "title": "Calibración Completada"
       },
       "heating_system": {
         "data": {
@@ -122,13 +100,6 @@
           "device": "Dispositivo ESPHome a usar."
         },
         "title": "Configuración de ESPHome"
-      },
-      "overshoot_protection": {
-        "data": {
-          "minimum_setpoint": "Valor"
-        },
-        "description": "Al proporcionar el valor de protección contra sobrecalentamiento, SAT ajustará los parámetros de control en consecuencia para mantener un ambiente de calefacción estable y cómodo. Esta configuración manual le permite ajustar el sistema en base a su configuración específica.\n\nNota: Si no está seguro sobre el valor de protección contra sobrecalentamiento o no ha realizado el proceso de calibración, se recomienda cancelar la configuración y pasar por el proceso de calibración para permitir que SAT determine automáticamente el valor para un rendimiento óptimo.",
-        "title": "Protección contra Sobrecalentamiento"
       },
       "pid_controller": {
         "data": {
@@ -224,11 +195,10 @@
           "minimum_consumption": "Consumo Mínimo",
           "modulation_suppression_offset_celsius": "Desfase de supresión de modulación",
           "flow_setpoint_offset_celsius": "Desfase del setpoint de impulsión",
-          "minimum_boiler_pressure": "Minimum boiler pressure",
-          "maximum_boiler_pressure": "Maximum boiler pressure",
-          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
-          "pressure_max_value_age": "Pressure max value age",
-          "sample_time": "Tiempo de Muestreo",
+          "minimum_boiler_pressure": "Presión mínima de la caldera",
+          "maximum_boiler_pressure": "Presión máxima de la caldera",
+          "maximum_pressure_drop_rate": "Caída de presión máxima por hora",
+          "pressure_max_value_age": "Edad máxima del valor de presión",
           "simulation": "Simulación",
           "solar_gain_compensation": "Compensación de ganancia solar",
           "solar_gain_freeze_integral": "Congelar integral durante ganancia solar",
@@ -237,8 +207,6 @@
           "solar_gain_setpoint_offset_celsius": "Desfase de setpoint por ganancia solar",
           "target_temperature_step": "Paso de Temperatura Objetivo",
           "thermal_comfort": "Confort Térmico",
-          "enable_flame_off_setpoint": "Activar consigna con llama apagada",
-          "enable_modulation_suppression": "Activar supresión de modulación",
           "flame_off_setpoint_offset_celsius": "Desfase de consigna con llama apagada",
           "modulation_suppression_delay_seconds": "Retardo de supresión de modulación"
         },
@@ -247,7 +215,6 @@
           "maximum_consumption": "Consumo de gas a la modulación máxima, usado para estimar el consumo.",
           "maximum_relative_modulation": "Limita el porcentaje de modulación de la caldera (0–100) para restringir la potencia máxima.",
           "minimum_consumption": "Consumo de gas a la modulación mínima, usado para estimar el consumo.",
-          "sample_time": "El intervalo de tiempo mínimo entre actualizaciones del controlador PID.",
           "solar_gain_compensation": "Reduce la calefacción solicitada cuando la temperatura interior sube rápidamente por probable radiación solar.",
           "solar_gain_freeze_integral": "Evita la acumulación del término integral mientras la compensación de ganancia solar está activa.",
           "solar_gain_min_elevation": "Elevación solar mínima (grados) necesaria antes de que pueda activarse la detección de ganancia solar.",
@@ -262,35 +229,25 @@
           "modulation_suppression_delay_seconds": "Tiempo tras encender la llama antes de aplicar la supresión (solo Modulación de Ancho de Pulso).",
           "modulation_suppression_offset_celsius": "Cuánto se reduce el setpoint de impulsión durante la supresión (solo Modulación de Ancho de Pulso).",
           "flow_setpoint_offset_celsius": "Separación mínima por debajo de la temperatura de la caldera al limitar el setpoint (modo continuo).",
-          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
-          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
-          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
-          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
-          "enable_flame_off_setpoint": "Aplicar un desfase de consigna temporal mientras la llama está apagada (solo modulación por ancho de pulso).",
-          "enable_modulation_suppression": "Reducir la modulación bajando temporalmente la consigna tras el encendido de la llama (solo modulación por ancho de pulso)."
+          "minimum_boiler_pressure": "Umbral inferior de presión para la detección del estado (bar).",
+          "maximum_boiler_pressure": "Umbral superior de presión para la detección del estado (bar).",
+          "maximum_pressure_drop_rate": "Caída de presión máxima permitida antes de señalar un problema (bar/h).",
+          "pressure_max_value_age": "Edad máxima de una lectura de presión antes de señalar un problema."
         },
         "title": "Avanzadas"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Valor de Ganancias Automáticas",
           "derivative": "Derivativa (kD)",
-          "derivative_time_weight": "Peso Temporal de la Derivativa",
-          "duty_cycle": "Ciclo de Trabajo Máximo para la Modulación de Ancho de Pulso",
           "heating_curve_coefficient": "Coeficiente de la Curva de Calefacción",
-          "heating_curve_version": "Versión de la Curva de Calefacción",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Punto de Ajuste Máximo",
-          "pid_controller_version": "Versión del controlador PID",
           "proportional": "Proporcional (kP)",
           "window_sensors": "Sensores de Contacto",
           "heating_mode": "Modo de calefacción"
         },
         "data_description": {
-          "automatic_gains_value": "El valor utilizado para las ganancias automáticas en el controlador PID.",
           "derivative": "El término derivativo (kD) en el controlador PID, responsable de mitigar el sobre impulso.",
-          "derivative_time_weight": "Un parámetro para ajustar la influencia del término derivativo a lo largo del tiempo, especialmente útil para reducir el infra impulso durante la fase de calentamiento cuando el coeficiente de la curva de calefacción está correctamente ajustado.",
-          "duty_cycle": "El ciclo de trabajo máximo para la Modulación de Ancho de Pulso , controlando los ciclos de encendido/apagado de la caldera.",
           "heating_curve_coefficient": "El coeficiente utilizado para ajustar la curva de calefacción.",
           "integral": "El término integral (kI) en el controlador PID, responsable de reducir el error en estado estacionario.",
           "maximum_setpoint": "La temperatura óptima para una operación eficiente de la caldera.",
@@ -305,14 +262,9 @@
           "advanced": "Opciones Avanzadas",
           "general": "General",
           "presets": "Pre ajustes",
-          "areas": "Áreas",
           "system_configuration": "Configuración del Sistema",
           "room_presets": "Preajustes por habitación"
         }
-      },
-      "areas": {
-        "description": "Ajusta los pesos de las habitaciones para priorizar las de mayor demanda.",
-        "title": "Áreas"
       },
       "presets": {
         "data": {
@@ -334,17 +286,13 @@
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Ciclos por hora",
-          "automatic_duty_cycle": "Ciclo de trabajo automático",
           "sync_climates_with_mode": "Sincronizar climas con el modo",
-          "overshoot_protection": "Protección contra Sobrepasos (con Modulación de Ancho de Pulso )",
           "sensor_max_value_age": "Edad máxima del valor del sensor de temperatura",
           "window_minimum_open_time": "Tiempo mínimo de apertura de ventana",
           "frost_protection_temperature": "Temperatura de protección antiheladas"
         },
         "data_description": {
           "cycles_per_hour": "La cantidad máxima de ciclos por hora.",
-          "automatic_duty_cycle": "Habilitar o deshabilitar el ciclo de trabajo automático para la Modulación de Ancho de Pulso .",
-          "overshoot_protection": "Habilitar protección contra sobrepasos con Modulación de Ancho de Pulso para prevenir excesos de temperatura de la caldera.",
           "sensor_max_value_age": "La edad máxima del valor del sensor de temperatura antes de considerarlo como obsoleto.",
           "window_minimum_open_time": "El tiempo mínimo que una ventana debe estar abierta antes de que el sistema reaccione.",
           "sync_climates_with_mode": "También aplica el modo HVAC a los climas de las habitaciones cuando se cambia aquí.",
