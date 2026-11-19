@@ -1,8 +1,23 @@
 from types import SimpleNamespace
+from unittest.mock import patch
+
+from homeassistant.config_entries import SOURCE_USER
+from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.sat.config_flow import SatFlowHandler
-from custom_components.sat.const import CONF_INSIDE_SENSOR_ENTITY_ID, CONF_OUTSIDE_SENSOR_ENTITY_ID, CONF_WIND_SENSOR_ENTITY_ID, OPTIONS_DEFAULTS
+from custom_components.sat.const import (
+    CONF_AUTOMATIC_GAINS,
+    CONF_HEATING_SYSTEM,
+    CONF_INSIDE_SENSOR_ENTITY_ID,
+    CONF_NAME,
+    CONF_OUTSIDE_SENSOR_ENTITY_ID,
+    CONF_OVERSHOOT_PROTECTION,
+    CONF_WIND_SENSOR_ENTITY_ID,
+    DOMAIN,
+    OPTIONS_DEFAULTS,
+)
 from custom_components.sat.entry_data import SatConfig, SatMode
+from custom_components.sat.types import HeatingSystem
 from tests.const import DEFAULT_USER_DATA, make_config
 
 SENSORS = {CONF_INSIDE_SENSOR_ENTITY_ID: "sensor.inside", CONF_OUTSIDE_SENSOR_ENTITY_ID: ["weather.home"]}
@@ -48,3 +63,25 @@ async def test_sensors_step_clears_removed_wind_sensors(hass):
 
 def test_existing_entries_without_wind_sensors_have_none():
     assert make_config().sensors.wind_sensor_entity_id == []
+
+
+async def test_new_entry_enables_overshoot_protection(hass):
+    flow = hass.config_entries.flow
+
+    with patch("custom_components.sat.async_setup_entry", return_value=True):
+        result = await flow.async_init(DOMAIN, context={"source": SOURCE_USER, "show_advanced_options": True})
+        result = await flow.async_configure(result["flow_id"], {"next_step_id": "simulator"})
+        result = await flow.async_configure(result["flow_id"], {CONF_NAME: "Test"})
+        result = await flow.async_configure(result["flow_id"], SENSORS)
+        result = await flow.async_configure(result["flow_id"], {CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS})
+        result = await flow.async_configure(result["flow_id"], {})
+        result = await flow.async_configure(result["flow_id"], {CONF_AUTOMATIC_GAINS: True})
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert CONF_OVERSHOOT_PROTECTION not in result["data"]
+    assert SatConfig(entry_id="flow", data=result["data"], options=OPTIONS_DEFAULTS).overshoot_protection is True
+
+
+def test_entries_that_disabled_overshoot_protection_keep_it_disabled():
+    assert make_config(data={CONF_OVERSHOOT_PROTECTION: False}).overshoot_protection is False

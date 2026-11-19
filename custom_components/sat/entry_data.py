@@ -155,7 +155,7 @@ class SatConfig:
 
     @property
     def overshoot_protection(self) -> bool:
-        return bool(self.data.get(CONF_OVERSHOOT_PROTECTION))
+        return bool(self.data.get(CONF_OVERSHOOT_PROTECTION, self.options.get(CONF_OVERSHOOT_PROTECTION)))
 
     @property
     def frost_protection_temperature(self) -> float:

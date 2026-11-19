@@ -128,7 +128,7 @@ OPTIONS_DEFAULTS = {
     # Cycle limits and automatic tuning.
     CONF_CYCLES_PER_HOUR: 4,
     CONF_AUTOMATIC_GAINS: True,
-    CONF_OVERSHOOT_PROTECTION: False,
+    CONF_OVERSHOOT_PROTECTION: True,
 
     # Linked climates and weighting.
     CONF_ROOMS: [],
