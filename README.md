@@ -30,13 +30,13 @@ OpenTherm ( MQTT / Serial / ESPHome / EMS-ESP / OTThing ):
 - Multi-room temperature control with support for temperature synchronization for main climates
 - Adjustable heating curve coefficients to fine-tune your heating system
 - Heating curve recommendation with a suggested coefficient, learned from a week of steady heating after sunset, only while the room the boiler heats for holds its target, and weighed per day so one stormy day cannot skew it. Each day also shows its median wind speed, so you can see how wind changes the heat your house needs. Over months of mixed weather it learns a calm-weather coefficient and how much more heat every 10 km/h of wind costs
+- Rooms-only mode for homes without a main room, where the rooms alone decide when the boiler runs
 - Target temperature step for adjusting the temperature in smaller increments
-- Presets for different modes such as Away, Sleep, Home, Comfort
+- Presets for different modes such as Away, Sleep, Home, Comfort and Activity, with their own temperatures per room
 - Automatic gains for PID control
-- PWM and Automatic-duty cycle
+- Pulse Width Modulation for low heat demand, limited to a maximum number of duty cycles per hour
 - Overshoot protection to prevent the boiler from overshooting the setpoint ( Low-Load Control )
-- Climate valve offset to adjust the temperature reading for your climate valve
-- Sample time for PID control to fine-tune your system's response time
+- Climate valve offset to decide when a climate valve counts as open
 - Open Window detection
 - Frost protection that keeps heating when a room gets too cold, even while turned off
 - Domestic hot water control through a water heater entity (setpoint and on/off)
@@ -52,12 +52,12 @@ PID ON/OFF thermostat:
 
 - Multi-room temperature control with support for temperature synchronization for main climates
 - Adjustable heating curve coefficients to fine-tune your heating system
+- Rooms-only mode for homes without a main room, where the rooms alone decide when the heater runs
 - Target temperature step for adjusting the temperature in smaller increments
-- Presets for different modes such as Away, Sleep, Home, Comfort
+- Presets for different modes such as Away, Sleep, Home, Comfort and Activity, with their own temperatures per room
 - Automatic gains for PID control
-- PWM and Automatic-duty cycle
-- Climate valve offset to adjust the temperature reading for your climate valve
-- Sample time for PID control to fine-tune your system's response time
+- Pulse Width Modulation, limited to a maximum number of duty cycles per hour
+- Climate valve offset to decide when a climate valve counts as open
 - Open Window detection
 - Frost protection that keeps heating when a room gets too cold, even while turned off
 - Solar gain compensation to adjust heating based on passive solar heating
@@ -206,8 +206,9 @@ For more information about which other entities are available for OpenTherm plea
 3. Heating System: Selecting the correct heating system type is important for SAT to accurately control the temperature and optimize performance. The available options are Radiators, Heat Pump, and Underfloor. Choose the option that matches your setup to ensure proper temperature regulation throughout your home.
 
 4. Areas:  
-   - Primary: Users can add their physical thermostat. SAT will syncronize the `hvac_action` of the physical thermostat with the SAT climate entity's `hvac action`, that means if the physical thermostat doesn't require heating then the SAT climate entity `hvac_action` will remain at idle. Also the physical thermostat's room setpoint stays in sync with SAT climate entity. Moreover the physical thermostat will act as a back up if any failure to HA occurs.
-   - Rooms: Users can add their TRV climate entities. So when any of the rooms will ask for heating, SAT will start the boiler.
+   - Thermostat: Users can add their physical thermostat. SAT will syncronize the `hvac_action` of the physical thermostat with the SAT climate entity's `hvac action`, that means if the physical thermostat doesn't require heating then the SAT climate entity `hvac_action` will remain at idle. Also the physical thermostat's room setpoint stays in sync with SAT climate entity. Moreover the physical thermostat will act as a back up if any failure to HA occurs.
+   - Radiators: Users can add the TRV climate entities that are in the same room as the Inside Temperature sensor.
+   - Rooms: Users can add the climate entities of their other rooms, which have their own target temperatures. So when any of the rooms will ask for heating, SAT will start the boiler.
    - Rooms only: If every heated room already has its own climate entity and there is no main room, leave the Inside Temperature sensor empty and add all rooms here. Each room then gets its own PID and heating curve, the boiler is asked for the highest room request, and it is only started while at least one room is calling for heat. The SAT climate entity stays as the on/off switch and the preset selector of the whole system: it has no target temperature of its own, shows the median room temperature, applies presets to the rooms (see the Room Presets tab), and while off it protects the coldest room against frost. Without a main room there is no Eco heating mode and no main PID, error or heating curve sensors; the room sensors and the boiler sensors are still created.
 > [!Note]
 > If SAT is the only climate entity, skip this step.
@@ -215,16 +216,13 @@ For more information about which other entities are available for OpenTherm plea
 > [!TIP]
 > Look at the Heating Mode setting in General Tab for further customization.
 
-5. Calibrate System: Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.
+5. Automatic Gains: Leave this enabled to let SAT determine the PID values for your setup and keep adjusting them as the weather changes. There is no calibration run anymore; SAT learns how your boiler behaves while it is heating.
 
-> [!NOTE]
-> If system calibration fails or you prefer to manually find the Overshoot Protection Value, please look at this [discussion](https://github.com/Alexwijn/SAT/discussions/36).
-
-If you already know this value, then use the "Manually enter the overshoot protection value" option and fill the value.
-
-Automatic Gains are recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.
+Automatic Gains are recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can disable Automatic Gains and fill in the Proportional, Integral, and Derivative values in the next step.
 
 Please note that choosing to skip Automatic Gains requires a good understanding of PID control and may require additional manual adjustments to achieve optimal performance.
+
+6. Manufacturer: SAT tries to recognise the manufacturer of your boiler and preselects it. Pick another one from the list if it does not match your setup.
 
 ## PID ON/OFF
 
@@ -233,7 +231,7 @@ The PID ON/OFF mode allows SAT to control any switch, valve, or input_boolean en
 1. PID ON/OFF Connection
    - Name of the thermostat
    - Device ( a switch, valve, or input_boolean entity that controls your heater )
-   - Minimum Setpoint ( the operating temperature of your heater )
+   - Temperature Setting ( the boiler temperature for hot water systems; use 100 for electric heating )
 
 2. Configure sensors:
     - Inside Temperature sensor ( Your Room Temperature sensor; optional, see Rooms only under Areas )
@@ -241,11 +239,11 @@ The PID ON/OFF mode allows SAT to control any switch, valve, or input_boolean en
     - Inside Humidity Sensor ( Your Room Humidity sensor )
     - Wind Sensor ( Optional wind speed sensor or weather entity; when empty, the wind speed of a weather entity among the outside sensors is used )
 
-3. Heating System: Select Radiators, Heat Pump, or Underfloor.
+3. Areas: Same as OpenTherm configuration above.
 
-4. Areas: Same as OpenTherm configuration above.
+4. Automatic Gains: Same as OpenTherm configuration above.
 
-5. Calibrate System: Same as OpenTherm configuration above.
+5. Manufacturer: Same as OpenTherm configuration above.
 
 ---
 
@@ -348,13 +346,26 @@ Pick a room, tick the presets it has its own temperature for and set them. The H
 
 *Target Temperature Step*: SAT climate entity room setpoint step.
 
-*Climate Valve Offset*: Adjust the temperature reading for your climate valve.
+*Climate Valve Offset*: How far the target temperature of a climate valve has to be above its current temperature before SAT treats the valve as open.
 
 *Maximum Relative Modulation*: The user is able to control the maximum relative modulation that the boiler will operate (only available for OpenTherm MQTT/Serial).
 
 *Minimum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption (only available for OpenTherm MQTT/Serial).
 
 *Maximum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption (only available for OpenTherm MQTT/Serial).
+
+*Flame-off Setpoint Offset*: While the flame is off during PWM, SAT holds a temporary setpoint at the return temperature plus this offset (only available for OpenTherm MQTT/Serial).
+
+*Modulation Suppression*: After the flame comes on during PWM, SAT can lower the flow setpoint to keep the boiler at a low modulation. Related settings (only available for OpenTherm MQTT/Serial):
+- *Modulation Suppression Delay*: The time after flame-on before the suppression can apply.
+- *Modulation Suppression Offset*: How much the flow setpoint is lowered during suppression.
+
+*Flow Setpoint Offset*: The minimum offset below the boiler temperature when SAT clamps the setpoint outside PWM.
+
+*Boiler Pressure*: The limits behind the boiler pressure health sensor:
+- *Minimum Boiler Pressure* and *Maximum Boiler Pressure*: The range the pressure should stay within.
+- *Maximum Pressure Drop Rate*: How fast the pressure may drop before it is flagged.
+- *Pressure Max Value Age*: The maximum age of a pressure reading before the health is marked as unhealthy.
 
 ---
 
@@ -411,27 +422,25 @@ Import them via Settings → Automations & scenes → Blueprints → Import blue
 
 ---
 
+# Services
+
+- `sat.reset_integral`: Resets the integral part of the PID controller of a SAT climate entity.
+- `sat.pulse_width_modulation`: Forces Pulse Width Modulation on or off for a SAT climate entity. SAT may switch it again right after.
+- `sat.estimate_preheat`: Estimates how long before a ready time heating has to start, for the main thermostat or a room.
+
+---
+
 # Terminology
 *Heating Curve Coefficient*: By adjusting the heating curve coefficient, you can balance the heating loss of your home with the energy generated from your boiler at a given setpoint based on the outside temperature. When this value is properly tuned, the room temperature should hover around the setpoint.
 
 *Gains*: SAT offers two ways of tuning the PID gains - manual and automatic.
 
 - Manual tuning: You can fill the Proportional, Integral, and Derivative fields in the General tab with your values.
-- Automatic Gains ( Recommended ): This option is enabled by default when the Overshoot protection value is present (During initial configuration). Automatic gains dynamically change the kP, kI, and kD values based on the heating curve value. So, based on the outside temperature, the gains change from mild to aggressive without intervention.
+- Automatic Gains ( Recommended ): This option is enabled by default during the initial configuration. Automatic gains dynamically change the kP, kI, and kD values based on the heating curve value. So, based on the outside temperature, the gains change from mild to aggressive without intervention.
 
-*Overshoot Protection*: This feature should be enabled when the minimum boiler capacity is greater than the control setpoint calculated by SAT. If the boiler overshoots the control setpoint, it may cycle, shortening the life of the burner. The solution is to adjust the boiler's on/off times to maintain the temperature at the setpoint while minimizing cycling.
+*Overshoot Protection*: When the minimum boiler capacity is greater than the heat SAT asks for, the boiler overshoots the control setpoint and may cycle, shortening the life of the burner. SAT watches the flow temperature while the burner runs: when it stays above the requested setpoint for a minute, SAT switches to Pulse Width Modulation and adjusts the boiler's on/off times to maintain the temperature at the setpoint while minimizing cycling. It returns to continuous heating once the boiler can no longer reach the requested setpoint during the on time. No calibration is needed; SAT learns the temperature your boiler settles at from the burns themselves.
 
-*Overshoot Protection Value (OPV) Calculation*:
-The OPV is a crucial value that determines the boiler's on/off times when the Overshoot Protection feature is present (During initial configuration).
-
-*Automatic Calculation*: To calculate the OPV automatically, choose the "Calibrate and determine your overshoot protection value (approx. 20 min)" option during the initial configuration. SAT will then send the MM=0 and CS=75 commands, attempting to find the highest flow water temperature the boiler can produce while running at 0% modulation. This process takes at least 20 minutes. Once the OPV calculation is complete, SAT will resume normal operation and send a completion notification. The calculated value will be stored as an attribute in the SAT climate entity and used to determine the boiler's on/off times in the low-load control algorithm. If SAT detects that the boiler doesn't respect the 0% Max Modulation command, it will automatically change the calibration algorithm to a more sophisticated one to perform the calibration of the system.
-
-*Manual Calculation*: If you know the maximum flow water temperature of the boiler at 0% modulation, you can fill in this value during the initial configuration.
-
-> [!Note]
-> If you have any TRVs, open all of them (set them to a high setpoint) to ensure accurate calculation of the OPV. Once the calculation is complete, you can lower the setpoint back to your desired temperature.
-
-*Automatic Duty Cycle*: When this option is enabled, SAT calculates the ON and OFF times of the boiler in 15-minute intervals, given that the kW needed to heat the home is less than the minimum boiler capacity. Moreover, using this feature, SAT can efficiently regulate the room temperature even in mild weather by automatically extending the duty cycle up to 30 minutes.
+*Pulse Width Modulation (PWM)*: SAT calculates the ON and OFF times of the boiler from the requested setpoint and the temperature the boiler reaches while it burns, so that the average heat matches what the home needs. The number of burns is limited by the *Duty Cycles per hour* setting, and the PWM state is kept across a restart of Home Assistant.
 
 > [!TIP]
 > For more in depth review of SAT and real time observations you can read this [excellent discussion post](https://github.com/Alexwijn/SAT/discussions/40) from @critictidier.
