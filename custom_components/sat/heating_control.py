@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Callable, Optional
 
@@ -183,6 +183,19 @@ class SatHeatingControl:
 
         return CycleControlMode.CONTINUOUS
 
+    @property
+    def _pulse_width_modulation_forced(self) -> bool:
+        return self._config.pwm.force_pulse_width_modulation or not self._coordinator.supports_setpoint_management
+
+    @property
+    def _pwm_device_state(self) -> DeviceState:
+        device_state = self._coordinator.state
+
+        if device_state.flow_temperature is not None or self._coordinator.supports_setpoint_management:
+            return device_state
+
+        return replace(device_state, flow_temperature=self._coordinator.minimum_setpoint)
+
     async def async_added_to_hass(self) -> None:
         """Register listeners and initialize the control loop."""
         await self._device_tracker.async_added_to_hass(self._hass, self._coordinator.id)
@@ -236,7 +249,7 @@ class SatHeatingControl:
         self._record_requested_setpoint(demand)
 
         if demand.heater_state == HeaterState.ON:
-            if self._config.pwm.force_pulse_width_modulation:
+            if self._pulse_width_modulation_forced:
                 self._pwm.enable()
             elif demand.requested_setpoint >= self._config.limits.maximum_setpoint:
                 self._pwm.disable()
@@ -248,7 +261,7 @@ class SatHeatingControl:
 
             self._pwm.update(
                 timestamp=demand.timestamp,
-                device_state=self._coordinator.state,
+                device_state=self._pwm_device_state,
                 requested_setpoint=demand.requested_setpoint,
             )
 
@@ -312,7 +325,7 @@ class SatHeatingControl:
         if not self._config.overshoot_protection and cycle.control_mode == CycleControlMode.CONTINUOUS:
             return
 
-        if self._config.pwm.force_pulse_width_modulation and cycle.control_mode == CycleControlMode.PWM:
+        if self._pulse_width_modulation_forced and cycle.control_mode == CycleControlMode.PWM:
             return
 
         self._pwm.on_cycle_end(cycle=cycle)
@@ -376,7 +389,7 @@ class SatHeatingControl:
         return max(sample.setpoint for sample in self._requested_setpoints)
 
     def _maybe_disable_pwm_runtime(self, demand: HeatingDemand, device_state: DeviceState) -> None:
-        if self._config.pwm.force_pulse_width_modulation:
+        if self._pulse_width_modulation_forced:
             return
 
         if not self._pwm.enabled:
@@ -503,6 +516,10 @@ class SatHeatingControl:
 
         if self._pwm.status == PWMStatus.OFF:
             self._control_setpoint = MINIMUM_SETPOINT
+            return
+
+        if not self._coordinator.supports_setpoint_management:
+            self._control_setpoint = requested_setpoint
             return
 
         if not device_state.flame_active:
