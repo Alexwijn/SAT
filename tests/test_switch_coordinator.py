@@ -3,6 +3,7 @@
 import pytest
 from homeassistant.const import STATE_ON, STATE_OFF
 from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.sat.const import CONF_DEVICE, CONF_MODE, CONF_SIMULATION, OPTIONS_DEFAULTS
 from custom_components.sat.coordinator.switch import SatSwitchCoordinator
@@ -103,3 +104,49 @@ async def test_set_heater_state_on(sim_coordinator):
 @pytest.mark.asyncio
 async def test_set_heater_state_off(sim_coordinator):
     await sim_coordinator.async_set_heater_state(HeaterState.OFF)
+
+
+def _coordinator_for(hass, domain: str) -> SatSwitchCoordinator:
+    entry = er.async_get(hass).async_get_or_create(domain=domain, platform="test", unique_id=f"heater_{domain}", suggested_object_id="heater")
+
+    data = {**DEFAULT_USER_DATA, CONF_MODE: SatMode.SWITCH, CONF_DEVICE: entry.id}
+    config = SatConfig(entry_id=f"{domain}-test", data=data, options={**OPTIONS_DEFAULTS})
+
+    return SatSwitchCoordinator(hass, config)
+
+
+@pytest.mark.parametrize(("domain", "turn_on_service", "turn_off_service"), [
+    ("switch", "turn_on", "turn_off"),
+    ("input_boolean", "turn_on", "turn_off"),
+    ("valve", "open_valve", "close_valve"),
+])
+async def test_set_heater_state_calls_the_services_of_the_domain(hass, domain, turn_on_service, turn_off_service):
+    coordinator = _coordinator_for(hass, domain)
+
+    turn_on_calls = async_mock_service(hass, domain, turn_on_service)
+    turn_off_calls = async_mock_service(hass, domain, turn_off_service)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+
+    assert len(turn_off_calls) == 0
+    assert len(turn_on_calls) == 1
+    assert turn_on_calls[0].data["entity_id"] == f"{domain}.heater"
+
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+
+    assert len(turn_on_calls) == 1
+    assert len(turn_off_calls) == 1
+    assert turn_off_calls[0].data["entity_id"] == f"{domain}.heater"
+
+
+@pytest.mark.parametrize(("state", "active"), [
+    ("open", True),
+    ("opening", False),
+    ("closing", False),
+    ("closed", False),
+])
+def test_valve_is_active_while_open(hass, state, active):
+    coordinator = _coordinator_for(hass, "valve")
+    hass.states.async_set("valve.heater", state)
+
+    assert coordinator.active is active
