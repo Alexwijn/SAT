@@ -8,7 +8,6 @@
 **Please :star: this repo if you find it useful.**
 
 ![opentherm-mqtt.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/opentherm-mqtt.png)
-![overshoot_protection.png](https://raw.githubusercontent.com/Alexwijn/SAT/develop/.github/images/overshoot_protection.png)
 
 
 ## What is the Smart Autotune Thermostat?
