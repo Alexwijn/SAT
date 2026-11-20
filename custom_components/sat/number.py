@@ -5,10 +5,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 
-from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
-from .entry_data import SatConfig, get_entry_data
-from .heating_control import SatHeatingControl
+from .entry_data import get_entry_data
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
@@ -25,13 +23,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
-        super().__init__(coordinator, config, heating_control)
-        self._name = self._config.name
-
     @property
     def name(self) -> Optional[str]:
-        return f"Hot Water Setpoint {self._name} (Device)"
+        return "Hot Water Setpoint (Device)"
 
     @property
     def device_class(self):
@@ -80,13 +74,9 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
 class SatMaximumSetpointEntity(SatEntity, NumberEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config: SatConfig, heating_control: SatHeatingControl):
-        super().__init__(coordinator, config, heating_control)
-        self._name = self._config.name
-
     @property
     def name(self) -> Optional[str]:
-        return f"Maximum Setpoint {self._name} (Device)"
+        return "Maximum Setpoint (Device)"
 
     @property
     def device_class(self):

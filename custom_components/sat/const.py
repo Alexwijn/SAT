@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from .types import HeatingSystem, HeatingMode
 
-NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 CLIMATE = "climate"
 SENTRY = "sentry"

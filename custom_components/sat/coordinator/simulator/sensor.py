@@ -34,7 +34,7 @@ class SatSetpointSensor(SatEntity, sensor.SensorEntity):
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return f"Current Setpoint {self._config.name} (Device)"
+        return "Current Setpoint (Device)"
 
     @property
     def device_class(self) -> sensor.SensorDeviceClass:
@@ -72,7 +72,7 @@ class SatBoilerTemperatureSensor(SatEntity, sensor.SensorEntity):
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return f"Current Temperature {self._config.name} (Device)"
+        return "Current Temperature (Device)"
 
     @property
     def device_class(self) -> sensor.SensorDeviceClass:

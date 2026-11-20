@@ -573,6 +573,7 @@ def test_schedule_heating_control_loop_runs_on_the_event_loop(demand_control):
 async def test_pending_scheduled_run_is_not_duplicated(monkeypatch, hass, demand_control):
     update_mock = AsyncMock()
     monkeypatch.setattr(demand_control._heating_control, "update", update_mock)
+    demand_control._cancel_scheduled_heating_control_loop()
     demand_control._control_heating_loop_unsub = lambda: None
     demand_control._control_heating_loop_scheduled_at = timestamp()
 
@@ -586,6 +587,7 @@ async def test_overdue_scheduled_run_is_replaced(monkeypatch, hass, demand_contr
     hass.states.async_set("sensor.test_outside_sensor", "5")
     update_mock = AsyncMock()
     monkeypatch.setattr(demand_control._heating_control, "update", update_mock)
+    demand_control._cancel_scheduled_heating_control_loop()
     demand_control._control_heating_loop_unsub = lambda: None
     demand_control._control_heating_loop_scheduled_at = timestamp() - HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS - 1
 

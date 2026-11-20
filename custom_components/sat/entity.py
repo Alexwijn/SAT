@@ -8,7 +8,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, SIGNAL_DEMAND_CONTROL_UPDATED, SIGNAL_HEATING_CONTROL_UPDATED
+from .const import DOMAIN, SIGNAL_DEMAND_CONTROL_UPDATED, SIGNAL_HEATING_CONTROL_UPDATED
 from .entry_data import SatConfig
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class SatEntity(CoordinatorEntity):
             manufacturer = self._coordinator.manufacturer.friendly_name
 
         return DeviceInfo(
-            name=NAME,
+            name=self._config.name,
             manufacturer=manufacturer,
             model=self._coordinator.type,
             identifiers={(DOMAIN, self._config.entry_id)}

@@ -117,6 +117,5 @@ async def test_unique_id_migration(hass):
     assert updated_entity.unique_id == entry.entry_id
     assert updated_entity.entity_id == entity_entry.entity_id
 
-    migrated_device = device_reg.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
-    assert migrated_device is not None
-    assert (DOMAIN, "Test") not in migrated_device.identifiers
+    devices = dr.async_entries_for_config_entry(device_reg, entry.entry_id)
+    assert [device.identifiers for device in devices] == [{(DOMAIN, entry.entry_id)}]

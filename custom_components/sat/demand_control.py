@@ -623,7 +623,9 @@ class SatDemandControl:
 
     async def _async_backfill_curve_advisor_wind(self, _now: Optional[datetime] = None) -> None:
         """Fill in the wind speed of curve advisor samples recorded without one from the recorder."""
-        self._cancel_wind_backfill = None
+        if self._cancel_wind_backfill is not None:
+            self._cancel_wind_backfill()
+            self._cancel_wind_backfill = None
 
         if (start := self._curve_advisor.first_timestamp_without_wind) is not None:
             if filled := self._curve_advisor.backfill_wind(await self._wind_history.async_hourly(self._hass, start)):
@@ -809,8 +811,7 @@ class SatDemandControl:
 
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
         """Control the heating based on current temperature, target temperature, and outside temperature."""
-        self._control_heating_loop_unsub = None
-        self._control_heating_loop_scheduled_at = None
+        self._cancel_scheduled_heating_control_loop()
 
         if self._hvac_mode == HVACMode.OFF:
             if self._update_frost_protection():

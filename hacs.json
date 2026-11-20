@@ -1,6 +1,6 @@
 {
   "hacs": "1.6.0",
   "render_readme": true,
-  "homeassistant": "2025.2.5",
+  "homeassistant": "2026.1.0",
   "name": "Smart Autotune Thermostat"
 }
