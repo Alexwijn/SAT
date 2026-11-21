@@ -355,6 +355,10 @@ class SatHeatingControl:
             self._sustained_overshoot_started_at = None
             return
 
+        if not device_state.flame_active:
+            self._sustained_overshoot_started_at = None
+            return
+
         if device_state.flow_temperature is None:
             self._sustained_overshoot_started_at = None
             return

@@ -273,6 +273,24 @@ async def test_enables_pwm_on_sustained_overshoot(heating_control, coordinator):
     assert heating_control.pwm_state.enabled is True
 
 
+async def test_no_overshoot_while_the_flame_is_off(heating_control, coordinator, monkeypatch):
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: False))
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(40.0)
+    start_time = timestamp()
+
+    for offset in (0.0, OVERSHOOT_SUSTAIN_SECONDS + 1):
+        await heating_control.update(HeatingDemand(
+            valves_open=True,
+            hvac_mode=HVACMode.HEAT,
+            requested_setpoint=30.0,
+            outside_temperature=10.0,
+            timestamp=start_time + offset,
+        ))
+
+    assert heating_control.pwm_state.enabled is False
+
+
 async def test_modulation_is_minimum_when_pwm_active_and_supported(heating_control, monkeypatch):
     heating_control._coordinator.config.supports_relative_modulation_management = True
     _enable_pwm(heating_control, PWMStatus.ON)
