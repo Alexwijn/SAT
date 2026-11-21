@@ -38,6 +38,8 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 class SatEmsMqttCoordinator(SatMqttCoordinator):
     """Class to manage to fetch data from an EMS-ESP gateway using MQTT."""
 
+    _requested_maximum_power: Optional[int] = None
+
     @staticmethod
     def _is_on(value: Any) -> bool:
         return value in ON_VALUES
@@ -181,7 +183,12 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
     async def async_set_control_max_relative_modulation(self, value: int) -> None:
         minimum_power = self.minimum_relative_modulation_value or DEFAULT_MINIMUM_POWER
-        await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {max(value, int(minimum_power))}}}')
+        maximum_power = max(value, int(minimum_power))
+        reported_power = self.maximum_relative_modulation_value
+
+        if maximum_power != self._requested_maximum_power or (reported_power is not None and reported_power != maximum_power):
+            await self._publish_command(f'{{"cmd": "burnmaxpower", "value": {maximum_power}}}')
+            self._requested_maximum_power = maximum_power
 
         await super().async_set_control_max_relative_modulation(value)
 

@@ -313,3 +313,24 @@ def test_hot_water_active_detects_charging_and_boolean_payloads(coordinator):
 
     coordinator.data.update({"tapwateractive": "on"})
     assert coordinator.hot_water_active is True
+
+
+async def test_maximum_power_is_not_written_again_while_unchanged(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_control_max_relative_modulation(100)
+    await coordinator.async_set_control_max_relative_modulation(100)
+    coordinator.data.update({"burnmaxpower": 100})
+    await coordinator.async_set_control_max_relative_modulation(100)
+
+    assert calls == [{"cmd": "burnmaxpower", "value": 100}]
+
+
+async def test_maximum_power_is_written_again_when_the_boiler_reports_another(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_control_max_relative_modulation(100)
+    coordinator.data.update({"burnmaxpower": 60})
+    await coordinator.async_set_control_max_relative_modulation(100)
+
+    assert calls == [{"cmd": "burnmaxpower", "value": 100}] * 2
