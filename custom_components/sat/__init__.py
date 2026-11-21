@@ -83,6 +83,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         if getattr(entry_data, "coordinator", None) is not None:
+            await entry_data.coordinator.async_release()
+    except Exception as error:
+        _LOGGER.error("Error while releasing the boiler: %s", error)
+
+    try:
+        if getattr(entry_data, "coordinator", None) is not None:
             await entry_data.coordinator.async_will_remove_from_hass()
     except Exception as error:
         _LOGGER.error("Error during coordinator cleanup: %s", error)

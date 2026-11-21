@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} meldt een klepprobleem",
       "description": "Het apparaat in {room} van {name} meldt een klepalarm. Controleer de installatie, de kalibratie en een eventuele koppeling met een externe temperatuursensor."
+    },
+    "control_loop_stalled": {
+      "title": "Verwarmingsregeling reageert niet meer",
+      "description": "SAT heeft voor {name} al 15 minuten geen regelcyclus afgerond, waardoor de ketel de warmtevraag mogelijk niet volgt. Controleer de verbinding met de ketel en het logboek en herlaad daarna de integratie. Deze melding verdwijnt zodra de regeling wordt hervat."
     }
   },
   "entity": {

@@ -10,6 +10,7 @@ from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, HVACActio
 from homeassistant.const import ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import CoreState, Event, EventStateChangedData, HassJob, HomeAssistant, State, callback
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
@@ -18,6 +19,7 @@ from .area import Area, Areas, DrivingRoom
 from .const import (
     COLD_SETPOINT,
     DEADBAND,
+    DOMAIN,
     FROST_PROTECTION_HYSTERESIS_CELSIUS,
     FROST_PROTECTION_SETPOINT,
     HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS,
@@ -45,6 +47,7 @@ from .temperature.history import TemperatureHistory, TemperatureStatistics
 from .temperature.state import TemperatureState
 from .types import HeatingMode
 from .warm_up import WARM_UP_MINIMUM_ERROR_CELSIUS, WarmUpEstimator
+from .watchdog import ControlWatchdog
 from .wind import WIND_HISTORY_STARTUP_DELAY_SECONDS, WindHistory, WindMonitor, WindReading
 from .wind_sensitivity import WIND_SENSITIVITY_UPDATE_INTERVAL, WindSensitivityMonitor
 
@@ -63,6 +66,9 @@ class SatDemandControl:
         self._heating_control = heating_control
 
         self._started: bool = False
+        self._controlling: bool = True
+        self._loop_stalled: bool = False
+        self._watchdog = ControlWatchdog()
         self._id: Optional[str] = None
 
         self._frost_protection_active: bool = False
@@ -416,6 +422,17 @@ class SatDemandControl:
         self._unsubscribers.append(
             self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
         )
+        self._unsubscribers.append(self._hass.async_add_shutdown_job(HassJob(self.async_stop_controlling)))
+
+    async def async_stop_controlling(self) -> None:
+        """Stop commanding the boiler and release it."""
+        self._controlling = False
+        self._cancel_scheduled_heating_control_loop()
+
+        try:
+            await self._heating_control.async_release()
+        except Exception:
+            _LOGGER.exception("Failed to release the boiler for %s", self._id)
 
     async def async_will_remove_from_hass(self, _event: Optional[Event] = None) -> None:
         """Stop controlling and persist what the monitors learned."""
@@ -434,6 +451,9 @@ class SatDemandControl:
         if self._cancel_wind_backfill is not None:
             self._cancel_wind_backfill()
             self._cancel_wind_backfill = None
+
+        await self.async_stop_controlling()
+        ir.async_delete_issue(self._hass, DOMAIN, f"control_loop_stalled_{self._config.entry_id}")
 
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
@@ -750,6 +770,12 @@ class SatDemandControl:
     @callback
     def schedule_heating_control_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
         """Schedule a debounced execution of the heating control loop."""
+        if not self._controlling:
+            return
+
+        if self._started:
+            self._update_stall_issue()
+
         if force or self._scheduled_heating_control_loop_is_overdue():
             self._cancel_scheduled_heating_control_loop()
             self._hass.async_create_task(self.async_control_heating_loop())
@@ -772,6 +798,33 @@ class SatDemandControl:
         _LOGGER.warning("Heating control loop for %s did not run %.0fs after being scheduled; running it now.", self._id, age)
         return True
 
+    @callback
+    def _update_stall_issue(self) -> None:
+        """Report a control loop that stopped completing, until it completes again."""
+        stalled = self._watchdog.check(timestamp())
+
+        if stalled == self._loop_stalled:
+            return
+
+        self._loop_stalled = stalled
+        issue_id = f"control_loop_stalled_{self._config.entry_id}"
+
+        if not stalled:
+            ir.async_delete_issue(self._hass, DOMAIN, issue_id)
+            return
+
+        _LOGGER.error("The heating control loop of %s stopped completing.", self._id)
+
+        ir.async_create_issue(
+            self._hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="control_loop_stalled",
+            translation_placeholders={"name": self._config.name},
+        )
+
     def _cancel_scheduled_heating_control_loop(self) -> None:
         self._control_heating_loop_scheduled_at = None
 
@@ -782,9 +835,22 @@ class SatDemandControl:
         self._control_heating_loop_unsub = None
 
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
-        """Control the heating based on current temperature, target temperature, and outside temperature."""
+        """Run one control cycle and record that it completed."""
         self._cancel_scheduled_heating_control_loop()
 
+        if not self._controlling:
+            return
+
+        try:
+            await self._async_control_heating(time)
+        except TimeoutError:
+            _LOGGER.warning("Commands to the boiler of %s timed out.", self._id)
+            return
+
+        self._watchdog.completed(timestamp())
+
+    async def _async_control_heating(self, time: Optional[datetime] = None) -> None:
+        """Control the heating based on current temperature, target temperature, and outside temperature."""
         if self._hvac_mode == HVACMode.OFF:
             if self._update_frost_protection():
                 await self._heating_control.update(

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -118,3 +119,45 @@ async def test_unique_id_migration(hass):
 
     devices = dr.async_entries_for_config_entry(device_reg, entry.entry_id)
     assert [device.identifiers for device in devices] == [{(DOMAIN, entry.entry_id)}]
+
+
+async def test_unload_releases_the_boiler_once(hass, monkeypatch):
+    sat_entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA)
+    await hass.config_entries.async_add(sat_entry)
+    await hass.async_block_till_done()
+
+    release = AsyncMock()
+    monkeypatch.setattr(hass.data[DOMAIN][sat_entry.entry_id].coordinator, "_async_release", release)
+
+    assert await hass.config_entries.async_unload(sat_entry.entry_id)
+
+    release.assert_awaited_once()
+
+
+async def test_stopping_releases_before_other_integrations_stop(hass, monkeypatch):
+    sat_entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA)
+    await hass.config_entries.async_add(sat_entry)
+    await hass.async_block_till_done()
+
+    entry_data = hass.data[DOMAIN][sat_entry.entry_id]
+    released_at_stop = []
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, lambda _: released_at_stop.append(entry_data.coordinator.released))
+
+    await hass.async_stop()
+
+    assert released_at_stop == [True]
+
+
+async def test_a_scheduled_run_does_not_command_a_released_boiler(hass, monkeypatch):
+    sat_entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA)
+    await hass.config_entries.async_add(sat_entry)
+    await hass.async_block_till_done()
+
+    entry_data = hass.data[DOMAIN][sat_entry.entry_id]
+    await entry_data.demand_control.async_stop_controlling()
+
+    update = AsyncMock()
+    monkeypatch.setattr(entry_data.heating_control, "update", update)
+    await entry_data.demand_control.async_control_heating_loop()
+
+    update.assert_not_awaited()

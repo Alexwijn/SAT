@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} segnala un problema alla valvola",
       "description": "Il dispositivo in {room} di {name} segnala un allarme valvola. Controllare l'installazione, la calibrazione e il collegamento a un eventuale sensore di temperatura esterno."
+    },
+    "control_loop_stalled": {
+      "title": "La regolazione del riscaldamento non risponde",
+      "description": "SAT non completa un ciclo di regolazione per {name} da 15 minuti, quindi la caldaia potrebbe non seguire la richiesta. Controllare la connessione alla caldaia e il registro, poi ricaricare l'integrazione. L'avviso scompare quando la regolazione riprende."
     }
   },
   "entity": {

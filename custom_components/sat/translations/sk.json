@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} hlási problém s ventilom",
       "description": "Zariadenie v {room} v {name} hlási alarm ventilu. Skontrolujte jeho inštaláciu, kalibráciu a prepojenie s prípadným externým snímačom teploty."
+    },
+    "control_loop_stalled": {
+      "title": "Riadenie kúrenia prestalo reagovať",
+      "description": "SAT už 15 minút nedokončil riadiaci cyklus pre {name}, takže kotol nemusí sledovať požiadavku. Skontrolujte pripojenie ku kotlu a záznam a potom znova načítajte integráciu. Upozornenie zmizne po obnovení riadenia."
     }
   },
   "entity": {

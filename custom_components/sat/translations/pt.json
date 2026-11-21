@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} comunica um problema de válvula",
       "description": "O dispositivo em {room} de {name} comunica um alarme de válvula. Verifique a instalação, a calibração e a ligação a qualquer sensor de temperatura externo."
+    },
+    "control_loop_stalled": {
+      "title": "O controlo do aquecimento deixou de responder",
+      "description": "O SAT não conclui um ciclo de controlo para {name} há 15 minutos, pelo que a caldeira pode não seguir o pedido. Verifique a ligação à caldeira e o registo e depois recarregue a integração. Este aviso desaparece quando o controlo é retomado."
     }
   },
   "entity": {

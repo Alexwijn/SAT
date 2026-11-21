@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} signale un problème de vanne",
       "description": "L'appareil de {room} de {name} signale une alarme de vanne. Vérifiez son installation, son étalonnage et le lien avec un éventuel capteur de température externe."
+    },
+    "control_loop_stalled": {
+      "title": "La régulation du chauffage ne répond plus",
+      "description": "SAT n'a terminé aucun cycle de régulation pour {name} depuis 15 minutes, la chaudière peut donc ne pas suivre la demande. Vérifiez la connexion à la chaudière et le journal, puis rechargez l'intégration. Ce message disparaît dès que la régulation reprend."
     }
   },
   "entity": {

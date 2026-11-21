@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} meldet ein Ventilproblem",
       "description": "Das Gerät in {room} von {name} meldet einen Ventilalarm. Prüfen Sie die Montage, die Kalibrierung und die Verbindung zu einem externen Temperatursensor."
+    },
+    "control_loop_stalled": {
+      "title": "Heizungsregelung reagiert nicht mehr",
+      "description": "SAT hat für {name} seit 15 Minuten keinen Regelzyklus abgeschlossen, daher folgt der Kessel dem Bedarf möglicherweise nicht. Prüfen Sie die Verbindung zum Kessel und das Protokoll und laden Sie die Integration dann neu. Die Meldung verschwindet, sobald die Regelung wieder läuft."
     }
   },
   "entity": {

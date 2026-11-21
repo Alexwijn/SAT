@@ -1,5 +1,6 @@
 """Tests focused on heating control behavior."""
 
+import asyncio
 from typing import Optional
 from unittest.mock import AsyncMock
 
@@ -832,3 +833,43 @@ async def test_undelivered_release_is_retried(coordinator, monkeypatch):
     await coordinator.async_release()
 
     assert coordinator.released is False
+
+
+async def test_release_waits_for_an_update_in_flight(heating_control, coordinator, monkeypatch):
+    sending, finish = asyncio.Event(), asyncio.Event()
+
+    async def _slow_modulation(value):
+        sending.set()
+        await finish.wait()
+
+    monkeypatch.setattr(coordinator, "async_set_control_max_relative_modulation", _slow_modulation)
+    update = asyncio.create_task(heating_control.update(_make_demand(45.0)))
+    await sending.wait()
+    release = asyncio.create_task(heating_control.async_release())
+    await asyncio.sleep(0)
+
+    assert coordinator.released is False
+
+    finish.set()
+    await asyncio.gather(update, release)
+
+    assert coordinator.released is True
+    assert coordinator.active is False
+
+
+async def test_backend_that_never_returns_does_not_block_the_next_command(heating_control, coordinator, monkeypatch):
+    monkeypatch.setattr("custom_components.sat.heating_control.COMMAND_TIMEOUT_SECONDS", 0.01)
+
+    async def _never_returns(value):
+        await asyncio.Event().wait()
+
+    with monkeypatch.context() as hanging:
+        hanging.setattr(coordinator, "async_set_control_max_relative_modulation", _never_returns)
+
+        with pytest.raises(TimeoutError):
+            await heating_control.update(_make_demand(45.0))
+
+    await heating_control.update(_make_demand(45.0))
+    await heating_control.async_release()
+
+    assert coordinator.released is True

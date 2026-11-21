@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} informa de un problema de válvula",
       "description": "El dispositivo de {room} de {name} informa de una alarma de válvula. Compruebe su instalación, su calibración y el enlace con cualquier sensor de temperatura externo."
+    },
+    "control_loop_stalled": {
+      "title": "El control de calefacción no responde",
+      "description": "SAT no ha completado ningún ciclo de control para {name} en 15 minutos, por lo que la caldera puede no seguir la demanda. Compruebe la conexión con la caldera y el registro y, después, recargue la integración. Este aviso desaparece cuando se reanuda el control."
     }
   },
   "entity": {

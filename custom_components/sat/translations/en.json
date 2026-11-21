@@ -371,6 +371,10 @@
     "room_fault": {
       "title": "{room} reports a valve problem",
       "description": "The device in {room} on {name} reports a valve alarm. Check its installation, calibration and any external temperature sensor link."
+    },
+    "control_loop_stalled": {
+      "title": "Heating control stopped responding",
+      "description": "SAT has not completed a control cycle for {name} in 15 minutes, so the boiler may not follow the demand. Check the connection to the boiler and the log, then reload the integration. This clears itself when control resumes."
     }
   },
   "entity": {
