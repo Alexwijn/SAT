@@ -150,6 +150,11 @@ def _build_state_new_ha():
     return rekeyed
 
 
+def _build_info_without_device_keys():
+    """Build an info dict keyed by the bare entity key."""
+    return {info_type: {key: info for (_device_id, key), info in entries.items()} for info_type, entries in _build_info().items()}
+
+
 def _make_esphome_config():
     data = {**DEFAULT_USER_DATA, CONF_MODE: SatMode.ESPHOME, CONF_DEVICE: ESPHOME_ENTRY_ID}
     return SatConfig(entry_id="esphome-test", data=data, options={**OPTIONS_DEFAULTS})
@@ -210,7 +215,30 @@ def esphome_coordinator_new_ha(hass, runtime_data_new_ha, monkeypatch):
     return _make_esphome_coordinator(hass, monkeypatch, runtime_data_new_ha)
 
 
+@pytest.fixture
+def esphome_coordinator_without_device_keys(hass, monkeypatch):
+    """Create a SatEspHomeCoordinator without device keys."""
+    runtime_data = FakeRuntimeEntryData(info=_build_info_without_device_keys(), state=_build_state(), device_info=SimpleNamespace(mac_address="AA:BB:CC:DD:EE:FF"))
+
+    return _make_esphome_coordinator(hass, monkeypatch, runtime_data)
+
+
 # ── Discovery tests ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_discover_entities_without_device_keys(esphome_coordinator_without_device_keys):
+    assert esphome_coordinator_without_device_keys._discover_entities() == KEYS
+
+
+@pytest.mark.asyncio
+async def test_read_values_without_device_keys(esphome_coordinator_without_device_keys):
+    coordinator = esphome_coordinator_without_device_keys
+    coordinator._keys = coordinator._discover_entities()
+
+    assert coordinator.boiler_temperature == 45.2
+    assert coordinator.flame_active is True
+    assert coordinator.setpoint == 55.0
 
 
 @pytest.mark.asyncio

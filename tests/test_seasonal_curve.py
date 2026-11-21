@@ -4,7 +4,6 @@ from datetime import timedelta
 from unittest.mock import AsyncMock
 
 import pytest
-from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.components.recorder.statistics import async_import_statistics
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
@@ -15,6 +14,7 @@ from pytest_homeassistant_custom_component.components.recorder.common import asy
 from custom_components.sat.const import DOMAIN
 from custom_components.sat.heating_curve import HeatingCurveAdviceSample, HeatingCurveAdvisor, RECOMMENDATION_MINIMUM_SHAPE
 from custom_components.sat.seasonal_curve import STARTUP_DELAY_SECONDS, SeasonalCurveEvaluator, SeasonalCurveHour, SeasonalCurveMonitor
+from tests.recorder_statistics import statistic_metadata
 
 HOUR_SECONDS = 3600.0
 
@@ -165,15 +165,7 @@ def _import(hass, statistic_id: str, unit, values: list[float]) -> None:
 
     async_import_statistics(
         hass,
-        {
-            "has_sum": False,
-            "mean_type": StatisticMeanType.ARITHMETIC,
-            "name": None,
-            "source": "recorder",
-            "statistic_id": statistic_id,
-            "unit_class": TemperatureConverter.UNIT_CLASS if unit else None,
-            "unit_of_measurement": unit,
-        },
+        statistic_metadata(statistic_id, unit, TemperatureConverter.UNIT_CLASS if unit else None),
         [{"start": first + timedelta(hours=index * 3), "mean": value, "min": value, "max": value} for index, value in enumerate(values)],
     )
 

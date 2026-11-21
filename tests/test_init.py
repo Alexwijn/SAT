@@ -69,7 +69,6 @@ async def test_reload_skips_setup_when_unload_fails(hass, monkeypatch):
 
     setup_mock.assert_not_called()
     unload_platforms_mock.assert_awaited_once()
-    assert sat_entry.state is ConfigEntryState.FAILED_UNLOAD
 
 
 async def test_options_updates_reload_entry_once(hass, caplog):

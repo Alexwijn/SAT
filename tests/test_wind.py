@@ -3,7 +3,6 @@
 from datetime import timedelta
 
 import pytest
-from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.components.recorder.statistics import async_import_statistics
 from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, STATE_UNAVAILABLE
 from homeassistant.helpers import entity_registry as er
@@ -15,6 +14,7 @@ from custom_components.sat.const import CONF_OUTSIDE_SENSOR_ENTITY_ID, CONF_WIND
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.wind import WIND_SMOOTHING_WINDOW_SECONDS, WindHistory, WindMonitor, WindReading
 from tests.const import make_config
+from tests.recorder_statistics import statistic_metadata
 
 WEATHER = "weather.home"
 ANEMOMETER = "sensor.garden_wind_speed"
@@ -176,15 +176,7 @@ async def test_hourly_history_is_empty_without_a_recorder(hass):
 def _import_wind(hass, statistic_id: str, unit: str, means: dict) -> None:
     async_import_statistics(
         hass,
-        {
-            "has_sum": False,
-            "mean_type": StatisticMeanType.ARITHMETIC,
-            "name": None,
-            "source": "recorder",
-            "statistic_id": statistic_id,
-            "unit_class": SpeedConverter.UNIT_CLASS,
-            "unit_of_measurement": unit,
-        },
+        statistic_metadata(statistic_id, unit, SpeedConverter.UNIT_CLASS),
         [{"start": start, "mean": value, "min": value, "max": value} for start, value in means.items()],
     )
 

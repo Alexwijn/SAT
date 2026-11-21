@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - home-assistant: "2026.1.2 (minimum)"
+          - home-assistant: "2025.2.5 (minimum)"
             python-version: "3.13"
             install: pip install -r requirements_test.txt
           - home-assistant: "latest"

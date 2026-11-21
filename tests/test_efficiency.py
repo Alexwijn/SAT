@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.components.recorder.statistics import async_import_statistics
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
@@ -14,6 +13,7 @@ from pytest_homeassistant_custom_component.components.recorder.common import asy
 
 from custom_components.sat.const import DOMAIN
 from custom_components.sat.efficiency import EfficiencyDay, EfficiencyEvaluator, EfficiencyMonitor, EfficiencyPeriod, EfficiencyReport, GasHistory, SOURCE_ESTIMATE, SOURCE_METER
+from tests.recorder_statistics import statistic_metadata
 
 TODAY = date(2026, 11, 15)
 
@@ -205,15 +205,7 @@ async def test_no_gas_source_gives_an_empty_report(hass):
 def _import(hass, statistic_id: str, unit, unit_class, rows: list[dict], has_sum: bool = False) -> None:
     async_import_statistics(
         hass,
-        {
-            "has_sum": has_sum,
-            "mean_type": StatisticMeanType.NONE if has_sum else StatisticMeanType.ARITHMETIC,
-            "name": None,
-            "source": "recorder",
-            "statistic_id": statistic_id,
-            "unit_class": unit_class,
-            "unit_of_measurement": unit,
-        },
+        statistic_metadata(statistic_id, unit, unit_class, has_sum),
         rows,
     )
 

@@ -72,6 +72,14 @@ class EspHomeEntityKey:
     device_id: int
     key: int
 
+    @classmethod
+    def from_info_key(cls, info_key: int | tuple[int, int]) -> EspHomeEntityKey:
+        """Create the key from an ESPHome entity info key."""
+        if isinstance(info_key, tuple):
+            return cls(*info_key)
+
+        return cls(0, info_key)
+
 
 @dataclass
 class EspHomeEntityKeys:
@@ -353,10 +361,10 @@ class SatEspHomeCoordinator(SatDataUpdateCoordinator):
 
         for info_type in (SensorInfo, BinarySensorInfo, NumberInfo, SwitchInfo):
             infos = entry_data.info.get(info_type, {})
-            for (device_id, key), info in infos.items():
+            for info_key, info in infos.items():
                 field_name = ENTITY_MAP.get((info_type, info.object_id))
                 if field_name is not None:
-                    setattr(keys, field_name, EspHomeEntityKey(device_id, key))
+                    setattr(keys, field_name, EspHomeEntityKey.from_info_key(info_key))
 
         return keys
 
