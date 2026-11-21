@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta, datetime
 from typing import Optional
 
@@ -33,6 +33,28 @@ COMFORT_BAND = 0.1
 COOLING_SLOPE = 4.0
 OVERSHOOT_MARGIN = 0.3
 COOLING_HEADROOM = 10.0
+
+
+@dataclass(frozen=True, slots=True)
+class RoomDemand:
+    """What the rooms together ask of the boiler, and the limit the overshooting ones put on it."""
+
+    request: Optional[float]
+    overshoot_cap: Optional[float] = None
+
+    @property
+    def setpoint(self) -> float:
+        """Return the request after the overshooting rooms limited it."""
+        request = self.request if self.request is not None else MINIMUM_SETPOINT
+
+        if self.overshoot_cap is None:
+            return request
+
+        return min(request, self.overshoot_cap)
+
+    def including(self, request: float) -> RoomDemand:
+        """Return the demand with the request of the main room added."""
+        return replace(self, request=request if self.request is None else max(request, self.request))
 
 
 @dataclass(frozen=True, slots=True)
@@ -405,6 +427,11 @@ class Areas:
             cap = max(COLD_SETPOINT, cap)
 
             return round(cap, 1)
+
+        @property
+        def demand(self) -> RoomDemand:
+            """Return what the rooms together ask of the boiler."""
+            return RoomDemand(request=self.output, overshoot_cap=self.overshoot_cap)
 
         def reset(self, entity_id: Optional[str] = None) -> None:
             for area in self._areas:

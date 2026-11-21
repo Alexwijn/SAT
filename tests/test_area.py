@@ -3,7 +3,7 @@ from datetime import timedelta
 from homeassistant.components.climate import HVACMode
 from homeassistant.util import dt as dt_util
 
-from custom_components.sat.area import Area, ATTR_SENSOR_TEMPERATURE_ID
+from custom_components.sat.area import Area, RoomDemand, ATTR_SENSOR_TEMPERATURE_ID
 from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_SENSOR_MAX_VALUE_AGE, OPTIONS_DEFAULTS
 from custom_components.sat.types import HeatingSystem
 from tests.const import make_config
@@ -112,3 +112,9 @@ async def test_area_remembers_when_its_target_changed(hass):
     hass.states.async_set("climate.room1", HVACMode.HEAT, {"temperature": 20.0, "current_temperature": 17.5})
     area.control_pid(dt_util.utc_from_timestamp(1120.0))
     assert area.driving_room.target_temperature_changed_at == 1120.0
+
+
+def test_room_demand_is_the_highest_request_under_the_cap():
+    assert RoomDemand(request=45.0).including(40.0).setpoint == 45.0
+    assert RoomDemand(request=40.0).including(45.0).setpoint == 45.0
+    assert RoomDemand(request=45.0, overshoot_cap=30.0).including(40.0).setpoint == 30.0

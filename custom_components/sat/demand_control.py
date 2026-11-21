@@ -270,26 +270,18 @@ class SatDemandControl:
     def requested_setpoint(self) -> float:
         """Get the requested setpoint based on the heating curve and PIDs."""
         if self._config.rooms_only:
-            setpoint = self.areas.pids.output
+            demand = self.areas.pids.demand
         else:
             if self.heating_curve.value is None:
                 return MINIMUM_SETPOINT
 
-            setpoint = self.pid.output
-
             # ECO: only follow the primary PID.
             if self._config.presets.heating_mode == HeatingMode.ECO:
-                return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
+                return clamp(round(self.pid.output, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
-            # Secondary rooms: heating information.
-            if (secondary_heating := self.areas.pids.output) is not None:
-                setpoint = max(setpoint, secondary_heating)
+            demand = self.areas.pids.demand.including(self.pid.output)
 
-        # Rooms that are overshooting cap the request.
-        overshoot_cap = self.areas.pids.overshoot_cap
-
-        if overshoot_cap is not None:
-            setpoint = min(setpoint, overshoot_cap)
+        setpoint = demand.setpoint
 
         if self._solar_gain_snapshot.active and self._config.solar_gain.enabled:
             setpoint -= self._config.solar_gain.setpoint_offset_celsius
