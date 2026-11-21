@@ -1,4 +1,7 @@
 from datetime import timedelta
+from types import SimpleNamespace
+
+import pytest
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.util import dt as dt_util
@@ -95,3 +98,26 @@ async def test_area_remembers_when_its_target_changed(hass):
     hass.states.async_set("climate.room1", HVACMode.HEAT, {"temperature": 20.0, "current_temperature": 17.5})
     area.control_pid(dt_util.utc_from_timestamp(1120.0))
     assert area.driving_room.target_temperature_changed_at == 1120.0
+
+
+@pytest.mark.parametrize(
+    ("attributes", "position", "requires_heat"),
+    [
+        ({"valve_open_percent": 0}, 0, False),
+        ({"valve_open_percent": 8}, 8, False),
+        ({"valve_open_percent": 10}, 10, True),
+        ({"current_valve_position": 0, "valve_open_percent": 100}, 0, False),
+        ({"current_valve_position": "unknown", "valve_open_percent": 10}, 10, True),
+        ({}, None, True),
+    ],
+)
+async def test_area_uses_vtherm_valve_feedback(hass, attributes, position, requires_heat):
+    entity_id = "climate.room1"
+    hass.states.async_set(entity_id, HVACMode.HEAT, attributes)
+    config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=dict(OPTIONS_DEFAULTS))
+    area = Area(config, entity_id)
+    await area.async_added_to_hass(hass, "device.test")
+    area.pid = SimpleNamespace(available=True, output=30)
+
+    assert area.valve_position == position
+    assert area.requires_heat is requires_heat
