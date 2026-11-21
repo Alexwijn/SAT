@@ -234,3 +234,12 @@ def test_normalize_dict_payload_adds_defaults(coordinator):
 def test_normalize_scalar_payload(coordinator):
     result = coordinator._normalize_payload("key", "value")
     assert result == {"key": "value"}
+
+
+async def test_release_ends_with_central_heating_off(coordinator, monkeypatch):
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append((a, kw))))
+
+    await coordinator.async_release()
+
+    assert calls[-1] == (("off",), {"suffix": COMMAND_SUFFIX_CH_MODE})

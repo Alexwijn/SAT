@@ -334,3 +334,13 @@ async def test_maximum_power_is_written_again_when_the_boiler_reports_another(co
     await coordinator.async_set_control_max_relative_modulation(100)
 
     assert calls == [{"cmd": "burnmaxpower", "value": 100}] * 2
+
+
+async def test_release_switches_heating_off_and_restores_the_power(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+    await coordinator.async_set_control_max_relative_modulation(100)
+    calls.clear()
+
+    await coordinator.async_release()
+
+    assert calls == [{"cmd": "selflowtemp", "value": 0}, {"cmd": "burnmaxpower", "value": 100}]

@@ -150,3 +150,13 @@ def test_valve_is_active_while_open(hass, state, active):
     hass.states.async_set("valve.heater", state)
 
     assert coordinator.active is active
+
+
+@pytest.mark.parametrize(("domain", "service"), [("switch", "turn_off"), ("input_boolean", "turn_off"), ("valve", "close_valve")])
+async def test_release_calls_the_off_service(hass, domain, service):
+    coordinator = _coordinator_for(hass, domain)
+    calls = async_mock_service(hass, domain, service)
+
+    await coordinator.async_release()
+
+    assert len(calls) == 1

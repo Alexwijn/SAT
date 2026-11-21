@@ -177,6 +177,12 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
         # Not supported (yet)
         await super().async_set_control_thermostat_setpoint(value)
 
+    async def _async_release(self) -> None:
+        """Switch heating off, always writing the maximum power back."""
+        self._requested_maximum_power = None
+
+        await super()._async_release()
+
     async def async_set_heater_state(self, state: HeaterState) -> None:
         """Heat demand on EMS boilers follows the flow setpoint alone."""
         await super().async_set_heater_state(state)
