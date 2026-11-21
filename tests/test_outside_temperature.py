@@ -41,3 +41,17 @@ async def test_stale_sensor_falls_back_to_weather(hass, outside_temperature, fre
 
 async def test_no_source_gives_no_temperature(hass, outside_temperature):
     assert outside_temperature.read(hass) is None
+
+
+@pytest.mark.parametrize("value", ["", "none", "nan"])
+async def test_sensor_without_a_number_falls_back_to_weather(hass, outside_temperature, value):
+    hass.states.async_set(SENSOR, value)
+    hass.states.async_set(WEATHER, "cloudy", {"temperature": 7.0})
+
+    assert outside_temperature.read(hass) == 7.0
+
+
+async def test_weather_without_a_temperature_gives_no_temperature(hass, outside_temperature):
+    hass.states.async_set(WEATHER, "cloudy")
+
+    assert outside_temperature.read(hass) is None

@@ -9,7 +9,7 @@ from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNO
 from homeassistant.core import HomeAssistant, State
 
 from .entry_data import SensorsConfig
-from .helpers import ensure_list, is_state_stale, state_age_seconds
+from .helpers import ensure_list, float_value, is_state_stale, state_age_seconds
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,9 +41,9 @@ class OutsideTemperature:
     @staticmethod
     def _value(state: State) -> Optional[float]:
         if sensor.DOMAIN in state.entity_id:
-            return float(state.state)
+            return float_value(state.state)
 
         if weather.DOMAIN in state.entity_id:
-            return float(state.attributes.get(ATTR_TEMPERATURE))
+            return float_value(state.attributes.get(ATTR_TEMPERATURE))
 
         return None
