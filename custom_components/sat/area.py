@@ -166,16 +166,14 @@ class Area:
         if (self._hass is None) or (climate_state := self.climate_state) is None:
             return None
 
-        if ATTR_CURRENT_VALVE_POSITION not in climate_state.attributes:
-            return None
+        # Preserve the existing attribute's priority and support VTherm.
+        for attribute in (ATTR_CURRENT_VALVE_POSITION, "valve_open_percent"):
+            raw_value = climate_state.attributes.get(attribute)
+            value = float_value(raw_value)
+            if value is not None:
+                return value
 
-        raw_value = climate_state.attributes.get(ATTR_CURRENT_VALVE_POSITION)
-
-        try:
-            return float_value(raw_value)
-        except (TypeError, ValueError):
-            _LOGGER.debug("Invalid valve position for %s: %r", self.id, raw_value)
-            return None
+        return None
 
     @property
     def driving_room(self) -> Optional[DrivingRoom]:
