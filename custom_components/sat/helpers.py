@@ -57,8 +57,8 @@ def sustained_runtime(current_time: float, started_at: Optional[float]) -> Susta
 
 
 def state_age_seconds(state: State) -> float:
-    """Return the age of a HA state in seconds."""
-    return (dt.utcnow() - state.last_updated).total_seconds()
+    """Return the seconds since a HA state was last reported."""
+    return (dt.utcnow() - state.last_reported).total_seconds()
 
 
 def is_state_stale(state: Optional[State], max_age_seconds: float) -> bool:

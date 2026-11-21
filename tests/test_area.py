@@ -26,6 +26,23 @@ async def test_area_current_temperature_stale_climate_state(hass, monkeypatch):
     assert area.current_temperature is None
 
 
+async def test_area_that_keeps_reporting_the_same_temperature_stays_fresh(hass, freezer):
+    hass.states.async_set("climate.room1", "heat", {"current_temperature": 21.0})
+
+    config_options = dict(OPTIONS_DEFAULTS)
+    config_options[CONF_SENSOR_MAX_VALUE_AGE] = "00:01:00"
+    config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=config_options)
+
+    area = Area(config, "climate.room1")
+    await area.async_added_to_hass(hass, "device.test")
+
+    freezer.tick(timedelta(seconds=50))
+    hass.states.async_set("climate.room1", "heat", {"current_temperature": 21.0})
+    freezer.tick(timedelta(seconds=50))
+
+    assert area.current_temperature == 21.0
+
+
 async def test_area_off_climate_is_excluded(hass):
     hass.states.async_set("climate.room1", HVACMode.OFF, {"temperature": 21.0, "current_temperature": 18.0})
 
