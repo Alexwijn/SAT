@@ -1,59 +1,83 @@
 from __future__ import annotations
 
-import logging
-from time import monotonic
+from collections import deque
+from dataclasses import dataclass
+from typing import Optional
 
-from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.components.climate import HVACAction
 from homeassistant.components.group.binary_sensor import BinarySensorGroup
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant
+from homeassistant.const import ATTR_ENTITY_ID, EntityCategory
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
-from .climate import SatClimate
-from .const import CONF_MODE, MODE_SERIAL, CONF_NAME, DOMAIN, COORDINATOR, CLIMATE, CONF_WINDOW_SENSORS, FlameStatus, BoilerStatus
-from .entity import SatClimateEntity, SatEntity
-from .helpers import seconds_since
-from .serial import binary_sensor as serial_binary_sensor
+from . import SatHeatingControl
+from .demand_control import SatDemandControl
+from .const import *
+from .coordinator.serial import binary_sensor as serial_binary_sensor
+from .entity import SatDemandControlEntity, SatEntity, SatHeatingControlEntity
+from .entry_data import SatConfig, SatMode, get_entry_data
+from .helpers import float_value, seconds_since, timestamp
+from .types import BoilerStatus, CycleClassification
 
-_LOGGER: logging.Logger = logging.getLogger(__name__)
-
-
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, _async_add_entities: AddEntitiesCallback):
-    """
-    Add binary sensors for the serial protocol if the integration is set to use it.
-    """
-    climate = _hass.data[DOMAIN][_config_entry.entry_id][CLIMATE]
-    coordinator = _hass.data[DOMAIN][_config_entry.entry_id][COORDINATOR]
-
-    # Check if integration is set to use the serial protocol
-    if _config_entry.data.get(CONF_MODE) == MODE_SERIAL:
-        await serial_binary_sensor.async_setup_entry(_hass, _config_entry, _async_add_entities)
-
-    if coordinator.supports_setpoint_management:
-        _async_add_entities([SatControlSetpointSynchroSensor(coordinator, _config_entry, climate)])
-
-    if coordinator.supports_relative_modulation_management:
-        _async_add_entities([SatRelativeModulationSynchroSensor(coordinator, _config_entry, climate)])
-
-    if len(_config_entry.options.get(CONF_WINDOW_SENSORS, [])) > 0:
-        _async_add_entities([SatWindowSensor(coordinator, _config_entry, climate)])
-
-    _async_add_entities([
-        SatFlameHealthSensor(coordinator, _config_entry),
-        SatBoilerHealthSensor(coordinator, _config_entry),
-        SatCentralHeatingSynchroSensor(coordinator, _config_entry, climate)
-    ])
+PRESSURE_EMA_ALPHA = 0.05
+PRESSURE_RESOLUTION_BAR = 0.1
+PRESSURE_THERMAL_DRIFT_CELSIUS = 5.0
+PRESSURE_DROP_RATE_SETTLE_SECONDS = 1800
+PRESSURE_PROBLEM_CONFIRMATION_SECONDS = 120
+PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS = 1800
 
 
-class SatSynchroSensor:
+@dataclass(frozen=True, slots=True)
+class PressureSample:
+    """Smoothed pressure reading together with the boiler temperature it was taken at."""
+
+    timestamp: float
+    pressure: float
+    boiler_temperature: Optional[float]
+
+
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    """Add SAT binary sensors based on the configured integration mode."""
+    if config_entry.entry_id not in hass.data.get(DOMAIN, {}):
+        return
+
+    entry_data = get_entry_data(hass, config_entry.entry_id)
+
+    if entry_data.config.mode == SatMode.SERIAL:
+        await serial_binary_sensor.async_setup_entry(hass, config_entry, async_add_entities)
+
+    sensors: list[BinarySensorEntity] = [
+        SatCycleHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatDeviceFaultSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatDeviceHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatPressureHealthSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatBoilerTrendsSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control),
+        SatCentralHeatingSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control, entry_data.demand_control),
+    ]
+
+    if len(entry_data.config.window_sensors) > 0:
+        sensors.append(SatWindowSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
+
+    if entry_data.coordinator.supports_setpoint_management:
+        sensors.append(SatControlSetpointSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
+
+    if entry_data.coordinator.supports_relative_modulation_management:
+        sensors.append(SatRelativeModulationSyncSensor(entry_data.coordinator, entry_data.config, entry_data.heating_control))
+
+    async_add_entities(sensors)
+
+
+class SatSyncSensor:
     """Mixin to add delayed state change for binary sensors."""
 
     def __init__(self, delay: int = 60):
         """Initialize the mixin with a delay."""
         self._delay = delay
-        self._last_mismatch = None
+        self._last_mismatch: Optional[float] = None
 
     def state_delayed(self, condition: bool) -> bool:
         """Determine the delayed state based on a condition."""
@@ -62,7 +86,7 @@ class SatSynchroSensor:
             return False
 
         if self._last_mismatch is None:
-            self._last_mismatch = monotonic()
+            self._last_mismatch = timestamp()
 
         if seconds_since(self._last_mismatch) >= self._delay:
             return True
@@ -70,176 +94,561 @@ class SatSynchroSensor:
         return False
 
 
-class SatControlSetpointSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
-    def __init__(self, coordinator, _config_entry, climate):
-        SatSynchroSensor.__init__(self)
-        SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
+class SatControlSetpointSyncSensor(SatSyncSensor, SatHeatingControlEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    @property
-    def name(self):
-        """Return the friendly name of the sensor."""
-        return "Control Setpoint Synchro"
-
-    @property
-    def device_class(self):
-        """Return the device class."""
-        return BinarySensorDeviceClass.PROBLEM
-
-    @property
-    def available(self):
-        """Return availability of the sensor."""
-        return self._climate.setpoint is not None and self._coordinator.setpoint is not None
-
-    @property
-    def is_on(self):
-        """Return the state of the sensor."""
-        return self.state_delayed(round(self._climate.setpoint, 1) != round(self._coordinator.setpoint, 1))
-
-    @property
-    def unique_id(self):
-        """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-control-setpoint-synchro"
-
-
-class SatRelativeModulationSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
-    def __init__(self, coordinator, _config_entry, climate):
-        SatSynchroSensor.__init__(self)
-        SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
-
-    @property
-    def name(self):
-        """Return the friendly name of the sensor."""
-        return "Relative Modulation Synchro"
-
-    @property
-    def device_class(self):
-        """Return the device class."""
-        return BinarySensorDeviceClass.PROBLEM
-
-    @property
-    def available(self):
-        """Return availability of the sensor."""
-        return self._climate.relative_modulation_value is not None and self._coordinator.maximum_relative_modulation_value is not None
-
-    @property
-    def is_on(self):
-        """Return the state of the sensor."""
-        return self.state_delayed(int(self._climate.relative_modulation_value) != int(self._coordinator.maximum_relative_modulation_value))
-
-    @property
-    def unique_id(self):
-        """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-relative-modulation-synchro"
-
-
-class SatCentralHeatingSynchroSensor(SatSynchroSensor, SatClimateEntity, BinarySensorEntity):
-    def __init__(self, coordinator, _config_entry, climate):
-        SatSynchroSensor.__init__(self)
-        SatClimateEntity.__init__(self, coordinator, _config_entry, climate)
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
+        SatSyncSensor.__init__(self)
+        SatEntity.__init__(self, coordinator, config, heating_control)
 
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return "Central Heating Synchro"
+        return "Control Setpoint Synchronization"
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass:
         """Return the device class."""
         return BinarySensorDeviceClass.PROBLEM
 
     @property
     def available(self) -> bool:
         """Return availability of the sensor."""
-        return self._climate is not None
+        return self._heating_control.control_setpoint is not None and self._coordinator.setpoint is not None
 
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        device_active = self._coordinator.device_active
-        climate_hvac_action = self._climate.state_attributes.get("hvac_action")
+        climate_setpoint = round(self._heating_control.control_setpoint, 1)
+        coordinator_setpoint = round(self._coordinator.setpoint, 1)
 
-        return self.state_delayed(not (
-                (climate_hvac_action == HVACAction.OFF and not device_active) or
-                (climate_hvac_action == HVACAction.IDLE and not device_active) or
-                (climate_hvac_action == HVACAction.HEATING and device_active)
-        ))
+        return self.state_delayed(not self._coordinator.hot_water_active and climate_setpoint != coordinator_setpoint)
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-central-heating-synchro"
+        return f"{self._config.entry_id}-control-setpoint-synchro"
 
 
-class SatBoilerHealthSensor(SatEntity, BinarySensorEntity):
+class SatRelativeModulationSyncSensor(SatSyncSensor, SatHeatingControlEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    @property
-    def name(self) -> str:
-        """Return the friendly name of the sensor."""
-        return "Boiler Health"
-
-    @property
-    def device_class(self) -> str:
-        """Return the device class."""
-        return BinarySensorDeviceClass.PROBLEM
-
-    @property
-    def is_on(self) -> bool:
-        """Return the state of the sensor."""
-        return self._coordinator.boiler.status == BoilerStatus.INSUFFICIENT_DATA
-
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-boiler-health"
-
-
-class SatFlameHealthSensor(SatEntity, BinarySensorEntity):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
+        SatSyncSensor.__init__(self)
+        SatEntity.__init__(self, coordinator, config, heating_control)
 
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return "Flame Health"
+        return "Relative Modulation Synchronization"
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass:
         """Return the device class."""
         return BinarySensorDeviceClass.PROBLEM
 
     @property
     def available(self) -> bool:
         """Return availability of the sensor."""
-        return self._coordinator.flame.health_status != FlameStatus.INSUFFICIENT_DATA
+        climate_modulation = self._heating_control.relative_modulation_value
+        maximum_modulation = self._coordinator.maximum_relative_modulation_value
+
+        return climate_modulation is not None and maximum_modulation is not None
 
     @property
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        return self._coordinator.flame.health_status not in (FlameStatus.HEALTHY, FlameStatus.IDLE_OK)
+        climate_modulation = int(self._heating_control.relative_modulation_value)
+        maximum_modulation = int(self._coordinator.maximum_relative_modulation_value)
+
+        return self.state_delayed(not self._coordinator.hot_water_active and (climate_modulation != maximum_modulation))
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-flame-health"
+        return f"{self._config.entry_id}-relative-modulation-synchro"
 
 
-class SatWindowSensor(SatClimateEntity, BinarySensorGroup):
-    def __init__(self, coordinator, config_entry: ConfigEntry, climate: SatClimate):
-        super().__init__(coordinator, config_entry, climate)
+class SatCentralHeatingSyncSensor(SatSyncSensor, SatDemandControlEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl, demand_control: SatDemandControl):
+        SatSyncSensor.__init__(self)
+        SatDemandControlEntity.__init__(self, coordinator, config, heating_control, demand_control)
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Central Heating Synchronization"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        device_active = self._coordinator.active
+        climate_hvac_action = self._demand_control.hvac_action
+
+        should_be_off = climate_hvac_action == HVACAction.OFF and not device_active
+        should_be_idle = climate_hvac_action == HVACAction.IDLE and not device_active
+        should_be_heating = climate_hvac_action == HVACAction.HEATING and device_active
+
+        return self.state_delayed(not self._coordinator.hot_water_active and not (should_be_off or should_be_idle or should_be_heating))
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-central-heating-synchro"
+
+
+class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
+        self._pressure_config = self._config.pressure_health
+
+        self._last_active: Optional[bool] = None
+        self._drop_rate_suspended_until: Optional[float] = None
+        self._last_pressure: Optional[float] = None
+        self._last_drop_rate: Optional[float] = None
+        self._last_seen_pressure: Optional[float] = None
+        self._last_pressure_timestamp: Optional[float] = None
+        self._smoothed_pressure: Optional[float] = None
+        self._problem_first_detected: Optional[float] = None
+        self._pressure_samples: deque[PressureSample] = deque()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+
+        last_state = await self.async_get_last_state()
+        if last_state is None:
+            return
+
+        attributes = last_state.attributes or {}
+        self._last_pressure = float_value(attributes.get("last_pressure"))
+        self._last_pressure_timestamp = float_value(attributes.get("last_pressure_timestamp"))
+        self._last_seen_pressure = float_value(attributes.get("last_seen_pressure_timestamp"))
+        self._smoothed_pressure = float_value(attributes.get("smoothed_pressure"))
+
+        if self._last_pressure is not None and self._last_pressure_timestamp is not None:
+            self._pressure_samples.append(PressureSample(timestamp=self._last_pressure_timestamp, pressure=self._last_pressure, boiler_temperature=None))
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Pressure Health"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def available(self) -> bool:
+        """Return availability of the sensor."""
+        if self._coordinator.boiler_pressure is not None:
+            return True
+
+        if self._last_seen_pressure is None:
+            return False
+
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        now = timestamp()
+        raw_pressure = self._coordinator.boiler_pressure
+        minimum_pressure = self._pressure_config.minimum_pressure_bar
+        maximum_pressure = self._pressure_config.maximum_pressure_bar
+        maximum_age_seconds = self._pressure_config.maximum_age_seconds
+        maximum_drop_rate = self._pressure_config.maximum_drop_rate_bar_per_hour
+
+        self._track_active_state(now)
+
+        if raw_pressure is None:
+            if self._last_seen_pressure is None:
+                return False
+
+            if maximum_age_seconds <= 0:
+                return False
+
+            return (now - self._last_seen_pressure) > maximum_age_seconds
+
+        self._last_seen_pressure = now
+        smoothed = self._update_smoothed_pressure(raw_pressure)
+        self._record_pressure_sample(PressureSample(timestamp=now, pressure=smoothed, boiler_temperature=self._coordinator.boiler_temperature), maximum_age_seconds)
+
+        drop_rate = self._calculate_drop_rate()
+
+        self._last_pressure = raw_pressure
+        self._last_pressure_timestamp = now
+
+        pressure_low = smoothed < minimum_pressure
+        pressure_high = smoothed > maximum_pressure
+        drop_rate_allowed = self._drop_rate_allowed(now)
+
+        if not drop_rate_allowed:
+            drop_rate = None
+            self._last_drop_rate = None
+        elif drop_rate is not None:
+            self._last_drop_rate = round(drop_rate, 3)
+
+        drop_rate_high = drop_rate is not None and drop_rate > maximum_drop_rate
+        raw_problem = pressure_low or pressure_high or drop_rate_high
+
+        return self._confirm_problem(now, raw_problem)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Optional[float]]:
+        """Return extra attributes for debugging pressure health decisions."""
+        return {
+            "pressure": self._coordinator.boiler_pressure,
+            "smoothed_pressure": self._smoothed_pressure,
+            "pressure_drop_rate_bar_per_hour": self._last_drop_rate,
+
+            "last_pressure": self._last_pressure,
+            "last_pressure_timestamp": self._last_pressure_timestamp,
+            "last_seen_pressure_timestamp": self._last_seen_pressure,
+        }
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-pressure-health"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self.available and self.is_on:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_pressure_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="boiler_pressure",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "pressure": str(self._smoothed_pressure if self._smoothed_pressure is not None else "unknown"),
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_pressure_{self._config.entry_id}")
+
+        super()._handle_coordinator_update()
+
+    def _update_smoothed_pressure(self, raw_pressure: float) -> float:
+        if self._smoothed_pressure is None:
+            self._smoothed_pressure = raw_pressure
+        else:
+            self._smoothed_pressure = (
+                PRESSURE_EMA_ALPHA * raw_pressure
+                + (1 - PRESSURE_EMA_ALPHA) * self._smoothed_pressure
+            )
+        return self._smoothed_pressure
+
+    def _confirm_problem(self, now: float, condition: bool) -> bool:
+        if not condition:
+            self._problem_first_detected = None
+            return False
+
+        if self._problem_first_detected is None:
+            self._problem_first_detected = now
+
+        return (now - self._problem_first_detected) >= PRESSURE_PROBLEM_CONFIRMATION_SECONDS
+
+    def _track_active_state(self, timestamp_seconds: float) -> None:
+        active = self._coordinator.active
+        if self._last_active is None:
+            self._last_active = active
+            return
+
+        if self._last_active != active:
+            self._drop_rate_suspended_until = timestamp_seconds + PRESSURE_DROP_RATE_SETTLE_SECONDS
+            self._pressure_samples.clear()
+
+        self._last_active = active
+
+    def _drop_rate_allowed(self, timestamp_seconds: float) -> bool:
+        if self._drop_rate_suspended_until is None:
+            return True
+
+        if timestamp_seconds >= self._drop_rate_suspended_until:
+            self._drop_rate_suspended_until = None
+            return True
+
+        return False
+
+    def _record_pressure_sample(self, sample: PressureSample, maximum_age_seconds: float) -> None:
+        if maximum_age_seconds <= 0:
+            maximum_age_seconds = 3600
+
+        drop_window_seconds = max(maximum_age_seconds, 3600)
+        self._pressure_samples.append(sample)
+
+        while self._pressure_samples and (sample.timestamp - self._pressure_samples[0].timestamp) > drop_window_seconds:
+            self._pressure_samples.popleft()
+
+    def _calculate_drop_rate(self) -> Optional[float]:
+        """Return the pressure loss in bar per hour, or None when the window cannot tell a leak from noise or cooling."""
+        if len(self._pressure_samples) < 3:
+            return None
+
+        first, last = self._pressure_samples[0], self._pressure_samples[-1]
+        if (last.timestamp - first.timestamp) < PRESSURE_DROP_RATE_MIN_WINDOW_SECONDS:
+            return None
+
+        if (first.pressure - last.pressure) < 2 * PRESSURE_RESOLUTION_BAR:
+            return None
+
+        if first.boiler_temperature is not None and last.boiler_temperature is not None:
+            if (first.boiler_temperature - last.boiler_temperature) > PRESSURE_THERMAL_DRIFT_CELSIUS:
+                return None
+
+        n = len(self._pressure_samples)
+        sum_t = sum_p = sum_tp = sum_t2 = 0.0
+        for sample in self._pressure_samples:
+            t, p = sample.timestamp, sample.pressure
+            sum_t += t
+            sum_p += p
+            sum_tp += t * p
+            sum_t2 += t * t
+
+        denom = n * sum_t2 - sum_t * sum_t
+        if denom == 0:
+            return None
+
+        slope = (n * sum_tp - sum_t * sum_p) / denom
+        return -slope * 3600
+
+
+class SatDeviceFaultSensor(SatEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Device Fault"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def available(self) -> bool:
+        """Return availability of the sensor."""
+        return self._coordinator.fault_active is not None
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        return bool(self._coordinator.fault_active)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the fault details."""
+        return {"fault_code": self._coordinator.fault_code}
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-boiler-fault"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self._coordinator.fault_active:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_fault_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.ERROR,
+                translation_key="boiler_fault",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "fault_code": str(self._coordinator.fault_code if self._coordinator.fault_code is not None else "unknown"),
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_fault_{self._config.entry_id}")
+
+        super()._handle_coordinator_update()
+
+
+class SatDeviceHealthSensor(SatHeatingControlEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Device Health"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        return self._heating_control.device_status == BoilerStatus.INSUFFICIENT_DATA
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-boiler-health"
+
+
+class SatBoilerTrendsSensor(SatHeatingControlEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Boiler Trends"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        return self._heating_control.boiler_health.trends.is_problem
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the values behind the trend decisions."""
+        trends = self._heating_control.boiler_health.trends
+
+        return {
+            "pressure_trend_days": trends.pressure.days,
+            "pressure_top_ups": trends.pressure.top_ups,
+            "pressure_loss_bar": trends.pressure.loss_bar,
+            "pressure_slope_bar_per_day": trends.pressure.slope_bar_per_day,
+
+            "cycling_baseline_days": trends.cycling.baseline_days,
+            "cycling_recent_cycles": trends.cycling.recent_cycles,
+            "cycling_baseline_cycles": trends.cycling.baseline_cycles,
+            "cycling_recent_on_seconds": trends.cycling.recent_on_seconds,
+            "cycling_baseline_on_seconds": trends.cycling.baseline_on_seconds,
+
+            "flow_return_drifting": trends.flow_return.is_drifting,
+            "flow_return_recent_delta": trends.flow_return.recent_delta,
+            "flow_return_baseline_delta": trends.flow_return.baseline_delta,
+        }
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-boiler-trends"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        trends = self._heating_control.boiler_health.trends
+        pressure, cycling = trends.pressure, trends.cycling
+
+        if cycling.is_problem:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_short_cycling_trend_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="boiler_short_cycling_trend",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "recent_cycles": f"{cycling.recent_cycles:.0f}",
+                    "baseline_cycles": f"{cycling.baseline_cycles:.0f}",
+                    "on_time": f"{cycling.recent_on_seconds / 60:.0f}",
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_short_cycling_trend_{self._config.entry_id}")
+
+        if pressure.is_problem:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                f"boiler_pressure_trend_{self._config.entry_id}",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="boiler_pressure_trend",
+                translation_placeholders={
+                    "name": self._config.name,
+                    "top_ups": str(pressure.top_ups),
+                    "loss": f"{pressure.loss_bar or 0.0:.1f}",
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, f"boiler_pressure_trend_{self._config.entry_id}")
+
+        super()._handle_coordinator_update()
+
+
+class SatCycleHealthSensor(SatHeatingControlEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    async def async_added_to_hass(self) -> None:
+        def on_cycle_event(_event: Event) -> None:
+            self.schedule_update_ha_state()
+
+        await super().async_added_to_hass()
+        self.async_on_remove(self.hass.bus.async_listen(EVENT_SAT_CYCLE_ENDED, on_cycle_event))
+
+    @property
+    def name(self) -> str:
+        """Return the friendly name of the sensor."""
+        return "Cycle Health"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        """Return the device class."""
+        return BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return the state of the sensor."""
+        if self._heating_control is None or self._heating_control.last_cycle is None:
+            return False
+
+        return self._heating_control.last_cycle.classification not in (
+            CycleClassification.GOOD,
+            CycleClassification.UNCERTAIN,
+            CycleClassification.INSUFFICIENT_DATA,
+        )
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-cycle-health"
+
+
+class SatWindowSensor(SatEntity, BinarySensorGroup):
+    def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
+        super().__init__(coordinator, config, heating_control)
 
         self.mode = any
-        self._entity_ids = self._config_entry.options.get(CONF_WINDOW_SENSORS)
+        self._entity_ids = self._config.window_sensors
         self._attr_extra_state_attributes = {ATTR_ENTITY_ID: self._entity_ids}
 
     @property
     def name(self) -> str:
         """Return the friendly name of the sensor."""
-        return "Smart Autotune Thermostat Window Sensor"
+        return "Window Sensor"
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass:
         """Return the device class."""
         return BinarySensorDeviceClass.WINDOW
 
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._config_entry.data.get(CONF_NAME).lower()}-window-sensor"
+        return f"{self._config.entry_id}-window-sensor"

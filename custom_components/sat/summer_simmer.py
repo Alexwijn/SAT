@@ -1,10 +1,12 @@
+from typing import Optional
+
 from homeassistant.const import UnitOfTemperature
 from homeassistant.util.unit_conversion import TemperatureConverter
 
 
 class SummerSimmer:
     @staticmethod
-    def index(temperature: float, humidity: float) -> float | None:
+    def index(temperature: float, humidity: float) -> Optional[float]:
         """
         Calculate the Summer Simmer Index.
 

@@ -1,83 +1,221 @@
-from types import MappingProxyType
-from typing import Any
+from __future__ import annotations
 
-from homeassistant.components.climate import HVACMode
-from homeassistant.const import STATE_UNKNOWN, STATE_UNAVAILABLE
-from homeassistant.core import HomeAssistant, State
+import logging
+from dataclasses import dataclass
+from datetime import timedelta, datetime
+from typing import Optional
 
-from .const import CONF_ROOMS
-from .errors import Errors, Error
-from .heating_curve import HeatingCurve
-from .helpers import float_value
-from .pid import PID
-from .util import (
-    create_pid_controller,
-    create_heating_curve_controller,
+from homeassistant.components import sensor, climate
+from homeassistant.components.climate import HVACAction, HVACMode
+from homeassistant.const import (
+    STATE_UNKNOWN,
+    STATE_UNAVAILABLE,
 )
+from homeassistant.core import HomeAssistant, State
+from homeassistant.helpers.event import async_track_time_interval
 
-SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
+from .const import COLD_SETPOINT, MINIMUM_SETPOINT
+from .entry_data import SatConfig
+from .heating_curve import HeatingCurve, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS
+from .helpers import event_timestamp, float_value, is_state_stale, state_age_seconds
+from .pid import PID, PID_UPDATE_INTERVAL
+from .temperature.history import TemperatureHistory
+from .temperature.state import TemperatureState
+
+_LOGGER = logging.getLogger(__name__)
+
+ATTR_TEMPERATURE = "temperature"
+ATTR_CURRENT_TEMPERATURE = "current_temperature"
+ATTR_SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
+ATTR_CURRENT_VALVE_POSITION = "current_valve_position"
+
+COMFORT_BAND = 0.1
+COOLING_SLOPE = 4.0
+OVERSHOOT_MARGIN = 0.3
+COOLING_HEADROOM = 10.0
+
+
+@dataclass(frozen=True, slots=True)
+class DrivingRoom:
+    """Room whose PID output the boiler is asked to deliver, with what the curve advice reads from it."""
+
+    pid: PID
+    error: float
+    heating_curve: HeatingCurve
+    temperature_history: TemperatureHistory
+    target_temperature_changed_at: Optional[float]
 
 
 class Area:
-    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any], entity_id: str):
-        self._entity_id: str = entity_id
-        self._hass: HomeAssistant | None = None
+    """Represents a single climate-controlled area."""
 
-        # Create controllers with the given configuration options
-        self.pid: PID = create_pid_controller(config_options)
-        self.heating_curve: HeatingCurve = create_heating_curve_controller(config_data, config_options)
+    def __init__(self, config: SatConfig, entity_id: str) -> None:
+        self._time_interval = None
+        self._sensor_handler = None
+
+        self._entity_id: str = entity_id
+        self._hass: Optional[HomeAssistant] = None
+        self._sensor_max_value_age: float = config.sensors.sensor_max_value_age_seconds
+        self._climate_valve_offset: float = config.limits.climate_valve_offset
+
+        # Create controllers.
+        self.heating_curve: HeatingCurve = HeatingCurve.from_config(config)
+        self.pid: PID = PID.from_config(self.heating_curve, config)
+        self._temperature_history: TemperatureHistory = TemperatureHistory()
+        self._target_temperature: Optional[float] = None
+        self._target_temperature_changed_at: Optional[float] = None
+
+        _LOGGER.debug("Area %s initialized", self._entity_id)
 
     @property
     def id(self) -> str:
+        """Return the entity id of this area."""
         return self._entity_id
 
     @property
-    def state(self) -> State | None:
+    def climate_state(self) -> Optional[State]:
         """Retrieve the current state of the climate entity."""
         if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
             return None
 
-        return state if state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE] else None
+        return state if state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF] else None
+
+    def sensor_state(self) -> Optional[State]:
+        """Return the source state used to calculate the current temperature."""
+        if (self._hass is None) or (climate_state := self.climate_state) is None:
+            return None
+
+        # Check if there is an overridden sensor temperature
+        if (sensor_temperature_id := climate_state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
+            sensor_state = self._hass.states.get(sensor_temperature_id)
+            if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
+                if is_state_stale(sensor_state, self._sensor_max_value_age):
+                    _LOGGER.debug("Area sensor %s stale for %s (age=%.1fs > %.1fs)", sensor_temperature_id, self._entity_id, state_age_seconds(sensor_state), self._sensor_max_value_age)
+                    return None
+
+                return sensor_state
+
+        if is_state_stale(climate_state, self._sensor_max_value_age):
+            _LOGGER.debug("Area climate %s stale for %s (age=%.1fs > %.1fs)", self._entity_id, self._entity_id, state_age_seconds(climate_state), self._sensor_max_value_age)
+            return None
+
+        return climate_state
 
     @property
-    def target_temperature(self) -> float | None:
+    def current_temperature(self) -> Optional[float]:
+        """Retrieve the current temperature, overridden by a sensor if set."""
+        if (state := self.sensor_state()) is None:
+            return None
+
+        if sensor.DOMAIN in state.entity_id:
+            return float_value(state.state)
+
+        if climate.DOMAIN in state.entity_id:
+            return float_value(state.attributes.get("current_temperature"))
+
+        return None
+
+    @property
+    def room_temperature(self) -> Optional[float]:
+        """Retrieve the temperature of the room from its sensor or its climate entity."""
+        if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
+            return None
+
+        if state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            return None
+
+        if (sensor_temperature_id := state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
+            sensor_state = self._hass.states.get(sensor_temperature_id)
+            if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+                return float_value(sensor_state.state)
+
+        return float_value(state.attributes.get(ATTR_CURRENT_TEMPERATURE))
+
+    @property
+    def target_temperature(self) -> Optional[float]:
         """Retrieve the target temperature from the climate entity."""
-        if (self._hass is None) or (state := self.state) is None:
+        if (self._hass is None) or (state := self.climate_state) is None:
             return None
 
         return float_value(state.attributes.get("temperature"))
 
     @property
-    def current_temperature(self) -> float | None:
-        """Retrieve the current temperature, overridden by a sensor if set."""
-        if (self._hass is None) or (state := self.state) is None:
+    def temperature_state(self) -> Optional[TemperatureState]:
+        """Calculate the temperature state."""
+        if (sensor_state := self.sensor_state()) is None:
             return None
 
-        # Check if there is an overridden sensor temperature
-        if sensor_temperature_id := state.attributes.get(SENSOR_TEMPERATURE_ID):
-            sensor_state = self._hass.states.get(sensor_temperature_id)
-            if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
-                return float_value(sensor_state.state)
-
-        return float_value(state.attributes.get("current_temperature") or self.target_temperature)
-
-    @property
-    def error(self) -> Error | None:
-        """Calculate the temperature error."""
         target_temperature = self.target_temperature
         current_temperature = self.current_temperature
 
         if target_temperature is None or current_temperature is None:
             return None
 
-        return Error(self._entity_id, round(target_temperature - current_temperature, 2))
+        return TemperatureState(
+            entity_id=self._entity_id,
+            setpoint=target_temperature,
+            current=current_temperature,
+            last_reported=sensor_state.last_reported,
+            last_updated=sensor_state.last_updated,
+            last_changed=sensor_state.last_changed,
+        )
 
     @property
-    def weight(self) -> float | None:
-        """
-        Room heating demand weight (0-2 range).
-        Based on the difference between target and current temperature.
-        """
+    def valve_position(self) -> Optional[float]:
+        """Retrieve the valve position from the climate entity."""
+        if (self._hass is None) or (climate_state := self.climate_state) is None:
+            return None
+
+        if ATTR_CURRENT_VALVE_POSITION not in climate_state.attributes:
+            return None
+
+        raw_value = climate_state.attributes.get(ATTR_CURRENT_VALVE_POSITION)
+
+        try:
+            return float_value(raw_value)
+        except (TypeError, ValueError):
+            _LOGGER.debug("Invalid valve position for %s: %r", self.id, raw_value)
+            return None
+
+    @property
+    def driving_room(self) -> Optional[DrivingRoom]:
+        """Return this area as the room the boiler heats for."""
+        if (temperature_state := self.temperature_state) is None:
+            return None
+
+        return DrivingRoom(
+            pid=self.pid,
+            error=temperature_state.error,
+            heating_curve=self.heating_curve,
+            temperature_history=self._temperature_history,
+            target_temperature_changed_at=self._target_temperature_changed_at,
+        )
+
+    @property
+    def is_steady(self) -> bool:
+        """Return whether the room temperature has settled, wherever it settled relative to the target."""
+        return self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS)
+
+    @property
+    def is_calling(self) -> bool:
+        """Return whether the climate entity itself is asking for heat."""
+        if (climate_state := self.climate_state) is None:
+            return False
+
+        if (hvac_action := climate_state.attributes.get("hvac_action")) is not None:
+            return hvac_action == HVACAction.HEATING
+
+        target_temperature = float_value(climate_state.attributes.get(ATTR_TEMPERATURE))
+        current_temperature = float_value(climate_state.attributes.get(ATTR_CURRENT_TEMPERATURE))
+
+        if target_temperature is None or current_temperature is None:
+            return False
+
+        return target_temperature >= current_temperature + self._climate_valve_offset
+
+    @property
+    def weight(self) -> Optional[float]:
+        """Room heating demand weight in range [0, 2]."""
         target_temperature = self.target_temperature
         current_temperature = self.current_temperature
 
@@ -86,77 +224,189 @@ class Area:
 
         delta = target_temperature - current_temperature
         effective_delta = max(delta - 0.2, 0.0)
+
         raw_weight = effective_delta * 1.0
+        clamped_weight = max(0.0, min(raw_weight, 2.0))
 
-        return round(max(0.0, min(raw_weight, 2.0)), 3)
+        return round(clamped_weight, 3)
 
-    async def async_added_to_hass(self, hass: HomeAssistant):
+    @property
+    def requires_heat(self) -> bool:
+        """Determine if this area should influence heating arbitration."""
+        if self.climate_state is None:
+            return False
+
+        valve_position = self.valve_position
+        if valve_position is not None:
+            return valve_position >= 10.0
+
+        if not self.pid.available:
+            return False
+
+        return self.pid.output > COLD_SETPOINT
+
+    async def async_added_to_hass(self, hass: HomeAssistant, device_id) -> None:
+        """Run when the area is added to Home Assistant."""
         self._hass = hass
 
-    async def async_control_heating_loop(self, _time=None) -> None:
-        """Asynchronously control the heating loop."""
-        if self.error is None or self.heating_curve.value is None:
+        await self.pid.async_added_to_hass(hass, self._entity_id, device_id)
+
+        self._time_interval = async_track_time_interval(
+            self._hass, self.control_pid, timedelta(seconds=PID_UPDATE_INTERVAL), cancel_on_shutdown=True
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when the area is about to be removed."""
+        if self._time_interval is not None:
+            self._time_interval()
+            self._time_interval = None
+
+    def control_pid(self, _time: Optional[datetime] = None) -> None:
+        """Update the PID controller with the current error and heating curve."""
+        if (temperature_state := self.temperature_state) is None:
+            _LOGGER.debug("Skipping control loop for %s because the temperature is not available.", self._entity_id)
             return
 
-        # Control the integral (if exceeded the time limit)
-        self.pid.update_integral(self.error, self.heating_curve.value)
+        now = event_timestamp(_time)
+
+        if temperature_state.setpoint != self._target_temperature:
+            self._target_temperature = temperature_state.setpoint
+            self._target_temperature_changed_at = now
+
+        self.pid.update(temperature_state)
+        self._temperature_history.record(temperature_state.error, now)
 
 
 class Areas:
-    def __init__(self, config_data: MappingProxyType[str, Any], config_options: MappingProxyType[str, Any]):
-        """Initialize Areas with multiple Area instances using shared config data and options."""
-        self._entity_ids: list[str] = config_data.get(CONF_ROOMS) or []
-        self._areas: list[Area] = [Area(config_data, config_options, entity_id) for entity_id in self._entity_ids]
+    """Container for multiple Area instances."""
+
+    def __init__(self, areas: list[Area]) -> None:
+        """Initialize Areas with multiple Area instances using shared config data."""
+        self._areas: list[Area] = areas
+
+    @staticmethod
+    def from_config(config: SatConfig) -> "Areas":
+        return Areas([Area(config, entity_id) for entity_id in config.rooms])
 
     @property
-    def errors(self) -> Errors:
-        """Return a list of all the error values for all areas."""
-        return Errors([area.error for area in self._areas if area.error is not None])
-
-    @property
-    def heating_curves(self):
-        """Return an interface to update heating curves for all areas."""
-        return Areas._HeatingCurves(self._areas)
-
-    @property
-    def pids(self):
+    def pids(self) -> "Areas._PIDs":
         """Return an interface to reset PID controllers for all areas."""
         return Areas._PIDs(self._areas)
 
-    def items(self) -> list[str]:
-        return self._entity_ids
+    @property
+    def heating_curves(self) -> "Areas._HeatingCurves":
+        """Return an interface to update heating curves for all areas."""
+        return Areas._HeatingCurves(self._areas)
 
-    async def async_added_to_hass(self, hass: HomeAssistant):
+    def get(self, entity_id: str) -> Optional[Area]:
+        """Return the Area instance for a given entity id, if present."""
         for area in self._areas:
-            await area.async_added_to_hass(hass)
+            if area.id == entity_id:
+                return area
 
-    async def async_control_heating_loops(self, _time=None) -> None:
-        """Asynchronously control heating loop for all areas."""
+        return None
+
+    def ids(self) -> list[str]:
+        """Return all configured entity ids."""
+        return [area.id for area in self._areas]
+
+    def items(self) -> list[Area]:
+        """Return all Area instances."""
+        return list(self._areas)
+
+    async def async_added_to_hass(self, hass: HomeAssistant, device_id: Optional[str]) -> None:
+        """Call async_added_to_hass for all areas."""
         for area in self._areas:
-            await area.async_control_heating_loop(_time)
+            await area.async_added_to_hass(hass, device_id)
+
+    def control_pid(self) -> None:
+        """Update the PID controller of every area with its current temperature state."""
+        for area in self._areas:
+            area.control_pid()
 
     class _HeatingCurves:
+        """Helper for interacting with heating curves of all areas."""
+
         def __init__(self, areas: list[Area]):
-            self.areas = areas
+            self._areas = areas
 
-        def update(self, current_outside_temperature: float) -> None:
-            """Update the heating curve for all areas based on the current outside temperature."""
-            for area in self.areas:
-                if area.target_temperature is None:
-                    continue
-
-                area.heating_curve.update(area.target_temperature, current_outside_temperature)
+        def update(self, outside_temperature: float) -> None:
+            for area in self._areas:
+                if area.target_temperature is not None:
+                    area.heating_curve.update(area.target_temperature, outside_temperature)
 
     class _PIDs:
-        def __init__(self, areas: list[Area]):
-            self.areas = areas
+        """Helper for interacting with PID controllers of all areas."""
 
-        def update(self, boiler_temperature: float) -> None:
-            for area in self.areas:
-                if area.error is not None:
-                    area.pid.update(area.error, area.heating_curve.value, boiler_temperature)
+        def __init__(self, areas: list[Area], percentile: float = 0.75, headroom: float = 5.0):
+            self._areas: list[Area] = areas
+            self._headroom: float = headroom
+            self._percentile: float = percentile
 
-        def reset(self) -> None:
-            """Reset PID controllers for all areas."""
-            for area in self.areas:
-                area.pid.reset()
+        @property
+        def output(self) -> float:
+            """Aggregate PID output + count for areas that are calling for heat."""
+            area_count = 0
+            outputs: list[float] = []
+
+            for area in self._areas:
+                if not area.pid.available or not area.requires_heat:
+                    continue
+
+                try:
+                    value = area.pid.output
+                except Exception as exception:
+                    _LOGGER.warning("Failed to compute PID output for area %s: %s", area.id, exception)
+                    continue
+
+                area_count += 1
+                outputs.append(value)
+
+            if not outputs:
+                return MINIMUM_SETPOINT
+
+            outputs.sort()
+            index = max(0, min(len(outputs) - 1, int(len(outputs) * self._percentile)))
+            baseline = outputs[index]
+
+            allowed = baseline + self._headroom
+            chosen = min(outputs[-1], allowed)
+
+            return round(chosen, 1)
+
+        @property
+        def overshoot_cap(self) -> Optional[float]:
+            """Compute a cooling-driven cap based on overshooting rooms."""
+            caps: list[float] = []
+
+            for area in self._areas:
+                if not area.pid.available or not area.requires_heat:
+                    continue
+
+                if (temperature_state := area.temperature_state) is None:
+                    continue
+
+                if temperature_state.error >= -OVERSHOOT_MARGIN:
+                    continue
+
+                # Degrees above target (positive number)
+                degrees_over = -temperature_state.error
+
+                # Start from a “max allowed in cooling” and pull it down with overshoot severity.
+                caps.append(COLD_SETPOINT + COOLING_HEADROOM - COOLING_SLOPE * degrees_over)
+
+            if not caps:
+                return None
+
+            # The strictest cap wins: we take the minimum.
+            cap = min(caps)
+
+            # Ensure we never go below the minimum.
+            cap = max(COLD_SETPOINT, cap)
+
+            return round(cap, 1)
+
+        def reset(self, entity_id: Optional[str] = None) -> None:
+            for area in self._areas:
+                if entity_id is None or entity_id == area.id:
+                    area.pid.reset()

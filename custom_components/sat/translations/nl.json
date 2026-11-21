@@ -5,18 +5,21 @@
       "reconfigure_successful": "Gateway is opnieuw geconfigureerd."
     },
     "error": {
+      "invalid_device": "Dit is een ongeldig apparaat.",
       "connection": "Kan geen verbinding maken met de gateway.",
-      "mqtt_component": "Het MQTT-component is niet beschikbaar.",
-      "unable_to_calibrate": "Het kalibratieproces is op een probleem gestuit en kon niet succesvol worden voltooid. Zorg ervoor dat uw verwarmingssysteem correct functioneert en dat alle vereiste sensoren zijn aangesloten en correct werken.\n\nAls u problemen blijft ondervinden met de kalibratie, overweeg dan om contact met ons op te nemen voor verdere hulp. Onze excuses voor het ongemak."
-    },
-    "progress": {
-      "calibration": "Kalibreren en de waarde van de overshootbeveiliging vinden...\n\nEven geduld a.u.b. terwijl wij uw verwarmingssysteem optimaliseren. Dit proces kan ongeveer 20 minuten duren."
+      "rooms_required": "Zonder binnensensor is minimaal één kamer vereist, omdat de kamers dan de enige bron van warmtevraag zijn."
     },
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Thermostaat",
           "main_climates": "Primair",
           "secondary_climates": "Kamers"
+        },
+        "data_description": {
+          "thermostat": "Optionele bestaande thermostaat om setpoints te synchroniseren.",
+          "main_climates": "Radiatoren in dezelfde ruimte als de binnensensor.",
+          "secondary_climates": "Kamers met hun eigen doeltemperaturen. Vereist wanneer er geen binnensensor is geconfigureerd."
         },
         "description": "Instellingen met betrekking tot klimaten, multi-kamer en temperatuurregeling. Primaire klimaten bevinden zich in dezelfde kamer als de binnensensor en de kamers hebben hun eigen doeltemperaturen los van het systeem.",
         "title": "Gebieden"
@@ -28,60 +31,75 @@
         "description": "Deze functie past de regelparameters van uw verwarmingssysteem dynamisch aan, waardoor de temperatuurregeling wordt geoptimaliseerd voor meer comfort en energie-efficiëntie. Het inschakelen van deze optie stelt SAT in staat om de verwarmingsinstellingen voortdurend aan te passen en te verfijnen op basis van de omgevingsomstandigheden. Dit helpt een stabiele en comfortabele omgeving te handhaven zonder handmatige tussenkomst.\n\nLet op: Als u ervoor kiest om automatische versterkingen niet in te schakelen, moet u handmatig de PID-waarden invoeren voor nauwkeurige temperatuurregeling. Zorg ervoor dat u nauwkeurige PID-waarden heeft voor uw specifieke verwarmingssysteem om optimale prestaties te bereiken.",
         "title": "Automatische Versterkingen"
       },
-      "calibrate_system": {
-        "description": "Optimaliseer uw verwarmingssysteem door automatisch de optimale PID-waarden voor uw opstelling te bepalen. Let op dat het systeem bij het selecteren van Automatische Versterkingen een kalibratieproces zal ondergaan dat ongeveer 20 minuten kan duren.\n\nAutomatische Versterkingen worden aanbevolen voor de meeste gebruikers omdat het het instelproces vereenvoudigt en optimale prestaties verzekert. Echter, als u bekend bent met PID-regeling en de voorkeur geeft aan het handmatig instellen van de waarden, kunt u ervoor kiezen om Automatische Versterkingen over te slaan.\n\nLet op dat het kiezen om Automatische Versterkingen over te slaan een goede kennis van PID-regeling vereist en mogelijk extra handmatige aanpassingen nodig heeft om optimale prestaties te bereiken.",
-        "menu_options": {
-          "calibrate": "Kalibreer en bepaal uw overshoot-beveiligingswaarde (ong. 20 min).",
-          "overshoot_protection": "Voer handmatig de overshoot-beveiligingswaarde in.",
-          "pid_controller": "Voer handmatig PID-waarden in (niet aanbevolen)."
-        },
-        "title": "Systeem Kalibreren"
-      },
-      "calibrated": {
-        "description": "Het kalibratieproces is succesvol voltooid.\n\nGefeliciteerd! Uw Slimme Autotune Thermostaat (SAT) is gekalibreerd om de verwarmingsprestaties van uw systeem te optimaliseren. Tijdens het kalibratieproces heeft SAT zorgvuldig de verwarmingskenmerken geanalyseerd en de geschikte overshoot-beveiligingswaarde bepaald om nauwkeurige temperatuurregeling te verzekeren.\n\nOvershoot-beveiligingswaarde: {minimum_setpoint} °C\n\nDeze waarde vertegenwoordigt de maximale hoeveelheid overshoot die is toegestaan tijdens het verwarmingsproces. SAT zal actief de verwarming monitoren en aanpassen om overmatig overshoot te voorkomen, en zo een comfortabele en efficiënte verwarmingservaring in uw huis te handhaven.\n\nLet op dat de overshoot-beveiligingswaarde kan variëren afhankelijk van de specifieke kenmerken van uw verwarmingssysteem en omgevingsfactoren. Het is fijn afgestemd om optimale prestaties te bieden op basis van de kalibratieresultaten.",
-        "menu_options": {
-          "calibrate": "Kalibratie opnieuw proberen",
-          "finish": "Doorgaan met huidige kalibratie"
-        },
-        "title": "Kalibratie Voltooid"
-      },
       "heating_system": {
         "data": {
           "heating_system": "Systeem"
+        },
+        "data_description": {
+          "heating_system": "Kies het systeem dat past bij uw warmteafgiftes."
         },
         "description": "Het kiezen van het juiste type verwarmingssysteem is belangrijk voor SAT om de temperatuur nauwkeurig te regelen en prestaties te optimaliseren. Kies de optie die overeenkomt met uw opstelling om een correcte temperatuurregeling in uw huis te verzekeren.",
         "title": "Verwarmingssysteem"
       },
       "mosquitto": {
-        "description": "Configureer de MQTT-modus voor uw verwarmingssysteem. Kies de gateway-modus en geef de naam op.",
+        "description": "Kies het gatewaytype zodat SAT weet welke MQTT-topics te gebruiken.",
         "data": {
           "mode": "Modus"
+        },
+        "data_description": {
+          "mode": "Kies het gatewaytype zodat SAT het MQTT-topicformaat weet."
         },
         "title": "MQTT-configuratie"
       },
       "mosquitto_opentherm": {
-        "description": "Stel de OpenTherm Gateway in. Geef het belangrijkste MQTT-onderwerp en het apparaat-ID op.",
+        "description": "Geef het basis MQTT-topic op (bijv. {example_otgw_topic}) en de apparaat-ID.",
         "data": {
           "name": "Naam",
           "mqtt_topic": "MQTT-onderwerp",
           "device": "Apparaat-ID"
         },
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "mqtt_topic": "Basistopic gebruikt door de gateway (bijv. OTGW/ of OTGW/ABCDEF).",
+          "device": "Gateway-identificatie (vaak de OTGW-id)."
+        },
         "title": "OpenTherm Gateway Configuratie"
       },
       "mosquitto_ems": {
-        "description": "Stel de EMS-ESP Gateway in. Geef het MQTT-onderwerp op.",
+        "description": "Geef het basis MQTT-topic op (bijv. {example_ems_topic}).",
         "data": {
           "name": "Naam",
           "mqtt_topic": "MQTT-onderwerp"
         },
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "mqtt_topic": "Basistopic gebruikt door EMS-ESP (bijv. ems-esp/)."
+        },
         "title": "EMS-ESP Gateway Configuratie"
       },
-      "overshoot_protection": {
+      "mosquitto_otthing": {
+        "description": "Geef het basistopic op zonder /state (bijv. {example_otthing_topic}).",
         "data": {
-          "minimum_setpoint": "Waarde"
+          "name": "Naam",
+          "mqtt_topic": "MQTT-onderwerp"
         },
-        "description": "Door het verstrekken van de overshoot-beveiligingswaarde zal SAT de regelparameters dienovereenkomstig aanpassen om een stabiele en comfortabele verwarmingsomgeving te behouden. Deze handmatige configuratie stelt u in staat het systeem fijn af te stemmen op basis van uw specifieke opstelling.\n\nLet op: Als u niet zeker bent over de overshoot-beveiligingswaarde of het kalibratieproces niet heeft uitgevoerd, wordt aanbevolen de configuratie te annuleren en het kalibratieproces te doorlopen zodat SAT automatisch de waarde voor optimale prestaties kan bepalen.",
-        "title": "Overshoot-beveiliging"
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "mqtt_topic": "Basistopic zonder /state (bijv. otthing/31F44C)."
+        },
+        "title": "OTthing Gateway Configuratie"
+      },
+      "esphome": {
+        "description": "Selecteer het ESPHome-apparaat en geef het een naam.",
+        "data": {
+          "name": "Naam",
+          "device": "Apparaat"
+        },
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "device": "Te gebruiken ESPHome-apparaat."
+        },
+        "title": "ESPHome-configuratie"
       },
       "pid_controller": {
         "data": {
@@ -89,16 +107,23 @@
           "integral": "Integraal (kI)",
           "proportional": "Proportioneel (kP)"
         },
-        "description": "Configureer de proportionele, integrale en afgeleide versterkingen handmatig om uw verwarmingssysteem fijn te stemmen. Gebruik deze optie als u volledige controle wilt hebben over de PID-regelaarparameters. Stel de versterkingen in op basis van de specifieke kenmerken van uw verwarmingssysteem en voorkeuren.",
+        "description": "Configureer de proportionele, integrale en afgeleide versterkingen handmatig om uw verwarmingssysteem fijn te stemmen. Gebruik deze optie als u volledige controle wilt hebben over de PID-regelaar parameters. Stel de versterkingen in op basis van de specifieke kenmerken van uw verwarmingssysteem en voorkeuren.",
         "title": "Configureer de PID-regelaar handmatig."
       },
       "sensors": {
         "data": {
           "humidity_sensor_entity_id": "Vochtigheidssensor Entiteit",
           "inside_sensor_entity_id": "Binnensensor Entiteit",
-          "outside_sensor_entity_id": "Buitensensor Entiteit"
+          "outside_sensor_entity_id": "Buitensensor Entiteit",
+          "wind_sensor_entity_id": "Windsensor Entiteit"
         },
-        "description": "Selecteer de sensoren die gebruikt zullen worden om de temperatuur te volgen.",
+        "data_description": {
+          "inside_sensor_entity_id": "Primaire binnentemperatuursensor. Laat leeg wanneer elke verwarmde kamer een eigen climate-entiteit heeft; SAT volgt dan alleen de kamers en maakt geen eigen thermostaat aan.",
+          "outside_sensor_entity_id": "Buitensensor of weer-entiteit (meervoudige selectie mogelijk).",
+          "humidity_sensor_entity_id": "Optionele vochtigheidssensor.",
+          "wind_sensor_entity_id": "Optionele windsnelheidssensor of weer-entiteit (meervoudige selectie mogelijk). Kies de gemiddelde windsnelheid, niet de windstoten. Als dit leeg blijft, wordt de windsnelheid van een weer-entiteit uit de buitensensoren gebruikt."
+        },
+        "description": "Selecteer de binnensensor, de buitensensor(en), een optionele vochtigheidssensor en optionele windsensor(en). De binnensensor is optioneel wanneer u alleen kamers gebruikt.",
         "title": "Configureer sensoren"
       },
       "serial": {
@@ -106,7 +131,11 @@
           "device": "URL",
           "name": "Naam"
         },
-        "description": "Om een verbinding met de OpenTherm Gateway te maken via een socketverbinding, gelieve de volgende details te verstrekken. Voer in het veld Naam een naam in voor de gateway die u helpt deze te identificeren binnen uw systeem.\n\nSpecificeer het netwerkadres van de OpenTherm Gateway in het veld Apparaat. Dit kan in het formaat zijn van \"socket://otgw.local:25238\", waarbij \"otgw.local\" de hostnaam of het IP-adres van de gateway is en \"25238\" het poortnummer.\n\nDeze instellingen zijn essentieel voor het tot stand brengen van communicatie en integratie met uw OpenTherm Gateway via de socketverbinding. Zorg ervoor dat de verstrekte gegevens nauwkeurig zijn om een correcte werking te garanderen.",
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "device": "Socket-URL, bijv. socket://otgw.local:25238."
+        },
+        "description": "Voer een naam en een socket-URL in (bijv. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIEEL )"
       },
       "simulator": {
@@ -127,8 +156,13 @@
           "minimum_setpoint": "Temperatuurinstelling",
           "name": "Naam"
         },
-        "description": "Gelieve de volgende details in te vullen om de schakelaar in te stellen. Voer in het veld Naam een naam in voor de schakelaar, die u helpt deze te identificeren binnen uw systeem. Kies de geschikte entiteit om voor uw schakelaar te gebruiken uit de aangeboden opties.\n\nIn het veld Temperatuurinstelling specificeert u de gewenste doeltemperatuur voor uw verwarmingssysteem. Als u een warmwaterboiler gebruikt, vul dan de Boiler Temperatuurinstelling in met de geschikte waarde. Voor elektrische verwarmingssystemen, voer de waarde 100 in.\n\nDeze instellingen zijn essentieel voor precieze temperatuurregeling en zorgen voor optimale prestaties van uw verwarmingssysteem. Het verstrekken van de juiste Temperatuurinstelling zorgt voor nauwkeurige regulatie en helpt een comfortabele en energie-efficiënte omgeving in uw huis te bereiken.",
-        "title": "PID Thermostaat met PWM ( AAN/UIT )"
+        "data_description": {
+          "name": "Weergavenaam in Home Assistant.",
+          "device": "Schakelaar, klep of input_boolean om verwarming te regelen.",
+          "minimum_setpoint": "Keteltemperatuur voor warmwatersystemen; gebruik 100 voor elektrische verwarming."
+        },
+        "description": "Kies de besturingsentiteit en stel de temperatuur in. Voor warmwaterketels gebruik je de keteltemperatuur; voor elektrische verwarming 100.",
+        "title": "PID Thermostaat met Pulsbreedtemodulatie (AAN/UIT)"
       },
       "user": {
         "description": "SAT is een slimme thermostaat die zichzelf kan optimaliseren om de temperatuurregeling te verbeteren. Kies de modus die past bij uw verwarmingssysteem.",
@@ -137,9 +171,15 @@
           "serial": "Seriële Gateway (bijv. OpenTherm)",
           "esphome": "ESPHome (Systeemservices en sensoren)",
           "simulator": "Gesimuleerde Gateway (Alleen voor ontwikkelaars)",
-          "switch": "PID-Thermostaat (PWM Aan/Uit-modus)"
+          "switch": "PID-Thermostaat (Pulsbreedtemodulatie Aan/Uit-modus)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "We hebben geprobeerd de meest geschikte fabrikant voor uw verwarmingssysteem te bepalen op basis van het gatewaytype en apparaatgegevens. Als dit niet overeenkomt met uw installatie, kunt u een andere fabrikant uit de lijst kiezen.",
+        "data": {
+          "manufacturer": "Fabrikant"
+        }
       }
     }
   },
@@ -149,55 +189,72 @@
         "data": {
           "error_monitoring": "Foutbewaking inschakelen",
           "climate_valve_offset": "Offset van Klimaatklep",
-          "dynamic_minimum_setpoint": "Dynamisch Minimaal Setpoint (Experimenteel)",
           "force_pulse_width_modulation": "Dwing Pulsbreedtemodulatie af",
           "maximum_consumption": "Maximaal Verbruik",
           "maximum_relative_modulation": "Maximale Relatieve Modulatie",
           "minimum_consumption": "Minimaal Verbruik",
-          "sample_time": "Sampletijd",
+          "modulation_suppression_offset_celsius": "Offset voor modulatie-onderdrukking",
+          "flow_setpoint_offset_celsius": "Aanvoer-setpoint-offset",
+          "minimum_boiler_pressure": "Minimale keteldruk",
+          "maximum_boiler_pressure": "Maximale keteldruk",
+          "maximum_pressure_drop_rate": "Maximale drukdaling per uur",
+          "pressure_max_value_age": "Maximale leeftijd van de drukwaarde",
           "simulation": "Simulatie",
+          "solar_gain_compensation": "Compensatie voor zonnewinst",
+          "solar_gain_freeze_integral": "Integraal bevriezen bij zonnewinst",
+          "solar_gain_min_elevation": "Minimale zonshoogte voor zonnewinst",
+          "solar_gain_min_rise_per_hour": "Minimale binnentemperatuurstijging voor zonnewinst",
+          "solar_gain_setpoint_offset_celsius": "Setpoint-offset bij zonnewinst",
           "target_temperature_step": "Stap van Doeltemperatuur",
-          "thermal_comfort": "Thermisch Comfort"
+          "thermal_comfort": "Thermisch Comfort",
+          "flame_off_setpoint_offset_celsius": "Vlam-uit setpointcorrectie",
+          "modulation_suppression_delay_seconds": "Vertraging modulatieonderdrukking"
         },
         "data_description": {
-          "climate_valve_offset": "Offset om de openingsgraad van de klimaatklep aan te passen.",
-          "dynamic_minimum_setpoint": "Activeert de dynamische aanpassing van de minimale instelwaarde op basis van de retourtemperatuur van de ketel, wat ook helpt te identificeren of er kleppen gesloten zijn.",
-          "maximum_consumption": "Het maximale gasverbruik wanneer de ketel actief is.",
-          "maximum_relative_modulation": "Vertegenwoordigt het hoogste modulatieniveau voor een efficiënt verwarmingssysteem.",
-          "minimum_consumption": "Het minimale gasverbruik wanneer de ketel actief is.",
-          "sample_time": "Het minimale tijdsinterval tussen updates aan de PID-regelaar.",
-          "target_temperature_step": "De stap van de doeltemperatuur aanpassen voor fijnafstemming van comfortniveaus.",
-          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen."
+          "climate_valve_offset": "Temperatuurverschil (doel vs. huidig) om een klep als open te beschouwen.",
+          "maximum_consumption": "Gasverbruik bij maximale modulatie, gebruikt voor verbruiksschatting.",
+          "maximum_relative_modulation": "Begrenst het modulatiepercentage van de ketel (0–100) om de maximale output te beperken.",
+          "minimum_consumption": "Gasverbruik bij minimale modulatie, gebruikt voor verbruiksschatting.",
+          "solar_gain_compensation": "Verlaagt de gevraagde warmte wanneer de binnentemperatuur snel stijgt door waarschijnlijk zonlicht.",
+          "solar_gain_freeze_integral": "Voorkomt integraal-opbouw terwijl de zonnewinstcompensatie actief is.",
+          "solar_gain_min_elevation": "Minimale zonshoogte (graden) voordat zonnewinstdetectie kan activeren.",
+          "solar_gain_min_rise_per_hour": "Minimale stijgsnelheid van de binnentemperatuur om zonnewinst te detecteren (°C/h).",
+          "solar_gain_setpoint_offset_celsius": "Tijdelijke verlaging van het gevraagde setpoint zolang zonnewinst actief is.",
+          "target_temperature_step": "Stapgrootte voor doeltemperatuur in de UI.",
+          "thermal_comfort": "Gebruik van de Simmer Index voor aanpassing van thermisch comfort inschakelen.",
+          "simulation": "Simulatiemodus inschakelen (er worden geen echte ketelcommando's verzonden).",
+          "error_monitoring": "Stuurt SAT-gerelateerde fouten naar Sentry om problemen te diagnosticeren.",
+          "force_pulse_width_modulation": "Pulsbreedtemodulatie forceren, ook als modulatieregeling beschikbaar is (handig voor relaisbediening).",
+          "flame_off_setpoint_offset_celsius": "Bij uitgeschakelde vlam een tijdelijk setpoint op retourtemp + offset (alleen Pulsbreedtemodulatie).",
+          "modulation_suppression_delay_seconds": "Tijd na vlam-aan voordat onderdrukking start (alleen Pulsbreedtemodulatie).",
+          "modulation_suppression_offset_celsius": "Hoeveel de aanvoer-setpoint wordt verlaagd tijdens onderdrukking (alleen Pulsbreedtemodulatie).",
+          "flow_setpoint_offset_celsius": "Minimale marge onder de keteltemperatuur bij het begrenzen van het setpoint (continue modus).",
+          "minimum_boiler_pressure": "Ondergrens van de druk voor de gezondheidscontrole (bar).",
+          "maximum_boiler_pressure": "Bovengrens van de druk voor de gezondheidscontrole (bar).",
+          "maximum_pressure_drop_rate": "Maximaal toegestane drukdaling voordat de druk als ongezond wordt gemarkeerd (bar/u).",
+          "pressure_max_value_age": "Maximale leeftijd van een drukmeting voordat de druk als ongezond wordt gemarkeerd."
         },
         "title": "Geavanceerd"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Automatische Versterkingswaarde",
           "derivative": "Afgeleide (kD)",
-          "derivative_time_weight": "Tijdgewicht van de Afgeleide",
-          "duty_cycle": "Maximale Inschakelduur voor Pulsbreedtemodulatie",
           "heating_curve_coefficient": "Coëfficiënt van de Verwarmingscurve",
-          "heating_curve_version": "Versie van de Verwarmingscurve",
           "integral": "Integraal (kI)",
           "maximum_setpoint": "Maximaal Setpoint",
-          "pid_controller_version": "Versie van de PID-regelaar",
           "proportional": "Proportioneel (kP)",
           "window_sensors": "Contact Sensoren",
           "heating_mode": "Verwarmingsmodus"
         },
         "data_description": {
-          "automatic_gains_value": "De waarde die wordt gebruikt voor automatische versterkingen in de PID-regelaar.",
-          "derivative": "De afgeleideterm (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
-          "derivative_time_weight": "Een parameter om de invloed van de afgeleideterm over tijd aan te passen, vooral nuttig om undershoot te verminderen tijdens de opwarmfase wanneer de coëfficiënt van de verwarmingscurve correct is ingesteld.",
-          "duty_cycle": "De maximale inschakelduur voor Pulsbreedtemodulatie (PWM), die de aan/uit-cycli van de ketel regelt.",
+          "derivative": "De afgeleide term (kD) in de PID-regelaar, verantwoordelijk voor het verminderen van overshoot.",
           "heating_curve_coefficient": "De coëfficiënt die wordt gebruikt om de verwarmingscurve aan te passen.",
           "integral": "De integraalterm (kI) in de PID-regelaar, verantwoordelijk voor het verminderen van de blijvende fout.",
           "maximum_setpoint": "De optimale temperatuur voor efficiënte werking van de ketel.",
           "proportional": "De proportionele term (kP) in de PID-regelaar, verantwoordelijk voor de directe reactie op fouten.",
           "window_sensors": "Contact Sensoren die het systeem activeren wanneer een raam of deur voor een periode geopend is."
         },
-        "description": "Algemene instellingen en configuraties.",
+        "description": "Kerninstellingen voor verwarming (limieten, verwarmingscurve, sensoren).",
         "title": "Algemeen"
       },
       "init": {
@@ -205,7 +262,8 @@
           "advanced": "Geavanceerde Opties",
           "general": "Algemeen",
           "presets": "Voorinstellingen",
-          "system_configuration": "Systeemconfiguratie"
+          "system_configuration": "Systeemconfiguratie",
+          "room_presets": "Kamervoorinstellingen"
         }
       },
       "presets": {
@@ -218,25 +276,135 @@
           "push_setpoint_to_thermostat": "Synchroniseer setpoint met thermostaat",
           "sync_climates_with_preset": "Synchroniseer klimaten met voorinstelling (slaap / afwezig / activiteit)"
         },
-        "description": "Vooraf gedefinieerde temperatuurinstellingen voor verschillende scenario's of activiteiten.",
-        "title": "Voorinstellingen"
+        "description": "Stel preset-temperaturen in en hoe ze met andere klimaten synchroniseren.",
+        "title": "Voorinstellingen",
+        "data_description": {
+          "sync_climates_with_preset": "Wanneer een preset wordt gekozen, pas die temperatuur toe op kamerklimaten.",
+          "push_setpoint_to_thermostat": "Stuur de SAT-doeltemperatuur naar de ketelthermostaat."
+        }
       },
       "system_configuration": {
         "data": {
-          "automatic_duty_cycle": "Automatische inschakelduur",
-          "overshoot_protection": "Overshoot Bescherming (met PWM)",
+          "cycles_per_hour": "Cycli per uur",
           "sync_climates_with_mode": "Synchroniseer klimaten met modus",
           "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor",
-          "window_minimum_open_time": "Minimale open tijd van het raam"
+          "window_minimum_open_time": "Minimale open tijd van het raam",
+          "frost_protection_temperature": "Vorstbeschermingstemperatuur"
         },
         "data_description": {
-          "automatic_duty_cycle": "Automatische inschakelduur voor Pulsbreedtemodulatie (PWM) in- of uitschakelen.",
-          "overshoot_protection": "Overshoot Bescherming inschakelen met Pulsbreedtemodulatie (PWM) om temperatuur-overshoot van de ketel te voorkomen.",
+          "cycles_per_hour": "Het maximale aantal cycli per uur.",
           "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd.",
-          "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert."
+          "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert.",
+          "sync_climates_with_mode": "Stel ook de HVAC-modus in op kamerklimaten wanneer die hier verandert.",
+          "frost_protection_temperature": "Blijf verwarmen wanneer de kamer onder deze temperatuur zakt, ook als de thermostaat uit staat. Zet op 0 om uit te schakelen."
         },
-        "description": "Voor fijnafstelling en aanpassing.",
+        "description": "Timing- en synchronisatiegedrag voor cycli, sensoren en HVAC-modus.",
         "title": "Systeemconfiguratie"
+      },
+      "room_presets": {
+        "title": "Kamervoorinstellingen",
+        "description": "Kies de kamer waarvoor u voorinstellingstemperaturen wilt instellen. De thuistemperatuur is de normale doeltemperatuur van de kamer en is standaard de thuistemperatuur van het huis. Niet aangevinkte voorinstellingen verlagen de kamer alleen ten opzichte daarvan en verhogen hem nooit.",
+        "data": {
+          "room": "Kamer"
+        }
+      },
+      "room_preset": {
+        "title": "Kamervoorinstellingen",
+        "description": "Wat elke voorinstelling betekent voor {room}. Vink de voorinstellingen aan waarvoor deze kamer een eigen temperatuur heeft.",
+        "data": {
+          "fixed": "Deze kamer met rust laten",
+          "own": "Voorinstellingen met eigen temperatuur",
+          "home_temperature": "Thuis Temperatuur",
+          "comfort_temperature": "Comfort Temperatuur",
+          "sleep_temperature": "Slaap Temperatuur",
+          "away_temperature": "Temperatuur bij Afwezigheid",
+          "activity_temperature": "Activiteit Temperatuur"
+        },
+        "data_description": {
+          "fixed": "Voorinstellingen veranderen de doeltemperatuur van deze kamer nooit.",
+          "own": "Alleen de aangevinkte voorinstellingen gebruiken de hieronder ingestelde temperatuur; de andere volgen de voorinstelling van het huis."
+        }
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Integraal resetten",
+      "description": "Deze service reset het integrale deel van de PID-regelaar voor de opgegeven climate-entiteit. Dit kan nuttig zijn als de integrale waarde te groot is geworden of als de PID-prestaties zijn verslechterd."
+    },
+    "pulse_width_modulation": {
+      "name": "Pulsbreedtemodulatie ",
+      "description": "Pulsbreedtemodulatie geforceerd aan of uit zetten. Let op dat deze kort daarna automatisch weer aan of uit kan worden gezet.",
+      "fields": {
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "De toestand die je wilt afdwingen."
+        }
+      }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "Ketel meldt een storing",
+      "description": "De ketel die is verbonden met {name} meldt een storing (code {fault_code}). Controleer het display van de ketel en raadpleeg de handleiding of uw installateur."
+    },
+    "boiler_pressure": {
+      "title": "Keteldruk ongezond",
+      "description": "De keteldruk voor {name} is buiten bereik of daalt snel (momenteel {pressure} bar). Controleer het systeem op lekkages en vul indien nodig de waterdruk bij."
+    },
+    "boiler_pressure_trend": {
+      "title": "Ketel verliest langzaam druk",
+      "description": "Het verwarmingssysteem van {name} is sinds de laatste keer bijvullen ongeveer {loss} bar gedaald en is de afgelopen 90 dagen {top_ups} keer bijgevuld. Dit kan wijzen op een klein lek of een defect expansievat. Controleer het systeem of neem contact op met je installateur."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "Ketel pendelt vaker",
+      "description": "De ketel van {name} start nu ongeveer {recent_cycles} keer per dag met een mediane brandtijd van {on_time} minuten, tegenover {baseline_cycles} starts per dag bij vergelijkbaar weer. Vaak kort branden verslijt de ketel en verspilt gas. Controleer de stooklijn, de PWM-instellingen en het minimale vermogen van de ketel."
+    },
+    "room_undersupplied": {
+      "title": "{room} krijgt te weinig warmte",
+      "description": "{room} van {name} heeft structureel meer warmte nodig dan de rest van het huis, wat de aanvoertemperatuur met ongeveer {flow_premium} °C verhoogt. Controleer of de radiator groot genoeg is, of de voetventielen zijn ingeregeld en of er tocht of openstaande deuren zijn."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} blijft koud terwijl de thermostaat tevreden is",
+      "description": "{room} van {name} blijft onder de doeltemperatuur, maar de thermostaat vraagt zelden om warmte. De thermostaat meet waarschijnlijk warmer dan de kamer. Controleer de plaatsing of de temperatuurcorrectie."
+    },
+    "room_fault": {
+      "title": "{room} meldt een klepprobleem",
+      "description": "Het apparaat in {room} van {name} meldt een klepalarm. Controleer de installatie, de kalibratie en een eventuele koppeling met een externe temperatuursensor."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Stooklijn aanbeveling",
+        "state": {
+          "increase": "Verhogen",
+          "decrease": "Verlagen",
+          "hold": "Behouden",
+          "insufficient_samples": "Onvoldoende metingen"
+        }
+      },
+      "room_balance": {
+        "name": "Kamerbalans",
+        "state": {
+          "balanced": "In balans",
+          "room_fault": "Apparaatstoring",
+          "oversupplied": "Te veel aanvoer",
+          "undersupplied": "Te weinig aanvoer",
+          "sensor_mismatch": "Sensorafwijking",
+          "insufficient_data": "Onvoldoende gegevens"
+        }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Thuis",
+        "comfort": "Comfort",
+        "sleep": "Slapen",
+        "away": "Afwezig",
+        "activity": "Activiteit"
       }
     }
   }

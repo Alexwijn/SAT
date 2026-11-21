@@ -1,0 +1,336 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Any, Mapping, Optional, TYPE_CHECKING
+
+from sentry_sdk import Client
+
+from .const import *
+from .helpers import calculate_default_maximum_setpoint, convert_time_str_to_seconds, float_value
+from .types import HeatingSystem, HeatingMode
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
+    from .climate import SatClimate
+    from .demand_control import SatDemandControl
+    from .heating_control import SatHeatingControl
+    from .coordinator import SatDataUpdateCoordinator
+
+
+class SatMode(StrEnum):
+    FAKE = "fake"
+    MQTT_EMS = "mqtt_ems"
+    MQTT_OPENTHERM = "mqtt_opentherm"
+    MQTT_OTTHING = "mqtt_otthing"
+    SERIAL = "serial"
+    ESPHOME = "esphome"
+    SIMULATOR = "simulator"
+    SWITCH = "switch"
+
+
+@dataclass(frozen=True)
+class SensorsConfig:
+    inside_sensor_entity_id: Optional[str]
+    humidity_sensor_entity_id: Optional[str]
+    outside_sensor_entity_id: list[str] | str
+    wind_sensor_entity_id: list[str]
+
+    sensor_max_value_age_seconds: float
+    window_minimum_open_time_seconds: float
+
+
+@dataclass(frozen=True)
+class PidConfig:
+    integral: float
+    derivative: float
+    proportional: float
+    automatic_gains: bool
+    heating_curve_coefficient: float
+
+
+@dataclass(frozen=True)
+class PwmConfig:
+    cycles_per_hour: int
+    duty_cycle_seconds: int
+    maximum_relative_modulation: int
+    force_pulse_width_modulation: bool
+
+
+@dataclass(frozen=True)
+class LimitsConfig:
+    minimum_setpoint: float
+    maximum_setpoint: float
+    maximum_consumption: float
+    minimum_consumption: float
+    climate_valve_offset: float
+    target_temperature_step: float
+
+
+@dataclass(frozen=True)
+class PressureHealthConfig:
+    maximum_age_seconds: float
+    minimum_pressure_bar: float
+    maximum_pressure_bar: float
+    maximum_drop_rate_bar_per_hour: float
+
+
+@dataclass(frozen=True)
+class RoomPresetConfig:
+    fixed: bool
+    temperatures: Mapping[str, float]
+
+
+@dataclass(frozen=True)
+class PresetConfig:
+    thermal_comfort: bool
+    heating_mode: HeatingMode
+    presets: Mapping[str, float]
+    rooms: Mapping[str, RoomPresetConfig]
+    sync_climates_with_mode: bool
+    sync_climates_with_preset: bool
+
+
+@dataclass(frozen=True)
+class SolarGainConfig:
+    enabled: bool
+    freeze_integral: bool
+    minimum_elevation: float
+    minimum_rise_per_hour: float
+    setpoint_offset_celsius: float
+
+
+@dataclass(frozen=True)
+class SimulationConfig:
+    enabled: bool
+    simulated_heating: float
+    simulated_cooling: float
+    simulated_warming_up_seconds: float
+
+
+@dataclass(frozen=True)
+class SatConfig:
+    entry_id: str
+    data: Mapping[str, Any]
+    options: Mapping[str, Any]
+
+    @property
+    def device(self) -> Optional[str]:
+        return self.data.get(CONF_DEVICE)
+
+    @property
+    def error_monitoring_enabled(self) -> bool:
+        return bool(self.options.get(CONF_ERROR_MONITORING))
+
+    @property
+    def heating_system(self) -> HeatingSystem:
+        if not self.data.get(CONF_HEATING_SYSTEM):
+            return HeatingSystem.UNKNOWN
+
+        return HeatingSystem(self.data.get(CONF_HEATING_SYSTEM, HeatingSystem.UNKNOWN))
+
+    @property
+    def manufacturer(self) -> Optional[str]:
+        return self.data.get(CONF_MANUFACTURER)
+
+    @property
+    def mqtt_topic(self) -> Optional[str]:
+        return self.data.get(CONF_MQTT_TOPIC)
+
+    @property
+    def mode(self) -> SatMode:
+        return SatMode(self.data.get(CONF_MODE))
+
+    def is_mode(self, mode: SatMode) -> bool:
+        return self.mode == mode
+
+    @property
+    def name(self) -> str:
+        return str(self.data.get(CONF_NAME))
+
+    @property
+    def name_lower(self) -> str:
+        return self.name.lower()
+
+    @property
+    def overshoot_protection(self) -> bool:
+        return bool(self.data.get(CONF_OVERSHOOT_PROTECTION, self.options.get(CONF_OVERSHOOT_PROTECTION)))
+
+    @property
+    def frost_protection_temperature(self) -> float:
+        return float(self.options.get(CONF_FROST_PROTECTION_TEMPERATURE) or 0.0)
+
+    @property
+    def push_setpoint_to_thermostat(self) -> bool:
+        return bool(self.options.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT, self.data.get(CONF_PUSH_SETPOINT_TO_THERMOSTAT)))
+
+    @property
+    def radiators(self) -> list[str]:
+        return self.data.get(CONF_RADIATORS) or []
+
+    @property
+    def rooms_only(self) -> bool:
+        """Whether the heating demand comes from the rooms alone."""
+        return self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID) is None
+
+    @property
+    def rooms(self) -> list[str]:
+        return self.data.get(CONF_ROOMS) or []
+
+    @property
+    def thermostat(self) -> Optional[str]:
+        return self.data.get(CONF_THERMOSTAT)
+
+    @property
+    def window_sensors(self) -> list[str]:
+        return self.options.get(CONF_WINDOW_SENSORS) or []
+
+    @property
+    def flame_off_setpoint_offset_celsius(self) -> float:
+        return float_value(self.options.get(CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS))
+
+    @property
+    def modulation_suppression_delay_seconds(self) -> float:
+        return float_value(self.options.get(CONF_MODULATION_SUPPRESSION_DELAY_SECONDS))
+
+    @property
+    def modulation_suppression_offset_celsius(self) -> float:
+        return float_value(self.options.get(CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS))
+
+    @property
+    def flow_setpoint_offset_celsius(self) -> float:
+        return float_value(self.options.get(CONF_FLOW_SETPOINT_OFFSET_CELSIUS))
+
+    @property
+    def sensors(self) -> SensorsConfig:
+        return SensorsConfig(
+            inside_sensor_entity_id=self.data.get(CONF_INSIDE_SENSOR_ENTITY_ID),
+            humidity_sensor_entity_id=self.data.get(CONF_HUMIDITY_SENSOR_ENTITY_ID),
+            outside_sensor_entity_id=self.data[CONF_OUTSIDE_SENSOR_ENTITY_ID],
+            wind_sensor_entity_id=list(self.data.get(CONF_WIND_SENSOR_ENTITY_ID) or []),
+
+            window_minimum_open_time_seconds=convert_time_str_to_seconds(
+                self.options.get(CONF_WINDOW_MINIMUM_OPEN_TIME)
+            ),
+            sensor_max_value_age_seconds=convert_time_str_to_seconds(
+                self.options.get(CONF_SENSOR_MAX_VALUE_AGE)
+            ),
+        )
+
+    @property
+    def pid(self) -> PidConfig:
+        return PidConfig(
+            integral=float(self.options.get(CONF_INTEGRAL)),
+            derivative=float(self.options.get(CONF_DERIVATIVE)),
+            proportional=float(self.options.get(CONF_PROPORTIONAL)),
+
+            automatic_gains=bool(self.options.get(CONF_AUTOMATIC_GAINS)),
+            heating_curve_coefficient=float(self.options.get(CONF_HEATING_CURVE_COEFFICIENT)),
+        )
+
+    @property
+    def pwm(self) -> PwmConfig:
+        return PwmConfig(
+            cycles_per_hour=int(self.options.get(CONF_CYCLES_PER_HOUR)),
+            duty_cycle_seconds=int(convert_time_str_to_seconds(self.options.get(CONF_DUTY_CYCLE))),
+
+            maximum_relative_modulation=int(self.options.get(CONF_MAXIMUM_RELATIVE_MODULATION)),
+            force_pulse_width_modulation=bool(self.options.get(CONF_FORCE_PULSE_WIDTH_MODULATION)),
+        )
+
+    @property
+    def limits(self) -> LimitsConfig:
+        heating_system = self.data.get(CONF_HEATING_SYSTEM, HeatingSystem.RADIATORS)
+        maximum_setpoint_value = self.options.get(CONF_MAXIMUM_SETPOINT)
+
+        if maximum_setpoint_value is None:
+            maximum_setpoint_value = self.data.get(
+                CONF_MAXIMUM_SETPOINT,
+                calculate_default_maximum_setpoint(heating_system),
+            )
+
+        return LimitsConfig(
+            minimum_setpoint=float(self.data.get(CONF_MINIMUM_SETPOINT, self.options.get(CONF_MINIMUM_SETPOINT))),
+            maximum_setpoint=float(maximum_setpoint_value),
+
+            maximum_consumption=float(self.options.get(CONF_MAXIMUM_CONSUMPTION)),
+            minimum_consumption=float(self.options.get(CONF_MINIMUM_CONSUMPTION)),
+
+            climate_valve_offset=float(self.options.get(CONF_CLIMATE_VALVE_OFFSET)),
+            target_temperature_step=float(self.options.get(CONF_TARGET_TEMPERATURE_STEP)),
+        )
+
+    @property
+    def pressure_health(self) -> PressureHealthConfig:
+        return PressureHealthConfig(
+            minimum_pressure_bar=float(self.options.get(CONF_MINIMUM_BOILER_PRESSURE)),
+            maximum_pressure_bar=float(self.options.get(CONF_MAXIMUM_BOILER_PRESSURE)),
+            maximum_drop_rate_bar_per_hour=float(self.options.get(CONF_MAXIMUM_PRESSURE_DROP_RATE)),
+            maximum_age_seconds=convert_time_str_to_seconds(self.options.get(CONF_PRESSURE_MAX_VALUE_AGE)),
+        )
+
+    @property
+    def presets(self) -> PresetConfig:
+        heating_mode = HeatingMode(self.options.get(CONF_HEATING_MODE))
+
+        preset_values = {
+            CONF_AWAY_TEMPERATURE: self.options.get(CONF_AWAY_TEMPERATURE),
+            CONF_HOME_TEMPERATURE: self.options.get(CONF_HOME_TEMPERATURE),
+            CONF_SLEEP_TEMPERATURE: self.options.get(CONF_SLEEP_TEMPERATURE),
+            CONF_COMFORT_TEMPERATURE: self.options.get(CONF_COMFORT_TEMPERATURE),
+            CONF_ACTIVITY_TEMPERATURE: self.options.get(CONF_ACTIVITY_TEMPERATURE),
+        }
+
+        rooms = {}
+        for room_id, settings in (self.options.get(CONF_ROOM_PRESETS) or {}).items():
+            temperatures = (settings or {}).get(CONF_ROOM_PRESET_TEMPERATURES) or {}
+
+            rooms[room_id] = RoomPresetConfig(
+                fixed=bool((settings or {}).get(CONF_ROOM_PRESET_FIXED)),
+                temperatures={preset: float(value) for preset, value in temperatures.items() if value is not None},
+            )
+
+        return PresetConfig(
+            heating_mode=heating_mode,
+            thermal_comfort=bool(self.options.get(CONF_THERMAL_COMFORT)),
+            sync_climates_with_mode=bool(self.options.get(CONF_SYNC_CLIMATES_WITH_MODE)),
+            sync_climates_with_preset=bool(self.options.get(CONF_SYNC_CLIMATES_WITH_PRESET)),
+
+            rooms=rooms,
+            presets={key: float(value) for key, value in preset_values.items()},
+        )
+
+    @property
+    def solar_gain(self) -> SolarGainConfig:
+        return SolarGainConfig(
+            enabled=bool(self.options.get(CONF_SOLAR_GAIN_COMPENSATION)),
+            freeze_integral=bool(self.options.get(CONF_SOLAR_GAIN_FREEZE_INTEGRAL)),
+            minimum_elevation=float(self.options.get(CONF_SOLAR_GAIN_MIN_ELEVATION)),
+            minimum_rise_per_hour=float(self.options.get(CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR)),
+            setpoint_offset_celsius=float(self.options.get(CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS)),
+        )
+
+    @property
+    def simulation(self) -> SimulationConfig:
+        return SimulationConfig(
+            enabled=bool(self.options.get(CONF_SIMULATION)),
+            simulated_heating=float(self.data.get(CONF_SIMULATED_HEATING, OPTIONS_DEFAULTS[CONF_SIMULATED_HEATING])),
+            simulated_cooling=float(self.data.get(CONF_SIMULATED_COOLING, OPTIONS_DEFAULTS[CONF_SIMULATED_COOLING])),
+            simulated_warming_up_seconds=convert_time_str_to_seconds(self.data.get(CONF_SIMULATED_WARMING_UP, OPTIONS_DEFAULTS[CONF_SIMULATED_WARMING_UP])),
+        )
+
+
+@dataclass
+class SatEntryData:
+    config: SatConfig
+    coordinator: SatDataUpdateCoordinator
+    heating_control: "SatHeatingControl"
+    demand_control: "SatDemandControl"
+
+    sentry: Optional[Client] = None
+    climate: Optional[SatClimate] = None
+
+
+def get_entry_data(hass: HomeAssistant, entry_id: str) -> SatEntryData:
+    return hass.data[DOMAIN][entry_id]

@@ -1,20 +1,59 @@
 import math
+from datetime import datetime
 from re import sub
-from time import monotonic
-from typing import Optional, Union
+from typing import Optional, Union, Iterable, Tuple
 
 from homeassistant.core import State
 from homeassistant.util import dt
 
-from .const import HEATING_SYSTEM_UNDERFLOOR
+from .types import HeatingSystem, SustainedRuntime
 
 
-def seconds_since(start_time: float | None) -> float:
+def timestamp() -> float:
+    """Return the current wall-clock timestamp in seconds."""
+    return dt.utcnow().timestamp()
+
+
+def event_timestamp(time: Optional[datetime]) -> float:
+    """Return a timestamp from an event time, falling back to now."""
+    return time.timestamp() if time is not None else timestamp()
+
+
+def seconds_since(start_time: Optional[float]) -> float:
     """Calculate the elapsed time in seconds since a given start time, returns zero if time is not valid."""
-    if start_time is None:
-        return 0.0
+    elapsed = elapsed_seconds(timestamp(), start_time)
+    return elapsed if elapsed is not None else 0.0
 
-    return monotonic() - start_time
+
+def elapsed_seconds(current_time: float, start_time: Optional[float]) -> Optional[float]:
+    """Return elapsed seconds between two timestamps, or None when start_time is missing."""
+    return current_time - start_time if start_time is not None else 0
+
+
+def non_negative_elapsed_seconds(current_time: float, start_time: Optional[float]) -> Optional[float]:
+    """Return elapsed seconds, or None if start_time is missing or in the future."""
+    if start_time is None:
+        return None
+
+    elapsed = current_time - start_time
+    return elapsed if elapsed >= 0 else None
+
+
+def is_within_elapsed_window(current_time: float, start_time: Optional[float], window_seconds: float) -> bool:
+    """Return True when a start time exists and elapsed seconds are within a positive window."""
+    if window_seconds <= 0:
+        return False
+
+    elapsed = non_negative_elapsed_seconds(current_time, start_time)
+    return elapsed is not None and elapsed < window_seconds
+
+
+def sustained_runtime(current_time: float, started_at: Optional[float]) -> SustainedRuntime:
+    """Return normalized timer state for sustained-condition checks."""
+    if started_at is None or current_time < started_at:
+        return SustainedRuntime(started_at=current_time, elapsed_seconds=0.0, initialized=True)
+
+    return SustainedRuntime(started_at=started_at, elapsed_seconds=current_time - started_at, initialized=False)
 
 
 def state_age_seconds(state: State) -> float:
@@ -57,10 +96,7 @@ def calculate_derivative_per_hour(temperature_error: float, time_taken_seconds: 
 
 def calculate_default_maximum_setpoint(heating_system: str) -> int:
     """Determine the default maximum temperature for a given heating system."""
-    if heating_system == HEATING_SYSTEM_UNDERFLOOR:
-        return 50
-
-    return 55
+    return 50 if heating_system == HeatingSystem.UNDERFLOOR else 55
 
 
 def snake_case(value: str) -> str:
@@ -107,3 +143,78 @@ def clamp(value: float, low: float, high: Optional[float] = None) -> float:
         return max(low, value)
 
     return max(low, min(value, high))
+
+
+def clamp_to_range(value: float, range_limit: float) -> float:
+    """Return the value clamped to the range."""
+    return clamp(value, -range_limit, range_limit)
+
+
+def filter_none(values: Iterable[Optional[float]]) -> list[float]:
+    """Return a list with all None values removed."""
+    return [value for value in values if value is not None]
+
+
+def ensure_list(value: Optional[Union[Iterable[str], str]]) -> list[str]:
+    """Normalize a config option to a list of strings."""
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        return [value]
+
+    return list(value)
+
+
+def average(values: Iterable[Optional[float]]) -> Optional[float]:
+    """Return the arithmetic mean, or None if no values are present."""
+    filtered = filter_none(values)
+    if not filtered:
+        return None
+
+    return sum(filtered) / float(len(filtered))
+
+
+def min_max(values: Iterable[Optional[float]]) -> Tuple[Optional[float], Optional[float]]:
+    """Return (min, max), or (None, None) if no values are present."""
+    filtered = filter_none(values)
+    if not filtered:
+        return None, None
+
+    return min(filtered), max(filtered)
+
+
+def percentile_interpolated(values: list[float], percentile: float) -> Optional[float]:
+    """Return the percentile value of a list of values, or None if the list is empty."""
+    if not values:
+        return None
+
+    values_sorted = sorted(values)
+    if len(values_sorted) == 1:
+        return float(values_sorted[0])
+
+    position = (len(values_sorted) - 1) * percentile
+    lower_index = int(position)
+    upper_index = min(lower_index + 1, len(values_sorted) - 1)
+
+    fraction = position - lower_index
+    lower_value = values_sorted[lower_index]
+    upper_value = values_sorted[upper_index]
+    return float(lower_value + (upper_value - lower_value) * fraction)
+
+
+def weighted_median(values: list[float], weights: list[float]) -> Optional[float]:
+    """Return the weighted median of values, or None if no value carries a positive weight."""
+    order = sorted((index for index, weight in enumerate(weights) if weight > 0), key=lambda index: values[index])
+    if not order:
+        return None
+
+    half_weight = sum(weights[index] for index in order) / 2
+    cumulative_weight = 0.0
+
+    for index in order:
+        cumulative_weight += weights[index]
+        if cumulative_weight >= half_weight:
+            return float(values[index])
+
+    return float(values[order[-1]])

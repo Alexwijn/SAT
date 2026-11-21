@@ -1,27 +1,31 @@
-from homeassistant.components.number import NumberEntity, NumberDeviceClass
+from typing import Optional
+
+from homeassistant.components.number import NumberDeviceClass, NumberEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 
-from .const import *
-from .coordinator import SatDataUpdateCoordinator
 from .entity import SatEntity
+from .entry_data import get_entry_data
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities):
-    coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
+    entry_data = get_entry_data(hass, config_entry.entry_id)
+    coordinator = entry_data.coordinator
+
+    if coordinator.supports_maximum_setpoint_management:
+        async_add_entities([SatMaximumSetpointEntity(coordinator, entry_data.config, entry_data.heating_control)])
 
     if coordinator.supports_hot_water_setpoint_management:
-        async_add_entities([SatHotWaterSetpointEntity(coordinator, config_entry)])
+        async_add_entities([SatHotWaterSetpointEntity(coordinator, entry_data.config, entry_data.heating_control)])
 
 
 class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
-    def __init__(self, coordinator: SatDataUpdateCoordinator, config_entry: ConfigEntry):
-        super().__init__(coordinator, config_entry)
-        self._name = self._config_entry.data.get(CONF_NAME)
+    _attr_entity_category = EntityCategory.CONFIG
 
     @property
-    def name(self) -> str | None:
-        return f"Hot Water Setpoint {self._name} (Boiler)"
+    def name(self) -> Optional[str]:
+        return "Hot Water Setpoint (Device)"
 
     @property
     def device_class(self):
@@ -31,10 +35,10 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self._name.lower()}-boiler-dhw-setpoint"
+        return f"{self._config.entry_id}-boiler-dhw-setpoint"
 
     @property
-    def icon(self) -> str | None:
+    def icon(self) -> Optional[str]:
         return "mdi:thermometer"
 
     @property
@@ -55,13 +59,64 @@ class SatHotWaterSetpointEntity(SatEntity, NumberEntity):
     @property
     def native_min_value(self) -> float:
         """Return the minimum accepted temperature."""
-        return self._coordinator.minimum_hot_water_setpoint
+        return 30
 
     @property
     def native_max_value(self) -> float:
         """Return the maximum accepted temperature."""
-        return self._coordinator.maximum_hot_water_setpoint
+        return 60
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the setpoint."""
         await self._coordinator.async_set_control_hot_water_setpoint(value)
+
+
+class SatMaximumSetpointEntity(SatEntity, NumberEntity):
+    _attr_entity_category = EntityCategory.CONFIG
+
+    @property
+    def name(self) -> Optional[str]:
+        return "Maximum Setpoint (Device)"
+
+    @property
+    def device_class(self):
+        """Return the device class."""
+        return NumberDeviceClass.TEMPERATURE
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self._config.entry_id}-boiler-maximum-setpoint"
+
+    @property
+    def icon(self) -> Optional[str]:
+        return "mdi:thermometer"
+
+    @property
+    def available(self):
+        """Return availability of the sensor."""
+        return self._coordinator.maximum_setpoint_value is not None
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return the unit of measurement in native units."""
+        return "°C"
+
+    @property
+    def native_value(self):
+        """Return the state of the device in native units."""
+        return self._coordinator.maximum_setpoint_value
+
+    @property
+    def native_min_value(self) -> float:
+        """Return the minimum accepted temperature."""
+        return 30
+
+    @property
+    def native_max_value(self) -> float:
+        """Return the maximum accepted temperature."""
+        return 80
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update the setpoint."""
+        await self._coordinator.async_set_control_max_setpoint(value)

@@ -1,36 +1,48 @@
-# Base component constants
+# Core domain identifiers and shared defaults used across the integration.
 from __future__ import annotations
 
-from enum import Enum
+from .types import HeatingSystem, HeatingMode
 
-NAME = "Smart Autotune Thermostat"
 DOMAIN = "sat"
 CLIMATE = "climate"
 SENTRY = "sentry"
 COORDINATOR = "coordinator"
 CONFIG_STORE = "config_store"
 
-MODE_FAKE = "fake"
-MODE_MQTT_EMS = "mqtt_ems"
-MODE_MQTT_OPENTHERM = "mqtt_opentherm"
-MODE_SWITCH = "switch"
-MODE_SERIAL = "serial"
-MODE_ESPHOME = "esphome"
-MODE_SIMULATOR = "simulator"
+# Integration operation modes and backends.
 
+# Control loop tolerances and timing thresholds.
 DEADBAND = 0.1
 BOILER_DEADBAND = 2
 HEATER_STARTUP_TIMEFRAME = 180
+PWM_IGNITION_TIMEOUT_SECONDS = 600.0
+DHW_OVERSHOOT_GUARD_SECONDS = 300.0
 
-COLD_SETPOINT = 28.2
-MINIMUM_SETPOINT = 10
-MAXIMUM_SETPOINT = 65
+OVERSHOOT_SUSTAIN_SECONDS = 60.0
+OVERSHOOT_REFERENCE_WINDOW_SECONDS = 300.0
+UNDERHEAT_SUSTAIN_SECONDS = 180.0
+SATURATION_SUSTAIN_SECONDS = 300.0
+TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS = 300.0
+SOLAR_GAIN_HOLD_SECONDS = 600.0
+SOLAR_GAIN_RISE_WINDOW_SECONDS = 1200.0
+SOLAR_GAIN_RISE_MINIMUM_SPAN_SECONDS = 900.0
+HEATING_CURVE_SETTLE_SECONDS = 1800.0
+HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS = 10.0
+FROST_PROTECTION_HYSTERESIS_CELSIUS = 1.0
+FROST_PROTECTION_SETPOINT = 30.0
+
+SOLAR_GAIN_MAX_RELATIVE_MODULATION_PERCENT = 20.0
+
+# Device temperature and modulation bounds.
+COLD_SETPOINT = 22
+MINIMUM_SETPOINT = 10.0
+MAXIMUM_SETPOINT = 65.0
 MINIMUM_RELATIVE_MODULATION = 0
 MAXIMUM_RELATIVE_MODULATION = 100
 
 MAX_BOILER_TEMPERATURE_AGE = 60
 
-# Configuration and options
+# Config entry keys and options used by the integration.
 CONF_MODE = "mode"
 CONF_NAME = "name"
 CONF_DEVICE = "device"
@@ -51,164 +63,164 @@ CONF_WINDOW_SENSORS = "window_sensors"
 CONF_PUSH_SETPOINT_TO_THERMOSTAT = "push_setpoint_to_thermostat"
 CONF_WINDOW_MINIMUM_OPEN_TIME = "window_minimum_open_time"
 CONF_THERMAL_COMFORT = "thermal_comfort"
+CONF_SOLAR_GAIN_COMPENSATION = "solar_gain_compensation"
+CONF_SOLAR_GAIN_MIN_ELEVATION = "solar_gain_min_elevation"
+CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR = "solar_gain_min_rise_per_hour"
+CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS = "solar_gain_setpoint_offset_celsius"
+CONF_SOLAR_GAIN_FREEZE_INTEGRAL = "solar_gain_freeze_integral"
 CONF_SIMULATION = "simulation"
 CONF_INTEGRAL = "integral"
 CONF_DERIVATIVE = "derivative"
 CONF_PROPORTIONAL = "proportional"
 CONF_DUTY_CYCLE = "duty_cycle"
-CONF_SAMPLE_TIME = "sample_time"
 CONF_AUTOMATIC_GAINS = "automatic_gains"
-CONF_AUTOMATIC_DUTY_CYCLE = "automatic_duty_cycle"
-CONF_AUTOMATIC_GAINS_VALUE = "automatic_gains_value"
-CONF_DERIVATIVE_TIME_WEIGHT = "derivative_time_weight"
 CONF_CLIMATE_VALVE_OFFSET = "climate_valve_offset"
 CONF_SENSOR_MAX_VALUE_AGE = "sensor_max_value_age"
 CONF_OVERSHOOT_PROTECTION = "overshoot_protection"
+CONF_FROST_PROTECTION_TEMPERATURE = "frost_protection_temperature"
 CONF_SYNC_CLIMATES_WITH_MODE = "sync_climates_with_mode"
 CONF_SYNC_CLIMATES_WITH_PRESET = "sync_climates_with_preset"
+CONF_ROOM = "room"
+CONF_ROOM_PRESET_OWN = "own"
+CONF_ROOM_PRESET_FIXED = "fixed"
+CONF_ROOM_PRESETS = "room_presets"
+CONF_ROOM_PRESET_TEMPERATURES = "temperatures"
 CONF_FORCE_PULSE_WIDTH_MODULATION = "force_pulse_width_modulation"
 CONF_TARGET_TEMPERATURE_STEP = "target_temperature_step"
 CONF_INSIDE_SENSOR_ENTITY_ID = "inside_sensor_entity_id"
 CONF_OUTSIDE_SENSOR_ENTITY_ID = "outside_sensor_entity_id"
 CONF_HUMIDITY_SENSOR_ENTITY_ID = "humidity_sensor_entity_id"
+CONF_WIND_SENSOR_ENTITY_ID = "wind_sensor_entity_id"
+CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS = "flame_off_setpoint_offset_celsius"
+CONF_MODULATION_SUPPRESSION_DELAY_SECONDS = "modulation_suppression_delay_seconds"
+CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS = "modulation_suppression_offset_celsius"
+CONF_FLOW_SETPOINT_OFFSET_CELSIUS = "flow_setpoint_offset_celsius"
+CONF_MINIMUM_BOILER_PRESSURE = "minimum_boiler_pressure"
+CONF_MAXIMUM_BOILER_PRESSURE = "maximum_boiler_pressure"
+CONF_MAXIMUM_PRESSURE_DROP_RATE = "maximum_pressure_drop_rate"
+CONF_PRESSURE_MAX_VALUE_AGE = "pressure_max_value_age"
 
+# Heating system configuration keys.
 CONF_HEATING_MODE = "heating_mode"
 CONF_HEATING_SYSTEM = "heating_system"
 CONF_HEATING_CURVE_COEFFICIENT = "heating_curve_coefficient"
 
-CONF_PID_CONTROLLER_VERSION = "pid_controller_version"
-
-CONF_DYNAMIC_MINIMUM_SETPOINT = "dynamic_minimum_setpoint"
-CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION = "dynamic_minimum_setpoint_version"
-CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR = "minimum_setpoint_adjustment_factor"
-
+# Consumption bounds for energy/cost tracking.
 CONF_MINIMUM_CONSUMPTION = "minimum_consumption"
 CONF_MAXIMUM_CONSUMPTION = "maximum_consumption"
 
+# Preset temperatures for modes like home/away/sleep.
 CONF_AWAY_TEMPERATURE = "away_temperature"
 CONF_HOME_TEMPERATURE = "home_temperature"
 CONF_SLEEP_TEMPERATURE = "sleep_temperature"
 CONF_COMFORT_TEMPERATURE = "comfort_temperature"
 CONF_ACTIVITY_TEMPERATURE = "activity_temperature"
 
-HEATING_SYSTEM_UNKNOWN = "unknown"
-HEATING_SYSTEM_HEAT_PUMP = "heat_pump"
-HEATING_SYSTEM_RADIATORS = "radiators"
-HEATING_SYSTEM_UNDERFLOOR = "underfloor"
-
-HEATING_MODE_ECO = "eco"
-HEATING_MODE_COMFORT = "comfort"
-
+# Default values for integration options.
 OPTIONS_DEFAULTS = {
+    # PID tuning and core control behavior.
     CONF_PROPORTIONAL: "45",
     CONF_INTEGRAL: "0",
     CONF_DERIVATIVE: "6000",
     CONF_ERROR_MONITORING: False,
 
+    # Cycle limits and automatic tuning.
     CONF_CYCLES_PER_HOUR: 4,
     CONF_AUTOMATIC_GAINS: True,
-    CONF_AUTOMATIC_DUTY_CYCLE: True,
-    CONF_AUTOMATIC_GAINS_VALUE: 2.0,
-    CONF_DERIVATIVE_TIME_WEIGHT: 2.5,
-    CONF_OVERSHOOT_PROTECTION: False,
-    CONF_DYNAMIC_MINIMUM_SETPOINT: False,
-    CONF_MINIMUM_SETPOINT_ADJUSTMENT_FACTOR: 0.2,
+    CONF_OVERSHOOT_PROTECTION: True,
 
-    CONF_RADIATORS: [],
+    # Linked climates and weighting.
     CONF_ROOMS: [],
+    CONF_RADIATORS: [],
 
+    # General behavior flags and sensors.
     CONF_SIMULATION: False,
     CONF_WINDOW_SENSORS: [],
     CONF_THERMAL_COMFORT: False,
+    CONF_SOLAR_GAIN_COMPENSATION: False,
+    CONF_SOLAR_GAIN_MIN_ELEVATION: 12.0,
+    CONF_SOLAR_GAIN_MIN_RISE_PER_HOUR: 0.6,
+    CONF_SOLAR_GAIN_SETPOINT_OFFSET_CELSIUS: 2.0,
+    CONF_SOLAR_GAIN_FREEZE_INTEGRAL: True,
     CONF_HUMIDITY_SENSOR_ENTITY_ID: None,
     CONF_PUSH_SETPOINT_TO_THERMOSTAT: False,
     CONF_SYNC_CLIMATES_WITH_MODE: True,
     CONF_SYNC_CLIMATES_WITH_PRESET: False,
+    CONF_ROOM_PRESETS: {},
 
+    # Simulation parameters.
     CONF_SIMULATED_HEATING: 20,
     CONF_SIMULATED_COOLING: 5,
 
+    # Setpoint and modulation limits.
     CONF_MINIMUM_SETPOINT: 10,
     CONF_MAXIMUM_RELATIVE_MODULATION: 100,
     CONF_FORCE_PULSE_WIDTH_MODULATION: False,
 
+    CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS: 18.0,
+    CONF_MODULATION_SUPPRESSION_DELAY_SECONDS: 20,
+    CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS: 1.0,
+    CONF_FLOW_SETPOINT_OFFSET_CELSIUS: 2.0,
+
+    # Pressure health thresholds.
+    CONF_MINIMUM_BOILER_PRESSURE: 0.8,
+    CONF_MAXIMUM_BOILER_PRESSURE: 2.5,
+    CONF_MAXIMUM_PRESSURE_DROP_RATE: 0.3,
+    CONF_PRESSURE_MAX_VALUE_AGE: "00:30:00",
+
+    # Consumption bounds.
     CONF_MINIMUM_CONSUMPTION: 0,
     CONF_MAXIMUM_CONSUMPTION: 0,
 
+    # Timing and step configuration.
     CONF_DUTY_CYCLE: "00:13:00",
-    CONF_SAMPLE_TIME: "00:01:00",
     CONF_CLIMATE_VALVE_OFFSET: 0,
     CONF_TARGET_TEMPERATURE_STEP: 0.5,
     CONF_SENSOR_MAX_VALUE_AGE: "06:00:00",
     CONF_SIMULATED_WARMING_UP: "00:00:15",
     CONF_WINDOW_MINIMUM_OPEN_TIME: "00:00:15",
+    CONF_FROST_PROTECTION_TEMPERATURE: 6.0,
 
+    # Preset temperatures.
     CONF_ACTIVITY_TEMPERATURE: 10,
     CONF_AWAY_TEMPERATURE: 10,
     CONF_HOME_TEMPERATURE: 18,
     CONF_SLEEP_TEMPERATURE: 15,
     CONF_COMFORT_TEMPERATURE: 20,
 
+    # Heating system defaults.
     CONF_HEATING_CURVE_COEFFICIENT: 2.0,
-    CONF_HEATING_MODE: HEATING_MODE_COMFORT,
-    CONF_HEATING_SYSTEM: HEATING_SYSTEM_RADIATORS,
-
-    CONF_PID_CONTROLLER_VERSION: 3,
-    CONF_DYNAMIC_MINIMUM_SETPOINT_VERSION: 1,
+    CONF_HEATING_MODE: HeatingMode.COMFORT,
+    CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS,
 }
 
-# Overshoot protection
+# Constants and defaults for overshoot protection logic.
 OVERSHOOT_PROTECTION_REQUIRED_DATASET = 40
 OVERSHOOT_PROTECTION_SETPOINT = {
-    HEATING_SYSTEM_HEAT_PUMP: 40,
-    HEATING_SYSTEM_RADIATORS: 62,
-    HEATING_SYSTEM_UNDERFLOOR: 45,
+    HeatingSystem.HEAT_PUMP: 40,
+    HeatingSystem.RADIATORS: 62,
+    HeatingSystem.UNDERFLOOR: 45,
 }
 
-# Storage
+# Storage keys for persistent values.
 STORAGE_OVERSHOOT_PROTECTION_VALUE = "overshoot_protection_value"
 
-# Services
+# Service names exposed by the integration.
 SERVICE_RESET_INTEGRAL = "reset_integral"
 SERVICE_PULSE_WIDTH_MODULATION = "pulse_width_modulation"
+SERVICE_ESTIMATE_PREHEAT = "estimate_preheat"
 SERVICE_SET_OVERSHOOT_PROTECTION_VALUE = "set_overshoot_protection_value"
 SERVICE_START_OVERSHOOT_PROTECTION_CALCULATION = "start_overshoot_protection_calculation"
 
-# Config steps
+# Config flow step identifiers.
 STEP_SETUP_GATEWAY = "gateway"
 STEP_SETUP_SENSORS = "sensors"
 
+# Event names emitted on cycle lifecycle changes.
+EVENT_SAT_CYCLE_STARTED = "sat_cycle_started"
+EVENT_SAT_CYCLE_ENDED = "sat_cycle_ended"
 
-# Enumerations
-class FlameStatus(str, Enum):
-    HEALTHY = "healthy"
-    IDLE_OK = "idle_ok"
-    STUCK_ON = "stuck_on"
-    STUCK_OFF = "stuck_off"
-    PWM_SHORT = "pwm_short"
-    SHORT_CYCLING = "short_cycling"
-    INSUFFICIENT_DATA = "insufficient_data"
-
-
-class BoilerStatus(str, Enum):
-    HOT_WATER = "hot_water"
-    PREHEATING = "preheating"
-    HEATING_UP = "heating_up"
-    AT_SETPOINT = "at_setpoint"
-    COOLING_DOWN = "cooling_down"
-    ANTI_CYCLING = "anti_cycling"
-    NEAR_SETPOINT = "near_setpoint"
-    PUMP_STARTING = "pump_starting"
-    WAITING_FOR_FLAME = "waiting_for_flame"
-    OVERSHOOT_HANDLING = "overshoot_handling"
-    OVERSHOOT_STABILIZED = "overshoot_stabilized"
-
-    IDLE = "idle"
-    INSUFFICIENT_DATA = "insufficient_data"
-
-
-class PWMStatus(str, Enum):
-    """The current state of Pulse Width Modulation"""
-    ON = "on"
-    OFF = "off"
-    IDLE = "idle"
+# Dispatcher signals for internal updates.
+SIGNAL_PID_UPDATED = "sat_pid_updated"
+SIGNAL_HEATING_CONTROL_UPDATED = "sat_heating_control_updated"
+SIGNAL_DEMAND_CONTROL_UPDATED = "sat_demand_control_updated"
