@@ -14,7 +14,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import COLD_SETPOINT, MINIMUM_SETPOINT
+from .const import COLD_SETPOINT, DEADBAND, MINIMUM_SETPOINT
 from .entry_data import SatConfig
 from .heating_curve import HeatingCurve, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS
 from .helpers import event_timestamp, float_value, is_state_stale, state_age_seconds
@@ -41,20 +41,24 @@ class RoomDemand:
 
     request: Optional[float]
     overshoot_cap: Optional[float] = None
+    demand_floor: float = MINIMUM_SETPOINT
 
     @property
     def setpoint(self) -> float:
-        """Return the request after the overshooting rooms limited it."""
+        """Return the request, limited by overshooting rooms but never below what colder rooms need."""
         request = self.request if self.request is not None else MINIMUM_SETPOINT
 
         if self.overshoot_cap is None:
             return request
 
-        return min(request, self.overshoot_cap)
+        return min(request, max(self.overshoot_cap, self.demand_floor))
 
-    def including(self, request: float) -> RoomDemand:
+    def including(self, request: float, below_target: bool = False) -> RoomDemand:
         """Return the demand with the request of the main room added."""
-        return replace(self, request=request if self.request is None else max(request, self.request))
+        combined = request if self.request is None else max(request, self.request)
+        demand_floor = max(request, self.demand_floor) if below_target else self.demand_floor
+
+        return replace(self, request=combined, demand_floor=demand_floor)
 
 
 @dataclass(frozen=True, slots=True)
@@ -431,7 +435,18 @@ class Areas:
         @property
         def demand(self) -> RoomDemand:
             """Return what the rooms together ask of the boiler."""
-            return RoomDemand(request=self.output, overshoot_cap=self.overshoot_cap)
+            return RoomDemand(request=self.output, overshoot_cap=self.overshoot_cap, demand_floor=self.demand_floor)
+
+        @property
+        def demand_floor(self) -> float:
+            """Return the highest output among the rooms that still are below their target."""
+            outputs = [
+                area.pid.output
+                for area in self._areas
+                if area.pid.available and area.requires_heat and (state := area.temperature_state) is not None and state.error > DEADBAND
+            ]
+
+            return max(outputs, default=MINIMUM_SETPOINT)
 
         def reset(self, entity_id: Optional[str] = None) -> None:
             for area in self._areas:

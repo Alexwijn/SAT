@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 from .area import Area, Areas, DrivingRoom
 from .const import (
     COLD_SETPOINT,
+    DEADBAND,
     FROST_PROTECTION_HYSTERESIS_CELSIUS,
     FROST_PROTECTION_SETPOINT,
     HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS,
@@ -279,7 +280,8 @@ class SatDemandControl:
             if self._config.presets.heating_mode == HeatingMode.ECO:
                 return clamp(round(self.pid.output, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
-            demand = self.areas.pids.demand.including(self.pid.output)
+            below_target = (temperature_state := self.temperature_state) is not None and temperature_state.error > DEADBAND
+            demand = self.areas.pids.demand.including(self.pid.output, below_target=below_target)
 
         setpoint = demand.setpoint
 

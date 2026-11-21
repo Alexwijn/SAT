@@ -1,9 +1,12 @@
 from datetime import timedelta
+from types import SimpleNamespace
+
+import pytest
 
 from homeassistant.components.climate import HVACMode
 from homeassistant.util import dt as dt_util
 
-from custom_components.sat.area import Area, RoomDemand, ATTR_SENSOR_TEMPERATURE_ID
+from custom_components.sat.area import Area, Areas, RoomDemand, ATTR_SENSOR_TEMPERATURE_ID
 from custom_components.sat.const import CONF_HEATING_SYSTEM, CONF_SENSOR_MAX_VALUE_AGE, OPTIONS_DEFAULTS
 from custom_components.sat.types import HeatingSystem
 from tests.const import make_config
@@ -118,3 +121,28 @@ def test_room_demand_is_the_highest_request_under_the_cap():
     assert RoomDemand(request=45.0).including(40.0).setpoint == 45.0
     assert RoomDemand(request=40.0).including(45.0).setpoint == 45.0
     assert RoomDemand(request=45.0, overshoot_cap=30.0).including(40.0).setpoint == 30.0
+
+
+def _room(output, error):
+    return SimpleNamespace(id="climate.room", requires_heat=True, temperature_state=SimpleNamespace(error=error), pid=SimpleNamespace(available=True, output=output))
+
+
+@pytest.mark.parametrize(
+    ("rooms", "setpoint"),
+    [
+        ([_room(35.0, -0.5)], 30.0),
+        ([_room(35.0, -0.5), _room(28.0, 0.5)], 30.0),
+        ([_room(35.0, -0.5), _room(45.0, 1.0)], 45.0),
+        ([_room(35.0, -3.0), _room(40.0, 1.0)], 40.0),
+        ([_room(45.0, -0.5), _room(40.0, 0.05)], 30.0),
+    ],
+)
+def test_overshooting_room_never_caps_below_what_colder_rooms_need(rooms, setpoint):
+    assert Areas(rooms).pids.demand.setpoint == setpoint
+
+
+def test_cap_never_drops_below_what_a_cold_main_room_needs():
+    demand = RoomDemand(request=35.0, overshoot_cap=30.0)
+
+    assert demand.including(42.0, below_target=True).setpoint == 42.0
+    assert demand.including(42.0, below_target=False).setpoint == 30.0

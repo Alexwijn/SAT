@@ -109,6 +109,18 @@ def test_requested_setpoint_uses_secondary_and_cap(monkeypatch, demand_control):
     assert demand_control.requested_setpoint == 43.1
 
 
+def test_requested_setpoint_is_not_capped_below_a_cold_main_room(monkeypatch, demand_control):
+    _update_climate_config(demand_control, options={CONF_HEATING_MODE: HeatingMode.COMFORT})
+    demand_control.heating_curve._value = 30.0
+
+    monkeypatch.setattr(PID, "output", property(lambda self: 42.0))
+    monkeypatch.setattr(type(demand_control), "temperature_state", property(lambda self: SimpleNamespace(error=1.0)))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.output", property(lambda self: 35.0))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.overshoot_cap", property(lambda self: 30.0))
+
+    assert demand_control.requested_setpoint == 42.0
+
+
 def test_requested_setpoint_applies_solar_gain_offset(monkeypatch, demand_control):
     _update_climate_config(demand_control, options={
         CONF_SOLAR_GAIN_COMPENSATION: True,
