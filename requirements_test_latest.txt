@@ -1,0 +1,7 @@
+aiohttp_cors
+aiodiscover
+aiodhcpwatcher
+sentry_sdk
+pyotgw==2.2.2
+scapy
+janus

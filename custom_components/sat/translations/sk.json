@@ -7,11 +7,7 @@
     "error": {
       "invalid_device": "Toto je neplatné zariadenie.",
       "connection": "Nedá sa pripojiť k gateway.",
-      "mqtt_component": "MQTT komponent je nedostupný.",
-      "unable_to_calibrate": "V procese kalibrácie sa vyskytol problém a nebolo možné ho úspešne dokončiť. Uistite sa, že váš vykurovací systém funguje správne a že všetky požadované senzory sú pripojené a fungujú správne.\n\nAk budete mať aj naďalej problémy s kalibráciou, zvážte kontaktovanie nás so žiadosťou o ďalšiu pomoc. Ospravedlňujeme sa za spôsobené nepríjemnosti."
-    },
-    "progress": {
-      "calibration": "Kalibrácia a nájdenie hodnoty ochrany proti prekročeniu...\n\nPočkajte, prosím, kým optimalizujeme váš vykurovací systém. Tento proces môže trvať približne 20 minút."
+      "rooms_required": "Bez vnútorného senzora je potrebná aspoň jedna izba, pretože izby sú potom jediným zdrojom požiadavky na vykurovanie."
     },
     "step": {
       "areas": {
@@ -19,6 +15,11 @@
           "thermostat": "Termostat",
           "main_climates": "Primárne",
           "secondary_climates": "Izby"
+        },
+        "data_description": {
+          "thermostat": "Voliteľný existujúci termostat na synchronizáciu cieľových teplôt.",
+          "main_climates": "Radiátory v rovnakej miestnosti ako vnútorný senzor.",
+          "secondary_climates": "Izby s vlastnými cieľovými teplotami. Povinné, ak nie je nakonfigurovaný vnútorný senzor."
         },
         "description": "Nastavenia súvisiace s klímou, viacerými miestnosťami a reguláciou teploty. Primárna klíma je v rovnakej miestnosti ako vnútorný snímač a miestnosti majú svoje vlastné cieľové teploty oddelené od systému.",
         "title": "Oblasti"
@@ -30,60 +31,75 @@
         "description": "Táto funkcia dynamicky upravuje parametre regulácie vášho vykurovacieho systému, čím optimalizuje reguláciu teploty pre lepší komfort a energetickú účinnosť. Povolenie tejto možnosti umožňuje SAT nepretržite prispôsobovať a dolaďovať nastavenia vykurovania na základe podmienok prostredia. Pomáha to udržiavať stabilné a pohodlné prostredie bez manuálneho zásahu.\n\nPoznámka: Ak sa rozhodnete nepovoliť automatické zosilnenie, budete musieť manuálne zadať hodnoty PID pre presnú reguláciu teploty. Uistite sa, že máte presné hodnoty PID pre váš konkrétny vykurovací systém, aby ste dosiahli optimálny výkon.",
         "title": "Automatické zisky"
       },
-      "calibrate_system": {
-        "description": "Optimalizujte svoj vykurovací systém automatickým určením optimálnych hodnôt PID pre vaše nastavenie. Pri výbere automatického zisku majte na pamäti, že systém prejde procesom kalibrácie, ktorý môže trvať približne 20 minút.\n\nAutomatické zisky sa odporúčajú pre väčšinu používateľov, pretože zjednodušujú proces nastavenia a zaisťujú optimálny výkon. Ak však poznáte reguláciu PID a dávate prednosť manuálnemu nastaveniu hodnôt, môžete automatické zosilnenie preskočiť.\n\nUpozorňujeme, že ak sa rozhodnete preskočiť automatické zosilnenie, musíte dobre porozumieť regulácii PID a môže vyžadovať ďalšie manuálne úpravy na dosiahnutie optimálneho výkonu.",
-        "menu_options": {
-          "calibrate": "Kalibrujte a určte hodnotu ochrany proti prekročeniu (približne 20 min).",
-          "overshoot_protection": "Manuálne zadajte hodnotu ochrany proti prekročeniu.",
-          "pid_controller": "Ručne zadajte hodnoty PID (neodporúča sa)."
-        },
-        "title": "Kalibrovať systém"
-      },
-      "calibrated": {
-        "description": "Proces kalibrácie bol úspešne dokončený.\n\nBlahoželáme! Váš Smart Autotune Thermostat (SAT) bol kalibrovaný tak, aby optimalizoval vykurovací výkon vášho systému. Počas procesu kalibrácie SAT starostlivo analyzoval vykurovacie charakteristiky a určil vhodnú hodnotu ochrany proti prekročeniu, aby sa zabezpečila presná kontrola teploty.\n\nHodnota ochrany proti prekročeniu: {minimum_setpoint} °C\n\nTáto hodnota predstavuje maximálnu hodnotu prekročenia povolenú počas proces zahrievania. SAT bude aktívne monitorovať a upravovať vykurovanie, aby sa zabránilo nadmernému pretáčaniu, a udrží tak komfortné a efektívne vykurovanie vo vašej domácnosti.\n\nUpozorňujeme, že hodnota ochrany proti prekročeniu sa môže líšiť v závislosti od konkrétnych charakteristík vášho vykurovacieho systému a faktorov prostredia. Bol jemne vyladený tak, aby poskytoval optimálny výkon na základe výsledkov kalibrácie.",
-        "menu_options": {
-          "calibrate": "Zopakujte kalibráciu",
-          "finish": "Pokračujte v aktuálnej kalibrácii"
-        },
-        "title": "Kalibrácia dokončená"
-      },
       "heating_system": {
         "data": {
           "heating_system": "Systém"
+        },
+        "data_description": {
+          "heating_system": "Vyberte systém, ktorý zodpovedá vašim vykurovacím telesám."
         },
         "description": "Výber správneho typu vykurovacieho systému je pre SAT dôležitý na presné riadenie teploty a optimalizáciu výkonu. Vyberte si možnosť, ktorá zodpovedá vášmu nastaveniu, aby ste zabezpečili správnu reguláciu teploty v celom dome.",
         "title": "Vykurovací systém"
       },
       "mosquitto": {
-        "description": "Nakonfigurujte režim MQTT pre váš vykurovací systém. Vyberte režim brány a zadajte jej názov.",
+        "description": "Vyberte typ brány, aby SAT vedel, ktoré MQTT témy použiť.",
         "data": {
           "mode": "Režim"
+        },
+        "data_description": {
+          "mode": "Vyberte typ brány, aby SAT poznal očakávaný formát MQTT témy."
         },
         "title": "Konfigurácia MQTT"
       },
       "mosquitto_opentherm": {
-        "description": "Nakonfigurujte OpenTherm Gateway. Uveďte hlavný predmet MQTT a identifikátor zariadenia.",
+        "description": "Zadajte základnú MQTT tému (napr. {example_otgw_topic}) a identifikátor zariadenia.",
         "data": {
           "name": "Názov",
           "mqtt_topic": "Predmet MQTT",
           "device": "ID zariadenia"
         },
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "mqtt_topic": "Základná téma používaná bránou (napr. OTGW/ alebo OTGW/ABCDEF).",
+          "device": "Identifikátor brány (často ID OTGW)."
+        },
         "title": "Konfigurácia OpenTherm Gateway"
       },
       "mosquitto_ems": {
-        "description": "Nakonfigurujte EMS-ESP Gateway. Uveďte predmet MQTT.",
+        "description": "Zadajte základnú MQTT tému (napr. {example_ems_topic}).",
         "data": {
           "name": "Názov",
           "mqtt_topic": "Predmet MQTT"
         },
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "mqtt_topic": "Základná téma používaná EMS-ESP (napr. ems-esp/)."
+        },
         "title": "Konfigurácia EMS-ESP Gateway"
       },
-      "overshoot_protection": {
+      "mosquitto_otthing": {
+        "description": "Zadajte základnú tému bez /state (napr. {example_otthing_topic}).",
         "data": {
-          "minimum_setpoint": "Hodnota"
+          "name": "Názov",
+          "mqtt_topic": "Predmet MQTT"
         },
-        "description": "Poskytnutím hodnoty ochrany proti prekročeniu SAT prispôsobí parametre ovládania tak, aby sa udržalo stabilné a pohodlné vykurovacie prostredie. Táto manuálna konfigurácia vám umožňuje doladiť systém na základe vášho špecifického nastavenia.\n\nPoznámka: Ak si nie ste istí hodnotou ochrany proti prekročeniu alebo ste nevykonali proces kalibrácie, odporúča sa zrušiť konfiguráciu a prejsť proces kalibrácie, aby SAT automaticky určil hodnotu pre optimálny výkon.",
-        "title": "Ochrana proti prestreleniu"
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "mqtt_topic": "Základná téma bez /state (napr. otthing/31F44C)."
+        },
+        "title": "Nastavenie brány OTthing"
+      },
+      "esphome": {
+        "description": "Vyberte zariadenie ESPHome a zadajte názov.",
+        "data": {
+          "name": "Názov",
+          "device": "Zariadenie"
+        },
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "device": "Zariadenie ESPHome na použitie."
+        },
+        "title": "Nastavenie ESPHome"
       },
       "pid_controller": {
         "data": {
@@ -98,9 +114,16 @@
         "data": {
           "humidity_sensor_entity_id": "Entita snímača vlhkosti",
           "inside_sensor_entity_id": "Vnútorná entita senzora",
-          "outside_sensor_entity_id": "Entita vonkajšieho senzora"
+          "outside_sensor_entity_id": "Entita vonkajšieho senzora",
+          "wind_sensor_entity_id": "Entita snímača vetra"
         },
-        "description": "Vyberte senzory, ktoré sa budú používať na sledovanie teploty.",
+        "data_description": {
+          "inside_sensor_entity_id": "Primárny vnútorný teplotný senzor. Nechajte prázdne, ak má každá vykurovaná izba vlastnú entitu climate; SAT potom sleduje iba izby a nevytvára vlastný termostat.",
+          "outside_sensor_entity_id": "Vonkajší senzor alebo entita počasia (možno vybrať viac).",
+          "humidity_sensor_entity_id": "Voliteľný senzor vlhkosti.",
+          "wind_sensor_entity_id": "Voliteľný snímač rýchlosti vetra alebo entita počasia (možno vybrať viac). Vyberte priemernú rýchlosť vetra, nie nárazy. Ak zostane prázdne, použije sa rýchlosť vetra entity počasia spomedzi vonkajších senzorov."
+        },
+        "description": "Vyberte vnútorný senzor, vonkajší senzor(y), voliteľný senzor vlhkosti a voliteľné snímače vetra. Vnútorný senzor je voliteľný, ak používate iba izby.",
         "title": "Nakonfigurujte senzory"
       },
       "serial": {
@@ -108,7 +131,11 @@
           "device": "URL",
           "name": "Názov"
         },
-        "description": "Ak chcete vytvoriť spojenie s bránou OpenTherm pomocou zásuvky, uveďte nasledujúce podrobnosti. Do poľa Názov zadajte názov brány, ktorý vám pomôže identifikovať ju vo vašom systéme.\n\nV poli Zariadenie zadajte sieťovú adresu brány OpenTherm. Môže to byť vo formáte \"socket://otgw.local:25238\", kde \"otgw.local\" je názov hostiteľa alebo IP adresa brány a \"25238\" je číslo portu.\n\nTieto nastavenia sú nevyhnutné pre nadviazanie komunikácie a integráciu s vašou bránou OpenTherm cez pripojenie soketu. Uistite sa, že poskytnuté podrobnosti sú presné, aby sa zabezpečila správna funkčnosť.",
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "device": "URL socketu, napr. socket://otgw.local:25238."
+        },
+        "description": "Zadajte názov a socket URL (napr. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
       },
       "simulator": {
@@ -129,8 +156,13 @@
           "minimum_setpoint": "Nastavenie teploty",
           "name": "Názov"
         },
-        "description": "Ak chcete nastaviť prepínač, vyplňte nasledujúce údaje. Do poľa Názov zadajte názov prepínača, ktorý vám pomôže identifikovať ho vo vašom systéme. Z poskytnutých možností vyberte vhodnú entitu pre váš prepínač.\n\nV poli Nastavenie teploty zadajte požadovanú cieľovú teplotu pre váš vykurovací systém. Ak používate teplovodný bojler, vyplňte nastavenie teploty kotla príslušnou hodnotou. Pre elektrické vykurovacie systémy zadajte hodnotu 100.\n\nTieto nastavenia sú nevyhnutné pre presnú reguláciu teploty a zabezpečenie optimálneho výkonu vášho vykurovacieho systému. Poskytnutie správneho nastavenia teploty umožňuje presnú reguláciu a pomáha dosiahnuť pohodlné a energeticky efektívne prostredie vo vašej domácnosti.",
-        "title": "PID termostat s PWM (ON/OFF)"
+        "data_description": {
+          "name": "Zobrazovaný názov v Home Assistant.",
+          "device": "Prepínač, ventil alebo input_boolean použitý na ovládanie vykurovania.",
+          "minimum_setpoint": "Teplota kotla pre systémy s teplou vodou; pre elektrické kúrenie použite 100."
+        },
+        "description": "Vyberte riadiacu entitu a nastavte teplotu. Pre kotly na teplú vodu použite teplotu kotla; pre elektrické kúrenie použite 100.",
+        "title": "PID termostat s moduláciou šírky impulzu (ON/OFF)"
       },
       "user": {
         "description": "SAT je inteligentný termostat schopný samonastavenia na optimalizáciu regulácie teploty. Vyberte režim, ktorý zodpovedá vášmu vykurovaciemu systému.",
@@ -139,7 +171,7 @@
           "serial": "Sériová brána (napr. OpenTherm)",
           "esphome": "ESPHome (Systémové služby a senzory)",
           "simulator": "Simulovaná brána (Len pre vývojárov)",
-          "switch": "PID Termostat (PWM režim Zap/Vyp)"
+          "switch": "PID Termostat (modulácia šírky impulzu režim Zap/Vyp)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -157,56 +189,72 @@
         "data": {
           "error_monitoring": "Povoliť monitorovanie chýb",
           "climate_valve_offset": "Offset klimatizačného ventilu",
-          "dynamic_minimum_setpoint": "Dynamická minimálna nastavená hodnota (experimentálna)",
-          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu",
+          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu ",
           "maximum_consumption": "Maximálna spotreba",
           "maximum_relative_modulation": "Maximálna relatívna modulácia",
           "minimum_consumption": "Minimálna spotreba",
-          "sample_time": "Čas vzorky",
+          "modulation_suppression_offset_celsius": "Offset potlačenia modulácie",
+          "flow_setpoint_offset_celsius": "Offset setpointu prívodu",
+          "minimum_boiler_pressure": "Minimálny tlak kotla",
+          "maximum_boiler_pressure": "Maximálny tlak kotla",
+          "maximum_pressure_drop_rate": "Maximálny pokles tlaku za hodinu",
+          "pressure_max_value_age": "Maximálny vek hodnoty tlaku",
           "simulation": "Simulácia",
+          "solar_gain_compensation": "Kompenzácia solárnych ziskov",
+          "solar_gain_freeze_integral": "Zmraziť integrál pri solárnom zisku",
+          "solar_gain_min_elevation": "Minimálna výška slnka",
+          "solar_gain_min_rise_per_hour": "Minimálny vnútorný nárast pre solárny zisk",
+          "solar_gain_setpoint_offset_celsius": "Offset setpointu pri solárnom zisku",
           "target_temperature_step": "Krok cieľovej teploty",
-          "thermal_comfort": "Tepelný komfort"
+          "thermal_comfort": "Tepelný komfort",
+          "flame_off_setpoint_offset_celsius": "Posun žiadanej teploty pri zhasnutom plameni",
+          "modulation_suppression_delay_seconds": "Oneskorenie potlačenia modulácie"
         },
         "data_description": {
-          "climate_valve_offset": "Offset na nastavenie stupňa otvorenia klimatizačného ventilu.",
-          "dynamic_minimum_setpoint": "Aktivuje dynamické nastavenie požadovanej hodnoty na základe teploty spiatočky kotla, čo tiež pomáha identifikovať, či sú nejaké ventily zatvorené.",
-          "maximum_consumption": "Maximálna spotreba plynu, keď je kotol aktívny.",
-          "maximum_relative_modulation": "Predstavuje najvyššiu úroveň modulácie pre efektívny vykurovací systém.",
-          "minimum_consumption": "Minimálna spotreba plynu, keď je kotol aktívny.",
-          "sample_time": "Minimálny časový interval medzi aktualizáciami PID regulátora.",
-          "target_temperature_step": "Upravte krok cieľovej teploty pre jemné doladenie úrovní komfortu.",
-          "thermal_comfort": "Povoľte používanie indexu Simmer na nastavenie tepelného komfortu."
+          "climate_valve_offset": "Rozdiel teplôt (cieľ vs aktuálna) na považovanie ventilu za otvorený.",
+          "maximum_consumption": "Spotreba plynu pri maximálnej modulácii, používa sa na odhad spotreby.",
+          "maximum_relative_modulation": "Obmedzí percento modulácie kotla (0–100) na zníženie maximálneho výkonu.",
+          "minimum_consumption": "Spotreba plynu pri minimálnej modulácii, používa sa na odhad spotreby.",
+          "solar_gain_compensation": "Znižuje požadované kúrenie, keď vnútorná teplota rýchlo stúpa vplyvom pravdepodobného slnečného žiarenia.",
+          "solar_gain_freeze_integral": "Zabraňuje wind-up efektu integračnej zložky, keď je aktívna kompenzácia solárnych ziskov.",
+          "solar_gain_min_elevation": "Minimálna výška slnka (stupne) potrebná na spustenie detekcie solárnych ziskov.",
+          "solar_gain_min_rise_per_hour": "Minimálna rýchlosť nárastu vnútornej teploty na detekciu solárnych ziskov (°C/h).",
+          "solar_gain_setpoint_offset_celsius": "Dočasné zníženie požadovaného setpointu počas aktívnych solárnych ziskov.",
+          "target_temperature_step": "Krok úpravy cieľovej teploty v rozhraní.",
+          "thermal_comfort": "Povoľte používanie indexu Simmer na nastavenie tepelného komfortu.",
+          "simulation": "Zapne režim simulácie (neodosielajú sa reálne príkazy kotlu).",
+          "error_monitoring": "Odosiela chyby súvisiace so SAT do Sentry na diagnostiku.",
+          "force_pulse_width_modulation": "Vynúti moduláciu šírky impulzu aj pri dostupnej modulácii (užitočné pre relé).",
+          "flame_off_setpoint_offset_celsius": "Pri vypnutej plameni drží dočasný setpoint na spiatočke + offset (len modulácia šírky impulzu).",
+          "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len modulácia šírky impulzu).",
+          "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len modulácia šírky impulzu).",
+          "flow_setpoint_offset_celsius": "Minimálny rozdiel pod teplotou kotla pri obmedzení setpointu (kontinuálny režim).",
+          "minimum_boiler_pressure": "Dolná hranica tlaku pre kontrolu stavu (bar).",
+          "maximum_boiler_pressure": "Horná hranica tlaku pre kontrolu stavu (bar).",
+          "maximum_pressure_drop_rate": "Maximálny povolený pokles tlaku pred nahlásením problému (bar/h).",
+          "pressure_max_value_age": "Maximálny vek merania tlaku pred nahlásením problému."
         },
         "title": "Rozšírené"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Hodnota automatického zosilnenia",
           "derivative": "Derivačná (kD)",
-          "derivative_time_weight": "Časová váha derivácie",
-          "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu",
           "heating_curve_coefficient": "Koeficient vykurovacej krivky",
-          "heating_curve_version": "Verzia vykurovacej krivky",
           "integral": "Integračná (kI)",
           "maximum_setpoint": "Maximálna požadovaná hodnota",
-          "dynamic_minimum_setpoint_version": "Verzia regulátora minimálnej požadovanej hodnoty",
-          "pid_controller_version": "Verzia PID regulátora",
           "proportional": "Proporcionálna (kP)",
           "window_sensors": "Kontaktné senzory",
           "heating_mode": "Režim vykurovania"
         },
         "data_description": {
-          "automatic_gains_value": "Hodnota používaná pre automatické zosilnenie v PID regulátore.",
           "derivative": "Odvodený člen (kD) v PID regulátore, zodpovedný za zmiernenie prekročenia.",
-          "derivative_time_weight": "Parameter na úpravu vplyvu derivačného členu v priebehu času, obzvlášť užitočný na zníženie podkmitu počas zahrievacej fázy, keď je koeficient vykurovacej krivky správne nastavený.",
-          "duty_cycle": "Maximálny pracovný cyklus pre moduláciu šírky impulzu (PWM), ktorá riadi cykly zapnutia a vypnutia kotla.",
           "heating_curve_coefficient": "Koeficient použitý na úpravu vykurovacej krivky.",
           "integral": "Integrálny člen (kI) v regulátore PID, zodpovedný za zníženie chyby v ustálenom stave.",
           "maximum_setpoint": "Optimálna teplota pre efektívnu prevádzku kotla.",
           "proportional": "Proporcionálny člen (kP) v PID regulátore, zodpovedný za okamžitú reakciu na chyby.",
           "window_sensors": "Kontaktné senzory, ktoré spúšťajú reakciu systému, keď je okno alebo dvere otvorené po určitú dobu."
         },
-        "description": "Všeobecné nastavenia a konfigurácie.",
+        "description": "Základné nastavenia riadenia kúrenia (limity, krivka, senzory).",
         "title": "Všeobecné"
       },
       "init": {
@@ -214,7 +262,8 @@
           "advanced": "Rozšírené možnosti",
           "general": "Všeobecné",
           "presets": "Predvoľby",
-          "system_configuration": "Konfigurácia systému"
+          "system_configuration": "Konfigurácia systému",
+          "room_presets": "Predvoľby izieb"
         }
       },
       "presets": {
@@ -227,27 +276,54 @@
           "push_setpoint_to_thermostat": "Synchronizujte s termostatom pripojeným ku kotlu",
           "sync_climates_with_preset": "Synchronizujte klímu s predvoľbou (spánok / preč / aktivita)"
         },
-        "description": "Preddefinované nastavenia teploty pre rôzne scenáre alebo činnosti.",
-        "title": "Predvoľby"
+        "description": "Nastavte teploty predvolieb a ich synchronizáciu s inými klímami.",
+        "title": "Predvoľby",
+        "data_description": {
+          "sync_climates_with_preset": "Pri výbere predvoľby nastaví túto teplotu aj na klímach miestností.",
+          "push_setpoint_to_thermostat": "Odošle cieľovú teplotu SAT do termostatu kotla."
+        }
       },
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Pracovné cykly za hodinu",
-          "automatic_duty_cycle": "Automatický pracovný cyklus",
           "sync_climates_with_mode": "Synchronizujte klímu s režimom",
-          "overshoot_protection": "Ochrana proti prekročeniu (s PWM)",
           "sensor_max_value_age": "Vek maximálnej hodnoty snímača teploty",
-          "window_minimum_open_time": "Minimálny čas na otvorenie okna"
+          "window_minimum_open_time": "Minimálny čas na otvorenie okna",
+          "frost_protection_temperature": "Teplota protimrazovej ochrany"
         },
         "data_description": {
           "cycles_per_hour": "Maximálny počet pracovných cyklov za hodinu.",
-          "automatic_duty_cycle": "Povoliť alebo zakázať automatický pracovný cyklus pre moduláciu šírky impulzu (PWM).",
-          "overshoot_protection": "Aktivujte ochranu proti prekročeniu pomocou modulácie šírky impulzov (PWM), aby ste zabránili prekročeniu teploty kotla.",
           "sensor_max_value_age": "Maximálny vek hodnoty teplotného snímača pred tým, než sa považuje za prerušenie.",
-          "window_minimum_open_time": "Minimálny čas, počas ktorého musí byť okno otvorené, kým systém zareaguje."
+          "window_minimum_open_time": "Minimálny čas, počas ktorého musí byť okno otvorené, kým systém zareaguje.",
+          "sync_climates_with_mode": "Pri zmene tu nastaví režim HVAC aj na klímach miestností.",
+          "frost_protection_temperature": "Pokračovať vo vykurovaní, keď izba klesne pod túto teplotu, aj keď je termostat vypnutý. Nastavte 0 na vypnutie."
         },
-        "description": "Na jemné doladenie a prispôsobenie.",
+        "description": "Časovanie a synchronizácia pre cykly, senzory a režim HVAC.",
         "title": "Konfigurácia systému"
+      },
+      "room_presets": {
+        "title": "Predvoľby izieb",
+        "description": "Vyberte izbu, pre ktorú chcete nastaviť teploty predvolieb. Domáca teplota je bežný cieľ izby a predvolene sa rovná domácej teplote domu. Nezaškrtnuté predvoľby izbu iba znižujú relatívne k nej a nikdy ju nezvyšujú.",
+        "data": {
+          "room": "Izba"
+        }
+      },
+      "room_preset": {
+        "title": "Predvoľby izieb",
+        "description": "Čo znamená každá predvoľba pre {room}. Zaškrtnite predvoľby, pre ktoré má táto izba vlastnú teplotu.",
+        "data": {
+          "fixed": "Túto izbu nechať tak",
+          "own": "Predvoľby s vlastnou teplotou",
+          "home_temperature": "Domáca teplota",
+          "comfort_temperature": "Komfortná teplota",
+          "sleep_temperature": "Teplota spánku",
+          "away_temperature": "Teplota pri neprítomnosti",
+          "activity_temperature": "Teplota aktivity"
+        },
+        "data_description": {
+          "fixed": "Predvoľby nikdy nemenia cieľovú teplotu tejto izby.",
+          "own": "Iba zaškrtnuté predvoľby používajú teplotu nastavenú nižšie; ostatné sa riadia predvoľbou domu."
+        }
       }
     }
   },
@@ -257,13 +333,78 @@
       "description": "Táto služba resetuje integračnú časť PID regulátora pre zadanú entitu klimatizácie. Toto môže byť užitočné, ak sa integračná hodnota stala príliš veľkou alebo ak sa znížil výkon PID regulátora."
     },
     "pulse_width_modulation": {
-      "name": "Pulzne šírková modulácia",
-      "description": "Vynútené povolenie alebo zakázanie modulácie šírky impulzu. Upozorňujeme, že sa môže hneď potom automaticky zapnúť alebo vypnúť.",
+      "name": "Modulácia šírky impulzu ",
+      "description": "Vynútené povolenie alebo zakázanie modulácie šírky impulzu . Upozorňujeme, že sa môže hneď potom automaticky zapnúť alebo vypnúť.",
       "fields": {
         "enabled": {
           "name": "Povolené",
           "description": "Stav, ktorý chcete vynútiť."
         }
+      }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "Kotol hlási poruchu",
+      "description": "Kotol pripojený k {name} hlási poruchu (kód {fault_code}). Skontrolujte displej kotla a poraďte sa s manuálom alebo s inštalatérom."
+    },
+    "boiler_pressure": {
+      "title": "Nezdravý tlak kotla",
+      "description": "Tlak kotla pre {name} je mimo rozsahu alebo rýchlo klesá (aktuálne {pressure} bar). Skontrolujte systém na úniky a v prípade potreby doplňte tlak vody."
+    },
+    "boiler_pressure_trend": {
+      "title": "Kotol pomaly stráca tlak",
+      "description": "Vykurovací systém {name} od posledného doplnenia stratil približne {loss} bar a za posledných 90 dní bol doplnený {top_ups}-krát. Môže to naznačovať malý únik alebo chybnú expanznú nádobu. Skontrolujte systém alebo kontaktujte svojho inštalatéra."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "Kotol častejšie krátko cykluje",
+      "description": "Kotol {name} teraz štartuje približne {recent_cycles}-krát denne so strednou dobou behu {on_time} minút, oproti {baseline_cycles} štartom denne pri podobnom počasí. Časté krátke behy opotrebúvajú kotol a plytvajú plynom. Skontrolujte vykurovaciu krivku, nastavenia PWM a minimálny výkon kotla."
+    },
+    "room_undersupplied": {
+      "title": "{room} dostáva príliš málo tepla",
+      "description": "{room} v {name} trvalo potrebuje viac tepla ako zvyšok domu, čo zvyšuje teplotu prívodu približne o {flow_premium} °C. Skontrolujte, či je radiátor dostatočne veľký, či sú spiatočkové ventily vyvážené a či nie je prievan alebo otvorené dvere."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} zostáva studená, hoci termostat je spokojný",
+      "description": "{room} v {name} zostáva pod cieľovou teplotou, ale termostat si teplo pýta len zriedka. Termostat pravdepodobne meria vyššiu teplotu ako miestnosť. Skontrolujte jeho umiestnenie alebo korekciu teploty."
+    },
+    "room_fault": {
+      "title": "{room} hlási problém s ventilom",
+      "description": "Zariadenie v {room} v {name} hlási alarm ventilu. Skontrolujte jeho inštaláciu, kalibráciu a prepojenie s prípadným externým snímačom teploty."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Odporúčanie vykurovacej krivky",
+        "state": {
+          "increase": "Zvýšiť",
+          "decrease": "Znížiť",
+          "hold": "Ponechať",
+          "insufficient_samples": "Nedostatok vzoriek"
+        }
+      },
+      "room_balance": {
+        "name": "Vyváženie miestnosti",
+        "state": {
+          "balanced": "Vyvážená",
+          "room_fault": "Porucha zariadenia",
+          "oversupplied": "Nadmerne zásobovaná",
+          "undersupplied": "Nedostatočne zásobovaná",
+          "sensor_mismatch": "Nesúlad senzora",
+          "insufficient_data": "Nedostatok údajov"
+        }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Doma",
+        "comfort": "Komfort",
+        "sleep": "Spánok",
+        "away": "Mimo domu",
+        "activity": "Aktivita"
       }
     }
   }

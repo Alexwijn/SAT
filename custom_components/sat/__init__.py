@@ -1,116 +1,113 @@
-import asyncio
 import logging
 import traceback
 
-from homeassistant.components import binary_sensor, climate, number, sensor
+from homeassistant.components.climate import PRESET_HOME
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry
+from homeassistant.helpers import device_registry, entity_registry
+from homeassistant.helpers.restore_state import DATA_RESTORE_STATE
 from homeassistant.helpers.storage import Store
 from sentry_sdk import Client, Hub
 
 from .const import (
+    CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
+    CONF_MODULATION_SUPPRESSION_OFFSET_CELSIUS,
+    CONF_ROOM_PRESET_FIXED,
+    CONF_ROOM_PRESET_TEMPERATURES,
+    CONF_ROOM_PRESETS,
+    CONF_ROOMS,
     DOMAIN,
-    CLIMATE,
-    SENTRY,
-    COORDINATOR,
     OPTIONS_DEFAULTS,
-    CONF_MODE,
-    CONF_DEVICE,
-    CONF_ERROR_MONITORING,
-    SERVICE_RESET_INTEGRAL,
-    SERVICE_PULSE_WIDTH_MODULATION,
 )
 from .coordinator import SatDataUpdateCoordinatorFactory
-from .services import async_register_services
-from .util import get_climate_entities
+from .demand_control import SatDemandControl
+from .entry_data import SatConfig, SatEntryData
+from .heating_control import SatHeatingControl
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-PLATFORMS = [climate.DOMAIN, sensor.DOMAIN, number.DOMAIN, binary_sensor.DOMAIN]
+PLATFORMS = ["climate", "sensor", "number", "binary_sensor", "water_heater"]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """
-    Set up this integration using the UI.
-
-    This function is called by Home Assistant when the integration is set up with the UI.
-    """
-    # Make sure we have our default domain property
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Create a new dictionary for this entry
-    hass.data[DOMAIN][entry.entry_id] = {}
+    config = SatConfig(entry.entry_id, entry.data, {**OPTIONS_DEFAULTS, **entry.options})
+    await async_migrate_identifiers(hass, entry, config)
 
-    try:
-        # Setup error monitoring (if enabled)
-        if entry.options.get(CONF_ERROR_MONITORING, OPTIONS_DEFAULTS[CONF_ERROR_MONITORING]):
-            await hass.async_add_executor_job(initialize_sentry, hass)
-    except Exception as ex:
-        _LOGGER.error("Error during Sentry initialization: %s", str(ex))
+    coordinator = SatDataUpdateCoordinatorFactory().resolve(hass=hass, config=config)
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=config)
+    demand_control = SatDemandControl(hass=hass, coordinator=coordinator, heating_control=heating_control, config=config)
 
-    # Resolve the coordinator by using the factory according to the mode
-    hass.data[DOMAIN][entry.entry_id][COORDINATOR] = SatDataUpdateCoordinatorFactory().resolve(
-        hass=hass, data=entry.data, options=entry.options, mode=entry.data.get(CONF_MODE), device=entry.data.get(CONF_DEVICE)
+    hass.data[DOMAIN][entry.entry_id] = entry_data = SatEntryData(
+        config=config,
+        coordinator=coordinator,
+        heating_control=heating_control,
+        demand_control=demand_control,
     )
 
-    # Making sure everything is loaded
-    await hass.data[DOMAIN][entry.entry_id][COORDINATOR].async_setup()
+    try:
+        if config.error_monitoring_enabled:
+            def create_sentry_client() -> None:
+                entry_data.sentry = initialize_sentry()
 
-    # Forward entry setup for used platforms
+            await hass.async_add_executor_job(create_sentry_client)
+    except Exception as error:
+        _LOGGER.error("Error during Sentry initialization: %s", error)
+
+    await coordinator.async_setup()
+    await coordinator.async_added_to_hass(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register the services
-    await async_register_services(hass)
-
-    # Add an update listener for this entry
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """
-    Handle removal of an entry.
-
-    This function is called by Home Assistant when the integration is being removed.
-    """
-
-    _climate = hass.data[DOMAIN][entry.entry_id][CLIMATE]
-    _coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
-
-    await _coordinator.async_will_remove_from_hass()
-
-    unloaded = all(
-        # Forward entry unload for used platforms
-        await asyncio.gather(hass.config_entries.async_unload_platforms(entry, PLATFORMS))
-    )
+    """Unload a config entry."""
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if entry_data is None:
+        return True
 
     try:
-        if SENTRY in hass.data[DOMAIN]:
-            hass.data[DOMAIN][SENTRY].flush()
-            hass.data[DOMAIN][SENTRY].close()
-            hass.data[DOMAIN].pop(SENTRY, None)
-    except Exception as ex:
-        _LOGGER.error("Error during Sentry cleanup: %s", str(ex))
+        unload_successful = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    except ValueError:
+        _LOGGER.debug("Platforms already unloaded for entry %s.", entry.entry_id)
+        unload_successful = True
 
-    # Remove the entry from the data dictionary if all components are unloaded successfully
-    if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id)
+    try:
+        await entry_data.demand_control.async_will_remove_from_hass()
+    except Exception as error:
+        _LOGGER.error("Error during demand control cleanup: %s", error)
 
-    return unloaded
+    try:
+        if getattr(entry_data, "coordinator", None) is not None:
+            await entry_data.coordinator.async_will_remove_from_hass()
+    except Exception as error:
+        _LOGGER.error("Error during coordinator cleanup: %s", error)
+
+    if not unload_successful:
+        return False
+
+    try:
+        if entry_data.sentry is not None:
+            entry_data.sentry.flush()
+            entry_data.sentry.close()
+            entry_data.sentry = None
+    except Exception as error:
+        _LOGGER.error("Error during Sentry cleanup: %s", error)
+
+    hass.data[DOMAIN].pop(entry.entry_id, None)
+    if not hass.data[DOMAIN]:
+        hass.data.pop(DOMAIN, None)
+
+    return True
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """
-    Reload config entry.
-
-    This function is called by Home Assistant when the integration configuration is updated.
-    """
-    # Unload the entry and its dependent components
-    await async_unload_entry(hass, entry)
-
-    # Set up the entry again
-    await async_setup_entry(hass, entry)
+    """Reload a config entry."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -165,9 +162,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 new_options.pop("sync_with_thermostat")
 
         if entry.version < 4:
-            if entry.data.get("window_sensor") is not None:
-                new_data["window_sensors"] = [entry.data.get("window_sensor")]
-                del new_options["window_sensor"]
+            if (window_sensor := entry.options.get("window_sensor") or entry.data.get("window_sensor")) is not None:
+                new_options["window_sensors"] = [window_sensor]
+
+            new_data.pop("window_sensor", None)
+            new_options.pop("window_sensor", None)
 
         if entry.version < 5:
             if entry.options.get("overshoot_protection") is not None:
@@ -190,14 +189,33 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         if entry.version < 10:
             if entry.data.get("mode") == "mqtt":
-                device = device_registry.async_get(hass).async_get(entry.data.get("device"))
-
                 new_data["mode"] = "mqtt_opentherm"
-                new_data["device"] = list(device.identifiers)[0][1]
+
+                device = device_registry.async_get(hass).async_get(entry.data.get("device"))
+                if device is not None and device.identifiers:
+                    new_data["device"] = list(device.identifiers)[0][1]
+                else:
+                    _LOGGER.warning("Device %s no longer exists, keeping the configured value.", entry.data.get("device"))
 
         if entry.version < 11:
             if entry.data.get("sync_with_thermostat") is not None:
                 new_data["push_setpoint_to_thermostat"] = entry.data.get("sync_with_thermostat")
+
+            if entry.data.get("mode") == "esphome":
+                device = device_registry.async_get(hass).async_get(entry.data.get("device"))
+
+                for entry_id in (device.config_entries if device is not None else []):
+                    config_entry = hass.config_entries.async_get_entry(entry_id)
+                    if config_entry and config_entry.domain == "esphome":
+                        new_data["device"] = entry_id
+                        break
+
+        if entry.version < 12:
+            if (push_setpoint := new_data.pop("push_setpoint_to_thermostat", None)) is not None:
+                new_options["push_setpoint_to_thermostat"] = push_setpoint
+
+        if entry.version < 13:
+            new_options[CONF_ROOM_PRESETS] = async_migrate_room_presets(hass, entry, new_data.get(CONF_ROOMS) or [], new_options.get(CONF_ROOM_PRESETS) or {})
 
         hass.config_entries.async_update_entry(entry, version=SatFlowHandler.VERSION, data=new_data, options=new_options)
 
@@ -206,7 +224,68 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-def initialize_sentry(hass: HomeAssistant):
+def async_migrate_room_presets(hass: HomeAssistant, entry: ConfigEntry, rooms: list[str], room_presets: dict) -> dict:
+    """Turn the home temperatures the climate entity remembered per room into room presets."""
+    remembered = {}
+    registry = entity_registry.async_get(hass)
+    climate_id = registry.async_get_entity_id("climate", DOMAIN, entry.entry_id)
+    restore_state = hass.data.get(DATA_RESTORE_STATE)
+
+    if climate_id is not None and restore_state is not None:
+        registry_entry = registry.async_get(climate_id)
+        stored = (
+                (getattr(restore_state, "last_states", None) or {}).get(climate_id)
+                or (getattr(restore_state, "last_states_by_entity_id", None) or {}).get(climate_id)
+                or ((getattr(restore_state, "last_states_by_entity_registry_id", None) or {}).get(registry_entry.id) if registry_entry is not None else None)
+        )
+
+        if stored is not None:
+            remembered = stored.state.attributes.get("rooms") or {}
+
+    migrated = {room: dict(settings or {}) for room, settings in room_presets.items()}
+
+    for room in rooms:
+        if (home_target := remembered.get(room)) is None:
+            continue
+
+        settings = migrated.setdefault(room, {})
+        temperatures = dict(settings.get(CONF_ROOM_PRESET_TEMPERATURES) or {})
+        temperatures.setdefault(PRESET_HOME, float(home_target))
+
+        settings[CONF_ROOM_PRESET_FIXED] = bool(settings.get(CONF_ROOM_PRESET_FIXED))
+        settings[CONF_ROOM_PRESET_TEMPERATURES] = temperatures
+
+    return migrated
+
+
+async def async_migrate_identifiers(hass: HomeAssistant, entry: ConfigEntry, config: SatConfig) -> None:
+    entity_reg = entity_registry.async_get(hass)
+    device_reg = device_registry.async_get(hass)
+
+    old_prefix = config.name_lower
+    new_prefix = config.entry_id
+    old_dash_prefix = f"{old_prefix}-"
+
+    for entity_entry in entity_registry.async_entries_for_config_entry(entity_reg, entry.entry_id):
+        unique_id = entity_entry.unique_id
+        new_unique_id = None
+
+        if unique_id == old_prefix:
+            new_unique_id = new_prefix
+        elif unique_id.startswith(old_dash_prefix):
+            new_unique_id = f"{new_prefix}-{unique_id[len(old_dash_prefix):]}"
+
+        if new_unique_id and new_unique_id != unique_id:
+            entity_reg.async_update_entity(entity_entry.entity_id, new_unique_id=new_unique_id)
+
+    devices = device_registry.async_entries_for_config_entry(device_reg, entry.entry_id)
+    if (device := next((device for device in devices if (DOMAIN, config.name) in device.identifiers), None)) is None:
+        return
+
+    device_reg.async_update_device(device.id, new_identifiers={(DOMAIN, config.entry_id)})
+
+
+def initialize_sentry() -> Client:
     """Initialize Sentry synchronously in an offloaded executor job."""
 
     def exception_filter(event, hint):
@@ -228,12 +307,11 @@ def initialize_sentry(hass: HomeAssistant):
     client = Client(
         traces_sample_rate=1.0,
         before_send=exception_filter,
-        dsn="https://216fc0a74c488abdb79f9839fb7da33e@o4508432869621760.ingest.de.sentry.io/4508432872898640",
+        dsn="https://144b75a0111295466e4f7f438ee79bbe@o4508432869621760.ingest.de.sentry.io/4508432872898640",
     )
 
     # Bind the Sentry client to the Sentry hub
     hub = Hub(client)
     hub.bind_client(client)
 
-    # Store the hub in Home Assistant's data for later use
-    hass.data[DOMAIN][SENTRY] = client
+    return client

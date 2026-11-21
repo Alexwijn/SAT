@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List, Type
+from typing import List, Type, Optional
 
 from .helpers import snake_case
 
@@ -37,7 +37,6 @@ class Manufacturer(ABC):
     @abstractmethod
     def friendly_name(self) -> str:
         pass
-
 
 class ManufacturerFactory:
     @staticmethod

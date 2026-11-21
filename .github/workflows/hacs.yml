@@ -11,6 +11,7 @@ on:
 jobs:
   hacs:
     name: HACS Action
+    if: github.repository == 'Alexwijn/SAT'
     runs-on: "ubuntu-latest"
     steps:
       - name: HACS Action

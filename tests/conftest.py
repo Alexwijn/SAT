@@ -5,9 +5,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import assert_setup_component, MockConfigEntry
 
-from custom_components.sat.const import DOMAIN, CLIMATE, COORDINATOR
+from custom_components.sat import SatHeatingControl
 from custom_components.sat.climate import SatClimate
-from custom_components.sat.fake import SatFakeCoordinator
+from custom_components.sat.const import DOMAIN
+from custom_components.sat.coordinator.fake import SatFakeCoordinator
+from custom_components.sat.demand_control import SatDemandControl
 from tests.const import DEFAULT_USER_DATA
 
 
@@ -39,9 +41,19 @@ async def entry(hass: HomeAssistant, domains: list, data: dict, options: dict, c
 
 @pytest.fixture
 async def climate(hass, entry: MockConfigEntry) -> SatClimate:
-    return hass.data[DOMAIN][entry.entry_id][CLIMATE]
+    return hass.data[DOMAIN][entry.entry_id].climate
 
 
 @pytest.fixture
 async def coordinator(hass, entry: MockConfigEntry) -> SatFakeCoordinator:
-    return hass.data[DOMAIN][entry.entry_id][COORDINATOR]
+    return hass.data[DOMAIN][entry.entry_id].coordinator
+
+
+@pytest.fixture
+async def heating_control(hass, entry: MockConfigEntry) -> SatHeatingControl:
+    return hass.data[DOMAIN][entry.entry_id].heating_control
+
+
+@pytest.fixture
+async def demand_control(hass, entry: MockConfigEntry) -> SatDemandControl:
+    return hass.data[DOMAIN][entry.entry_id].demand_control

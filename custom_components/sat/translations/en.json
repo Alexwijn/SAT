@@ -7,11 +7,7 @@
     "error": {
       "invalid_device": "This is an invalid device.",
       "connection": "Unable to connect to the gateway.",
-      "mqtt_component": "The MQTT component is unavailable.",
-      "unable_to_calibrate": "The calibration process has encountered an issue and could not be completed successfully. Please ensure that your heating system is functioning properly and that all required sensors are connected and working correctly.\n\nIf you continue to experience issues with calibration, consider contacting us for further assistance. We apologize for any inconvenience caused."
-    },
-    "progress": {
-      "calibration": "Calibrating and finding the overshoot protection value...\n\nPlease wait while we optimize your heating system. This process may take approximately 20 minutes."
+      "rooms_required": "Without an inside sensor at least one room is required, since the rooms are then the only source of heating demand."
     },
     "step": {
       "areas": {
@@ -19,6 +15,11 @@
           "thermostat": "Thermostat",
           "main_climates": "Radiators",
           "secondary_climates": "Rooms"
+        },
+        "data_description": {
+          "thermostat": "Optional existing thermostat to sync setpoints with.",
+          "main_climates": "Radiators in the same room as the inside sensor.",
+          "secondary_climates": "Rooms with their own target temperatures. Required when no inside sensor is configured."
         },
         "description": "Settings related to thermostat, multi-room and temperature control. The radiators are in the same room as the inside sensor and the rooms have their own target temperatures separate from the system.",
         "title": "Areas"
@@ -30,60 +31,75 @@
         "description": "This feature adjusts the control parameters of your heating system dynamically, optimizing temperature control for better comfort and energy efficiency. Enabling this option allows SAT to continuously adapt and fine-tune the heating settings based on the environmental conditions. This helps maintain a stable and comfortable environment without manual intervention.\n\nNote: If you choose not to enable automatic gains, you will need to manually enter the PID values for precise temperature control. Please ensure that you have accurate PID values for your specific heating system to achieve optimal performance.",
         "title": "Automatic Gains"
       },
-      "calibrate_system": {
-        "description": "Optimize your heating system by automatically determining the optimal PID values for your setup. When selecting Automatic Gains, please note that the system will go through a calibration process that may take approximately 20 minutes to complete.\n\nAutomatic Gains is recommended for most users as it simplifies the setup process and ensures optimal performance. However, if you're familiar with PID control and prefer to manually set the values, you can choose to skip Automatic Gains.\n\nPlease note that choosing to skip Automatic Gains requires a good understanding of PID control and may require additional manual adjustments to achieve optimal performance.",
-        "menu_options": {
-          "calibrate": "Calibrate and determine your overshoot protection value (approx. 20 min).",
-          "overshoot_protection": "Manually enter the overshoot protection value.",
-          "pid_controller": "Manually enter PID values (not recommended)."
-        },
-        "title": "Calibrate System"
-      },
-      "calibrated": {
-        "description": "The calibration process has completed successfully.\n\nCongratulations! Your Smart Autotune Thermostat (SAT) has been calibrated to optimize the heating performance of your system. During the calibration process, SAT carefully analyzed the heating characteristics and determined the appropriate overshoot protection value to ensure precise temperature control.\n\nOvershoot Protection Value: {minimum_setpoint} °C\n\nThis value represents the maximum amount of overshoot allowed during the heating process. SAT will actively monitor and adjust the heating to prevent excessive overshooting, maintaining a comfortable and efficient heating experience in your home.\n\nPlease note that the overshoot protection value may vary depending on the specific characteristics of your heating system and environmental factors. It has been fine-tuned to provide optimal performance based on the calibration results.",
-        "menu_options": {
-          "calibrate": "Retry calibration",
-          "finish": "Continue with current calibration"
-        },
-        "title": "Calibration Completed"
-      },
       "heating_system": {
         "data": {
           "heating_system": "System"
+        },
+        "data_description": {
+          "heating_system": "Choose the system that matches your heat emitters."
         },
         "description": "Selecting the correct heating system type is important for SAT to accurately control the temperature and optimize performance. Choose the option that matches your setup to ensure proper temperature regulation throughout your home.",
         "title": "Heating System"
       },
       "mosquitto": {
-        "description": "Configure the MQTT mode for your heating system. Select the gateway mode and provide its name.",
+        "description": "Select the gateway type so SAT knows which MQTT topics to use.",
         "data": {
           "mode": "Mode"
+        },
+        "data_description": {
+          "mode": "Pick the gateway type so SAT knows which MQTT topic format to expect."
         },
         "title": "MQTT Configuration"
       },
       "mosquitto_opentherm": {
-        "description": "Set up the OpenTherm Gateway. Provide the top MQTT topic and the device identifier.",
+        "description": "Provide the base MQTT topic (e.g. {example_otgw_topic}) and the device identifier.",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT Topic",
           "device": "Device ID"
         },
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "mqtt_topic": "Base topic used by the gateway (e.g. OTGW/ or OTGW/ABCDEF).",
+          "device": "Gateway device identifier (often the OTGW id)."
+        },
         "title": "OpenTherm Gateway Setup"
       },
       "mosquitto_ems": {
-        "description": "Set up the EMS-ESP Gateway. Provide the MQTT topic.",
+        "description": "Provide the base MQTT topic (e.g. {example_ems_topic}).",
         "data": {
           "name": "Name",
           "mqtt_topic": "MQTT Topic"
         },
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "mqtt_topic": "Base topic used by EMS-ESP (e.g. ems-esp/)."
+        },
         "title": "EMS-ESP Gateway Setup"
       },
-      "overshoot_protection": {
+      "mosquitto_otthing": {
+        "description": "Provide the base topic without /state (e.g. {example_otthing_topic}).",
         "data": {
-          "minimum_setpoint": "Value"
+          "name": "Name",
+          "mqtt_topic": "MQTT Topic"
         },
-        "description": "By providing the overshoot protection value, SAT will adjust the control parameters accordingly to maintain a stable and comfortable heating environment. This manual configuration allows you to fine-tune the system based on your specific setup.\n\nNote: If you are unsure about the overshoot protection value or have not performed the calibration process, it is recommended to cancel the configuration and go through the calibration process to let SAT automatically determine the value for optimal performance.",
-        "title": "Overshoot Protection"
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "mqtt_topic": "Base topic without /state (e.g. otthing/31F44C)."
+        },
+        "title": "OTthing Gateway Setup"
+      },
+      "esphome": {
+        "description": "Select the ESPHome device and give it a name.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "device": "ESPHome device to use."
+        },
+        "title": "ESPHome Setup"
       },
       "pid_controller": {
         "data": {
@@ -98,9 +114,16 @@
         "data": {
           "humidity_sensor_entity_id": "Humidity Sensor Entity",
           "inside_sensor_entity_id": "Inside Sensor Entity",
-          "outside_sensor_entity_id": "Outside Sensor Entity"
+          "outside_sensor_entity_id": "Outside Sensor Entity",
+          "wind_sensor_entity_id": "Wind Sensor Entity"
         },
-        "description": "Please select the sensors that will be used to track the temperature.",
+        "data_description": {
+          "inside_sensor_entity_id": "Primary indoor temperature sensor. Leave empty when every heated room has its own climate entity; SAT then follows the rooms alone and creates no thermostat of its own.",
+          "outside_sensor_entity_id": "Outdoor sensor or weather entity (you can select multiple).",
+          "humidity_sensor_entity_id": "Optional humidity sensor.",
+          "wind_sensor_entity_id": "Optional wind speed sensor or weather entity (you can select multiple). Pick the sustained wind speed, not gusts. When left empty, the wind speed of a weather entity among the outside sensors is used."
+        },
+        "description": "Select the inside sensor, the outside sensor(s), an optional humidity sensor, and optional wind sensor(s). The inside sensor is optional when you only use rooms.",
         "title": "Configure sensors"
       },
       "serial": {
@@ -108,7 +131,11 @@
           "device": "URL",
           "name": "Name"
         },
-        "description": "To establish a connection with the OpenTherm Gateway using a socket connection, please provide the following details. In the Name field, enter a name for the gateway that will help you identify it within your system.\n\nSpecify the network address of the OpenTherm Gateway in the Device field. This could be in the format of \"socket://otgw.local:25238\", where \"otgw.local\" is the hostname or IP address of the gateway and \"25238\" is the port number.\n\nThese settings are essential for establishing communication and integration with your OpenTherm Gateway through the socket connection. Ensure that the provided details are accurate to ensure proper functionality.",
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "device": "Socket URL, e.g. socket://otgw.local:25238."
+        },
+        "description": "Enter a name and a socket URL (e.g. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
       },
       "simulator": {
@@ -129,8 +156,13 @@
           "minimum_setpoint": "Temperature Setting",
           "name": "Name"
         },
-        "description": "Please fill in the following details to set up the switch. Enter a name for the switch in the Name field, which will help you identify it within your system. Choose the appropriate entity to use for your switch from the provided options.\n\nIn the Temperature Setting field, specify the desired target temperature for your heating system. If you are using a hot water boiler, fill in the Boiler Temperature Setting with the appropriate value. For electric heating systems, enter the value 100.\n\nThese settings are essential for precise temperature control and ensuring optimal performance of your heating system. Providing the correct Temperature Setting allows for accurate regulation and helps achieve a comfortable and energy-efficient environment in your home.",
-        "title": "PID Thermostat with PWM ( ON/OFF )"
+        "data_description": {
+          "name": "Friendly name shown in Home Assistant.",
+          "device": "Switch, valve, or input_boolean used to control heating.",
+          "minimum_setpoint": "Boiler temp for hot water systems; use 100 for electric heating."
+        },
+        "description": "Choose the control entity and set the temperature. For hot water boilers, use the boiler temperature; for electric heating, use 100.",
+        "title": "PID Thermostat with Pulse Width Modulation (ON/OFF)"
       },
       "user": {
         "description": "SAT is a smart thermostat capable of auto-tuning itself to optimize temperature control. Select the mode that matches your heating system.",
@@ -139,7 +171,7 @@
           "serial": "Serial Gateway (e.g., OpenTherm)",
           "esphome": "ESPHome (System services and sensors)",
           "simulator": "Simulated Gateway (Developer use only)",
-          "switch": "PID Thermostat (PWM On/Off mode)"
+          "switch": "PID Thermostat (Pulse Width Modulation On/Off mode)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
       },
@@ -157,56 +189,72 @@
         "data": {
           "error_monitoring": "Enable error monitoring",
           "climate_valve_offset": "Climate valve offset",
-          "dynamic_minimum_setpoint": "Dynamic Minimum Setpoint (Experimental)",
-          "force_pulse_width_modulation": "Force Pulse Width Modulation",
+          "flame_off_setpoint_offset_celsius": "Flame-off setpoint offset",
+          "force_pulse_width_modulation": "Force Pulse Width Modulation ",
           "maximum_consumption": "Maximum Consumption",
           "maximum_relative_modulation": "Maximum Relative Modulation",
           "minimum_consumption": "Minimum Consumption",
-          "sample_time": "Sample Time",
+          "modulation_suppression_delay_seconds": "Modulation suppression delay",
+          "modulation_suppression_offset_celsius": "Modulation suppression offset",
+          "flow_setpoint_offset_celsius": "Flow setpoint offset",
+          "minimum_boiler_pressure": "Minimum boiler pressure",
+          "maximum_boiler_pressure": "Maximum boiler pressure",
+          "maximum_pressure_drop_rate": "Maximum pressure drop rate",
+          "pressure_max_value_age": "Pressure max value age",
           "simulation": "Simulation",
+          "solar_gain_compensation": "Solar gain compensation",
+          "solar_gain_freeze_integral": "Freeze integral during solar gain",
+          "solar_gain_min_elevation": "Solar gain minimum elevation",
+          "solar_gain_min_rise_per_hour": "Solar gain minimum indoor rise",
+          "solar_gain_setpoint_offset_celsius": "Solar gain setpoint offset",
           "target_temperature_step": "Target Temperature Step",
           "thermal_comfort": "Thermal Comfort"
         },
         "data_description": {
-          "climate_valve_offset": "Offset to adjust the opening degree of the climate valve.",
-          "dynamic_minimum_setpoint": "Activates the dynamic setpoint adjustment based on the boiler's return temperature, which also helps identify if any valves are closed.",
-          "maximum_consumption": "The maximum gas consumption when the boiler is active.",
-          "maximum_relative_modulation": "Representing the highest modulation level for an efficient heating system.",
-          "minimum_consumption": "The minimum gas consumption when the boiler is active.",
-          "sample_time": "The minimum time interval between updates to the PID controller.",
-          "target_temperature_step": "Adjust the target temperature step for fine-tuning comfort levels.",
-          "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment."
+          "climate_valve_offset": "Temperature gap (target vs current) required to treat a valve as open.",
+          "flame_off_setpoint_offset_celsius": "When the flame is off, hold a temporary setpoint at return temperature + offset (Pulse Width Modulation only).",
+          "maximum_consumption": "Gas use at maximum modulation, used for consumption estimation.",
+          "maximum_relative_modulation": "Cap the boiler modulation percentage (0–100) to limit maximum output.",
+          "minimum_consumption": "Gas use at minimum modulation, used for consumption estimation.",
+          "modulation_suppression_delay_seconds": "Time after flame-on before suppression can apply (Pulse Width Modulation only).",
+          "modulation_suppression_offset_celsius": "How much to lower the flow setpoint during suppression (Pulse Width Modulation only).",
+          "flow_setpoint_offset_celsius": "Minimum offset below boiler temperature when clamping setpoint (continuous mode).",
+          "minimum_boiler_pressure": "Lower pressure threshold for health detection (bar).",
+          "maximum_boiler_pressure": "Upper pressure threshold for health detection (bar).",
+          "maximum_pressure_drop_rate": "Maximum allowed pressure drop rate before flagging health (bar/h).",
+          "pressure_max_value_age": "Maximum age of a pressure reading before marking health as unhealthy.",
+          "solar_gain_compensation": "Reduce requested heat when indoor temperature rises quickly from likely sunlight.",
+          "solar_gain_freeze_integral": "Avoid integral wind-up while solar gain compensation is active.",
+          "solar_gain_min_elevation": "Minimum sun elevation (degrees) required before solar gain detection can trigger.",
+          "solar_gain_min_rise_per_hour": "Minimum indoor temperature rise rate required to detect solar gain (°C/h).",
+          "solar_gain_setpoint_offset_celsius": "Temporary requested setpoint reduction applied while solar gain is active.",
+          "target_temperature_step": "Step size for target temperature adjustments in the UI.",
+          "thermal_comfort": "Enable the use of the Simmer Index for thermal comfort adjustment.",
+          "simulation": "Enable simulation mode (no real boiler commands are sent).",
+          "error_monitoring": "Send SAT-related errors to the developer via Sentry to help diagnose issues.",
+          "force_pulse_width_modulation": "Force Pulse Width Modulation even when modulation control is available (useful for relay-style control)."
         },
         "title": "Advanced"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Automatic Gains Value",
           "derivative": "Derivative (kD)",
-          "derivative_time_weight": "Derivative Time Weight",
-          "duty_cycle": "Maximum Duty Cycle for Pulse Width Modulation",
           "heating_curve_coefficient": "Heating Curve Coefficient",
-          "heating_curve_version": "Heating Curve Version",
           "integral": "Integral (kI)",
           "maximum_setpoint": "Maximum Setpoint",
-          "dynamic_minimum_setpoint_version": "Minimum Setpoint Controller Version",
-          "pid_controller_version": "PID Controller Version",
           "proportional": "Proportional (kP)",
           "window_sensors": "Contact Sensors",
           "heating_mode": "Heating Mode"
         },
         "data_description": {
-          "automatic_gains_value": "The value used for automatic gains in the PID controller.",
           "derivative": "The derivative term (kD) in the PID controller, responsible for mitigating overshooting.",
-          "derivative_time_weight": "A parameter to adjust the influence of the derivative term over time, particularly useful for reducing undershoot during the warm-up phase when the heating curve coefficient is correctly set.",
-          "duty_cycle": "The maximum duty cycle for Pulse Width Modulation (PWM), controlling the boiler's on-off cycles.",
           "heating_curve_coefficient": "The coefficient used to adjust the heating curve.",
           "integral": "The integral term (kI) in the PID controller, responsible for reducing steady-state error.",
           "maximum_setpoint": "The optimal temperature for efficient boiler operation.",
           "proportional": "The proportional term (kP) in the PID controller, responsible for the immediate response to errors.",
           "window_sensors": "Contact Sensors that trigger the system to react when a window or door is open for a period of time."
         },
-        "description": "General settings and configurations.",
+        "description": "Core heating control settings (limits, heating curve, sensors).",
         "title": "General"
       },
       "init": {
@@ -214,7 +262,8 @@
           "advanced": "Advanced Options",
           "general": "General",
           "presets": "Presets",
-          "system_configuration": "System Configuration"
+          "system_configuration": "System Configuration",
+          "room_presets": "Room Presets"
         }
       },
       "presets": {
@@ -227,27 +276,54 @@
           "push_setpoint_to_thermostat": "Synchronize with thermostat attached to the boiler",
           "sync_climates_with_preset": "Synchronize climates with preset (sleep / away / activity)"
         },
-        "description": "Predefined temperature settings for different scenarios or activities.",
-        "title": "Presets"
+        "description": "Set target temperatures for presets and how they sync with other climates.",
+        "title": "Presets",
+        "data_description": {
+          "sync_climates_with_preset": "When a preset is selected, also set the rooms (see Room Presets).",
+          "push_setpoint_to_thermostat": "Send SAT's target temperature to the boiler thermostat."
+        }
       },
       "system_configuration": {
         "data": {
           "cycles_per_hour": "Duty Cycles per hour",
-          "automatic_duty_cycle": "Automatic duty cycle",
           "sync_climates_with_mode": "Synchronize climates with mode",
-          "overshoot_protection": "Overshoot Protection (with PWM)",
           "sensor_max_value_age": "Temperature Sensor maximum value age",
-          "window_minimum_open_time": "Minimum time for window to be open"
+          "window_minimum_open_time": "Minimum time for window to be open",
+          "frost_protection_temperature": "Frost Protection Temperature"
         },
         "data_description": {
           "cycles_per_hour": "The maximum amount of duty cycles per hour.",
-          "automatic_duty_cycle": "Enable or disable automatic duty cycle for Pulse Width Modulation (PWM).",
-          "overshoot_protection": "Enable overshoot protection with Pulse Width Modulation (PWM) to prevent boiler temperature overshooting.",
           "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall.",
-          "window_minimum_open_time": "The minimum time a window must be open before the system reacts."
+          "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
+          "sync_climates_with_mode": "Also set HVAC mode on room climates when it changes here.",
+          "frost_protection_temperature": "Keep heating when the room drops below this temperature, even while the thermostat is off. Set to 0 to disable."
         },
-        "description": "For fine-tuning and customization.",
+        "description": "Timing and synchronization behavior for cycles, sensors, and HVAC mode.",
         "title": "System Configuration"
+      },
+      "room_presets": {
+        "title": "Room Presets",
+        "description": "Pick the room to set preset temperatures for. The home temperature is the room's normal target and defaults to the house home temperature. Presets you do not tick only lower the room relative to it and never raise it.",
+        "data": {
+          "room": "Room"
+        }
+      },
+      "room_preset": {
+        "title": "Room Presets",
+        "description": "What each preset means for {room}. Tick the presets this room has its own temperature for.",
+        "data": {
+          "fixed": "Leave this room alone",
+          "own": "Presets with their own temperature",
+          "home_temperature": "Home Temperature",
+          "comfort_temperature": "Comfort Temperature",
+          "sleep_temperature": "Sleep Temperature",
+          "away_temperature": "Away Temperature",
+          "activity_temperature": "Activity Temperature"
+        },
+        "data_description": {
+          "fixed": "Presets never change the target temperature of this room.",
+          "own": "Only the ticked presets use the temperature set below; the others follow the house preset."
+        }
       }
     }
   },
@@ -257,13 +333,78 @@
       "description": "This service resets the integrating part of the PID controller for the specified climate entity. This may be useful if the integral value has become too large or if the PID controller's performance has degraded."
     },
     "pulse_width_modulation": {
-      "name": "Pulse Width Modulation",
+      "name": "Pulse Width Modulation ",
       "description": "Force enable or disable the Pulse Width Modulation, do note that it may be turned on or off automatically right after again.",
       "fields": {
         "enabled": {
           "name": "Enabled",
           "description": "The state you want to force."
         }
+      }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "Boiler reports a fault",
+      "description": "The boiler connected to {name} reports a fault (code {fault_code}). Check the boiler display and consult the manual or your installer."
+    },
+    "boiler_pressure": {
+      "title": "Boiler pressure unhealthy",
+      "description": "The boiler pressure for {name} is out of range or dropping fast (currently {pressure} bar). Check the system for leaks and top up the water pressure if needed."
+    },
+    "boiler_pressure_trend": {
+      "title": "Boiler slowly losing pressure",
+      "description": "The heating system for {name} has lost about {loss} bar since its last top-up and was topped up {top_ups} times in the last 90 days. This can point to a slow leak or a failing expansion vessel. Check the system or contact your installer."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "Boiler short cycling more often",
+      "description": "The boiler for {name} now starts about {recent_cycles} times a day with a median run time of {on_time} minutes, compared with {baseline_cycles} starts a day in similar weather. Frequent short runs wear the boiler and waste gas. Check the heating curve, the PWM settings and the boiler's minimum output."
+    },
+    "room_undersupplied": {
+      "title": "{room} receives too little heat",
+      "description": "{room} on {name} consistently needs more heat than the rest of the house, which raises the flow temperature by about {flow_premium} °C. Check whether the radiator is large enough, whether the lockshield valves are balanced, and whether there are drafts or open doors."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} stays cold while its thermostat is satisfied",
+      "description": "{room} on {name} stays below its target, but its thermostat rarely asks for heat. The thermostat probably reads warmer than the room. Check its placement or temperature offset."
+    },
+    "room_fault": {
+      "title": "{room} reports a valve problem",
+      "description": "The device in {room} on {name} reports a valve alarm. Check its installation, calibration and any external temperature sensor link."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Heating curve recommendation",
+        "state": {
+          "increase": "Increase",
+          "decrease": "Decrease",
+          "hold": "Hold",
+          "insufficient_samples": "Insufficient samples"
+        }
+      },
+      "room_balance": {
+        "name": "Room balance",
+        "state": {
+          "balanced": "Balanced",
+          "room_fault": "Device fault",
+          "oversupplied": "Oversupplied",
+          "undersupplied": "Undersupplied",
+          "sensor_mismatch": "Sensor mismatch",
+          "insufficient_data": "Insufficient data"
+        }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Home",
+        "comfort": "Comfort",
+        "sleep": "Sleep",
+        "away": "Away",
+        "activity": "Activity"
       }
     }
   }

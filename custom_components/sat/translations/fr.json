@@ -5,18 +5,21 @@
       "reconfigure_successful": "La passerelle a été reconfigurée."
     },
     "error": {
+      "invalid_device": "Cet appareil est invalide.",
       "connection": "Impossible de se connecter à la passerelle.",
-      "mqtt_component": "Le composant MQTT n'est pas disponible.",
-      "unable_to_calibrate": "Le processus de calibration a rencontré un problème et n'a pas pu être complété avec succès. Veuillez vous assurer que votre système de chauffage fonctionne correctement et que tous les capteurs requis sont connectés et fonctionnent correctement.\n\nSi vous continuez à rencontrer des problèmes avec la calibration, envisagez de nous contacter pour obtenir de l'aide supplémentaire. Nous nous excusons pour tout désagrément causé."
-    },
-    "progress": {
-      "calibration": "Calibration et recherche de la valeur de protection contre les dépassements en cours...\n\nVeuillez patienter pendant que nous optimisons votre système de chauffage. Ce processus peut prendre environ 20 minutes."
+      "rooms_required": "Sans capteur intérieur, au moins une pièce est requise, car les pièces sont alors la seule source de demande de chauffage."
     },
     "step": {
       "areas": {
         "data": {
+          "thermostat": "Thermostat",
           "main_climates": "Principaux",
           "secondary_climates": "Pièces"
+        },
+        "data_description": {
+          "thermostat": "Thermostat existant optionnel pour synchroniser les consignes.",
+          "main_climates": "Radiateurs dans la même pièce que le capteur intérieur.",
+          "secondary_climates": "Pièces avec leurs propres températures cibles. Requis lorsqu’aucun capteur intérieur n’est configuré."
         },
         "description": "Paramètres liés aux climats, aux pièces multiples et au contrôle de la température. Les climats principaux se trouvent dans la même pièce que le capteur intérieur et les pièces ont leurs propres températures cibles séparées du système.",
         "title": "Zones"
@@ -28,60 +31,75 @@
         "description": "Cette fonctionnalité ajuste les paramètres de contrôle de votre système de chauffage de manière dynamique, optimisant le contrôle de la température pour un meilleur confort et une meilleure efficacité énergétique. Activer cette option permet au SAT de s'adapter continuellement et d'affiner les réglages de chauffage en fonction des conditions environnementales. Cela aide à maintenir un environnement stable et confortable sans intervention manuelle.\n\nNote : Si vous choisissez de ne pas activer les gains automatiques, vous devrez entrer manuellement les valeurs PID pour un contrôle précis de la température. Veuillez vous assurer que vous disposez de valeurs PID précises pour votre système de chauffage spécifique afin d'obtenir des performances optimales.",
         "title": "Gains automatiques"
       },
-      "calibrate_system": {
-        "description": "Optimisez votre système de chauffage en déterminant automatiquement les valeurs PID optimales pour votre configuration. Lors de la sélection des Gains automatiques, veuillez noter que le système passera par un processus de calibration qui peut prendre environ 20 minutes à compléter.\n\nLes Gains automatiques sont recommandés pour la plupart des utilisateurs car ils simplifient le processus de configuration et garantissent des performances optimales. Cependant, si vous êtes familier avec le contrôle PID et que vous préférez définir manuellement les valeurs, vous pouvez choisir de ne pas activer les Gains automatiques.\n\nVeuillez noter que choisir de ne pas activer les Gains automatiques nécessite une bonne connaissance du contrôle PID et peut nécessiter des ajustements manuels supplémentaires pour obtenir des performances optimales.",
-        "menu_options": {
-          "calibrate": "Calibrer et déterminer votre valeur de protection contre les dépassements (env. 20 min).",
-          "overshoot_protection": "Entrer manuellement la valeur de protection contre les dépassements.",
-          "pid_controller": "Entrer manuellement les valeurs PID (non recommandé)."
-        },
-        "title": "Calibrer le système"
-      },
-      "calibrated": {
-        "description": "Le processus de calibration a été complété avec succès.\n\nFélicitations ! Votre Smart Autotune Thermostat (SAT) a été calibré pour optimiser la performance de chauffage de votre système. Au cours du processus de calibration, le SAT a analysé soigneusement les caractéristiques de chauffage et déterminé la valeur de protection contre les dépassements appropriée pour garantir un contrôle précis de la température.\n\nValeur de protection contre les dépassements : {minimum_setpoint} °C\n\nCette valeur représente la quantité maximale de dépassement autorisée pendant le processus de chauffage. Le SAT surveillera activement et ajustera le chauffage pour éviter un dépassement excessif, maintenant ainsi une expérience de chauffage confortable et efficace dans votre maison.\n\nVeuillez noter que la valeur de protection contre les dépassements peut varier en fonction des caractéristiques spécifiques de votre système de chauffage et des facteurs environnementaux. Elle a été affinée pour fournir des performances optimales basées sur les résultats de la calibration.",
-        "menu_options": {
-          "calibrate": "Réessayer la calibration",
-          "finish": "Continuer avec la calibration actuelle"
-        },
-        "title": "Calibration terminée"
-      },
       "heating_system": {
         "data": {
           "heating_system": "Système"
+        },
+        "data_description": {
+          "heating_system": "Choisissez le système qui correspond à vos émetteurs de chaleur."
         },
         "description": "Sélectionner le type de système de chauffage correct est important pour que le SAT contrôle précisément la température et optimise les performances. Choisissez l'option qui correspond à votre configuration pour garantir une régulation appropriée de la température dans votre maison.",
         "title": "Système de chauffage"
       },
       "mosquitto": {
-        "description": "Configurez le mode MQTT pour votre système de chauffage. Sélectionnez le mode de la passerelle et fournissez son nom.",
+        "description": "Sélectionnez le type de passerelle afin que SAT sache quels topics MQTT utiliser.",
         "data": {
           "mode": "Mode"
+        },
+        "data_description": {
+          "mode": "Choisissez le type de passerelle pour que SAT connaisse le format de topic MQTT attendu."
         },
         "title": "Configuration MQTT"
       },
       "mosquitto_opentherm": {
-        "description": "Configurez la passerelle OpenTherm. Fournissez le sujet principal MQTT et l'identifiant de l'appareil.",
+        "description": "Indiquez le topic MQTT de base (p. ex. {example_otgw_topic}) et l'identifiant de l’appareil.",
         "data": {
           "name": "Nom",
           "mqtt_topic": "Sujet MQTT",
           "device": "ID de l'appareil"
         },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "mqtt_topic": "Topic de base utilisé par la passerelle (p. ex. OTGW/ ou OTGW/ABCDEF).",
+          "device": "Identifiant de la passerelle (souvent l’ID OTGW)."
+        },
         "title": "Configuration de la Passerelle OpenTherm"
       },
       "mosquitto_ems": {
-        "description": "Configurez la passerelle EMS-ESP. Fournissez le sujet MQTT.",
+        "description": "Indiquez le topic MQTT de base (p. ex. {example_ems_topic}).",
         "data": {
           "name": "Nom",
           "mqtt_topic": "Sujet MQTT"
         },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "mqtt_topic": "Topic de base utilisé par EMS-ESP (p. ex. ems-esp/)."
+        },
         "title": "Configuration de la Passerelle EMS-ESP"
       },
-      "overshoot_protection": {
+      "mosquitto_otthing": {
+        "description": "Indiquez le topic de base sans /state (p. ex. {example_otthing_topic}).",
         "data": {
-          "minimum_setpoint": "Valeur"
+          "name": "Nom",
+          "mqtt_topic": "Sujet MQTT"
         },
-        "description": "En fournissant la valeur de protection contre les dépassements, le SAT ajustera les paramètres de contrôle en conséquence pour maintenir un environnement de chauffage stable et confortable. Cette configuration manuelle vous permet d'affiner le système en fonction de votre configuration spécifique.\n\nNote : Si vous n'êtes pas sûr de la valeur de protection contre les dépassements ou si vous n'avez pas effectué le processus de calibration, il est recommandé d'annuler la configuration et de passer par le processus de calibration pour permettre au SAT de déterminer automatiquement la valeur pour des performances optimales.",
-        "title": "Protection contre les dépassements"
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "mqtt_topic": "Topic de base sans /state (p. ex. otthing/31F44C)."
+        },
+        "title": "Configuration de la passerelle OTthing"
+      },
+      "esphome": {
+        "description": "Sélectionnez l’appareil ESPHome et donnez-lui un nom.",
+        "data": {
+          "name": "Nom",
+          "device": "Appareil"
+        },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "device": "Appareil ESPHome à utiliser."
+        },
+        "title": "Configuration ESPHome"
       },
       "pid_controller": {
         "data": {
@@ -96,9 +114,16 @@
         "data": {
           "humidity_sensor_entity_id": "Entité du capteur d'humidité",
           "inside_sensor_entity_id": "Entité du capteur intérieur",
-          "outside_sensor_entity_id": "Entité du capteur extérieur"
+          "outside_sensor_entity_id": "Entité du capteur extérieur",
+          "wind_sensor_entity_id": "Entité du capteur de vent"
         },
-        "description": "Veuillez sélectionner les capteurs qui seront utilisés pour suivre la température.",
+        "data_description": {
+          "inside_sensor_entity_id": "Capteur de température intérieur principal. Laissez vide lorsque chaque pièce chauffée a sa propre entité climate ; SAT suit alors uniquement les pièces et ne crée pas de thermostat propre.",
+          "outside_sensor_entity_id": "Capteur extérieur ou entité météo (sélection multiple possible).",
+          "humidity_sensor_entity_id": "Capteur d’humidité optionnel.",
+          "wind_sensor_entity_id": "Capteur de vitesse du vent ou entité météo optionnel (sélection multiple possible). Choisissez la vitesse moyenne du vent, pas les rafales. S’il reste vide, la vitesse du vent d’une entité météo parmi les capteurs extérieurs est utilisée."
+        },
+        "description": "Sélectionnez le capteur intérieur, le(s) capteur(s) extérieur(s), un capteur d’humidité optionnel et des capteurs de vent optionnels. Le capteur intérieur est optionnel lorsque vous n’utilisez que des pièces.",
         "title": "Configurer les capteurs"
       },
       "serial": {
@@ -106,7 +131,11 @@
           "device": "URL",
           "name": "Nom"
         },
-        "description": "Pour établir une connexion avec la passerelle OpenTherm en utilisant une connexion socket, veuillez fournir les détails suivants. Dans le champ Nom, entrez un nom pour la passerelle qui vous aidera à l'identifier au sein de votre système.\n\nSpécifiez l'adresse réseau de la passerelle OpenTherm dans le champ Appareil. Cela pourrait être au format \"socket://otgw.local:25238\", où \"otgw.local\" est le nom d'hôte ou l'adresse IP de la passerelle et \"25238\" est le numéro de port.\n\nCes paramètres sont essentiels pour établir la communication et l'intégration avec votre passerelle OpenTherm via la connexion socket. Assurez-vous que les détails fournis sont précis pour garantir une fonctionnalité appropriée.",
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "device": "URL socket, p. ex. socket://otgw.local:25238."
+        },
+        "description": "Saisissez un nom et une URL socket (p. ex. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
       },
       "simulator": {
@@ -127,8 +156,13 @@
           "minimum_setpoint": "Réglage de la température",
           "name": "Nom"
         },
-        "description": "Veuillez remplir les détails suivants pour configurer l'interrupteur. Entrez un nom pour l'interrupteur dans le champ Nom, ce qui vous aidera à l'identifier au sein de votre système. Choisissez l'entité appropriée à utiliser pour votre interrupteur parmi les options fournies.\n\nDans le champ Réglage de la température, spécifiez la température cible désirée pour votre système de chauffage. Si vous utilisez une chaudière à eau chaude, remplissez le Réglage de la température de la chaudière avec la valeur appropriée. Pour les systèmes de chauffage électrique, entrez la valeur 100.\n\nCes paramètres sont essentiels pour un contrôle précis de la température et pour garantir des performances optimales de votre système de chauffage. Fournir le Réglage de la température correct permet une régulation précise et contribue à créer un environnement confortable et économe en énergie dans votre maison.",
-        "title": "Thermostat PID avec PWM (ON/OFF)"
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant.",
+          "device": "Interrupteur, vanne ou input_boolean utilisé pour contrôler le chauffage.",
+          "minimum_setpoint": "Température de chaudière pour l’eau chaude ; utilisez 100 pour le chauffage électrique."
+        },
+        "description": "Choisissez l’entité de contrôle et définissez la température. Pour une chaudière eau chaude, utilisez la température de chaudière ; pour chauffage électrique, utilisez 100.",
+        "title": "Thermostat PID avec Modulation de Largeur d'Impulsion (ON/OFF)"
       },
       "user": {
         "description": "SAT est un thermostat intelligent capable de s'auto-ajuster pour optimiser le contrôle de la température. Sélectionnez le mode correspondant à votre système de chauffage.",
@@ -137,9 +171,15 @@
           "serial": "Passerelle série (ex. : OpenTherm)",
           "esphome": "ESPHome (Services et capteurs système)",
           "simulator": "Passerelle simulée (Réservé aux développeurs)",
-          "switch": "Thermostat PID (Mode PWM Marche/Arrêt)"
+          "switch": "Thermostat PID (Mode Modulation de Largeur d'Impulsion Marche/Arrêt)"
         },
         "title": "Smart Autotune Thermostat (SAT)"
+      },
+      "manufacturer": {
+        "description": "Nous avons tenté d’identifier le fabricant le plus adapté à votre système de chauffage à partir du type de passerelle et des informations de l’appareil. Si cela ne correspond pas à votre installation, vous pouvez sélectionner un autre fabricant dans la liste.",
+        "data": {
+          "manufacturer": "Fabricant"
+        }
       }
     }
   },
@@ -149,55 +189,72 @@
         "data": {
           "error_monitoring": "Activer la surveillance des erreurs",
           "climate_valve_offset": "Décalage de la vanne climatique",
-          "dynamic_minimum_setpoint": "Point de Consigne Minimum Dynamique (Expérimental)",
-          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion",
+          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion ",
           "maximum_consumption": "Consommation Maximale",
           "maximum_relative_modulation": "Modulation Relative Maximale",
           "minimum_consumption": "Consommation Minimale",
-          "sample_time": "Temps d'Échantillonnage",
+          "modulation_suppression_offset_celsius": "Décalage de suppression de modulation",
+          "flow_setpoint_offset_celsius": "Décalage du setpoint de départ",
+          "minimum_boiler_pressure": "Pression minimale de la chaudière",
+          "maximum_boiler_pressure": "Pression maximale de la chaudière",
+          "maximum_pressure_drop_rate": "Chute de pression maximale par heure",
+          "pressure_max_value_age": "Âge maximal de la valeur de pression",
           "simulation": "Simulation",
+          "solar_gain_compensation": "Compensation des apports solaires",
+          "solar_gain_freeze_integral": "Geler l'intégrale pendant l'apport solaire",
+          "solar_gain_min_elevation": "Élévation solaire minimale",
+          "solar_gain_min_rise_per_hour": "Hausse intérieure minimale pour apport solaire",
+          "solar_gain_setpoint_offset_celsius": "Décalage de consigne pour apport solaire",
           "target_temperature_step": "Pas de Température Cible",
-          "thermal_comfort": "Confort Thermique"
+          "thermal_comfort": "Confort Thermique",
+          "flame_off_setpoint_offset_celsius": "Décalage de consigne flamme éteinte",
+          "modulation_suppression_delay_seconds": "Délai de suppression de modulation"
         },
         "data_description": {
-          "climate_valve_offset": "Décalage pour ajuster le degré d'ouverture de la vanne climatique.",
-          "dynamic_minimum_setpoint": "Active l'ajustement dynamique du point de consigne minimal en fonction de la température de retour de la chaudière, ce qui aide également à identifier si des vannes sont fermées.",
-          "maximum_consumption": "La consommation maximale de gaz lorsque la chaudière est active.",
-          "maximum_relative_modulation": "Représentant le niveau de modulation le plus élevé pour un système de chauffage efficace.",
-          "minimum_consumption": "La consommation minimale de gaz lorsque la chaudière est active.",
-          "sample_time": "L'intervalle de temps minimum entre les mises à jour du régulateur PID.",
-          "target_temperature_step": "Ajuster le pas de température cible pour un réglage fin des niveaux de confort.",
-          "thermal_comfort": "Activer l'utilisation de l'Indice de Simmer pour ajuster le confort thermique."
+          "climate_valve_offset": "Écart de température (cible vs actuelle) pour considérer une vanne ouverte.",
+          "maximum_consumption": "Consommation de gaz à la modulation maximale, utilisée pour estimer la consommation.",
+          "maximum_relative_modulation": "Limite le pourcentage de modulation de la chaudière (0–100) pour plafonner la puissance.",
+          "minimum_consumption": "Consommation de gaz à la modulation minimale, utilisée pour estimer la consommation.",
+          "solar_gain_compensation": "Réduit la demande de chauffage lorsque la température intérieure monte rapidement à cause du soleil.",
+          "solar_gain_freeze_integral": "Évite l'emballement du terme intégral lorsque la compensation des apports solaires est active.",
+          "solar_gain_min_elevation": "Élévation solaire minimale (degrés) requise avant de pouvoir détecter un apport solaire.",
+          "solar_gain_min_rise_per_hour": "Vitesse minimale de hausse de la température intérieure pour détecter un apport solaire (°C/h).",
+          "solar_gain_setpoint_offset_celsius": "Réduction temporaire de la consigne demandée pendant un apport solaire.",
+          "target_temperature_step": "Pas d'ajustement de la température cible dans l'interface.",
+          "thermal_comfort": "Activer l'utilisation de l'Indice de Simmer pour ajuster le confort thermique.",
+          "simulation": "Activer le mode simulation (aucune commande réelle n'est envoyée à la chaudière).",
+          "error_monitoring": "Envoie les erreurs liées à SAT à Sentry pour aider au diagnostic.",
+          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion même si la modulation est disponible (utile pour un relais).",
+          "flame_off_setpoint_offset_celsius": "Quand la flamme est éteinte, maintient un setpoint temporaire à retour + offset (Modulation de Largeur d'Impulsion uniquement).",
+          "modulation_suppression_delay_seconds": "Délai après l'allumage avant suppression (Modulation de Largeur d'Impulsion uniquement).",
+          "modulation_suppression_offset_celsius": "Réduction du setpoint de départ pendant la suppression (Modulation de Largeur d'Impulsion uniquement).",
+          "flow_setpoint_offset_celsius": "Écart minimal sous la température de la chaudière lors du bridage du setpoint (mode continu).",
+          "minimum_boiler_pressure": "Seuil de pression inférieur pour la détection de l'état (bar).",
+          "maximum_boiler_pressure": "Seuil de pression supérieur pour la détection de l'état (bar).",
+          "maximum_pressure_drop_rate": "Chute de pression maximale autorisée avant de signaler un problème (bar/h).",
+          "pressure_max_value_age": "Âge maximal d'une mesure de pression avant de signaler un problème."
         },
         "title": "Avancé"
       },
       "general": {
         "data": {
-          "automatic_gains_value": "Valeur de Gains Automatiques",
           "derivative": "Dérivé (kD)",
-          "derivative_time_weight": "Poids Temporel Dérivé",
-          "duty_cycle": "Cycle de Fonctionnement Maximum pour la Modulation de Largeur d'Impulsion",
           "heating_curve_coefficient": "Coefficient de la Courbe de Chauffage",
-          "heating_curve_version": "Version de la Courbe de Chauffage",
           "integral": "Intégral (kI)",
           "maximum_setpoint": "Point de consigne maximal",
-          "pid_controller_version": "Version du contrôleur PID",
           "proportional": "Proportionnel (kP)",
           "window_sensors": "Capteurs de Contact",
           "heating_mode": "Mode chauffage"
         },
         "data_description": {
-          "automatic_gains_value": "La valeur utilisée pour les gains automatiques dans le régulateur PID.",
           "derivative": "Le terme dérivé (kD) dans le régulateur PID, responsable de l'atténuation des dépassements.",
-          "derivative_time_weight": "Un paramètre pour ajuster l'influence du terme dérivé au fil du temps, particulièrement utile pour réduire le dépassement lors de la phase de montée en température lorsque le coefficient de la courbe de chauffage est correctement réglé.",
-          "duty_cycle": "Le cycle de fonctionnement maximum pour la Modulation de Largeur d'Impulsion (PWM), contrôlant les cycles de marche/arrêt de la chaudière.",
           "heating_curve_coefficient": "Le coefficient utilisé pour ajuster la courbe de chauffage.",
           "integral": "Le terme intégral (kI) dans le régulateur PID, responsable de la réduction de l'erreur en régime permanent.",
           "maximum_setpoint": "La température optimale pour un fonctionnement efficace de la chaudière.",
           "proportional": "Le terme proportionnel (kP) dans le régulateur PID, responsable de la réponse immédiate aux erreurs.",
           "window_sensors": "Capteurs de Contact qui déclenchent le système lorsqu'une fenêtre ou une porte est ouverte pendant une période."
         },
-        "description": "Paramètres et configurations généraux.",
+        "description": "Réglages principaux du contrôle chauffage (limites, courbe, capteurs).",
         "title": "Général"
       },
       "init": {
@@ -205,7 +262,8 @@
           "advanced": "Options Avancées",
           "general": "Général",
           "presets": "Préréglages",
-          "system_configuration": "Configuration du Système"
+          "system_configuration": "Configuration du Système",
+          "room_presets": "Préréglages par pièce"
         }
       },
       "presets": {
@@ -218,25 +276,135 @@
           "push_setpoint_to_thermostat": "Synchroniser le point de consigne avec le thermostat",
           "sync_climates_with_preset": "Synchroniser les climats avec le préréglage (sommeil / absence / activité)"
         },
-        "description": "Paramètres de température prédéfinis pour différents scénarios ou activités.",
-        "title": "Préréglages"
+        "description": "Définissez les températures des préréglages et leur synchronisation avec d'autres climats.",
+        "title": "Préréglages",
+        "data_description": {
+          "sync_climates_with_preset": "Lorsqu'un préréglage est choisi, applique cette température aux climats des pièces.",
+          "push_setpoint_to_thermostat": "Envoie la température cible SAT au thermostat de la chaudière."
+        }
       },
       "system_configuration": {
         "data": {
-          "automatic_duty_cycle": "Cycle de fonctionnement automatique",
+          "cycles_per_hour": "Cycles par heure",
           "sync_climates_with_mode": "Synchroniser les climats avec le mode",
-          "overshoot_protection": "Protection contre le dépassement (avec PWM)",
           "sensor_max_value_age": "Âge maximal de la valeur du capteur de température",
-          "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre"
+          "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre",
+          "frost_protection_temperature": "Température de protection antigel"
         },
         "data_description": {
-          "automatic_duty_cycle": "Activer ou désactiver le cycle de fonctionnement automatique pour la Modulation de Largeur d'Impulsion (PWM).",
-          "overshoot_protection": "Activer la protection contre le dépassement avec la Modulation de Largeur d'Impulsion (PWM) pour prévenir les dépassements de température de la chaudière.",
+          "cycles_per_hour": "Le nombre maximal de cycles par heure.",
           "sensor_max_value_age": "L'âge maximum de la valeur du capteur de température avant de la considérer comme stagnante.",
-          "window_minimum_open_time": "Le temps minimum qu'une fenêtre doit être ouverte avant que le système ne réagisse."
+          "window_minimum_open_time": "Le temps minimum qu'une fenêtre doit être ouverte avant que le système ne réagisse.",
+          "sync_climates_with_mode": "Applique aussi le mode HVAC aux climats des pièces lorsqu'il change ici.",
+          "frost_protection_temperature": "Continuer à chauffer lorsque la pièce descend en dessous de cette température, même si le thermostat est éteint. Mettre à 0 pour désactiver."
         },
-        "description": "Pour un réglage fin et une personnalisation.",
+        "description": "Réglages de temporisation et de synchronisation pour cycles, capteurs et mode HVAC.",
         "title": "Configuration du Système"
+      },
+      "room_presets": {
+        "title": "Préréglages par pièce",
+        "description": "Choisissez la pièce dont vous voulez définir les températures de préréglage. La température Maison est la cible normale de la pièce et vaut par défaut la température Maison de la maison. Les préréglages non cochés ne font que baisser la pièce par rapport à elle et ne la relèvent jamais.",
+        "data": {
+          "room": "Pièce"
+        }
+      },
+      "room_preset": {
+        "title": "Préréglages par pièce",
+        "description": "Ce que chaque préréglage signifie pour {room}. Cochez les préréglages pour lesquels cette pièce a sa propre température.",
+        "data": {
+          "fixed": "Ne pas toucher à cette pièce",
+          "own": "Préréglages avec leur propre température",
+          "home_temperature": "Température Maison",
+          "comfort_temperature": "Température Confort",
+          "sleep_temperature": "Température Sommeil",
+          "away_temperature": "Température Absence",
+          "activity_temperature": "Température Activité"
+        },
+        "data_description": {
+          "fixed": "Les préréglages ne modifient jamais la température cible de cette pièce.",
+          "own": "Seuls les préréglages cochés utilisent la température définie ci-dessous ; les autres suivent le préréglage de la maison."
+        }
+      }
+    }
+  },
+  "services": {
+    "reset_integral": {
+      "name": "Réinitialiser l’intégrale",
+      "description": "Ce service réinitialise la partie intégrale du contrôleur PID pour l’entité climate spécifiée. Cela peut être utile si la valeur intégrale est devenue trop grande ou si les performances du PID se sont dégradées."
+    },
+    "pulse_width_modulation": {
+      "name": "Modulation de largeur d’impulsion ",
+      "description": "Forcer l’activation ou la désactivation de la modulation de largeur d’impulsion . Notez qu’elle peut être réactivée ou désactivée automatiquement juste après.",
+      "fields": {
+        "enabled": {
+          "name": "Activé",
+          "description": "L’état que vous souhaitez forcer."
+        }
+      }
+    }
+  },
+  "issues": {
+    "boiler_fault": {
+      "title": "La chaudière signale un défaut",
+      "description": "La chaudière connectée à {name} signale un défaut (code {fault_code}). Vérifiez l'écran de la chaudière et consultez le manuel ou votre installateur."
+    },
+    "boiler_pressure": {
+      "title": "Pression de chaudière anormale",
+      "description": "La pression de la chaudière pour {name} est hors plage ou chute rapidement (actuellement {pressure} bar). Vérifiez l'absence de fuites et rétablissez la pression d'eau si nécessaire."
+    },
+    "boiler_pressure_trend": {
+      "title": "La chaudière perd lentement de la pression",
+      "description": "Le système de chauffage de {name} a perdu environ {loss} bar depuis le dernier remplissage et a été rempli {top_ups} fois au cours des 90 derniers jours. Cela peut indiquer une petite fuite ou un vase d'expansion défectueux. Vérifiez le système ou contactez votre installateur."
+    },
+    "boiler_short_cycling_trend": {
+      "title": "La chaudière effectue plus de cycles courts",
+      "description": "La chaudière de {name} démarre désormais environ {recent_cycles} fois par jour avec une durée médiane de {on_time} minutes, contre {baseline_cycles} démarrages par jour par temps similaire. Les cycles courts fréquents usent la chaudière et gaspillent du gaz. Vérifiez la courbe de chauffe, les réglages PWM et la puissance minimale de la chaudière."
+    },
+    "room_undersupplied": {
+      "title": "{room} reçoit trop peu de chaleur",
+      "description": "{room} de {name} a constamment besoin de plus de chaleur que le reste de la maison, ce qui augmente la température de départ d'environ {flow_premium} °C. Vérifiez que le radiateur est assez grand, que les tés de réglage sont équilibrés et qu'il n'y a pas de courants d'air ou de portes ouvertes."
+    },
+    "room_sensor_mismatch": {
+      "title": "{room} reste froide alors que son thermostat est satisfait",
+      "description": "{room} de {name} reste en dessous de sa consigne, mais son thermostat demande rarement de la chaleur. Le thermostat mesure probablement plus chaud que la pièce. Vérifiez son emplacement ou son décalage de température."
+    },
+    "room_fault": {
+      "title": "{room} signale un problème de vanne",
+      "description": "L'appareil de {room} de {name} signale une alarme de vanne. Vérifiez son installation, son étalonnage et le lien avec un éventuel capteur de température externe."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "heating_curve_recommendation": {
+        "name": "Recommandation de courbe de chauffe",
+        "state": {
+          "increase": "Augmenter",
+          "decrease": "Diminuer",
+          "hold": "Conserver",
+          "insufficient_samples": "Échantillons insuffisants"
+        }
+      },
+      "room_balance": {
+        "name": "Équilibrage de la pièce",
+        "state": {
+          "balanced": "Équilibrée",
+          "room_fault": "Défaut de l'appareil",
+          "oversupplied": "Suralimentée",
+          "undersupplied": "Sous-alimentée",
+          "sensor_mismatch": "Écart de capteur",
+          "insufficient_data": "Données insuffisantes"
+        }
+      }
+    }
+  },
+  "selector": {
+    "room_preset": {
+      "options": {
+        "home": "Maison",
+        "comfort": "Confort",
+        "sleep": "Sommeil",
+        "away": "Absent",
+        "activity": "Activité"
       }
     }
   }
