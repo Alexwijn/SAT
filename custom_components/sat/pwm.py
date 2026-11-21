@@ -194,17 +194,19 @@ class PWM:
 
             return
 
-        if self._status == PWMStatus.ON and device_state.flame_active:
+        heating_burn = device_state.flame_active and not device_state.hot_water_active
+
+        if self._status == PWMStatus.ON and heating_burn:
             if self._flame_on_at is None:
                 self._flame_on_at = timestamp
 
             if (timestamp - self._flame_on_at) >= HEATER_STARTUP_TIMEFRAME:
                 self._observe_floor(device_state.flow_temperature, timestamp)
 
-        if self._status == PWMStatus.ON and not device_state.flame_active and self._flame_on_at is not None:
+        if self._status == PWMStatus.ON and not heating_burn and self._flame_on_at is not None:
             self._flame_on_at = None
             self._floor_observed_at = None
-            _LOGGER.info("PWM ON phase lost the flame; the next ignition restarts the warm-up window.")
+            _LOGGER.info("PWM ON phase lost the heating burn; the next one restarts the warm-up window.")
 
         elapsed = timestamp - self._last_update
         on_time_seconds, off_time_seconds = self._calculate_duty_cycle(requested_setpoint, device_state)
