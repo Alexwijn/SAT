@@ -1,6 +1,7 @@
 """Tests focused on heating control behavior."""
 
 from typing import Optional
+from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.components.climate import HVACMode
@@ -799,3 +800,35 @@ async def test_cold_ignition_keeps_pwm_with_a_known_floor(heating_control, coord
     target_changed_at = now + SATURATION_SUSTAIN_SECONDS + 41
     await heating_control.update(_demand_at(61.0, now + SATURATION_SUSTAIN_SECONDS + 61, target_temperature_changed_at=target_changed_at))
     assert heating_control.pwm_state.enabled is False
+
+
+async def test_coordinator_release_switches_heating_off_once(coordinator, monkeypatch):
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_control_setpoint(50.0)
+
+    await coordinator.async_release()
+
+    assert coordinator.released is True
+    assert coordinator.active is False
+    assert coordinator.setpoint == MINIMUM_SETPOINT
+
+    release = AsyncMock()
+    monkeypatch.setattr(coordinator, "_async_release", release)
+    await coordinator.async_release()
+
+    release.assert_not_awaited()
+
+
+async def test_commanding_again_ends_the_release(coordinator):
+    await coordinator.async_release()
+    await coordinator.async_set_control_setpoint(45.0)
+
+    assert coordinator.released is False
+
+
+async def test_undelivered_release_is_retried(coordinator, monkeypatch):
+    monkeypatch.setattr(type(coordinator), "available", property(lambda self: False))
+
+    await coordinator.async_release()
+
+    assert coordinator.released is False

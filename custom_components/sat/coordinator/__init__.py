@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from abc import abstractmethod
 from typing import Optional
@@ -8,7 +9,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from ..const import DOMAIN, MINIMUM_SETPOINT
+from ..const import COMMAND_TIMEOUT_SECONDS, DOMAIN, MINIMUM_SETPOINT
 from ..device import DeviceCapabilities, DeviceState
 from ..entry_data import SatConfig, SatMode
 from ..helpers import calculate_default_maximum_setpoint
@@ -102,6 +103,7 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         self._config: SatConfig = config
+        self._released: bool = False
         self._requested_setpoint: Optional[float] = None
         self._manufacturer: Optional[Manufacturer] = None
 
@@ -119,6 +121,16 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
     def type(self) -> str:
         """Expose the device backend type."""
         pass
+
+    @property
+    def available(self) -> bool:
+        """Whether the device can currently be read and commanded."""
+        return True
+
+    @property
+    def released(self) -> bool:
+        """Whether the boiler has been released and not commanded since."""
+        return self._released
 
     @property
     def capabilities(self) -> DeviceCapabilities:
@@ -363,6 +375,22 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         """Run when an entity is removed from hass."""
         self._hass_notify_debouncer.async_cancel()
 
+    async def async_release(self) -> None:
+        """Release the boiler once, until it is commanded again."""
+        if self._released:
+            return
+
+        async with asyncio.timeout(COMMAND_TIMEOUT_SECONDS):
+            await self._async_release()
+
+        self._released = self.available
+
+    async def _async_release(self) -> None:
+        """Switch heating off, as there is no thermostat to hand the boiler back to."""
+        await self.async_set_control_setpoint(MINIMUM_SETPOINT)
+        await self.async_set_control_max_relative_modulation(self._config.pwm.maximum_relative_modulation)
+        await self.async_set_heater_state(HeaterState.OFF)
+
     async def async_control_heating_loop(self, timestamp: float) -> None:
         """Hook for device-specific loop updates."""
 
@@ -373,10 +401,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_set_heater_state(self, state: HeaterState) -> None:
         """Set the state of the device heater."""
+        self._released = False
         _LOGGER.info("Set central heater state %s", state)
 
     async def async_set_control_setpoint(self, value: float) -> None:
         """Control the boiler setpoint temperature for the device."""
+        self._released = False
         self._requested_setpoint = value
 
         if self.supports_setpoint_management:
