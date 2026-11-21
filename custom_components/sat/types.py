@@ -95,6 +95,20 @@ class PWMStatus(str, Enum):
     IDLE = "idle"
 
 
+class ControlSignal(StrEnum):
+    """Signal that heating control cannot do without."""
+    INSIDE_TEMPERATURE = "inside_temperature"
+    OUTSIDE_TEMPERATURE = "outside_temperature"
+    ROOM_TEMPERATURES = "room_temperatures"
+
+
+class FailSafePhase(StrEnum):
+    """What SAT does with the boiler while a signal is missing."""
+    CONTROLLING = "controlling"
+    HOLDING = "holding"
+    RELEASED = "released"
+
+
 class CycleControlMode(str, Enum):
     """Control mode used during a cycle."""
     PWM = "pwm"
