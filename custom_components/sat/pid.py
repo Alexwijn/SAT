@@ -12,7 +12,7 @@ from homeassistant.helpers.storage import Store
 from .const import *
 from .entry_data import PidConfig, SatConfig
 from .heating_curve import HeatingCurve
-from .helpers import float_value, clamp, clamp_to_range
+from .helpers import float_value, to_float, clamp, clamp_to_range
 from .temperature.state import TemperatureState
 from .types import HeatingSystem
 
@@ -175,8 +175,8 @@ class PID:
         self._last_error = float_value(data.get(STORAGE_KEY_LAST_ERROR))
         self._sensor_step = float_value(data.get(STORAGE_KEY_SENSOR_STEP))
 
-        self._integral = float(data.get(STORAGE_KEY_INTEGRAL, self._integral))
-        self._raw_derivative = float(data.get(STORAGE_KEY_RAW_DERIVATIVE, self._raw_derivative))
+        self._integral = to_float(data.get(STORAGE_KEY_INTEGRAL), self._integral)
+        self._raw_derivative = clamp_to_range(to_float(data.get(STORAGE_KEY_RAW_DERIVATIVE), self._raw_derivative), DERIVATIVE_RAW_CAP)
 
         for item in data.get(STORAGE_KEY_SAMPLES, []):
             try:

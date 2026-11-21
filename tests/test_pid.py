@@ -1,6 +1,7 @@
 """Tests for the PID controller."""
 
 from datetime import datetime
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -292,3 +293,25 @@ def test_one_coarse_sensor_step_barely_moves_the_derivative():
     pid.update(_state_for_error(1.0, 1000.0 + 3660.0, current=pid._samples[-1].temperature + 0.1))
 
     assert abs(pid.raw_derivative - before) < 0.1 / pid.derivative_window_seconds
+
+
+async def test_invalid_saved_values_are_ignored(monkeypatch):
+    store = Mock(async_load=AsyncMock(return_value={"integral": None, "raw_derivative": "invalid", "last_error": 0.4}))
+    monkeypatch.setattr("custom_components.sat.pid.Store", lambda *args, **kwargs: store)
+    pid = _derivative_pid()
+
+    await pid.async_added_to_hass(Mock(), "climate.test", "device")
+
+    assert pid.integral == 0.0
+    assert pid.raw_derivative == 0.0
+    assert pid.last_error == 0.4
+
+
+async def test_saved_derivative_is_capped(monkeypatch):
+    store = Mock(async_load=AsyncMock(return_value={"raw_derivative": 1.0}))
+    monkeypatch.setattr("custom_components.sat.pid.Store", lambda *args, **kwargs: store)
+    pid = _derivative_pid()
+
+    await pid.async_added_to_hass(Mock(), "climate.test", "device")
+
+    assert pid.raw_derivative == pytest.approx(DERIVATIVE_RAW_CAP, abs=1e-6)
