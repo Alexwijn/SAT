@@ -214,7 +214,15 @@ def test_derivative_is_capped():
     for index in range(20):
         pid.update(_state_for_error(1.0, 1000.0 + index * 60.0, current=20.0 + index * 1000.0))
 
-    assert pid.raw_derivative == -DERIVATIVE_RAW_CAP
+    assert pid.raw_derivative == pytest.approx(-DERIVATIVE_RAW_CAP, abs=1e-6)
+
+
+def test_implausibly_fast_warming_is_capped():
+    pid = _derivative_pid()
+
+    _feed_ramp(pid, rate_per_hour=30.0, step=0.1, seconds=1800)
+
+    assert pid.raw_derivative == pytest.approx(-10.0 / 3600.0, abs=1e-6)
 
 
 def test_derivative_keeps_working_inside_deadband():

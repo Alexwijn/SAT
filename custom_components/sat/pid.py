@@ -18,7 +18,7 @@ from .types import HeatingSystem
 
 _LOGGER = logging.getLogger(__name__)
 
-DERIVATIVE_RAW_CAP = 5.0
+DERIVATIVE_RAW_CAP = 10.0 / 3600.0
 PID_UPDATE_INTERVAL = 60
 
 DERIVATIVE_MINIMUM_SAMPLES = 3
