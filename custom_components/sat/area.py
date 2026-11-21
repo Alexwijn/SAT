@@ -157,6 +157,17 @@ class Area:
         return float_value(state.attributes.get(ATTR_CURRENT_TEMPERATURE))
 
     @property
+    def unreachable(self) -> bool:
+        """Return whether the room cannot be read, which a room that is switched off still can."""
+        if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
+            return True
+
+        if state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return True
+
+        return state.state != HVACMode.OFF and self.current_temperature is None
+
+    @property
     def target_temperature(self) -> Optional[float]:
         """Retrieve the target temperature from the climate entity."""
         if (self._hass is None) or (state := self.climate_state) is None:
@@ -312,6 +323,11 @@ class Areas:
     @staticmethod
     def from_config(config: SatConfig) -> "Areas":
         return Areas([Area(config, entity_id) for entity_id in config.rooms])
+
+    @property
+    def unreachable(self) -> bool:
+        """Return whether there are rooms and none of them can be read."""
+        return bool(self._areas) and all(area.unreachable for area in self._areas)
 
     @property
     def pids(self) -> "Areas._PIDs":

@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.components.climate import HVACMode
@@ -181,30 +181,28 @@ async def test_area_climate_change_updates_heating_curve(hass, demand_control):
     assert demand_control.heating_curve.value == expected_value
 
 
-def test_control_pid_resets_on_stale_inside_sensor(monkeypatch, hass, demand_control):
+def test_control_pid_skips_a_stale_inside_sensor(monkeypatch, hass, demand_control):
     _update_climate_config(demand_control, options={CONF_SENSOR_MAX_VALUE_AGE: "00:01:00"})
     demand_control._target_temperature = 21.0
 
     now = dt_util.utcnow()
-    monkeypatch.setattr(dt_util, "utcnow", lambda: now)
     hass.states.async_set("sensor.test_inside_sensor", "20")
     hass.states.async_set("sensor.test_outside_sensor", "5")
 
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
 
-    reset_called = {"value": False}
-
-    def _reset(self):
-        reset_called["value"] = True
-
-    monkeypatch.setattr(PID, "reset", _reset)
+    update, reset = Mock(), Mock()
+    monkeypatch.setattr(demand_control.pid, "update", update)
+    monkeypatch.setattr(demand_control.pid, "reset", reset)
 
     demand_control.control_pid()
 
-    assert reset_called["value"] is True
+    update.assert_not_called()
+    reset.assert_not_called()
 
 
 async def test_control_loop_passes_the_target_temperature_change_time(monkeypatch, hass, demand_control):
+    hass.states.async_set("sensor.test_inside_sensor", "20")
     hass.states.async_set("sensor.test_outside_sensor", "5")
     demand_control._hvac_mode = HVACMode.HEAT
 
