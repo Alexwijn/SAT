@@ -89,6 +89,16 @@ def test_hot_water_active(coordinator):
     assert coordinator.hot_water_active is False
 
 
+@pytest.mark.parametrize(("boiler_heats_water", "active"), [(False, False), (True, True)])
+def test_enabled_hot_water_is_only_active_while_the_boiler_heats_it(coordinator, boiler_heats_water, active):
+    coordinator.async_set_updated_data({
+        "slave": {"status": {"dhw_mode": boiler_heats_water}},
+        "thermostat": {"status": {"dhw_enable": True}},
+    })
+
+    assert coordinator.hot_water_active is active
+
+
 def test_setpoint(coordinator):
     _load_state(coordinator)
     assert coordinator.setpoint == 55.0
