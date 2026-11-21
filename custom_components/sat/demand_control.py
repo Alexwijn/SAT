@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from statistics import median
 from typing import Any, Callable, Optional, Union
 
-from homeassistant.components import sensor, weather
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, HVACAction, HVACMode
 from homeassistant.const import ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import CoreState, Event, EventStateChangedData, HassJob, HomeAssistant, State, callback
@@ -34,6 +33,7 @@ from .heating_curve import (
     RECOMMENDATION_MAXIMUM_ERROR_CELSIUS, RECOMMENDATION_MAXIMUM_SUN_ELEVATION, RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS,
 )
 from .helpers import clamp, ensure_list, event_timestamp, is_state_stale, state_age_seconds, timestamp
+from .outside_temperature import OutsideTemperature
 from .pid import PID, PID_UPDATE_INTERVAL
 from .preheat import PreheatForecast, PreheatMonitor
 from .room_balance import BoilerObservation, MAIN_ROOM_ID, RoomBalanceMonitor, RoomObservation, RoomSignals
@@ -83,6 +83,7 @@ class SatDemandControl:
 
         # Monitors
         self._wind = WindMonitor(self._config.sensors)
+        self._outside_temperature = OutsideTemperature(self._config.sensors)
         self._wind_sensitivity = WindSensitivityMonitor()
         self._wind_history = WindHistory(self._config.entry_id, self._config.sensors)
         self._solar_gain = SolarGainController(self._config.solar_gain)
@@ -258,30 +259,7 @@ class SatDemandControl:
     @property
     def current_outside_temperature(self) -> Optional[float]:
         """Return the current outside temperature"""
-        outside_sensor_entities = ensure_list(self._config.sensors.outside_sensor_entity_id)
-        outside_sensor_entities.sort(key=lambda x: "sensor" not in x)
-
-        for entity_id in outside_sensor_entities:
-            state = self._hass.states.get(entity_id)
-            if state is None:
-                continue
-
-            sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
-
-            if is_state_stale(state, sensor_max_value_age):
-                _LOGGER.debug("Outside sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self._id, state_age_seconds(state), sensor_max_value_age)
-                continue
-
-            if state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-                continue
-
-            if sensor.DOMAIN in entity_id:
-                return float(state.state)
-
-            if weather.DOMAIN in entity_id:
-                return float(state.attributes.get("temperature"))
-
-        return None
+        return self._outside_temperature.read(self._hass)
 
     @property
     def current_wind(self) -> Optional[WindReading]:
