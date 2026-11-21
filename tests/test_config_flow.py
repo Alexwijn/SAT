@@ -85,3 +85,12 @@ async def test_new_entry_enables_overshoot_protection(hass):
 
 def test_entries_that_disabled_overshoot_protection_keep_it_disabled():
     assert make_config(data={CONF_OVERSHOOT_PROTECTION: False}).overshoot_protection is False
+
+
+async def test_manufacturer_step_does_not_release_the_boiler(hass):
+    flow_handler = _sensors_flow(hass)
+
+    with patch("custom_components.sat.coordinator.SatDataUpdateCoordinator.async_release") as release:
+        await flow_handler.async_step_manufacturer()
+
+    release.assert_not_called()
