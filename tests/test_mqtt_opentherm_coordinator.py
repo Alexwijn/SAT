@@ -30,6 +30,7 @@ from custom_components.sat.coordinator.mqtt.opentherm import (
 )
 from custom_components.sat.entry_data import SatConfig, SatMode
 from custom_components.sat.types import HeaterState
+from custom_components.sat.manufacturer import ManufacturerFactory
 from tests.const import DEFAULT_USER_DATA
 
 
@@ -303,3 +304,23 @@ async def test_requested_setpoint_is_remembered(coordinator, monkeypatch):
     await coordinator.async_set_control_setpoint(42.5)
 
     assert coordinator._requested_setpoint == 42.5
+
+
+@pytest.mark.parametrize(
+    ("manufacturer", "commands"),
+    [
+        (None, ["CS=0", "MM=T"]),
+        ("Immergas", ["CS=0", "TP=11:12=80", "MM=T"]),
+    ],
+)
+async def test_release_hands_back_to_the_thermostat(coordinator, monkeypatch, manufacturer, commands):
+    if manufacturer is not None:
+        monkeypatch.setattr(type(coordinator), "manufacturer", property(lambda self: ManufacturerFactory.resolve_by_name(manufacturer)))
+
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+
+    await coordinator.async_release()
+
+    assert calls == commands
+    assert coordinator.released is True

@@ -242,6 +242,15 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
 
         await super().async_set_control_thermostat_setpoint(value)
 
+    async def _async_release(self) -> None:
+        """Hand the boiler back to the thermostat on the gateway."""
+        await self._publish_command("CS=0")
+
+        if isinstance(self.manufacturer, Immergas):
+            await self._publish_command(f"TP=11:12={min(self._config.pwm.maximum_relative_modulation, 80)}")
+
+        await self._publish_command("MM=T")
+
     async def async_set_heater_state(self, state: HeaterState) -> None:
         await self._publish_command(f"CH={1 if state == HeaterState.ON else 0}")
 
