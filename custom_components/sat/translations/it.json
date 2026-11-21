@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Nome visualizzato in Home Assistant.",
-          "device": "URL socket, es. socket://otgw.local:25238."
+          "device": "URL socket, es. {example_socket}."
         },
         "description": "Inserisci un nome e un URL socket (es. {example_socket}).",
         "title": "Gateway OpenTherm (SERIALE)"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Abilita monitoraggio errori",
           "climate_valve_offset": "Offset della Valvola Climatica",
-          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso ",
+          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso",
           "maximum_consumption": "Consumo Massimo",
           "maximum_relative_modulation": "Modulazione Relativa Massima",
           "minimum_consumption": "Consumo Minimo",
@@ -333,7 +333,7 @@
       "description": "Questo servizio reimposta la parte integrale del controller PID per l’entità climate specificata. Può essere utile se il valore integrale è diventato troppo grande o se le prestazioni del PID sono peggiorate."
     },
     "pulse_width_modulation": {
-      "name": "Modulazione a larghezza d’impulso ",
+      "name": "Modulazione a larghezza d’impulso",
       "description": "Forza l’attivazione o la disattivazione della modulazione a larghezza d’impulso . Nota che può essere riattivata o disattivata automaticamente subito dopo.",
       "fields": {
         "enabled": {

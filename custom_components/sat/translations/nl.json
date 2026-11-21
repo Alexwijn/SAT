@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Weergavenaam in Home Assistant.",
-          "device": "Socket-URL, bijv. socket://otgw.local:25238."
+          "device": "Socket-URL, bijv. {example_socket}."
         },
         "description": "Voer een naam en een socket-URL in (bijv. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIEEL )"
@@ -333,7 +333,7 @@
       "description": "Deze service reset het integrale deel van de PID-regelaar voor de opgegeven climate-entiteit. Dit kan nuttig zijn als de integrale waarde te groot is geworden of als de PID-prestaties zijn verslechterd."
     },
     "pulse_width_modulation": {
-      "name": "Pulsbreedtemodulatie ",
+      "name": "Pulsbreedtemodulatie",
       "description": "Pulsbreedtemodulatie geforceerd aan of uit zetten. Let op dat deze kort daarna automatisch weer aan of uit kan worden gezet.",
       "fields": {
         "enabled": {

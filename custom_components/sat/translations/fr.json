@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Nom affiché dans Home Assistant.",
-          "device": "URL socket, p. ex. socket://otgw.local:25238."
+          "device": "URL socket, p. ex. {example_socket}."
         },
         "description": "Saisissez un nom et une URL socket (p. ex. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Activer la surveillance des erreurs",
           "climate_valve_offset": "Décalage de la vanne climatique",
-          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion ",
+          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion",
           "maximum_consumption": "Consommation Maximale",
           "maximum_relative_modulation": "Modulation Relative Maximale",
           "minimum_consumption": "Consommation Minimale",
@@ -333,7 +333,7 @@
       "description": "Ce service réinitialise la partie intégrale du contrôleur PID pour l’entité climate spécifiée. Cela peut être utile si la valeur intégrale est devenue trop grande ou si les performances du PID se sont dégradées."
     },
     "pulse_width_modulation": {
-      "name": "Modulation de largeur d’impulsion ",
+      "name": "Modulation de largeur d’impulsion",
       "description": "Forcer l’activation ou la désactivation de la modulation de largeur d’impulsion . Notez qu’elle peut être réactivée ou désactivée automatiquement juste après.",
       "fields": {
         "enabled": {

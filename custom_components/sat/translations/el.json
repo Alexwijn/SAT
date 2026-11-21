@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Φιλικό όνομα που εμφανίζεται στο Home Assistant.",
-          "device": "URL socket, π.χ. socket://otgw.local:25238."
+          "device": "URL socket, π.χ. {example_socket}."
         },
         "description": "Εισαγάγετε όνομα και URL socket (π.χ. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Ενεργοποίηση παρακολούθησης σφαλμάτων",
           "climate_valve_offset": "Μετατόπιση βαλβίδας κλιματισμού",
-          "force_pulse_width_modulation": "Επιβολή Διαμόρφωσης Πλάτους Παλμού ",
+          "force_pulse_width_modulation": "Επιβολή Διαμόρφωσης Πλάτους Παλμού",
           "maximum_consumption": "Μέγιστη Κατανάλωση",
           "maximum_relative_modulation": "Μέγιστη Σχετική Διαμόρφωση",
           "minimum_consumption": "Ελάχιστη Κατανάλωση",
@@ -333,7 +333,7 @@
       "description": "Επαναφέρει το ολοκληρωτικό μέρος του PID για τη συγκεκριμένη οντότητα climate."
     },
     "pulse_width_modulation": {
-      "name": "Διαμόρφωση Πλάτους Παλμού ",
+      "name": "Διαμόρφωση Πλάτους Παλμού",
       "description": "Επιβολή ενεργοποίησης ή απενεργοποίησης της Διαμόρφωσης Πλάτους Παλμού . Σημειώστε ότι μπορεί να αλλάξει αυτόματα αμέσως μετά.",
       "fields": {
         "enabled": {

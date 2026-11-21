@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Nombre visible en Home Assistant.",
-          "device": "URL de socket, p. ej. socket://otgw.local:25238."
+          "device": "URL de socket, p. ej. {example_socket}."
         },
         "description": "Introduzca un nombre y una URL de socket (p. ej. {example_socket}).",
         "title": "Puerta de Enlace OpenTherm (SERIAL)"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Habilitar monitoreo de errores",
           "climate_valve_offset": "Compensación de la Válvula Climática",
-          "force_pulse_width_modulation": "Forzar Modulación de Ancho de Pulso ",
+          "force_pulse_width_modulation": "Forzar Modulación de Ancho de Pulso",
           "maximum_consumption": "Consumo Máximo",
           "maximum_relative_modulation": "Modulación Relativa Máxima",
           "minimum_consumption": "Consumo Mínimo",
@@ -333,7 +333,7 @@
       "description": "Este servicio restablece la parte integral del controlador PID para la entidad climate especificada. Puede ser útil si el valor integral se ha vuelto demasiado grande o si el rendimiento del PID se ha degradado."
     },
     "pulse_width_modulation": {
-      "name": "Modulación por ancho de pulso ",
+      "name": "Modulación por ancho de pulso",
       "description": "Forzar activar o desactivar la Modulación por Ancho de Pulso . Tenga en cuenta que puede activarse o desactivarse automáticamente poco después.",
       "fields": {
         "enabled": {

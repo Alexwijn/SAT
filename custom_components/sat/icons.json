@@ -17,31 +17,10 @@
         "default": "mdi:factory"
       },
       "boiler_status": {
-        "default": "mdi:water-boiler",
-        "state": {
-          "OFF": "mdi:water-boiler-off",
-          "IDLE": "mdi:water-boiler-auto",
-          "INSUFFICIENT_DATA": "mdi:water-boiler-alert",
-          "STALLED_IGNITION": "mdi:water-boiler-alert",
-          "HEATING_HOT_WATER": "mdi:water-thermometer",
-          "CENTRAL_HEATING": "mdi:radiator",
-          "COOLING": "mdi:snowflake-thermometer",
-          "OVERSHOOT_COOLING": "mdi:snowflake-thermometer",
-          "ANTI_CYCLING": "mdi:timer-pause",
-          "PUMP_STARTING": "mdi:pump",
-          "WAITING_FOR_FLAME": "mdi:fire-alert"
-        }
+        "default": "mdi:water-boiler"
       },
       "cycle_status": {
-        "default": "mdi:sync",
-        "state": {
-          "GOOD": "mdi:check-circle",
-          "UNCERTAIN": "mdi:help-circle",
-          "INSUFFICIENT_DATA": "mdi:timer-sand",
-          "OVERSHOOT": "mdi:arrow-up-bold-circle",
-          "UNDERHEAT": "mdi:arrow-down-bold-circle",
-          "SHORT_CYCLING": "mdi:alert-circle"
-        }
+        "default": "mdi:sync"
       },
       "heating_curve_recommendation": {
         "default": "mdi:chart-line",

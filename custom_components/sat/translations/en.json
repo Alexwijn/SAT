@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Friendly name shown in Home Assistant.",
-          "device": "Socket URL, e.g. socket://otgw.local:25238."
+          "device": "Socket URL, e.g. {example_socket}."
         },
         "description": "Enter a name and a socket URL (e.g. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -190,7 +190,7 @@
           "error_monitoring": "Enable error monitoring",
           "climate_valve_offset": "Climate valve offset",
           "flame_off_setpoint_offset_celsius": "Flame-off setpoint offset",
-          "force_pulse_width_modulation": "Force Pulse Width Modulation ",
+          "force_pulse_width_modulation": "Force Pulse Width Modulation",
           "maximum_consumption": "Maximum Consumption",
           "maximum_relative_modulation": "Maximum Relative Modulation",
           "minimum_consumption": "Minimum Consumption",
@@ -333,7 +333,7 @@
       "description": "This service resets the integrating part of the PID controller for the specified climate entity. This may be useful if the integral value has become too large or if the PID controller's performance has degraded."
     },
     "pulse_width_modulation": {
-      "name": "Pulse Width Modulation ",
+      "name": "Pulse Width Modulation",
       "description": "Force enable or disable the Pulse Width Modulation, do note that it may be turned on or off automatically right after again.",
       "fields": {
         "enabled": {

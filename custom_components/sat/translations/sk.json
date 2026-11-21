@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Zobrazovaný názov v Home Assistant.",
-          "device": "URL socketu, napr. socket://otgw.local:25238."
+          "device": "URL socketu, napr. {example_socket}."
         },
         "description": "Zadajte názov a socket URL (napr. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Povoliť monitorovanie chýb",
           "climate_valve_offset": "Offset klimatizačného ventilu",
-          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu ",
+          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu",
           "maximum_consumption": "Maximálna spotreba",
           "maximum_relative_modulation": "Maximálna relatívna modulácia",
           "minimum_consumption": "Minimálna spotreba",
@@ -333,7 +333,7 @@
       "description": "Táto služba resetuje integračnú časť PID regulátora pre zadanú entitu klimatizácie. Toto môže byť užitočné, ak sa integračná hodnota stala príliš veľkou alebo ak sa znížil výkon PID regulátora."
     },
     "pulse_width_modulation": {
-      "name": "Modulácia šírky impulzu ",
+      "name": "Modulácia šírky impulzu",
       "description": "Vynútené povolenie alebo zakázanie modulácie šírky impulzu . Upozorňujeme, že sa môže hneď potom automaticky zapnúť alebo vypnúť.",
       "fields": {
         "enabled": {

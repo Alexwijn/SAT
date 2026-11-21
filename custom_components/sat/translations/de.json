@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Anzeigename in Home Assistant.",
-          "device": "Socket-URL, z. B. socket://otgw.local:25238."
+          "device": "Socket-URL, z. B. {example_socket}."
         },
         "description": "Geben Sie einen Namen und eine Socket-URL ein (z. B. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIELL )"
@@ -333,7 +333,7 @@
       "description": "Dieser Dienst setzt den integralen Anteil des PID-Reglers für die angegebene Klima-Entität zurück. Dies kann nützlich sein, wenn der Integralwert zu groß geworden ist oder die Leistung des PID-Reglers nachgelassen hat."
     },
     "pulse_width_modulation": {
-      "name": "Pulsweitenmodulation ",
+      "name": "Pulsweitenmodulation",
       "description": "Pulsweitenmodulation erzwingen oder deaktivieren. Beachten Sie, dass sie kurz darauf automatisch wieder ein- oder ausgeschaltet werden kann.",
       "fields": {
         "enabled": {

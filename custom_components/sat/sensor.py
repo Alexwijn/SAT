@@ -33,6 +33,29 @@ ROOM_BALANCE_ISSUES: dict[RoomBalanceStatus, str] = {
     RoomBalanceStatus.SENSOR_MISMATCH: "room_sensor_mismatch",
 }
 
+BOILER_STATUS_ICONS: dict[BoilerStatus, str] = {
+    BoilerStatus.OFF: "mdi:water-boiler-off",
+    BoilerStatus.IDLE: "mdi:water-boiler-auto",
+    BoilerStatus.COOLING: "mdi:snowflake-thermometer",
+    BoilerStatus.PUMP_STARTING: "mdi:pump",
+    BoilerStatus.ANTI_CYCLING: "mdi:timer-pause",
+    BoilerStatus.CENTRAL_HEATING: "mdi:radiator",
+    BoilerStatus.STALLED_IGNITION: "mdi:water-boiler-alert",
+    BoilerStatus.INSUFFICIENT_DATA: "mdi:water-boiler-alert",
+    BoilerStatus.WAITING_FOR_FLAME: "mdi:fire-alert",
+    BoilerStatus.OVERSHOOT_COOLING: "mdi:snowflake-thermometer",
+    BoilerStatus.HEATING_HOT_WATER: "mdi:water-thermometer",
+}
+
+CYCLE_STATUS_ICONS: dict[CycleClassification, str] = {
+    CycleClassification.GOOD: "mdi:check-circle",
+    CycleClassification.UNCERTAIN: "mdi:help-circle",
+    CycleClassification.OVERSHOOT: "mdi:arrow-up-bold-circle",
+    CycleClassification.UNDERHEAT: "mdi:arrow-down-bold-circle",
+    CycleClassification.SHORT_CYCLING: "mdi:alert-circle",
+    CycleClassification.INSUFFICIENT_DATA: "mdi:timer-sand",
+}
+
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Add SAT sensors based on the configured integration mode."""
@@ -818,10 +841,18 @@ class SatCycleSensor(SatHeatingControlEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        if self._heating_control is None or self._heating_control.last_cycle is None:
-            return CycleClassification.INSUFFICIENT_DATA.name
+        return self._classification.name
 
-        return self._heating_control.last_cycle.classification.name
+    @property
+    def icon(self) -> Optional[str]:
+        return CYCLE_STATUS_ICONS.get(self._classification, "mdi:sync")
+
+    @property
+    def _classification(self) -> CycleClassification:
+        if self._heating_control is None or self._heating_control.last_cycle is None:
+            return CycleClassification.INSUFFICIENT_DATA
+
+        return self._heating_control.last_cycle.classification
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
@@ -862,10 +893,18 @@ class SatDeviceSensor(SatHeatingControlEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        if self._heating_control is None:
-            return BoilerStatus.INSUFFICIENT_DATA.name
+        return self._status.name
 
-        return self._heating_control.device_status.name
+    @property
+    def icon(self) -> Optional[str]:
+        return BOILER_STATUS_ICONS.get(self._status, "mdi:water-boiler")
+
+    @property
+    def _status(self) -> BoilerStatus:
+        if self._heating_control is None:
+            return BoilerStatus.INSUFFICIENT_DATA
+
+        return self._heating_control.device_status
 
     @property
     def available(self) -> bool:
