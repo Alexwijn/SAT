@@ -115,11 +115,10 @@ class Area:
         if (sensor_temperature_id := climate_state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
             sensor_state = self._hass.states.get(sensor_temperature_id)
             if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
-                if is_state_stale(sensor_state, self._sensor_max_value_age):
-                    _LOGGER.debug("Area sensor %s stale for %s (age=%.1fs > %.1fs)", sensor_temperature_id, self._entity_id, state_age_seconds(sensor_state), self._sensor_max_value_age)
-                    return None
+                if not is_state_stale(sensor_state, self._sensor_max_value_age):
+                    return sensor_state
 
-                return sensor_state
+                _LOGGER.debug("Area sensor %s stale for %s (age=%.1fs > %.1fs)", sensor_temperature_id, self._entity_id, state_age_seconds(sensor_state), self._sensor_max_value_age)
 
         if is_state_stale(climate_state, self._sensor_max_value_age):
             _LOGGER.debug("Area climate %s stale for %s (age=%.1fs > %.1fs)", self._entity_id, self._entity_id, state_age_seconds(climate_state), self._sensor_max_value_age)

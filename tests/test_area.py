@@ -99,6 +99,22 @@ async def test_area_current_temperature_stale_override_sensor(hass, monkeypatch)
     assert area.current_temperature is None
 
 
+async def test_area_stale_override_sensor_falls_back_to_the_climate(hass, freezer):
+    attributes = {"current_temperature": 21.0, ATTR_SENSOR_TEMPERATURE_ID: "sensor.room1_temp"}
+    hass.states.async_set("climate.room1", "heat", attributes)
+    hass.states.async_set("sensor.room1_temp", "20.5")
+
+    config = make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options={**OPTIONS_DEFAULTS, CONF_SENSOR_MAX_VALUE_AGE: "00:01:00"})
+
+    area = Area(config, "climate.room1")
+    await area.async_added_to_hass(hass, "device.test")
+
+    freezer.tick(timedelta(seconds=120))
+    hass.states.async_set("climate.room1", "heat", attributes)
+
+    assert area.current_temperature == 21.0
+
+
 async def test_area_remembers_when_its_target_changed(hass):
     hass.states.async_set("climate.room1", HVACMode.HEAT, {"temperature": 18.0, "current_temperature": 17.5})
 
