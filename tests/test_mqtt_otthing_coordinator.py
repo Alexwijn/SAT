@@ -173,9 +173,7 @@ async def test_set_control_setpoint(coordinator, monkeypatch):
 
     await coordinator.async_set_control_setpoint(42.5)
 
-    assert len(calls) == 2
-    assert calls[0] == ((COMMAND_PAYLOAD_HEAT,), {"suffix": COMMAND_SUFFIX_CH_MODE})
-    assert calls[1] == (("42.5",), {"suffix": COMMAND_SUFFIX_CH_SETPOINT})
+    assert calls == [(("42.5",), {"suffix": COMMAND_SUFFIX_CH_SETPOINT})]
 
 
 @pytest.mark.asyncio

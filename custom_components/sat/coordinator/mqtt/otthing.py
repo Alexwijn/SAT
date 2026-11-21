@@ -154,7 +154,6 @@ class SatOtthingMqttCoordinator(SatMqttCoordinator):
         pass
 
     async def async_set_control_setpoint(self, value: float) -> None:
-        await self._publish_command(COMMAND_PAYLOAD_HEAT, suffix=COMMAND_SUFFIX_CH_MODE)
         await self._publish_command(self._format_temperature(value), suffix=COMMAND_SUFFIX_CH_SETPOINT)
 
         await super().async_set_control_setpoint(value)
