@@ -192,3 +192,22 @@ async def test_stores_of_a_device_stay_while_another_entry_uses_it(hass, hass_st
     await async_remove_entry(hass, first)
 
     assert "sat.device.Fake" in hass_storage
+
+
+async def test_renaming_the_climate_keeps_controlling(hass, monkeypatch):
+    sat_entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA)
+    await hass.config_entries.async_add(sat_entry)
+    await hass.async_block_till_done()
+
+    entry_data = hass.data[DOMAIN][sat_entry.entry_id]
+    climate = er.async_get(hass).async_get_entity_id("climate", DOMAIN, sat_entry.entry_id)
+
+    er.async_get(hass).async_update_entity(climate, new_entity_id="climate.renamed")
+    await hass.async_block_till_done()
+
+    update = AsyncMock()
+    monkeypatch.setattr(entry_data.heating_control, "update", update)
+    entry_data.demand_control._hvac_mode = "off"
+    await entry_data.demand_control.async_control_heating_loop()
+
+    update.assert_awaited()

@@ -420,6 +420,9 @@ class SatDemandControl:
         """Start controlling, with the given id for the primary room."""
         self._id = entity_id
         self._started = True
+        self._controlling = True
+        self._loop_stalled = False
+        self._watchdog.completed(timestamp())
 
         await self._heating_control.async_added_to_hass()
         await self.pid.async_added_to_hass(self._hass, entity_id, self._coordinator.id)
