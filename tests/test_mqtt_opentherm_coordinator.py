@@ -324,3 +324,20 @@ async def test_release_hands_back_to_the_thermostat(coordinator, monkeypatch, ma
 
     assert calls == commands
     assert coordinator.released is True
+
+
+async def test_only_static_values_are_restored(coordinator):
+    coordinator._store.async_load = AsyncMock(return_value={DATA_SLAVE_MEMBERID: 8, DATA_FLAME_ACTIVE: "ON", DATA_BOILER_TEMPERATURE: 60.0})
+
+    await coordinator.async_setup()
+
+    assert dict(coordinator.data) == {DATA_SLAVE_MEMBERID: 8}
+
+
+async def test_only_static_values_are_saved(coordinator):
+    coordinator.data.update({DATA_SLAVE_MEMBERID: 8, DATA_FLAME_ACTIVE: "ON"})
+    coordinator._store.async_save = AsyncMock()
+
+    await coordinator.async_will_remove_from_hass()
+
+    coordinator._store.async_save.assert_awaited_once_with({DATA_SLAVE_MEMBERID: 8})

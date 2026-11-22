@@ -344,3 +344,11 @@ async def test_release_switches_heating_off_and_restores_the_power(coordinator, 
     await coordinator.async_release()
 
     assert calls == [{"cmd": "selflowtemp", "value": 0}, {"cmd": "burnmaxpower", "value": 100}]
+
+
+async def test_nothing_is_restored_from_the_store(coordinator):
+    coordinator._store.async_load = AsyncMock(return_value={"burngas": "on", "slave": {"status": {"flame": True}}})
+
+    await coordinator.async_setup()
+
+    assert dict(coordinator.data) == {}

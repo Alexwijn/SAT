@@ -77,11 +77,19 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     async def _load_stored_data(self) -> None:
         """Load the data from persistent storage."""
         if stored_data := await self._store.async_load():
-            self.async_set_updated_data({key: value for key, value in stored_data.items() if value not in (None, "")})
+            self.async_set_updated_data(self._restorable(stored_data))
 
     async def _save_data(self) -> None:
         """Save the data to persistent storage."""
-        await self._store.async_save(self.data)
+        await self._store.async_save(self._restorable(self.data))
+
+    def _restorable(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return the values that still hold after a restart."""
+        return {key: value for key, value in data.items() if key in self.get_restorable_entities() and value not in (None, "")}
+
+    def get_restorable_entities(self) -> list[str]:
+        """Return the values that cannot change while Home Assistant is down."""
+        return []
 
     @abstractmethod
     def get_tracked_entities(self) -> list[str]:

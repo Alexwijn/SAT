@@ -243,3 +243,11 @@ async def test_release_ends_with_central_heating_off(coordinator, monkeypatch):
     await coordinator.async_release()
 
     assert calls[-1] == (("off",), {"suffix": COMMAND_SUFFIX_CH_MODE})
+
+
+async def test_nothing_is_restored_from_the_store(coordinator):
+    coordinator._store.async_load = AsyncMock(return_value={"burngas": "on", "slave": {"status": {"flame": True}}})
+
+    await coordinator.async_setup()
+
+    assert dict(coordinator.data) == {}

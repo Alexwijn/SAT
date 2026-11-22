@@ -221,6 +221,16 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
             DATA_DHW_SETPOINT_MAXIMUM,
         ]
 
+    def get_restorable_entities(self) -> list[str]:
+        return [
+            DATA_SLAVE_MEMBERID,
+            DATA_BOILER_CAPACITY,
+            DATA_REL_MIN_MOD_LEVEL,
+            DATA_REL_MIN_MOD_LEVEL_LEGACY,
+            DATA_DHW_SETPOINT_MINIMUM,
+            DATA_DHW_SETPOINT_MAXIMUM,
+        ]
+
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f"CS={value:.1f}")
         await self._publish_command(f"PM=25")
