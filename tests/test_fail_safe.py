@@ -5,7 +5,7 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 
-from custom_components.sat.const import CONF_INSIDE_SENSOR_ENTITY_ID, CONF_ROOMS, DOMAIN, FAIL_SAFE_GRACE_SECONDS
+from custom_components.sat.const import CONF_INSIDE_SENSOR_ENTITY_ID, CONF_RADIATORS, CONF_ROOMS, DOMAIN, FAIL_SAFE_GRACE_SECONDS
 from custom_components.sat.fail_safe import FailSafeMonitor
 from custom_components.sat.types import ControlSignal, FailSafePhase
 
@@ -184,3 +184,10 @@ async def test_unavailable_boiler_holds_releases_and_resumes(hass, demand_contro
     await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0)
 
     update.assert_awaited_once()
+
+
+@pytest.mark.parametrize(("domains", "data", "options", "config"), [([], {CONF_RADIATORS: ["climate.radiator"]}, {}, {})])
+async def test_blocked_radiator_has_no_open_valve(hass, demand_control, domains, data, options, config):
+    hass.states.async_set("climate.radiator", "heat", {"hvac_action": "heating", "heating_blocked_by": "valve_maintenance"})
+
+    assert demand_control.valves_open is False

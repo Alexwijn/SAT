@@ -28,6 +28,7 @@ ATTR_TEMPERATURE = "temperature"
 ATTR_CURRENT_TEMPERATURE = "current_temperature"
 ATTR_SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 ATTR_CURRENT_VALVE_POSITION = "current_valve_position"
+ATTR_HEATING_BLOCKED_BY = "heating_blocked_by"
 
 COMFORT_BAND = 0.1
 COOLING_SLOPE = 4.0
@@ -233,9 +234,19 @@ class Area:
         return self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS)
 
     @property
+    def is_blocked(self) -> bool:
+        """Return whether the climate entity reports that its heating is blocked."""
+        return (climate_state := self.climate_state) is not None and Area.reports_block(climate_state)
+
+    @staticmethod
+    def reports_block(state: State) -> bool:
+        """Return whether a climate state names a reason that blocks its heating."""
+        return bool(state.attributes.get(ATTR_HEATING_BLOCKED_BY))
+
+    @property
     def is_calling(self) -> bool:
         """Return whether the climate entity itself is asking for heat."""
-        if (climate_state := self.climate_state) is None:
+        if (climate_state := self.climate_state) is None or Area.reports_block(climate_state):
             return False
 
         if (hvac_action := climate_state.attributes.get("hvac_action")) is not None:
@@ -269,7 +280,7 @@ class Area:
     @property
     def requires_heat(self) -> bool:
         """Determine if this area should influence heating arbitration."""
-        if self.climate_state is None:
+        if self.climate_state is None or self.is_blocked:
             return False
 
         valve_position = self.valve_position

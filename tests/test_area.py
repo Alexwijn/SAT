@@ -162,3 +162,21 @@ def test_cap_never_drops_below_what_a_cold_main_room_needs():
 
     assert demand.including(42.0, below_target=True).setpoint == 42.0
     assert demand.including(42.0, below_target=False).setpoint == 30.0
+
+
+@pytest.mark.parametrize(("blocked_by", "blocked"), [(None, False), ("", False), ("devices_released", True), ("valve_maintenance", True)])
+async def test_blocked_room_neither_calls_nor_requires_heat(hass, blocked_by, blocked):
+    hass.states.async_set("climate.room1", HVACMode.HEAT, {
+        "temperature": 21.0,
+        "current_temperature": 18.0,
+        "hvac_action": "heating",
+        "current_valve_position": 80,
+        "heating_blocked_by": blocked_by,
+    })
+
+    area = Area(make_config(data={CONF_HEATING_SYSTEM: HeatingSystem.RADIATORS}, options=dict(OPTIONS_DEFAULTS)), "climate.room1")
+    await area.async_added_to_hass(hass, "device.test")
+
+    assert area.is_blocked is blocked
+    assert area.is_calling is not blocked
+    assert area.requires_heat is not blocked

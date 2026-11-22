@@ -367,6 +367,9 @@ class SatDemandControl:
             if state.state == HVACMode.OFF:
                 continue
 
+            if Area.reports_block(state):
+                continue
+
             # If the thermostat reports that it is heating, we can assume the valves are open
             if state.attributes.get("hvac_action") == HVACAction.HEATING:
                 return True

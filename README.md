@@ -209,6 +209,8 @@ For more information about which other entities are available for OpenTherm plea
    - Radiators: Users can add the TRV climate entities that are in the same room as the Inside Temperature sensor.
    - Rooms: Users can add the climate entities of their other rooms, which have their own target temperatures. So when any of the rooms will ask for heating, SAT will start the boiler.
    - Rooms only: If every heated room already has its own climate entity and there is no main room, leave the Inside Temperature sensor empty and add all rooms here. Each room then gets its own PID and heating curve, the boiler is asked for the highest room request, and it is only started while at least one room is calling for heat. The SAT climate entity stays as the on/off switch and the preset selector of the whole system: it has no target temperature of its own, shows the median room temperature, applies presets to the rooms (see the Room Presets tab), and while off it protects the coldest room against frost. Without a main room there is no Eco heating mode and no main PID, error or heating curve sensors; the room sensors and the boiler sensors are still created.
+   - A radiator or room that reports `heating_blocked_by`, as Better Thermostat does, does not ask the boiler for heat while it is blocked. SAT reports the same attribute on its own climate entity: `hvac_off`, `inputs_missing`, `window`, `hot_water` or `valves_closed`.
+
 > [!Note]
 > If SAT is the only climate entity, skip this step.
 
