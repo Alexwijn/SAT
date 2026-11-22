@@ -1,13 +1,13 @@
 """Window and door contacts that pause the heating."""
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Awaitable, Callable, Optional
+from datetime import datetime
+from typing import Callable, Coroutine, Optional
 
-from homeassistant.const import STATE_OFF, STATE_ON
-from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.const import STATE_ON
+from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 
 from .entry_data import SatConfig
 
@@ -15,54 +15,64 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ContactSensors:
-    """Tell when a contact opens or closes, and whether it stays open long enough."""
+    """All contacts as one: open while any is open, where one that is lost counts as closed."""
 
     def __init__(self, config: SatConfig) -> None:
         self._entity_ids = list(config.window_sensors)
         self._open_delay = config.sensors.window_minimum_open_time_seconds
+        self._close_delay = 0.0
 
-        self._opening: Optional[asyncio.Task[None]] = None
-        self._listener: Optional[Callable[[bool], Awaitable[None]]] = None
+        self._is_open: bool = False
+        self._hass: Optional[HomeAssistant] = None
+        self._cancel_change: Optional[CALLBACK_TYPE] = None
+        self._listener: Optional[Callable[[bool], Coroutine[None, None, None]]] = None
 
-    def track(self, hass: HomeAssistant, listener: Callable[[bool], Awaitable[None]]) -> CALLBACK_TYPE:
-        """Call the listener whenever a contact opens or closes."""
-        self._listener = listener
+    def assume_open(self) -> None:
+        """Continue from a pause that was running before a restart."""
+        self._is_open = True
 
-        return async_track_state_change_event(hass, self._entity_ids, self._async_changed)
+    @callback
+    def track(self, hass: HomeAssistant, listener: Callable[[bool], Coroutine[None, None, None]]) -> CALLBACK_TYPE:
+        """Call the listener when the contacts open or close, starting from how they are now."""
+        self._hass, self._listener = hass, listener
 
-    async def async_stays_open(self) -> bool:
-        """Return whether nothing closed during the minimum open time."""
-        self.cancel()
+        untrack = async_track_state_change_event(hass, self._entity_ids, self._changed)
+        self._evaluate()
 
-        opening = asyncio.create_task(asyncio.sleep(self._open_delay))
-        self._opening = opening
-
-        try:
-            await opening
-        except asyncio.CancelledError:
-            _LOGGER.debug("Window closed before minimum open time.")
-            return False
-        finally:
-            if self._opening is opening:
-                self._opening = None
-
-        return True
+        return untrack
 
     def cancel(self) -> None:
-        """Stop waiting for the minimum open time."""
-        if self._opening is not None:
-            self._opening.cancel()
-            self._opening = None
+        """Forget a change that has not lasted long enough yet."""
+        if self._cancel_change is not None:
+            self._cancel_change()
+            self._cancel_change = None
 
-    async def _async_changed(self, event: Event[EventStateChangedData]) -> None:
-        new_state, old_state = event.data.get("new_state"), event.data.get("old_state")
+    @callback
+    def _changed(self, _event: Event[EventStateChangedData]) -> None:
+        self._evaluate()
 
-        if new_state is None or new_state.state not in (STATE_ON, STATE_OFF):
+    @callback
+    def _evaluate(self) -> None:
+        is_open = any((state := self._hass.states.get(entity_id)) is not None and state.state == STATE_ON for entity_id in self._entity_ids)
+
+        if is_open == self._is_open:
+            self.cancel()
             return
 
-        if old_state is not None and old_state.state == new_state.state:
+        if self._cancel_change is not None:
             return
 
-        _LOGGER.debug("Window Sensor Changed to %s.", new_state.state)
+        if (delay := self._open_delay if is_open else self._close_delay) > 0:
+            self._cancel_change = async_call_later(self._hass, delay, self._change)
+            return
 
-        await self._listener(new_state.state == STATE_ON)
+        self._change()
+
+    @callback
+    def _change(self, _now: Optional[datetime] = None) -> None:
+        self._cancel_change = None
+        self._is_open = not self._is_open
+
+        _LOGGER.debug("Contacts are now %s.", "open" if self._is_open else "closed")
+
+        self._hass.async_create_task(self._listener(self._is_open))

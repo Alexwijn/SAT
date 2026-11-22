@@ -45,6 +45,7 @@ ATTR_RELATIVE_MODULATION_VALUE = "relative_modulation_value"
 
 ATTR_PRE_CUSTOM_TEMPERATURE = "pre_custom_temperature"
 ATTR_PRE_ACTIVITY_TEMPERATURE = "pre_activity_temperature"
+ATTR_PRE_ACTIVITY_PRESET = "pre_activity_preset"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -150,6 +151,10 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             if old_state.attributes.get(ATTR_PRE_ACTIVITY_TEMPERATURE):
                 self._pre_activity_temperature = old_state.attributes.get(ATTR_PRE_ACTIVITY_TEMPERATURE)
 
+            if (preset := old_state.attributes.get(ATTR_PRE_ACTIVITY_PRESET)) in self._attr_preset_modes:
+                self._pre_activity_preset = preset
+                self._contact_sensors.assume_open()
+
             if old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE):
                 self._pre_custom_temperature = old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE)
 
@@ -182,6 +187,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         return {
             "pre_custom_temperature": self._pre_custom_temperature,
             "pre_activity_temperature": self._pre_activity_temperature,
+            "pre_activity_preset": self._pre_activity_preset,
 
             "room_errors": self._demand_control.room_errors,
             "room_temperatures": self._demand_control.room_temperatures,
@@ -407,28 +413,34 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self.async_on_remove(self._contact_sensors.track(self.hass, self._async_contacts_changed))
 
     async def _async_contacts_changed(self, is_open: bool) -> None:
-        """Pause while a contact is open, and restore once it closes."""
+        """Pause while the contacts are open, and undo exactly that pause once they close."""
         if is_open:
-            if self.preset_mode == PRESET_ACTIVITY:
-                return
+            await self._async_pause_for_window()
+        else:
+            await self._async_resume_from_window()
 
-            self._pre_activity_preset = self.preset_mode
-            self._pre_activity_temperature = self.native_target_temperature or self.min_temp
-
-            if await self._contact_sensors.async_stays_open():
-                await self.async_set_preset_mode(PRESET_ACTIVITY)
-
+    async def _async_pause_for_window(self) -> None:
+        if self.preset_mode == PRESET_ACTIVITY:
             return
 
-        self._contact_sensors.cancel()
+        self._pre_activity_preset = self.preset_mode
+        self._pre_activity_temperature = self.native_target_temperature or self.min_temp
 
-        if self.preset_mode == PRESET_ACTIVITY:
-            _LOGGER.debug("Restoring original target temperature.")
+        await self.async_set_preset_mode(PRESET_ACTIVITY)
 
-            if self._config.rooms_only:
-                await self.async_set_preset_mode(self._pre_activity_preset or PRESET_NONE)
-            else:
-                await self.async_set_temperature(temperature=self._pre_activity_temperature)
+    async def _async_resume_from_window(self) -> None:
+        preset, self._pre_activity_preset = self._pre_activity_preset, None
+
+        if preset is None or self.preset_mode != PRESET_ACTIVITY:
+            self.async_write_ha_state()
+            return
+
+        _LOGGER.debug("Restoring the %s preset from before the window opened.", preset)
+
+        if preset == PRESET_NONE and self._pre_activity_temperature is not None:
+            self._pre_custom_temperature = self._pre_activity_temperature
+
+        await self.async_set_preset_mode(preset)
 
     @staticmethod
     def _build_supported_features(rooms_only: bool) -> ClimateEntityFeature:
