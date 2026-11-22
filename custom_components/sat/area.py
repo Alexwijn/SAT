@@ -11,7 +11,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
     STATE_UNAVAILABLE,
 )
-from homeassistant.core import HomeAssistant, State
+from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import COLD_SETPOINT, DEADBAND, MINIMUM_SETPOINT
@@ -308,6 +308,7 @@ class Area:
             self._time_interval()
             self._time_interval = None
 
+    @callback
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Update the PID controller with the current error and heating curve."""
         if (temperature_state := self.temperature_state) is None:

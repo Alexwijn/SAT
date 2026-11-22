@@ -580,6 +580,7 @@ class SatDemandControl:
             "rate_per_hour": rate.rate_per_hour if rate is not None else None,
         }
 
+    @callback
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller of the primary room and feed the monitors."""
         self._curve_advice_sample = None

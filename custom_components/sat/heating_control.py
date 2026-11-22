@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Callable, Optional
 
 from homeassistant.components.climate import HVACMode
-from homeassistant.core import HomeAssistant, State
+from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.dispatcher import dispatcher_send
 
 from .boiler_health import BoilerHealthMonitor
@@ -337,6 +337,7 @@ class SatHeatingControl:
 
         dispatcher_send(self._hass, SIGNAL_HEATING_CONTROL_UPDATED, self._coordinator.id)
 
+    @callback
     def _on_cycle_ended(self, event) -> None:
         """Forward completed cycles to the PWM controller."""
         if (cycle := event.data.get("cycle")) is None:
