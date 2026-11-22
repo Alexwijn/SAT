@@ -443,7 +443,7 @@ class SatDemandControl:
         self._target_temperature_changed_at = timestamp()
 
         self._unsubscribers.append(
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
+            self._hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
         )
         self._unsubscribers.append(self._hass.async_add_shutdown_job(HassJob(self.async_stop_controlling)))
 

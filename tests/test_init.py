@@ -211,3 +211,13 @@ async def test_renaming_the_climate_keeps_controlling(hass, monkeypatch):
     await entry_data.demand_control.async_control_heating_loop()
 
     update.assert_awaited()
+
+
+async def test_stopping_removes_the_listeners_without_errors(hass, caplog):
+    sat_entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA)
+    await hass.config_entries.async_add(sat_entry)
+    await hass.async_block_till_done()
+
+    await hass.async_stop()
+
+    assert "Unable to remove unknown job listener" not in caplog.text
