@@ -11,7 +11,7 @@ from .helpers import calculate_default_maximum_setpoint, convert_time_str_to_sec
 from .types import HeatingSystem, HeatingMode
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
+    from homeassistant.core import Event, HomeAssistant
 
     from .climate import SatClimate
     from .demand_control import SatDemandControl
@@ -334,6 +334,11 @@ class SatEntryData:
 
     sentry: Optional[Client] = None
     climate: Optional[SatClimate] = None
+
+    async def async_stop(self, _event: Optional[Event] = None) -> None:
+        """Stop control and disconnect the backend as Home Assistant stops."""
+        await self.demand_control.async_will_remove_from_hass()
+        await self.coordinator.async_will_remove_from_hass()
 
 
 def get_entry_data(hass: HomeAssistant, entry_id: str) -> SatEntryData:

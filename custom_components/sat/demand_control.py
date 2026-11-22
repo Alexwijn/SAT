@@ -8,7 +8,7 @@ from statistics import median
 from typing import Any, Callable, Optional, Union
 
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, HVACAction, HVACMode
-from homeassistant.const import ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import CoreState, Event, EventStateChangedData, HassJob, HomeAssistant, State, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import issue_registry as ir
@@ -118,6 +118,11 @@ class SatDemandControl:
     def id(self) -> Optional[str]:
         """Return the id of the primary room."""
         return self._id
+
+    @property
+    def started(self) -> bool:
+        """Return whether control runs for the climate entity."""
+        return self._started
 
     @property
     def hvac_mode(self) -> Optional[HVACMode]:
@@ -442,10 +447,13 @@ class SatDemandControl:
 
         self._target_temperature_changed_at = timestamp()
 
-        self._unsubscribers.append(
-            self._hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
-        )
         self._unsubscribers.append(self._hass.async_add_shutdown_job(HassJob(self.async_stop_controlling)))
+
+    async def async_rename(self, entity_id: str) -> None:
+        """Carry on controlling under the new id of the climate entity."""
+        self._id = entity_id
+
+        await self.pid.async_rename(entity_id, self._coordinator.id)
 
     @callback
     def _start_controlling(self, _event: Optional[Event] = None) -> None:
@@ -467,7 +475,7 @@ class SatDemandControl:
         except Exception:
             _LOGGER.exception("Failed to release the boiler for %s", self._id)
 
-    async def async_will_remove_from_hass(self, _event: Optional[Event] = None) -> None:
+    async def async_will_remove_from_hass(self) -> None:
         """Stop controlling and persist what the monitors learned."""
         if not self._started:
             return
@@ -495,7 +503,6 @@ class SatDemandControl:
         await self._efficiency.async_will_remove_from_hass()
         await self._room_balance.async_save_data()
         await self._preheat.async_save_data()
-        await self._coordinator.async_will_remove_from_hass()
 
         for area in self.areas.items():
             await area.async_will_remove_from_hass()

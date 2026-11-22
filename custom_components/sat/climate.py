@@ -115,10 +115,13 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
 
-        # Restore the previous state if available, or set default values
-        await self._restore_previous_state_or_set_defaults()
+        if self._demand_control.started:
+            await self._demand_control.async_rename(self.entity_id)
+        else:
+            # Restore the previous state if available, or set default values
+            await self._restore_previous_state_or_set_defaults()
 
-        await self._demand_control.async_added_to_hass(self.entity_id)
+            await self._demand_control.async_added_to_hass(self.entity_id)
 
         if self.hass.state is CoreState.running:
             self._register_event_listeners()
@@ -135,8 +138,17 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._contact_sensors.cancel()
 
-        await self._demand_control.async_will_remove_from_hass()
+        if not self._is_being_renamed:
+            await self._demand_control.async_will_remove_from_hass()
+
         await super().async_will_remove_from_hass()
+
+    @property
+    def _is_being_renamed(self) -> bool:
+        """Return whether the entity is only removed to come back under another entity id."""
+        entry = self.registry_entry
+
+        return entry is not None and not entry.disabled and entry.entity_id != self.entity_id
 
     async def _restore_previous_state_or_set_defaults(self) -> None:
         """Restore the previous state if available or set default values."""

@@ -3,6 +3,7 @@ import traceback
 
 from homeassistant.components.climate import PRESET_HOME
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.restore_state import DATA_RESTORE_STATE
@@ -61,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    entry.async_on_unload(hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, entry_data.async_stop))
 
     return True
 

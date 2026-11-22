@@ -172,7 +172,7 @@ class PID:
         """Restore PID controller state from storage when the integration loads."""
         self._hass = hass
         self._entity_id = entity_id
-        self._store = Store(hass, STORAGE_VERSION, f"sat.pid.{entity_id}.{device_id}")
+        self._store = self._store_for(entity_id, device_id)
 
         if not (data := await self._store.async_load()):
             return
@@ -190,6 +190,20 @@ class PID:
                 continue
 
         _LOGGER.debug("Loaded PID state from storage for entity=%s", self._entity_id)
+
+    async def async_rename(self, entity_id: str, device_id: str) -> None:
+        """Move the stored state along with the new id of its entity."""
+        if self._hass is None or entity_id == self._entity_id:
+            return
+
+        previous_store = self._store
+
+        self._entity_id = entity_id
+        self._store = self._store_for(entity_id, device_id)
+        await self._async_save_state()
+
+        if previous_store is not None:
+            await previous_store.async_remove()
 
     def update(self, state: TemperatureState, freeze_integral: bool = False) -> None:
         """Update PID state with the latest error and heating curve value."""
@@ -271,6 +285,9 @@ class PID:
         covariance = sum((sample.timestamp - mean_timestamp) * (sample.temperature - mean_temperature) for sample in samples)
 
         return covariance / variance if variance > 0 else 0.0
+
+    def _store_for(self, entity_id: str, device_id: str) -> Store:
+        return Store(self._hass, STORAGE_VERSION, f"sat.pid.{entity_id}.{device_id}")
 
     async def _async_save_state(self) -> None:
         if self._store is None:
