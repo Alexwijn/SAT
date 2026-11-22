@@ -41,6 +41,7 @@ from custom_components.sat.helpers import timestamp
 from custom_components.sat.temperature.history import TemperatureHistory
 from custom_components.sat.temperature.state import TemperatureState
 from custom_components.sat.manufacturer import ManufacturerFactory
+from custom_components.sat.inside_temperature import InsideTemperature
 from custom_components.sat.pid import PID
 from custom_components.sat.room_balance import RoomSignalReading, RoomSignals
 from custom_components.sat.types import HeaterState
@@ -183,6 +184,7 @@ async def test_area_climate_change_updates_heating_curve(hass, demand_control):
 
 def test_control_pid_skips_a_stale_inside_sensor(monkeypatch, hass, demand_control):
     _update_climate_config(demand_control, options={CONF_SENSOR_MAX_VALUE_AGE: "00:01:00"})
+    demand_control._inside_temperature = InsideTemperature(demand_control._config)
     demand_control._target_temperature = 21.0
 
     now = dt_util.utcnow()

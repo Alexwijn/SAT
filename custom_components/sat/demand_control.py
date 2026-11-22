@@ -38,6 +38,7 @@ from .heating_curve import (
     RECOMMENDATION_MAXIMUM_ERROR_CELSIUS, RECOMMENDATION_MAXIMUM_SUN_ELEVATION, RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS,
 )
 from .helpers import clamp, ensure_list, event_timestamp, is_state_stale, state_age_seconds, timestamp
+from .inside_temperature import InsideTemperature
 from .outside_temperature import OutsideTemperature
 from .pid import PID, PID_UPDATE_INTERVAL
 from .preheat import PreheatForecast, PreheatMonitor
@@ -94,6 +95,7 @@ class SatDemandControl:
 
         # Monitors
         self._wind = WindMonitor(self._config.sensors)
+        self._inside_temperature = InsideTemperature(self._config)
         self._outside_temperature = OutsideTemperature(self._config.sensors)
         self._wind_sensitivity = WindSensitivityMonitor()
         self._wind_history = WindHistory(self._config.entry_id, self._config.sensors)
@@ -152,13 +154,13 @@ class SatDemandControl:
         if self._config.rooms_only:
             return self.median_room_temperature
 
-        if (current_temperature := self._get_entity_state_float(self._config.sensors.inside_sensor_entity_id)) is None:
+        if (reading := self._inside_temperature.read(self._hass)) is None:
             return None
 
         if self._config.presets.thermal_comfort:
-            return SummerSimmer.index(current_temperature, self.current_humidity)
+            return SummerSimmer.index(reading.temperature, self.current_humidity)
 
-        return current_temperature
+        return reading.temperature
 
     @property
     def room_temperatures(self) -> dict[str, Optional[float]]:
@@ -247,10 +249,7 @@ class SatDemandControl:
     @property
     def temperature_state(self) -> Optional[TemperatureState]:
         """Return the temperature state of the primary room."""
-        if self._config.sensors.inside_sensor_entity_id is None:
-            return None
-
-        if (state := self._hass.states.get(self._config.sensors.inside_sensor_entity_id)) is None:
+        if (reading := self._inside_temperature.read(self._hass)) is None:
             return None
 
         target_temperature = self.target_temperature
@@ -262,9 +261,9 @@ class SatDemandControl:
             entity_id=self._id or MAIN_ROOM_ID,
             setpoint=target_temperature,
             current=current_temperature,
-            last_reported=state.last_reported,
-            last_updated=state.last_updated,
-            last_changed=state.last_changed,
+            last_reported=reading.last_reported,
+            last_updated=reading.last_updated,
+            last_changed=reading.last_changed,
         )
 
     @property
