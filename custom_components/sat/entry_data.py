@@ -39,6 +39,7 @@ class SensorsConfig:
 
     sensor_max_value_age_seconds: float
     window_minimum_open_time_seconds: float
+    window_minimum_closed_time_seconds: float
 
 
 @dataclass(frozen=True)
@@ -210,6 +211,9 @@ class SatConfig:
             outside_sensor_entity_id=self.data[CONF_OUTSIDE_SENSOR_ENTITY_ID],
             wind_sensor_entity_id=list(self.data.get(CONF_WIND_SENSOR_ENTITY_ID) or []),
 
+            window_minimum_closed_time_seconds=convert_time_str_to_seconds(
+                self.options.get(CONF_WINDOW_MINIMUM_CLOSED_TIME)
+            ),
             window_minimum_open_time_seconds=convert_time_str_to_seconds(
                 self.options.get(CONF_WINDOW_MINIMUM_OPEN_TIME)
             ),

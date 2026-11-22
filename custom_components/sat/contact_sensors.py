@@ -20,7 +20,7 @@ class ContactSensors:
     def __init__(self, config: SatConfig) -> None:
         self._entity_ids = list(config.window_sensors)
         self._open_delay = config.sensors.window_minimum_open_time_seconds
-        self._close_delay = 0.0
+        self._close_delay = config.sensors.window_minimum_closed_time_seconds
 
         self._is_open: bool = False
         self._hass: Optional[HomeAssistant] = None

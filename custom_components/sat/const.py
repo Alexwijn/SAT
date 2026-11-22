@@ -66,6 +66,7 @@ CONF_RADIATORS = "main_climates"
 CONF_WINDOW_SENSORS = "window_sensors"
 CONF_PUSH_SETPOINT_TO_THERMOSTAT = "push_setpoint_to_thermostat"
 CONF_WINDOW_MINIMUM_OPEN_TIME = "window_minimum_open_time"
+CONF_WINDOW_MINIMUM_CLOSED_TIME = "window_minimum_closed_time"
 CONF_THERMAL_COMFORT = "thermal_comfort"
 CONF_SOLAR_GAIN_COMPENSATION = "solar_gain_compensation"
 CONF_SOLAR_GAIN_MIN_ELEVATION = "solar_gain_min_elevation"
@@ -183,6 +184,7 @@ OPTIONS_DEFAULTS = {
     CONF_SENSOR_MAX_VALUE_AGE: "06:00:00",
     CONF_SIMULATED_WARMING_UP: "00:00:15",
     CONF_WINDOW_MINIMUM_OPEN_TIME: "00:00:15",
+    CONF_WINDOW_MINIMUM_CLOSED_TIME: "00:00:00",
     CONF_FROST_PROTECTION_TEMPERATURE: 6.0,
 
     # Preset temperatures.

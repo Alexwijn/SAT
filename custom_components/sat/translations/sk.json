@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Synchronizujte klímu s režimom",
           "sensor_max_value_age": "Vek maximálnej hodnoty snímača teploty",
           "window_minimum_open_time": "Minimálny čas na otvorenie okna",
+          "window_minimum_closed_time": "Minimálny čas na zatvorenie okna",
           "frost_protection_temperature": "Teplota protimrazovej ochrany"
         },
         "data_description": {
           "cycles_per_hour": "Maximálny počet pracovných cyklov za hodinu.",
           "sensor_max_value_age": "Maximálny vek hodnoty teplotného snímača pred tým, než sa považuje za prerušenie.",
           "window_minimum_open_time": "Minimálny čas, počas ktorého musí byť okno otvorené, kým systém zareaguje.",
+          "window_minimum_closed_time": "Minimálny čas, počas ktorého musia byť všetky okná zatvorené, kým sa obnoví kúrenie.",
           "sync_climates_with_mode": "Pri zmene tu nastaví režim HVAC aj na klímach miestností.",
           "frost_protection_temperature": "Pokračovať vo vykurovaní, keď izba klesne pod túto teplotu, aj keď je termostat vypnutý. Nastavte 0 na vypnutie."
         },

@@ -177,3 +177,17 @@ async def test_window_closed_during_a_restart_restores_the_preset(hass, domains,
     climate = await _set_up(hass, data, options)
 
     assert climate.preset_mode == PRESET_COMFORT
+
+
+async def test_close_delay_waits_before_restoring(hass, climate):
+    climate._contact_sensors._close_delay = 120
+    await climate.async_set_preset_mode(PRESET_HOME)
+    await _report(hass, KITCHEN, "on")
+    await _wait(hass)
+    await _report(hass, KITCHEN, "off")
+
+    assert climate.preset_mode == PRESET_ACTIVITY
+
+    await _wait(hass, 200)
+
+    assert climate.preset_mode == PRESET_HOME

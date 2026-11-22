@@ -322,6 +322,8 @@ Pick a room, tick the presets it has its own temperature for and set them. The H
 
 *Minimum time for window to be open*: The minimum time a window must be open before the system reacts and pauses heating.
 
+*Minimum time for window to be closed*: How long all windows and doors must be closed before heating resumes. Defaults to none. A contact sensor that becomes unavailable counts as closed.
+
 *Frost Protection Temperature*: Keep heating when the room drops below this temperature, even while the thermostat is off. Set to 0 to disable.
 
 ## Advanced Tab

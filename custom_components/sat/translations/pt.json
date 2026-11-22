@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Sincronizar climas com o modo",
           "sensor_max_value_age": "Idade máxima do valor do sensor de temperatura",
           "window_minimum_open_time": "Tempo mínimo para a janela estar aberta",
+          "window_minimum_closed_time": "Tempo mínimo para a janela estar fechada",
           "frost_protection_temperature": "Temperatura de proteção anticongelamento"
         },
         "data_description": {
           "cycles_per_hour": "A quantidade máxima de ciclos por hora.",
           "sensor_max_value_age": "A idade máxima do valor do sensor de temperatura antes de ser considerado como estagnado.",
           "window_minimum_open_time": "O tempo mínimo que uma janela deve estar aberta antes de o sistema reagir.",
+          "window_minimum_closed_time": "O tempo mínimo que todas as janelas devem estar fechadas antes de o aquecimento ser retomado.",
           "sync_climates_with_mode": "Também aplica o modo HVAC aos climas dos ambientes quando alterado aqui.",
           "frost_protection_temperature": "Continuar a aquecer quando a divisão descer abaixo desta temperatura, mesmo com o termóstato desligado. Definir como 0 para desativar."
         },

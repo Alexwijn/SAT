@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Sincronizar climas con el modo",
           "sensor_max_value_age": "Edad máxima del valor del sensor de temperatura",
           "window_minimum_open_time": "Tiempo mínimo de apertura de ventana",
+          "window_minimum_closed_time": "Tiempo mínimo de cierre de ventana",
           "frost_protection_temperature": "Temperatura de protección antiheladas"
         },
         "data_description": {
           "cycles_per_hour": "La cantidad máxima de ciclos por hora.",
           "sensor_max_value_age": "La edad máxima del valor del sensor de temperatura antes de considerarlo como obsoleto.",
           "window_minimum_open_time": "El tiempo mínimo que una ventana debe estar abierta antes de que el sistema reaccione.",
+          "window_minimum_closed_time": "El tiempo mínimo que todas las ventanas deben estar cerradas antes de reanudar la calefacción.",
           "sync_climates_with_mode": "También aplica el modo HVAC a los climas de las habitaciones cuando se cambia aquí.",
           "frost_protection_temperature": "Seguir calentando cuando la habitación baje de esta temperatura, incluso con el termostato apagado. Poner a 0 para desactivar."
         },

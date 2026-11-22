@@ -803,6 +803,7 @@ class SatOptionsFlowHandler(config_entries.OptionsFlow):
         schema_entries.append((vol.Required(CONF_SENSOR_MAX_VALUE_AGE, default=options[CONF_SENSOR_MAX_VALUE_AGE]), selector.TimeSelector()))
 
         schema_entries.append((vol.Required(CONF_WINDOW_MINIMUM_OPEN_TIME, default=options[CONF_WINDOW_MINIMUM_OPEN_TIME]), selector.TimeSelector()))
+        schema_entries.append((vol.Required(CONF_WINDOW_MINIMUM_CLOSED_TIME, default=options[CONF_WINDOW_MINIMUM_CLOSED_TIME]), selector.TimeSelector()))
         schema_entries.append((
             vol.Required(CONF_FROST_PROTECTION_TEMPERATURE, default=options[CONF_FROST_PROTECTION_TEMPERATURE]),
             selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=10, step=0.5, unit_of_measurement="°C")),

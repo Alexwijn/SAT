@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Synchronize climates with mode",
           "sensor_max_value_age": "Temperature Sensor maximum value age",
           "window_minimum_open_time": "Minimum time for window to be open",
+          "window_minimum_closed_time": "Minimum time for window to be closed",
           "frost_protection_temperature": "Frost Protection Temperature"
         },
         "data_description": {
           "cycles_per_hour": "The maximum amount of duty cycles per hour.",
           "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall.",
           "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
+          "window_minimum_closed_time": "The minimum time all windows must be closed before heating resumes.",
           "sync_climates_with_mode": "Also set HVAC mode on room climates when it changes here.",
           "frost_protection_temperature": "Keep heating when the room drops below this temperature, even while the thermostat is off. Set to 0 to disable."
         },
