@@ -412,7 +412,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         self._event_listeners_registered = True
 
-        if len(self._config.window_sensors) > 0:
+        if len(self._config.window_sensors) > 0 or self._pre_activity_preset is not None:
             self.async_on_remove(self._contact_sensors.track(self.hass, self._async_contacts_changed))
 
     async def _async_contacts_changed(self, is_open: bool) -> None:

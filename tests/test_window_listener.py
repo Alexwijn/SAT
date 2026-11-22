@@ -205,3 +205,11 @@ async def test_pause_for_a_window_is_the_reason_heating_is_blocked(hass, climate
     await climate.async_set_preset_mode(PRESET_COMFORT)
 
     assert climate.extra_state_attributes["heating_blocked_by"] != "window"
+
+
+async def test_removing_the_sensors_ends_a_running_pause(hass, domains, data, options, config):
+    mock_restore_cache(hass, [State("climate.test", "heat", {"preset_mode": PRESET_ACTIVITY, "pre_activity_preset": PRESET_COMFORT, "temperature": 10.0})])
+
+    climate = await _set_up(hass, data, {})
+
+    assert climate.preset_mode == PRESET_COMFORT
