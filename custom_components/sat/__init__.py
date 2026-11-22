@@ -22,6 +22,7 @@ from .const import (
 from .coordinator import SatDataUpdateCoordinatorFactory
 from .demand_control import SatDemandControl
 from .entry_data import SatConfig, SatEntryData
+from .entry_stores import EntryStores
 from .heating_control import SatHeatingControl
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -109,6 +110,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data.pop(DOMAIN, None)
 
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove what was stored for a config entry."""
+    await EntryStores(hass, entry).async_remove()
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:

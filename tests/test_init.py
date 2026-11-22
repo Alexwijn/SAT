@@ -10,8 +10,8 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.sat import async_reload_entry, async_unload_entry
-from custom_components.sat.const import CONF_TARGET_TEMPERATURE_STEP, DOMAIN
+from custom_components.sat import async_reload_entry, async_remove_entry, async_unload_entry
+from custom_components.sat.const import CONF_DEVICE, CONF_ROOMS, CONF_TARGET_TEMPERATURE_STEP, DOMAIN
 from tests.const import DEFAULT_USER_DATA
 
 
@@ -161,3 +161,34 @@ async def test_a_scheduled_run_does_not_command_a_released_boiler(hass, monkeypa
     await entry_data.demand_control.async_control_heating_loop()
 
     update.assert_not_awaited()
+
+
+async def test_removing_the_entry_removes_its_stores(hass, hass_storage):
+    sat_entry = MockConfigEntry(domain=DOMAIN, data={**DEFAULT_USER_DATA, CONF_DEVICE: "Fake", CONF_ROOMS: ["climate.bedroom"]})
+    await hass.config_entries.async_add(sat_entry)
+    await hass.async_block_till_done()
+
+    climate = er.async_get(hass).async_get_entity_id("climate", DOMAIN, sat_entry.entry_id)
+    keys = [f"sat.{name}.{sat_entry.entry_id}" for name in ("preheat", "room_balance", "wind_sensitivity", "boiler_health", "curve_advisor")]
+    keys += [f"sat.pid.{climate}.Fake", "sat.pid.climate.bedroom.Fake", "sat.device.Fake", "sat.mqtt.Fake"]
+
+    for key in keys + ["sat.preheat.another_entry"]:
+        hass_storage[key] = {"version": 1, "minor_version": 1, "key": key, "data": {}}
+
+    await hass.config_entries.async_remove(sat_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert [key for key in keys if key in hass_storage] == []
+    assert "sat.preheat.another_entry" in hass_storage
+
+
+async def test_stores_of_a_device_stay_while_another_entry_uses_it(hass, hass_storage):
+    first = MockConfigEntry(domain=DOMAIN, data={**DEFAULT_USER_DATA, CONF_DEVICE: "Fake"})
+    second = MockConfigEntry(domain=DOMAIN, data={**DEFAULT_USER_DATA, CONF_DEVICE: "Fake"})
+    first.add_to_hass(hass)
+    second.add_to_hass(hass)
+    hass_storage["sat.device.Fake"] = {"version": 1, "minor_version": 1, "key": "sat.device.Fake", "data": {}}
+
+    await async_remove_entry(hass, first)
+
+    assert "sat.device.Fake" in hass_storage
