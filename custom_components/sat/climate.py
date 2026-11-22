@@ -1,7 +1,6 @@
 """Climate platform for SAT."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Optional
@@ -21,16 +20,16 @@ from homeassistant.components.climate import (
     DOMAIN as CLIMATE_DOMAIN,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
-from homeassistant.core import CoreState, Event, EventStateChangedData, HomeAssistant, SupportsResponse, callback
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import CoreState, Event, HomeAssistant, SupportsResponse, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import *
+from .contact_sensors import ContactSensors
 from .coordinator import SatDataUpdateCoordinator
 from .demand_control import SatDemandControl
 from .entity import SatEntity
@@ -99,7 +98,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._pre_activity_preset: Optional[str] = None
         self._pre_custom_temperature: Optional[float] = None
         self._pre_activity_temperature: Optional[float] = None
-        self._window_sensor_handle: Optional[asyncio.Task[None]] = None
+        self._contact_sensors = ContactSensors(config)
 
         self._temperature_unit = unit
         self._attr_preset_mode = PRESET_NONE
@@ -133,9 +132,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         """Run when entity about to be removed."""
         self._event_listeners_registered = False
 
-        if self._window_sensor_handle is not None:
-            self._window_sensor_handle.cancel()
-            self._window_sensor_handle = None
+        self._contact_sensors.cancel()
 
         await self._demand_control.async_will_remove_from_hass()
         await super().async_will_remove_from_hass()
@@ -407,63 +404,31 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         self._event_listeners_registered = True
 
         if len(self._config.window_sensors) > 0:
-            self.async_on_remove(
-                async_track_state_change_event(
-                    self.hass, list(self._config.window_sensors), self._async_window_sensor_changed
-                )
-            )
+            self.async_on_remove(self._contact_sensors.track(self.hass, self._async_contacts_changed))
 
-    async def _async_window_sensor_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Handle changes to the contact sensor entity."""
-        new_state = event.data.get("new_state")
-        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return
-
-        old_state = event.data.get("old_state")
-        if old_state is not None and old_state.state == new_state.state:
-            return
-
-        _LOGGER.debug(f"Window Sensor Changed to {new_state.state}.")
-
-        if new_state.state == STATE_ON:
+    async def _async_contacts_changed(self, is_open: bool) -> None:
+        """Pause while a contact is open, and restore once it closes."""
+        if is_open:
             if self.preset_mode == PRESET_ACTIVITY:
                 return
 
-            if self._window_sensor_handle is not None:
-                self._window_sensor_handle.cancel()
-
-            handle = asyncio.create_task(
-                asyncio.sleep(self._config.sensors.window_minimum_open_time_seconds)
-            )
-            self._window_sensor_handle = handle
             self._pre_activity_preset = self.preset_mode
             self._pre_activity_temperature = self.native_target_temperature or self.min_temp
 
-            try:
-                await handle
+            if await self._contact_sensors.async_stays_open():
                 await self.async_set_preset_mode(PRESET_ACTIVITY)
-            except asyncio.CancelledError:
-                _LOGGER.debug("Window closed before minimum open time.")
-            finally:
-                if self._window_sensor_handle is handle:
-                    self._window_sensor_handle = None
 
             return
 
-        if new_state.state == STATE_OFF:
-            if self._window_sensor_handle is not None:
-                self._window_sensor_handle.cancel()
-                self._window_sensor_handle = None
+        self._contact_sensors.cancel()
 
-            if self.preset_mode == PRESET_ACTIVITY:
-                _LOGGER.debug(f"Restoring original target temperature.")
+        if self.preset_mode == PRESET_ACTIVITY:
+            _LOGGER.debug("Restoring original target temperature.")
 
-                if self._config.rooms_only:
-                    await self.async_set_preset_mode(self._pre_activity_preset or PRESET_NONE)
-                else:
-                    await self.async_set_temperature(temperature=self._pre_activity_temperature)
-
-            return
+            if self._config.rooms_only:
+                await self.async_set_preset_mode(self._pre_activity_preset or PRESET_NONE)
+            else:
+                await self.async_set_temperature(temperature=self._pre_activity_temperature)
 
     @staticmethod
     def _build_supported_features(rooms_only: bool) -> ClimateEntityFeature:

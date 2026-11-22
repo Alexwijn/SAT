@@ -60,7 +60,7 @@ async def test_window_listener_uses_configured_entities(monkeypatch, hass, clima
         captured.append(entity_ids)
         return lambda: None
 
-    monkeypatch.setattr("custom_components.sat.climate.async_track_state_change_event", _capture)
+    monkeypatch.setattr("custom_components.sat.contact_sensors.async_track_state_change_event", _capture)
 
     climate._event_listeners_registered = False
     climate._register_event_listeners()
