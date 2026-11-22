@@ -44,7 +44,7 @@ from custom_components.sat.manufacturer import ManufacturerFactory
 from custom_components.sat.inside_temperature import InsideTemperature
 from custom_components.sat.pid import PID
 from custom_components.sat.room_balance import RoomSignalReading, RoomSignals
-from custom_components.sat.types import HeaterState
+from custom_components.sat.types import ControlSignal, HeatingBlock, HeaterState
 from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
 from custom_components.sat.wind import WindHistory, WindReading
 from custom_components.sat.wind_sensitivity import WindDay
@@ -623,3 +623,30 @@ async def test_climate_reports_its_temperatures_natively(climate):
 def test_climate_provides_the_native_temperature_api_beside_the_legacy_one(climate):
     for name in ("temperature_unit", "current_temperature", "target_temperature"):
         assert {name, f"native_{name}"} <= set(vars(SatClimate))
+
+
+async def test_heating_blocked_by_names_the_reason(monkeypatch, demand_control, coordinator):
+    demand_control._hvac_mode = HVACMode.OFF
+    assert demand_control.heating_blocked_by is HeatingBlock.HVAC_OFF
+
+    demand_control._hvac_mode = HVACMode.HEAT
+    assert demand_control.heating_blocked_by is None
+
+    monkeypatch.setattr(type(demand_control), "valves_open", property(lambda self: False))
+    assert demand_control.heating_blocked_by is HeatingBlock.VALVES_CLOSED
+
+    monkeypatch.setattr(type(coordinator), "hot_water_active", property(lambda self: True))
+    assert demand_control.heating_blocked_by is HeatingBlock.HOT_WATER
+
+    demand_control.set_window_paused(True)
+    assert demand_control.heating_blocked_by is HeatingBlock.WINDOW
+
+    demand_control._fail_safe.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0)
+    assert demand_control.heating_blocked_by is HeatingBlock.INPUTS_MISSING
+
+
+async def test_frost_protection_is_not_blocked_by_being_off(demand_control):
+    demand_control._hvac_mode = HVACMode.OFF
+    demand_control._frost_protection_active = True
+
+    assert demand_control.heating_blocked_by is None

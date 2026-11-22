@@ -48,7 +48,7 @@ from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, 
 from .summer_simmer import SummerSimmer
 from .temperature.history import TemperatureHistory, TemperatureStatistics
 from .temperature.state import TemperatureState
-from .types import ControlSignal, FailSafePhase, HeatingMode, InsideSource
+from .types import ControlSignal, FailSafePhase, HeatingBlock, HeatingMode, InsideSource
 from .warm_up import WARM_UP_MINIMUM_ERROR_CELSIUS, WarmUpEstimator
 from .watchdog import ControlWatchdog
 from .wind import WIND_HISTORY_STARTUP_DELAY_SECONDS, WindHistory, WindMonitor, WindReading
@@ -76,6 +76,7 @@ class SatDemandControl:
         self._held_demand: Optional[HeatingDemand] = None
         self._id: Optional[str] = None
 
+        self._window_paused: bool = False
         self._frost_protection_active: bool = False
         self._target_temperature: Optional[float] = None
         self._hvac_mode: Optional[Union[HVACMode, str]] = None
@@ -241,6 +242,28 @@ class SatDemandControl:
     @property
     def frost_protection_active(self) -> bool:
         return self._frost_protection_active
+
+    @property
+    def heating_blocked_by(self) -> Optional[HeatingBlock]:
+        """Return why heating is blocked, or None while it is allowed."""
+        if self.hvac_mode != HVACMode.HEAT:
+            return None if self._frost_protection_active else HeatingBlock.HVAC_OFF
+
+        if self._fail_safe.state.phase != FailSafePhase.CONTROLLING:
+            return HeatingBlock.INPUTS_MISSING
+
+        if self._window_paused:
+            return HeatingBlock.WINDOW
+
+        if self._coordinator.hot_water_active:
+            return HeatingBlock.HOT_WATER
+
+        return None if self.valves_open else HeatingBlock.VALVES_CLOSED
+
+    @callback
+    def set_window_paused(self, paused: bool) -> None:
+        """Remember whether an open window paused heating."""
+        self._window_paused = paused
 
     @property
     def implied_curve_coefficient(self) -> Optional[float]:
@@ -855,6 +878,9 @@ class SatDemandControl:
         self._follow_inside_source(now)
         state = self._fail_safe.update(self._missing_signal(), now)
         self._update_fail_safe_issue(state)
+
+        if state.phase != state.previous:
+            self.async_update_listeners()
 
         if state.phase == FailSafePhase.HOLDING:
             await self._async_hold_demand(now)

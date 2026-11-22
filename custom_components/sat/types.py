@@ -110,6 +110,15 @@ class InsideSource(StrEnum):
     RADIATORS = "radiators"
 
 
+class HeatingBlock(StrEnum):
+    """Why heating is blocked."""
+    HVAC_OFF = "hvac_off"
+    INPUTS_MISSING = "inputs_missing"
+    WINDOW = "window"
+    HOT_WATER = "hot_water"
+    VALVES_CLOSED = "valves_closed"
+
+
 class FailSafePhase(StrEnum):
     """What SAT does with the boiler while a signal is missing."""
     CONTROLLING = "controlling"

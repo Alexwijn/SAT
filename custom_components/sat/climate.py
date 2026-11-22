@@ -159,6 +159,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
                 self._pre_custom_temperature = old_state.attributes.get(ATTR_PRE_CUSTOM_TEMPERATURE)
 
         self._demand_control.restore(old_state, self.min_temp)
+        self._update_window_pause()
         self.async_write_ha_state()
 
     @callback
@@ -198,6 +199,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "summer_simmer_perception": SummerSimmer.perception(self.native_current_temperature, self.current_humidity),
 
             "valves_open": self._demand_control.valves_open,
+            "heating_blocked_by": self._demand_control.heating_blocked_by,
             "heating_curve": self._demand_control.heating_curve.value,
             "requested_setpoint": self._demand_control.requested_setpoint,
             "outside_temperature": self._demand_control.current_outside_temperature,
@@ -358,6 +360,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self._config.rooms_only or self._config.presets.sync_climates_with_preset:
             await self._async_apply_preset_to_rooms(preset_mode)
 
+        self._update_window_pause()
         self.async_write_ha_state()
 
     async def _async_apply_preset_to_rooms(self, preset_mode: str) -> None:
@@ -432,6 +435,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         preset, self._pre_activity_preset = self._pre_activity_preset, None
 
         if preset is None or self.preset_mode != PRESET_ACTIVITY:
+            self._update_window_pause()
             self.async_write_ha_state()
             return
 
@@ -441,6 +445,9 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             self._pre_custom_temperature = self._pre_activity_temperature
 
         await self.async_set_preset_mode(preset)
+
+    def _update_window_pause(self) -> None:
+        self._demand_control.set_window_paused(self._pre_activity_preset is not None and self.preset_mode == PRESET_ACTIVITY)
 
     @staticmethod
     def _build_supported_features(rooms_only: bool) -> ClimateEntityFeature:
