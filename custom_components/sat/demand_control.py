@@ -48,7 +48,7 @@ from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, 
 from .summer_simmer import SummerSimmer
 from .temperature.history import TemperatureHistory, TemperatureStatistics
 from .temperature.state import TemperatureState
-from .types import ControlSignal, FailSafePhase, HeatingMode
+from .types import ControlSignal, FailSafePhase, HeatingMode, InsideSource
 from .warm_up import WARM_UP_MINIMUM_ERROR_CELSIUS, WarmUpEstimator
 from .watchdog import ControlWatchdog
 from .wind import WIND_HISTORY_STARTUP_DELAY_SECONDS, WindHistory, WindMonitor, WindReading
@@ -95,6 +95,7 @@ class SatDemandControl:
 
         # Monitors
         self._wind = WindMonitor(self._config.sensors)
+        self._inside_source = InsideSource.SENSOR
         self._inside_temperature = InsideTemperature(self._config)
         self._outside_temperature = OutsideTemperature(self._config.sensors)
         self._wind_sensitivity = WindSensitivityMonitor()
@@ -458,6 +459,7 @@ class SatDemandControl:
         await self.async_stop_controlling()
         ir.async_delete_issue(self._hass, DOMAIN, f"control_loop_stalled_{self._config.entry_id}")
         ir.async_delete_issue(self._hass, DOMAIN, f"control_signal_missing_{self._config.entry_id}")
+        ir.async_delete_issue(self._hass, DOMAIN, f"running_on_fallback_sensor_{self._config.entry_id}")
 
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
@@ -553,6 +555,12 @@ class SatDemandControl:
 
         now = event_timestamp(_time)
         self._wind.observe(self._hass, now)
+
+        if temperature_state is not None and self._inside_source != InsideSource.SENSOR:
+            self._solar_gain_snapshot = SolarGainSnapshot(active=False, rise_per_hour=None, sun_elevation=None)
+            self._warm_up.update(active=False, temperature=temperature_state.current, timestamp=now)
+            self.pid.update(temperature_state)
+            return
 
         if temperature_state is not None:
             self._solar_gain_snapshot = self._solar_gain.update(
@@ -844,6 +852,7 @@ class SatDemandControl:
     async def _async_control_heating(self, time: Optional[datetime] = None) -> None:
         """Control the boiler, hold it or release it, depending on the signals that are available."""
         now = event_timestamp(time)
+        self._follow_inside_source(now)
         state = self._fail_safe.update(self._missing_signal(), now)
         self._update_fail_safe_issue(state)
 
@@ -860,6 +869,35 @@ class SatDemandControl:
 
         self._held_demand = self._build_demand(now)
         await self._heating_control.update(self._held_demand)
+
+    @callback
+    def _follow_inside_source(self, now: float) -> None:
+        """Restart the PID when the inside temperature changes source, and report a fallback."""
+        self._inside_temperature.observe(self._hass, now)
+
+        if (reading := self._inside_temperature.read(self._hass)) is None or reading.source == self._inside_source:
+            return
+
+        self._inside_source = reading.source
+        issue_id = f"running_on_fallback_sensor_{self._config.entry_id}"
+
+        self.pid.reset()
+        self.pid.forget_samples()
+        self.control_pid()
+
+        if reading.source == InsideSource.SENSOR:
+            ir.async_delete_issue(self._hass, DOMAIN, issue_id)
+            return
+
+        ir.async_create_issue(
+            self._hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="running_on_fallback_sensor",
+            translation_placeholders={"name": self._config.name, "source": reading.origin},
+        )
 
     def _missing_signal(self) -> Optional[ControlSignal]:
         """Return the signal that is missing to control the heating."""

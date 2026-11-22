@@ -387,6 +387,10 @@
     "missing_room_temperatures": {
       "title": "Nessuna stanza è raggiungibile",
       "description": "SAT non riesce a leggere alcuna stanza di {name} da oltre 10 minuti e ha rilasciato la caldaia: un termostato su un gateway OpenTherm subentra, altrimenti il riscaldamento è spento. Controllare i termostati delle stanze. SAT riprende il controllo quando uno ritorna."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Riscaldamento su una temperatura di riserva",
+      "description": "Il sensore interno di {name} non risponde, quindi SAT regola su {source} e nel frattempo non apprende nulla. I termostati sui radiatori misurano in eccesso, perciò la stanza può restare sotto l'obiettivo. Controllare il sensore. SAT vi ritorna da solo."
     }
   },
   "entity": {

@@ -387,6 +387,10 @@
     "missing_room_temperatures": {
       "title": "Aucune pièce n'est joignable",
       "description": "SAT ne peut lire aucune pièce de {name} depuis plus de 10 minutes et a libéré la chaudière : un thermostat relié à une passerelle OpenTherm prend le relais, sinon le chauffage est arrêté. Vérifiez les thermostats des pièces. SAT reprend le contrôle dès que l'un d'eux revient."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Chauffage sur une température de secours",
+      "description": "Le capteur intérieur de {name} est perdu : SAT régule sur {source} et n'apprend rien pendant ce temps. Les thermostats de radiateur mesurent trop chaud, la pièce peut donc rester sous sa consigne. Vérifiez le capteur. SAT y revient de lui-même."
     }
   },
   "entity": {

@@ -387,6 +387,10 @@
     "missing_room_temperatures": {
       "title": "Geen enkele kamer is bereikbaar",
       "description": "SAT kan al meer dan 10 minuten geen enkele kamer van {name} uitlezen en heeft de ketel vrijgegeven: een thermostaat aan een OpenTherm-gateway neemt het over, anders staat de verwarming uit. Controleer de kamerthermostaten. SAT neemt de regeling terug zodra er een terugkeert."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Verwarmen op een reservetemperatuur",
+      "description": "De binnentemperatuursensor van {name} is weggevallen, daarom regelt SAT op {source} en leert het intussen niets. Thermostaatknoppen op radiatoren meten warm, dus de kamer kan koeler blijven dan ingesteld. Controleer de sensor. SAT schakelt er vanzelf naar terug."
     }
   },
   "entity": {

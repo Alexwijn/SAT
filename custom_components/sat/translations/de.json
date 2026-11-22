@@ -387,6 +387,10 @@
     "missing_room_temperatures": {
       "title": "Kein Raum ist erreichbar",
       "description": "SAT kann seit über 10 Minuten keinen Raum von {name} auslesen und hat den Kessel freigegeben: Ein Thermostat an einem OpenTherm-Gateway übernimmt, andernfalls ist die Heizung aus. Prüfen Sie die Raumthermostate. SAT übernimmt wieder, sobald eines zurück ist."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Heizen mit einer Ersatztemperatur",
+      "description": "Der Innentemperatursensor von {name} ist ausgefallen, daher regelt SAT nach {source} und lernt währenddessen nichts. Thermostate an Heizkörpern messen zu warm, der Raum kann also kühler bleiben als eingestellt. Prüfen Sie den Sensor. SAT kehrt selbst zu ihm zurück."
     }
   },
   "entity": {

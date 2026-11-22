@@ -102,6 +102,13 @@ class ControlSignal(StrEnum):
     ROOM_TEMPERATURES = "room_temperatures"
 
 
+class InsideSource(StrEnum):
+    """Where the inside temperature comes from."""
+    SENSOR = "sensor"
+    THERMOSTAT = "thermostat"
+    RADIATORS = "radiators"
+
+
 class FailSafePhase(StrEnum):
     """What SAT does with the boiler while a signal is missing."""
     CONTROLLING = "controlling"

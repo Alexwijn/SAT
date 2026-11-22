@@ -163,6 +163,11 @@ class PID:
 
         _LOGGER.info("Reset PID controller for %s", self._entity_id)
 
+    def forget_samples(self) -> None:
+        """Forget the samples, as they came from another sensor."""
+        self._samples = deque()
+        self._sensor_step = None
+
     async def async_added_to_hass(self, hass: HomeAssistant, entity_id: str, device_id: str) -> None:
         """Restore PID controller state from storage when the integration loads."""
         self._hass = hass

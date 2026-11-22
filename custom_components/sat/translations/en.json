@@ -387,6 +387,10 @@
     "missing_room_temperatures": {
       "title": "No room can be reached",
       "description": "SAT has not been able to read any room of {name} for over 10 minutes and released the boiler: a thermostat on an OpenTherm gateway takes over, otherwise heating is off. Check the room thermostats. SAT takes control back when one returns."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Heating on a backup temperature",
+      "description": "The inside temperature sensor of {name} is lost, so SAT controls on {source} instead and learns nothing meanwhile. Thermostats on radiators read warm, so the room may stay cooler than its target. Check the sensor. SAT returns to it by itself."
     }
   },
   "entity": {

@@ -387,6 +387,10 @@
     "missing_room_temperatures": {
       "title": "No se puede acceder a ninguna habitación",
       "description": "SAT no puede leer ninguna habitación de {name} desde hace más de 10 minutos y ha liberado la caldera: un termostato en una pasarela OpenTherm toma el control; de lo contrario, la calefacción queda apagada. Compruebe los termostatos de las habitaciones. SAT recupera el control cuando vuelva alguno."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Calefacción con una temperatura de respaldo",
+      "description": "Se ha perdido el sensor interior de {name}, por lo que SAT regula con {source} y mientras tanto no aprende nada. Los termostatos de radiador miden de más, así que la habitación puede quedar por debajo del objetivo. Compruebe el sensor. SAT vuelve a él por sí solo."
     }
   },
   "entity": {

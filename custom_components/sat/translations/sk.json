@@ -387,6 +387,10 @@
     "missing_room_temperatures": {
       "title": "Žiadna izba nie je dostupná",
       "description": "SAT nevie prečítať žiadnu izbu {name} viac ako 10 minút a uvoľnil kotol: preberá ho termostat na bráne OpenTherm, inak je kúrenie vypnuté. Skontrolujte izbové termostaty. SAT prevezme riadenie späť po návrate niektorého z nich."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Kúrenie podľa záložnej teploty",
+      "description": "Vnútorný senzor {name} vypadol, preto SAT reguluje podľa {source} a zatiaľ sa nič neučí. Termostaty na radiátoroch merajú vyššie, takže izba môže zostať chladnejšia než cieľ. Skontrolujte senzor. SAT sa k nemu vráti sám."
     }
   },
   "entity": {

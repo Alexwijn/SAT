@@ -315,3 +315,14 @@ async def test_saved_derivative_is_capped(monkeypatch):
     await pid.async_added_to_hass(Mock(), "climate.test", "device")
 
     assert pid.raw_derivative == pytest.approx(DERIVATIVE_RAW_CAP, abs=1e-6)
+
+
+def test_forgetting_the_samples_restarts_the_derivative_window():
+    pid = _derivative_pid()
+    _feed_ramp(pid, rate_per_hour=0.6, step=0.1, seconds=3600)
+
+    pid.forget_samples()
+
+    assert len(pid._samples) == 0
+    assert pid.sensor_step == 0.1
+    assert pid._sensor_step is None
