@@ -226,7 +226,7 @@
           "simulation": "Zapne režim simulácie (neodosielajú sa reálne príkazy kotlu).",
           "error_monitoring": "Odosiela chyby súvisiace so SAT do Sentry na diagnostiku.",
           "force_pulse_width_modulation": "Vynúti moduláciu šírky impulzu aj pri dostupnej modulácii (užitočné pre relé).",
-          "flame_off_setpoint_offset_celsius": "Pri vypnutej plameni drží dočasný setpoint na spiatočke + offset (len modulácia šírky impulzu).",
+          "flame_off_setpoint_offset_celsius": "Pri vypnutom plameni drží dočasný setpoint na teplote zvoleného zdroja + offset (len modulácia šírky impulzu).",
           "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len modulácia šírky impulzu).",
           "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len modulácia šírky impulzu).",
           "flow_setpoint_offset_celsius": "Minimálny rozdiel pod teplotou kotla pri obmedzení setpointu (kontinuálny režim).",

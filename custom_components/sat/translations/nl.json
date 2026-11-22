@@ -226,7 +226,7 @@
           "simulation": "Simulatiemodus inschakelen (er worden geen echte ketelcommando's verzonden).",
           "error_monitoring": "Stuurt SAT-gerelateerde fouten naar Sentry om problemen te diagnosticeren.",
           "force_pulse_width_modulation": "Pulsbreedtemodulatie forceren, ook als modulatieregeling beschikbaar is (handig voor relaisbediening).",
-          "flame_off_setpoint_offset_celsius": "Bij uitgeschakelde vlam een tijdelijk setpoint op retourtemp + offset (alleen Pulsbreedtemodulatie).",
+          "flame_off_setpoint_offset_celsius": "Bij uitgeschakelde vlam een tijdelijk setpoint op de temperatuur van de gekozen bron + offset (alleen Pulsbreedtemodulatie).",
           "modulation_suppression_delay_seconds": "Tijd na vlam-aan voordat onderdrukking start (alleen Pulsbreedtemodulatie).",
           "modulation_suppression_offset_celsius": "Hoeveel de aanvoer-setpoint wordt verlaagd tijdens onderdrukking (alleen Pulsbreedtemodulatie).",
           "flow_setpoint_offset_celsius": "Minimale marge onder de keteltemperatuur bij het begrenzen van het setpoint (continue modus).",

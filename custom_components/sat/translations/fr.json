@@ -226,7 +226,7 @@
           "simulation": "Activer le mode simulation (aucune commande réelle n'est envoyée à la chaudière).",
           "error_monitoring": "Envoie les erreurs liées à SAT à Sentry pour aider au diagnostic.",
           "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion même si la modulation est disponible (utile pour un relais).",
-          "flame_off_setpoint_offset_celsius": "Quand la flamme est éteinte, maintient un setpoint temporaire à retour + offset (Modulation de Largeur d'Impulsion uniquement).",
+          "flame_off_setpoint_offset_celsius": "Quand la flamme est éteinte, maintient un setpoint temporaire à la température de la source choisie + offset (Modulation de Largeur d'Impulsion uniquement).",
           "modulation_suppression_delay_seconds": "Délai après l'allumage avant suppression (Modulation de Largeur d'Impulsion uniquement).",
           "modulation_suppression_offset_celsius": "Réduction du setpoint de départ pendant la suppression (Modulation de Largeur d'Impulsion uniquement).",
           "flow_setpoint_offset_celsius": "Écart minimal sous la température de la chaudière lors du bridage du setpoint (mode continu).",

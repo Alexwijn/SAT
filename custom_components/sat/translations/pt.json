@@ -226,7 +226,7 @@
           "simulation": "Ativar modo de simulação (nenhum comando real é enviado à caldeira).",
           "error_monitoring": "Envia erros relacionados ao SAT para o Sentry para ajudar no diagnóstico.",
           "force_pulse_width_modulation": "Forçar a Modulação por Largura de Pulso mesmo quando há controle de modulação (útil para relé).",
-          "flame_off_setpoint_offset_celsius": "Com a chama desligada, mantém um setpoint temporário em retorno + offset (somente Modulação por Largura de Pulso).",
+          "flame_off_setpoint_offset_celsius": "Com a chama desligada, mantém um setpoint temporário na temperatura da origem selecionada + offset (somente Modulação por Largura de Pulso).",
           "modulation_suppression_delay_seconds": "Tempo após a chama ligar antes de aplicar a supressão (somente Modulação por Largura de Pulso).",
           "modulation_suppression_offset_celsius": "Quanto reduzir o setpoint de ida durante a supressão (somente Modulação por Largura de Pulso).",
           "flow_setpoint_offset_celsius": "Diferença mínima abaixo da temperatura da caldeira ao limitar o setpoint (modo contínuo).",

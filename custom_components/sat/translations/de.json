@@ -226,7 +226,7 @@
           "simulation": "Simulation aktivieren (es werden keine echten Kesselbefehle gesendet).",
           "error_monitoring": "Sendet SAT-bezogene Fehler über Sentry an den Entwickler, um Probleme zu diagnostizieren.",
           "force_pulse_width_modulation": "Pulsweitenmodulation erzwingen, auch wenn Modulationssteuerung verfügbar ist (nützlich für Relaisbetrieb).",
-          "flame_off_setpoint_offset_celsius": "Bei ausgeschalteter Flamme wird ein temporärer Sollwert auf Rücklauf + Offset gehalten (nur Pulsweitenmodulation).",
+          "flame_off_setpoint_offset_celsius": "Bei ausgeschalteter Flamme wird ein temporärer Sollwert auf der gewählten Quelltemperatur + Offset gehalten (nur Pulsweitenmodulation).",
           "modulation_suppression_delay_seconds": "Zeit nach dem Flammenstart, bevor die Unterdrückung greift (nur Pulsweitenmodulation).",
           "modulation_suppression_offset_celsius": "Absenkung des Vorlauf-Sollwerts während der Unterdrückung (nur Pulsweitenmodulation).",
           "flow_setpoint_offset_celsius": "Minimaler Abstand unter der Kesseltemperatur beim Begrenzen des Sollwerts (kontinuierlicher Modus).",

@@ -226,7 +226,7 @@
           "simulation": "Abilita la modalità simulazione (non vengono inviati comandi reali alla caldaia).",
           "error_monitoring": "Invia gli errori relativi a SAT a Sentry per aiutare la diagnosi.",
           "force_pulse_width_modulation": "Forza la Modulazione di Larghezza di Impulso anche quando è disponibile la modulazione (utile per controllo a relè).",
-          "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo a ritorno + offset (solo Modulazione di Larghezza di Impulso).",
+          "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo alla temperatura della sorgente selezionata + offset (solo Modulazione di Larghezza di Impulso).",
           "modulation_suppression_delay_seconds": "Tempo dopo l'accensione della fiamma prima della soppressione (solo Modulazione di Larghezza di Impulso).",
           "modulation_suppression_offset_celsius": "Riduzione del setpoint di mandata durante la soppressione (solo Modulazione di Larghezza di Impulso).",
           "flow_setpoint_offset_celsius": "Scarto minimo sotto la temperatura della caldaia durante il limite del setpoint (modalità continua).",

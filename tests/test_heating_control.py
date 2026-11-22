@@ -839,8 +839,15 @@ async def test_flame_off_source_flow(hass, monkeypatch, coordinator):
     assert heating_control.control_setpoint == 25.0 + OFFSET
 
 
-async def test_flame_off_result_at_cold_setpoint_uses_requested(hass, monkeypatch, coordinator):
+async def test_flame_off_result_below_cold_setpoint_uses_requested(hass, monkeypatch, coordinator):
     heating_control = await _flame_off(hass, monkeypatch, coordinator, FLAME_OFF_SETPOINT_SOURCE_FLOW, None, 20.0,
+                                       offset=0.0, requested=38.0)
+    assert heating_control.control_setpoint == 38.0
+    assert heating_control.control_setpoint > COLD_SETPOINT
+
+
+async def test_flame_off_result_equal_to_cold_setpoint_uses_requested(hass, monkeypatch, coordinator):
+    heating_control = await _flame_off(hass, monkeypatch, coordinator, FLAME_OFF_SETPOINT_SOURCE_FLOW, None, COLD_SETPOINT,
                                        offset=0.0, requested=38.0)
     assert heating_control.control_setpoint == 38.0
     assert heating_control.control_setpoint > COLD_SETPOINT
