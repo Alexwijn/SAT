@@ -191,3 +191,15 @@ async def test_blocked_radiator_has_no_open_valve(hass, demand_control, domains,
     hass.states.async_set("climate.radiator", "heat", {"hvac_action": "heating", "heating_blocked_by": "valve_maintenance"})
 
     assert demand_control.valves_open is False
+
+
+@MAIN_ROOM
+async def test_mode_restored_as_unavailable_counts_as_off(hass, demand_control, commands, domains, data, options, config):
+    update, release = commands
+    demand_control._hvac_mode = "unavailable"
+    hass.states.async_set(INSIDE, "unavailable")
+
+    await _run(demand_control)
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS)
+
+    release.assert_not_awaited()

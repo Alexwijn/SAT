@@ -933,7 +933,7 @@ class SatDemandControl:
 
     def _missing_signal(self) -> Optional[ControlSignal]:
         """Return the signal that is missing to control the heating."""
-        if self._hvac_mode == HVACMode.OFF:
+        if self.hvac_mode == HVACMode.OFF:
             return None
 
         if not self._coordinator.available:
