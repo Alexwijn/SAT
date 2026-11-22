@@ -368,3 +368,48 @@ async def test_simulation_is_always_available(hass, monkeypatch, coordinator):
     simulated = SatOpenThermMqttCoordinator(hass, SatConfig(entry_id="simulated", data=data, options={**OPTIONS_DEFAULTS, CONF_SIMULATION: True}))
 
     assert simulated.available is True
+
+
+async def test_retained_online_makes_the_gateway_available(coordinator):
+    coordinator._handle_availability_message(_message("online", retain=True))
+
+    assert coordinator.available is True
+
+
+async def test_offline_makes_the_gateway_unavailable(coordinator):
+    coordinator._create_message_handler(DATA_BOILER_TEMPERATURE)(_message("56"))
+    coordinator._handle_availability_message(_message("offline"))
+
+    assert coordinator.available is False
+
+
+async def test_return_resends_boot_commands_and_settings(hass, coordinator, monkeypatch):
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+
+    await coordinator.async_set_control_hot_water_setpoint(48.0)
+    await coordinator.async_set_control_hot_water_setpoint(50.0)
+    await coordinator.async_set_control_max_setpoint(60.0)
+    calls.clear()
+
+    coordinator._handle_availability_message(_message("offline"))
+    coordinator._handle_availability_message(_message("online"))
+    await hass.async_block_till_done()
+
+    assert calls[:3] == ["PM=3", "PM=15", "PM=48"]
+    assert calls[-2:] == ["SW=50.0", "SH=60.0"]
+
+
+async def test_online_without_an_outage_resends_nothing(hass, coordinator, monkeypatch):
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+
+    coordinator._handle_availability_message(_message("online"))
+    coordinator._handle_availability_message(_message("online"))
+    await hass.async_block_till_done()
+
+    assert calls == []
+
+
+async def test_availability_is_read_from_the_root_of_the_gateway(coordinator):
+    assert coordinator._get_topic_for_availability() == f"{coordinator._topic}/value/{coordinator.id}"

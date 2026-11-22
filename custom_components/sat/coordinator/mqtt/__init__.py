@@ -14,6 +14,8 @@ from ...entry_data import SatConfig
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
+PAYLOAD_ONLINE = "online"
+PAYLOAD_OFFLINE = "offline"
 
 
 class SatMqttCoordinator(SatDataUpdateCoordinator):
@@ -25,6 +27,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         self._device_id: str = str(self._config.device)
         self._topic: str = self._config.mqtt_topic or ""
         self._online: bool = False
+        self._was_offline: bool = False
         self._subscriptions: list[Callable[[], None]] = []
         self._store: Store = Store(hass, STORAGE_VERSION, f"sat.mqtt.{self._device_id}")
 
@@ -39,8 +42,28 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     @callback
     def _mark_online(self) -> None:
-        """Remember that the gateway is there."""
+        """Remember that the gateway is there, bringing it up to date when it was offline."""
         self._online = True
+
+        if self._was_offline:
+            self._was_offline = False
+            self.hass.async_create_task(self.async_resynchronize())
+
+    @callback
+    def _handle_availability_message(self, message) -> None:
+        """Follow the online and offline announcements of the gateway."""
+        payload = str(message.payload).strip().lower()
+
+        if payload == PAYLOAD_ONLINE:
+            self._mark_online()
+
+        if payload == PAYLOAD_OFFLINE:
+            self._online = False
+            self._was_offline = True
+
+    async def async_resynchronize(self) -> None:
+        """Repeat what a gateway forgets while it is offline."""
+        await self.boot()
 
     @staticmethod
     def _decode_payload(value: Any) -> Any:
@@ -63,6 +86,9 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:
         await mqtt.async_wait_for_mqtt_client(hass)
+
+        if (availability_topic := self._get_topic_for_availability()) is not None:
+            self._subscriptions.append(await mqtt.async_subscribe(self.hass, availability_topic, self._handle_availability_message))
 
         for key in self.get_tracked_entities():
             self._subscriptions.append(await mqtt.async_subscribe(
@@ -111,6 +137,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     def _get_topic_for_subscription(self, key: str) -> str:
         """Method to be overridden in subclasses to provide a specific topic for subscribing."""
         pass
+
+    def _get_topic_for_availability(self) -> Optional[str]:
+        """Return the topic on which the gateway announces that it is online or offline."""
+        return None
 
     @abstractmethod
     def _get_topic_for_publishing(self) -> str:
