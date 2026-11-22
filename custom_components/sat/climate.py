@@ -123,7 +123,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
         if self.hass.state is CoreState.running:
             self._register_event_listeners()
         else:
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._on_home_assistant_started)
 
         self.async_on_remove(
             async_dispatcher_connect(self.hass, SIGNAL_DEMAND_CONTROL_UPDATED, self._on_demand_control_updated)
@@ -393,6 +393,11 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
 
         # Write the state to Home Assistant
         self.async_write_ha_state()
+
+    @callback
+    def _on_home_assistant_started(self, _event: Event) -> None:
+        """Start listening once Home Assistant is up."""
+        self._register_event_listeners()
 
     def _register_event_listeners(self) -> None:
         """Register event listeners."""

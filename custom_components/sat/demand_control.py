@@ -407,19 +407,9 @@ class SatDemandControl:
         await self.areas.async_added_to_hass(self._hass, self._coordinator.id)
 
         if self._hass.state is CoreState.running:
-            self._update_heating_curves()
-            self._register_event_listeners()
-
-            self.control_pid()
-            self.areas.control_pid()
-            self.schedule_heating_control_loop()
+            self._start_controlling()
         else:
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._update_heating_curves())
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
-
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.control_pid())
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.areas.control_pid())
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.schedule_heating_control_loop())
+            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._start_controlling)
 
         self._target_temperature_changed_at = timestamp()
 
@@ -427,6 +417,16 @@ class SatDemandControl:
             self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
         )
         self._unsubscribers.append(self._hass.async_add_shutdown_job(HassJob(self.async_stop_controlling)))
+
+    @callback
+    def _start_controlling(self, _event: Optional[Event] = None) -> None:
+        """Start the controllers, their timers and the control loop."""
+        self._update_heating_curves()
+        self._register_event_listeners()
+
+        self.control_pid()
+        self.areas.control_pid()
+        self.schedule_heating_control_loop()
 
     async def async_stop_controlling(self) -> None:
         """Stop commanding the boiler and release it."""
