@@ -191,6 +191,11 @@ class SatConfig:
         return float_value(self.options.get(CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS))
 
     @property
+    def flame_off_setpoint_source(self) -> str:
+        source = self.options.get(CONF_FLAME_OFF_SETPOINT_SOURCE)
+        return source if source in FLAME_OFF_SETPOINT_SOURCES else FLAME_OFF_SETPOINT_SOURCE_RETURN
+
+    @property
     def modulation_suppression_delay_seconds(self) -> float:
         return float_value(self.options.get(CONF_MODULATION_SUPPRESSION_DELAY_SECONDS))
 

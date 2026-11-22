@@ -208,7 +208,8 @@
           "target_temperature_step": "Passo della Temperatura Target",
           "thermal_comfort": "Comfort Termico",
           "flame_off_setpoint_offset_celsius": "Offset setpoint a fiamma spenta",
-          "modulation_suppression_delay_seconds": "Ritardo soppressione della modulazione"
+          "modulation_suppression_delay_seconds": "Ritardo soppressione della modulazione",
+          "flame_off_setpoint_source": "Sorgente del setpoint a fiamma spenta"
         },
         "data_description": {
           "climate_valve_offset": "Differenza di temperatura (target vs attuale) per considerare una valvola aperta.",
@@ -225,14 +226,15 @@
           "simulation": "Abilita la modalità simulazione (non vengono inviati comandi reali alla caldaia).",
           "error_monitoring": "Invia gli errori relativi a SAT a Sentry per aiutare la diagnosi.",
           "force_pulse_width_modulation": "Forza la Modulazione di Larghezza di Impulso anche quando è disponibile la modulazione (utile per controllo a relè).",
-          "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo a ritorno + offset (solo Modulazione di Larghezza di Impulso).",
+          "flame_off_setpoint_offset_celsius": "Con fiamma spenta, mantiene un setpoint temporaneo alla temperatura della sorgente selezionata + offset (solo Modulazione di Larghezza di Impulso).",
           "modulation_suppression_delay_seconds": "Tempo dopo l'accensione della fiamma prima della soppressione (solo Modulazione di Larghezza di Impulso).",
           "modulation_suppression_offset_celsius": "Riduzione del setpoint di mandata durante la soppressione (solo Modulazione di Larghezza di Impulso).",
           "flow_setpoint_offset_celsius": "Scarto minimo sotto la temperatura della caldaia durante il limite del setpoint (modalità continua).",
           "minimum_boiler_pressure": "Soglia di pressione inferiore per il rilevamento dello stato (bar).",
           "maximum_boiler_pressure": "Soglia di pressione superiore per il rilevamento dello stato (bar).",
           "maximum_pressure_drop_rate": "Calo di pressione massimo consentito prima di segnalare un problema (bar/h).",
-          "pressure_max_value_age": "Età massima di una lettura della pressione prima di segnalare un problema."
+          "pressure_max_value_age": "Età massima di una lettura della pressione prima di segnalare un problema.",
+          "flame_off_setpoint_source": "Base del setpoint temporaneo mentre la fase ON della Modulazione a Larghezza di Impulso attende la fiamma. Scegli la temperatura di mandata se la caldaia non comunica la temperatura di ritorno."
         },
         "title": "Avanzate"
       },
@@ -405,6 +407,12 @@
         "sleep": "Notte",
         "away": "Assente",
         "activity": "Attività"
+      }
+    },
+    "flame_off_setpoint_source": {
+      "options": {
+        "return_temperature": "Temperatura di ritorno + offset",
+        "flow_temperature": "Temperatura di mandata + offset"
       }
     }
   }

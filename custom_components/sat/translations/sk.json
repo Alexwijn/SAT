@@ -208,7 +208,8 @@
           "target_temperature_step": "Krok cieľovej teploty",
           "thermal_comfort": "Tepelný komfort",
           "flame_off_setpoint_offset_celsius": "Posun žiadanej teploty pri zhasnutom plameni",
-          "modulation_suppression_delay_seconds": "Oneskorenie potlačenia modulácie"
+          "modulation_suppression_delay_seconds": "Oneskorenie potlačenia modulácie",
+          "flame_off_setpoint_source": "Zdroj nastavenej hodnoty pri zhasnutom plameni"
         },
         "data_description": {
           "climate_valve_offset": "Rozdiel teplôt (cieľ vs aktuálna) na považovanie ventilu za otvorený.",
@@ -225,14 +226,15 @@
           "simulation": "Zapne režim simulácie (neodosielajú sa reálne príkazy kotlu).",
           "error_monitoring": "Odosiela chyby súvisiace so SAT do Sentry na diagnostiku.",
           "force_pulse_width_modulation": "Vynúti moduláciu šírky impulzu aj pri dostupnej modulácii (užitočné pre relé).",
-          "flame_off_setpoint_offset_celsius": "Pri vypnutej plameni drží dočasný setpoint na spiatočke + offset (len modulácia šírky impulzu).",
+          "flame_off_setpoint_offset_celsius": "Pri vypnutom plameni drží dočasný setpoint na teplote zvoleného zdroja + offset (len modulácia šírky impulzu).",
           "modulation_suppression_delay_seconds": "Čas po zapálení pred potlačením modulácie (len modulácia šírky impulzu).",
           "modulation_suppression_offset_celsius": "O koľko znížiť setpoint prívodu počas potlačenia (len modulácia šírky impulzu).",
           "flow_setpoint_offset_celsius": "Minimálny rozdiel pod teplotou kotla pri obmedzení setpointu (kontinuálny režim).",
           "minimum_boiler_pressure": "Dolná hranica tlaku pre kontrolu stavu (bar).",
           "maximum_boiler_pressure": "Horná hranica tlaku pre kontrolu stavu (bar).",
           "maximum_pressure_drop_rate": "Maximálny povolený pokles tlaku pred nahlásením problému (bar/h).",
-          "pressure_max_value_age": "Maximálny vek merania tlaku pred nahlásením problému."
+          "pressure_max_value_age": "Maximálny vek merania tlaku pred nahlásením problému.",
+          "flame_off_setpoint_source": "Základ dočasnej nastavenej hodnoty, kým fáza ZAP pulzne šírkovej modulácie čaká na plameň. Zvoľte teplotu výstupu, ak váš kotol nehlási teplotu spiatočky."
         },
         "title": "Rozšírené"
       },
@@ -405,6 +407,12 @@
         "sleep": "Spánok",
         "away": "Mimo domu",
         "activity": "Aktivita"
+      }
+    },
+    "flame_off_setpoint_source": {
+      "options": {
+        "return_temperature": "Teplota spiatočky + posun",
+        "flow_temperature": "Teplota výstupu + posun"
       }
     }
   }

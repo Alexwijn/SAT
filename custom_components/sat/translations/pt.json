@@ -208,7 +208,8 @@
           "target_temperature_step": "Passo da Temperatura Alvo",
           "thermal_comfort": "Conforto Térmico",
           "flame_off_setpoint_offset_celsius": "Desvio do setpoint com chama apagada",
-          "modulation_suppression_delay_seconds": "Atraso da supressão de modulação"
+          "modulation_suppression_delay_seconds": "Atraso da supressão de modulação",
+          "flame_off_setpoint_source": "Origem do setpoint com chama apagada"
         },
         "data_description": {
           "climate_valve_offset": "Diferença de temperatura (alvo vs atual) para considerar uma válvula aberta.",
@@ -225,14 +226,15 @@
           "simulation": "Ativar modo de simulação (nenhum comando real é enviado à caldeira).",
           "error_monitoring": "Envia erros relacionados ao SAT para o Sentry para ajudar no diagnóstico.",
           "force_pulse_width_modulation": "Forçar a Modulação por Largura de Pulso mesmo quando há controle de modulação (útil para relé).",
-          "flame_off_setpoint_offset_celsius": "Com a chama desligada, mantém um setpoint temporário em retorno + offset (somente Modulação por Largura de Pulso).",
+          "flame_off_setpoint_offset_celsius": "Com a chama desligada, mantém um setpoint temporário na temperatura da origem selecionada + offset (somente Modulação por Largura de Pulso).",
           "modulation_suppression_delay_seconds": "Tempo após a chama ligar antes de aplicar a supressão (somente Modulação por Largura de Pulso).",
           "modulation_suppression_offset_celsius": "Quanto reduzir o setpoint de ida durante a supressão (somente Modulação por Largura de Pulso).",
           "flow_setpoint_offset_celsius": "Diferença mínima abaixo da temperatura da caldeira ao limitar o setpoint (modo contínuo).",
           "minimum_boiler_pressure": "Limite inferior de pressão para a deteção do estado (bar).",
           "maximum_boiler_pressure": "Limite superior de pressão para a deteção do estado (bar).",
           "maximum_pressure_drop_rate": "Queda de pressão máxima permitida antes de assinalar um problema (bar/h).",
-          "pressure_max_value_age": "Idade máxima de uma leitura de pressão antes de assinalar um problema."
+          "pressure_max_value_age": "Idade máxima de uma leitura de pressão antes de assinalar um problema.",
+          "flame_off_setpoint_source": "Base do setpoint temporário enquanto a fase ON da Modulação por Largura de Pulso aguarda a chama. Escolha a temperatura de ida se a sua caldeira não informar a temperatura de retorno."
         },
         "title": "Avançado"
       },
@@ -405,6 +407,12 @@
         "sleep": "Dormir",
         "away": "Ausente",
         "activity": "Atividade"
+      }
+    },
+    "flame_off_setpoint_source": {
+      "options": {
+        "return_temperature": "Temperatura de retorno + desvio",
+        "flow_temperature": "Temperatura de ida + desvio"
       }
     }
   }
