@@ -208,7 +208,8 @@
           "target_temperature_step": "Paso de Temperatura Objetivo",
           "thermal_comfort": "Confort Térmico",
           "flame_off_setpoint_offset_celsius": "Desfase de consigna con llama apagada",
-          "modulation_suppression_delay_seconds": "Retardo de supresión de modulación"
+          "modulation_suppression_delay_seconds": "Retardo de supresión de modulación",
+          "flame_off_setpoint_source": "Fuente de la consigna con llama apagada"
         },
         "data_description": {
           "climate_valve_offset": "Diferencia de temperatura (objetivo vs actual) para considerar una válvula abierta.",
@@ -232,7 +233,8 @@
           "minimum_boiler_pressure": "Umbral inferior de presión para la detección del estado (bar).",
           "maximum_boiler_pressure": "Umbral superior de presión para la detección del estado (bar).",
           "maximum_pressure_drop_rate": "Caída de presión máxima permitida antes de señalar un problema (bar/h).",
-          "pressure_max_value_age": "Edad máxima de una lectura de presión antes de señalar un problema."
+          "pressure_max_value_age": "Edad máxima de una lectura de presión antes de señalar un problema.",
+          "flame_off_setpoint_source": "Base de la consigna temporal mientras la fase ON de la Modulación por Ancho de Pulso espera la llama. Elija la temperatura de impulsión si su caldera no informa la temperatura de retorno."
         },
         "title": "Avanzadas"
       },
@@ -405,6 +407,12 @@
         "sleep": "Dormir",
         "away": "Ausente",
         "activity": "Actividad"
+      }
+    },
+    "flame_off_setpoint_source": {
+      "options": {
+        "return_temperature": "Temperatura de retorno + desplazamiento",
+        "flow_temperature": "Temperatura de impulsión + desplazamiento"
       }
     }
   }

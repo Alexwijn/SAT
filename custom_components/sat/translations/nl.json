@@ -208,7 +208,8 @@
           "target_temperature_step": "Stap van Doeltemperatuur",
           "thermal_comfort": "Thermisch Comfort",
           "flame_off_setpoint_offset_celsius": "Vlam-uit setpointcorrectie",
-          "modulation_suppression_delay_seconds": "Vertraging modulatieonderdrukking"
+          "modulation_suppression_delay_seconds": "Vertraging modulatieonderdrukking",
+          "flame_off_setpoint_source": "Bron vlam-uit setpoint"
         },
         "data_description": {
           "climate_valve_offset": "Temperatuurverschil (doel vs. huidig) om een klep als open te beschouwen.",
@@ -232,7 +233,8 @@
           "minimum_boiler_pressure": "Ondergrens van de druk voor de gezondheidscontrole (bar).",
           "maximum_boiler_pressure": "Bovengrens van de druk voor de gezondheidscontrole (bar).",
           "maximum_pressure_drop_rate": "Maximaal toegestane drukdaling voordat de druk als ongezond wordt gemarkeerd (bar/u).",
-          "pressure_max_value_age": "Maximale leeftijd van een drukmeting voordat de druk als ongezond wordt gemarkeerd."
+          "pressure_max_value_age": "Maximale leeftijd van een drukmeting voordat de druk als ongezond wordt gemarkeerd.",
+          "flame_off_setpoint_source": "Basis voor het tijdelijke setpoint terwijl de AAN-fase van de pulsbreedtemodulatie op de vlam wacht. Kies de aanvoertemperatuur als uw ketel geen retourtemperatuur meldt."
         },
         "title": "Geavanceerd"
       },
@@ -405,6 +407,12 @@
         "sleep": "Slapen",
         "away": "Afwezig",
         "activity": "Activiteit"
+      }
+    },
+    "flame_off_setpoint_source": {
+      "options": {
+        "return_temperature": "Retourtemperatuur + offset",
+        "flow_temperature": "Aanvoertemperatuur + offset"
       }
     }
   }

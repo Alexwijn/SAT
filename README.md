@@ -353,7 +353,9 @@ Pick a room, tick the presets it has its own temperature for and set them. The H
 
 *Maximum Consumption*: The user can find this value at the boiler's manual. SAT uses this value in order to calculate the instant gas consumption (only available for OpenTherm MQTT/Serial).
 
-*Flame-off Setpoint Offset*: While the flame is off during PWM, SAT holds a temporary setpoint at the return temperature plus this offset (only available for OpenTherm MQTT/Serial).
+*Flame-off Setpoint Source*: Base for the temporary setpoint while the flame is off during PWM: the return temperature (default) or the flow temperature (for boilers that do not report a return temperature). If the return temperature is not reported, SAT uses the flow temperature; a result that would switch central heating off falls back to the requested setpoint (only available for OpenTherm MQTT/Serial).
+
+*Flame-off Setpoint Offset*: While the flame is off during PWM, SAT holds a temporary setpoint at the selected source temperature plus this offset (only available for OpenTherm MQTT/Serial).
 
 *Modulation Suppression*: After the flame comes on during PWM, SAT can lower the flow setpoint to keep the boiler at a low modulation. Related settings (only available for OpenTherm MQTT/Serial):
 - *Modulation Suppression Delay*: The time after flame-on before the suppression can apply.

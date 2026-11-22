@@ -208,7 +208,8 @@
           "target_temperature_step": "Pas de Température Cible",
           "thermal_comfort": "Confort Thermique",
           "flame_off_setpoint_offset_celsius": "Décalage de consigne flamme éteinte",
-          "modulation_suppression_delay_seconds": "Délai de suppression de modulation"
+          "modulation_suppression_delay_seconds": "Délai de suppression de modulation",
+          "flame_off_setpoint_source": "Source de la consigne flamme éteinte"
         },
         "data_description": {
           "climate_valve_offset": "Écart de température (cible vs actuelle) pour considérer une vanne ouverte.",
@@ -232,7 +233,8 @@
           "minimum_boiler_pressure": "Seuil de pression inférieur pour la détection de l'état (bar).",
           "maximum_boiler_pressure": "Seuil de pression supérieur pour la détection de l'état (bar).",
           "maximum_pressure_drop_rate": "Chute de pression maximale autorisée avant de signaler un problème (bar/h).",
-          "pressure_max_value_age": "Âge maximal d'une mesure de pression avant de signaler un problème."
+          "pressure_max_value_age": "Âge maximal d'une mesure de pression avant de signaler un problème.",
+          "flame_off_setpoint_source": "Base de la consigne temporaire pendant que la phase ON de la Modulation de Largeur d'Impulsion attend la flamme. Choisissez la température de départ si votre chaudière ne transmet pas la température de retour."
         },
         "title": "Avancé"
       },
@@ -405,6 +407,12 @@
         "sleep": "Sommeil",
         "away": "Absent",
         "activity": "Activité"
+      }
+    },
+    "flame_off_setpoint_source": {
+      "options": {
+        "return_temperature": "Température de retour + décalage",
+        "flow_temperature": "Température de départ + décalage"
       }
     }
   }

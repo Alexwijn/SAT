@@ -12,6 +12,7 @@ from custom_components.sat.const import (
     CONF_FORCE_PULSE_WIDTH_MODULATION,
     CONF_HEATING_SYSTEM,
     CONF_MINIMUM_SETPOINT,
+    CONF_MAXIMUM_SETPOINT,
     CONF_MODE,
     CONF_MODULATION_SUPPRESSION_DELAY_SECONDS,
     CONF_OVERSHOOT_PROTECTION,
@@ -781,3 +782,92 @@ async def test_cold_ignition_keeps_pwm_with_a_known_floor(heating_control, coord
     target_changed_at = now + SATURATION_SUSTAIN_SECONDS + 41
     await heating_control.update(_demand_at(61.0, now + SATURATION_SUSTAIN_SECONDS + 61, target_temperature_changed_at=target_changed_at))
     assert heating_control.pwm_state.enabled is False
+
+
+# --- Flame-off setpoint source ----------------------------------------------------------------------------------------
+
+from custom_components.sat.const import (  # noqa: E402
+    CONF_FLAME_OFF_SETPOINT_SOURCE,
+    FLAME_OFF_SETPOINT_SOURCE_FLOW,
+    FLAME_OFF_SETPOINT_SOURCE_RETURN,
+)
+
+
+def _set_config(coordinator, source: str, offset: Optional[float] = None, maximum_setpoint: Optional[float] = None) -> None:
+    _update_coordinator_config(coordinator)
+    options = {**coordinator._config.options, CONF_FLAME_OFF_SETPOINT_SOURCE: source}
+    if offset is not None:
+        options[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS] = offset
+    if maximum_setpoint is not None:
+        options[CONF_MAXIMUM_SETPOINT] = maximum_setpoint
+    coordinator._config = SatConfig(entry_id="test", data=coordinator._config.data, options=options)
+
+
+async def _flame_off(hass, monkeypatch, coordinator, source, return_temperature, flow_temperature,
+                     offset: Optional[float] = None, requested: float = 40.0):
+    _set_config(coordinator, source, offset)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: return_temperature))
+    monkeypatch.setattr(type(coordinator), "boiler_temperature", property(lambda self: flow_temperature))
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+    await heating_control.update(_make_demand(requested))
+
+    return heating_control
+
+
+OFFSET = OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+
+
+async def test_flame_off_source_default_is_return(hass, monkeypatch, coordinator):
+    assert OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_SOURCE] == FLAME_OFF_SETPOINT_SOURCE_RETURN
+    heating_control = await _flame_off(hass, monkeypatch, coordinator, FLAME_OFF_SETPOINT_SOURCE_RETURN, 30.0, 25.0)
+    assert heating_control.control_setpoint == 30.0 + OFFSET
+
+
+async def test_flame_off_source_return_falls_back_to_flow(hass, monkeypatch, coordinator):
+    heating_control = await _flame_off(hass, monkeypatch, coordinator, FLAME_OFF_SETPOINT_SOURCE_RETURN, None, 25.0)
+    assert heating_control.control_setpoint == 25.0 + OFFSET
+    assert heating_control.control_setpoint > COLD_SETPOINT  # update() switches central heating on only above COLD_SETPOINT
+
+
+async def test_flame_off_source_flow(hass, monkeypatch, coordinator):
+    heating_control = await _flame_off(hass, monkeypatch, coordinator, FLAME_OFF_SETPOINT_SOURCE_FLOW, 30.0, 25.0)
+    assert heating_control.control_setpoint == 25.0 + OFFSET
+
+
+async def test_flame_off_result_at_cold_setpoint_uses_requested(hass, monkeypatch, coordinator):
+    heating_control = await _flame_off(hass, monkeypatch, coordinator, FLAME_OFF_SETPOINT_SOURCE_FLOW, None, 20.0,
+                                       offset=0.0, requested=38.0)
+    assert heating_control.control_setpoint == 38.0
+    assert heating_control.control_setpoint > COLD_SETPOINT
+
+
+async def test_flame_off_setpoint_is_clamped_to_maximum(hass, monkeypatch, coordinator):
+    heating_control = await _flame_off(hass, monkeypatch, coordinator, FLAME_OFF_SETPOINT_SOURCE_FLOW, None, 80.0)
+    assert heating_control.control_setpoint == coordinator._config.limits.maximum_setpoint
+
+
+async def test_flame_off_unknown_source_falls_back_to_return(hass, monkeypatch, coordinator):
+    heating_control = await _flame_off(hass, monkeypatch, coordinator, "bogus", 30.0, 25.0)
+    assert heating_control.control_setpoint == 30.0 + OFFSET
+
+
+async def test_suppression_setpoint_is_clamped_to_maximum(hass, monkeypatch, coordinator):
+    _set_config(coordinator, FLAME_OFF_SETPOINT_SOURCE_FLOW, maximum_setpoint=45.0)
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(50.0)
+    heating_control._device_tracker._last_flame_on_at = timestamp() - (
+            OPTIONS_DEFAULTS[CONF_MODULATION_SUPPRESSION_DELAY_SECONDS] + 1
+    )
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == 45.0

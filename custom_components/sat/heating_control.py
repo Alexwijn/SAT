@@ -22,6 +22,7 @@ from .const import (
     TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS,
     OVERSHOOT_REFERENCE_WINDOW_SECONDS,
     SIGNAL_HEATING_CONTROL_UPDATED,
+    FLAME_OFF_SETPOINT_SOURCE_FLOW,
 )
 from .coordinator import SatDataUpdateCoordinator
 from .cycles import Cycle, CycleHistory, CycleStatistics, CycleTracker
@@ -506,6 +507,36 @@ class SatHeatingControl:
 
         return demand.requested_setpoint >= pwm_state.effective_on_temperature + OVERSHOOT_MARGIN_CELSIUS
 
+    def _flame_off_hold_setpoint_for(self, device_state: DeviceState, requested_setpoint: float) -> tuple[float, str]:
+        """Return the setpoint to hold while the PWM ON phase waits for the flame, and a description of its base.
+
+        The base is selected by the "flame_off_setpoint_source" option:
+          - return_temperature: return temperature + offset (default)
+          - flow_temperature:   flow temperature + offset, for boilers that do not report a return temperature
+        A missing return temperature falls back to the flow temperature. A result that would not switch central
+        heating on (at or below COLD_SETPOINT) falls back to the requested setpoint. The result is clamped to the
+        maximum setpoint.
+        """
+        limits = self._config.limits
+        offset = self._config.flame_off_setpoint_offset_celsius
+
+        candidates = [("flow", device_state.flow_temperature)]
+        if self._config.flame_off_setpoint_source != FLAME_OFF_SETPOINT_SOURCE_FLOW:
+            candidates.insert(0, ("return", device_state.return_temperature))
+
+        value: Optional[float] = None
+        base = "none"
+
+        for name, temperature in candidates:
+            if temperature is not None:
+                value, base = temperature + offset, f"{name}={temperature:.1f}+{offset:.1f}"
+                break
+
+        if value is None or value <= COLD_SETPOINT:
+            value, base = requested_setpoint, f"requested={requested_setpoint:.1f} (fallback from {base})"
+
+        return clamp(value, COLD_SETPOINT, limits.maximum_setpoint), base
+
     def _compute_pwm_control_setpoint(self, requested_setpoint: float) -> None:
         """Apply the PWM setpoint override based on the current device state."""
         config = self._config
@@ -523,19 +554,14 @@ class SatHeatingControl:
             return
 
         if not device_state.flame_active:
-            if (return_temperature := device_state.return_temperature) is None:
-                _LOGGER.warning("Setpoint override (flame off): no return temperature found.")
-                return
-
-            flame_off_offset = config.flame_off_setpoint_offset_celsius
-            flame_off_hold_setpoint = clamp(return_temperature + flame_off_offset, COLD_SETPOINT, self._config.limits.maximum_setpoint)
+            flame_off_hold_setpoint, flame_off_base = self._flame_off_hold_setpoint_for(device_state, requested_setpoint)
 
             self._control_setpoint = flame_off_hold_setpoint
             self._flame_off_hold_setpoint = flame_off_hold_setpoint
 
             _LOGGER.debug(
-                "Setpoint override (flame off): return=%.1f°C offset=%.1f°C -> %.1f°C (intended=%.1f°C)",
-                return_temperature, flame_off_offset, self._flame_off_hold_setpoint, requested_setpoint,
+                "Setpoint override (flame off): source=%s base=%s -> %.1f°C (intended=%.1f°C)",
+                config.flame_off_setpoint_source, flame_off_base, flame_off_hold_setpoint, requested_setpoint,
             )
 
             return
@@ -545,23 +571,15 @@ class SatHeatingControl:
 
         if elapsed_since_flame_on < suppression_delay:
             remaining_hold = suppression_delay - elapsed_since_flame_on
-            if self._flame_off_hold_setpoint is None and (return_temperature := device_state.return_temperature) is not None:
-                self._flame_off_hold_setpoint = clamp(return_temperature + config.flame_off_setpoint_offset_celsius, COLD_SETPOINT, self._config.limits.maximum_setpoint)
-
-            if self._flame_off_hold_setpoint is not None:
-                _LOGGER.debug(
-                    "Setpoint override hold: using flame-off setpoint %.1f°C for %.1fs more.",
-                    self._flame_off_hold_setpoint, remaining_hold,
-                )
-
-                self._control_setpoint = self._flame_off_hold_setpoint
-                return
+            if self._flame_off_hold_setpoint is None:
+                self._flame_off_hold_setpoint, _ = self._flame_off_hold_setpoint_for(device_state, requested_setpoint)
 
             _LOGGER.debug(
-                "Setpoint override pending: waiting %.1fs more (elapsed=%.1fs, delay=%.1fs).",
-                remaining_hold, elapsed_since_flame_on, suppression_delay,
+                "Setpoint override hold: using flame-off setpoint %.1f°C for %.1fs more.",
+                self._flame_off_hold_setpoint, remaining_hold,
             )
 
+            self._control_setpoint = self._flame_off_hold_setpoint
             return
 
         if (flow_temperature := device_state.flow_temperature) is None:
@@ -570,7 +588,7 @@ class SatHeatingControl:
 
         self._flame_off_hold_setpoint = None
         flow_offset = config.modulation_suppression_offset_celsius
-        suppressed_setpoint = flow_temperature - flow_offset
+        suppressed_setpoint = min(flow_temperature - flow_offset, self._config.limits.maximum_setpoint)
 
         _LOGGER.debug(
             "Setpoint override (suppression): flow=%.1f°C offset=%.1f°C -> %.1f°C (requested=%.1f°C)",
@@ -626,9 +644,9 @@ class SatHeatingControl:
 
         minimum_allowed_setpoint = boiler_temperature - offset
         if requested_setpoint > previous_setpoint:
-            self._control_setpoint = max(requested_setpoint, minimum_allowed_setpoint)
+            self._control_setpoint = min(max(requested_setpoint, minimum_allowed_setpoint), self._config.limits.maximum_setpoint)
         else:
-            self._control_setpoint = max(requested_setpoint, min(minimum_allowed_setpoint, previous_setpoint))
+            self._control_setpoint = min(max(requested_setpoint, min(minimum_allowed_setpoint, previous_setpoint)), self._config.limits.maximum_setpoint)
 
         if requested_setpoint < minimum_allowed_setpoint and self._control_setpoint == minimum_allowed_setpoint:
             _LOGGER.debug(

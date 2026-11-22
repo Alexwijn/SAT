@@ -208,7 +208,8 @@
           "target_temperature_step": "Schrittweite der Zieltemperatur",
           "thermal_comfort": "Thermischer Komfort",
           "flame_off_setpoint_offset_celsius": "Flamme-aus-Sollwertversatz",
-          "modulation_suppression_delay_seconds": "Verzögerung der Modulationsunterdrückung"
+          "modulation_suppression_delay_seconds": "Verzögerung der Modulationsunterdrückung",
+          "flame_off_setpoint_source": "Quelle für den Flamme-aus-Sollwert"
         },
         "data_description": {
           "climate_valve_offset": "Temperaturdifferenz (Soll vs. Ist), ab der ein Ventil als geöffnet gilt.",
@@ -232,7 +233,8 @@
           "minimum_boiler_pressure": "Untere Druckgrenze für die Zustandserkennung (bar).",
           "maximum_boiler_pressure": "Obere Druckgrenze für die Zustandserkennung (bar).",
           "maximum_pressure_drop_rate": "Maximal zulässiger Druckabfall, bevor der Druck als auffällig gemeldet wird (bar/h).",
-          "pressure_max_value_age": "Maximales Alter eines Druckmesswerts, bevor der Druck als auffällig gemeldet wird."
+          "pressure_max_value_age": "Maximales Alter eines Druckmesswerts, bevor der Druck als auffällig gemeldet wird.",
+          "flame_off_setpoint_source": "Basis für den temporären Sollwert, solange die EIN-Phase der Pulsweitenmodulation auf die Flamme wartet. Wählen Sie die Vorlauftemperatur, wenn Ihr Kessel keine Rücklauftemperatur meldet."
         },
         "title": "Erweitert"
       },
@@ -405,6 +407,12 @@
         "sleep": "Schlafen",
         "away": "Abwesend",
         "activity": "Aktivität"
+      }
+    },
+    "flame_off_setpoint_source": {
+      "options": {
+        "return_temperature": "Rücklauftemperatur + Offset",
+        "flow_temperature": "Vorlauftemperatur + Offset"
       }
     }
   }
