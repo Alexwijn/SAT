@@ -375,6 +375,18 @@
     "control_loop_stalled": {
       "title": "La regolazione del riscaldamento non risponde",
       "description": "SAT non completa un ciclo di regolazione per {name} da 15 minuti, quindi la caldaia potrebbe non seguire la richiesta. Controllare la connessione alla caldaia e il registro, poi ricaricare l'integrazione. L'avviso scompare quando la regolazione riprende."
+    },
+    "missing_inside_temperature": {
+      "title": "Temperatura interna mancante",
+      "description": "SAT non ha la temperatura interna di {name} da oltre 10 minuti e ha rilasciato la caldaia: un termostato su un gateway OpenTherm subentra, altrimenti il riscaldamento è spento. Controllare il sensore interno. SAT riprende il controllo quando ritorna."
+    },
+    "missing_outside_temperature": {
+      "title": "Temperatura esterna mancante",
+      "description": "SAT non ha la temperatura esterna di {name} da oltre 10 minuti e ha rilasciato la caldaia: un termostato su un gateway OpenTherm subentra, altrimenti il riscaldamento è spento. Controllare il sensore esterno o l'entità meteo. SAT riprende il controllo quando ritorna."
+    },
+    "missing_room_temperatures": {
+      "title": "Nessuna stanza è raggiungibile",
+      "description": "SAT non riesce a leggere alcuna stanza di {name} da oltre 10 minuti e ha rilasciato la caldaia: un termostato su un gateway OpenTherm subentra, altrimenti il riscaldamento è spento. Controllare i termostati delle stanze. SAT riprende il controllo quando uno ritorna."
     }
   },
   "entity": {

@@ -2,9 +2,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.components.climate import HVACMode
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 
-from custom_components.sat.const import CONF_INSIDE_SENSOR_ENTITY_ID, CONF_ROOMS, FAIL_SAFE_GRACE_SECONDS
+from custom_components.sat.const import CONF_INSIDE_SENSOR_ENTITY_ID, CONF_ROOMS, DOMAIN, FAIL_SAFE_GRACE_SECONDS
 from custom_components.sat.fail_safe import FailSafeMonitor
 from custom_components.sat.types import ControlSignal, FailSafePhase
 
@@ -137,3 +138,29 @@ async def test_rooms_only_releases_when_no_room_can_be_reached(hass, demand_cont
     await _run(demand_control, FAIL_SAFE_GRACE_SECONDS)
 
     assert release.await_count == (1 if released else 0)
+
+
+@MAIN_ROOM
+async def test_issue_names_the_missing_signal_and_clears(hass, entry, demand_control, commands, domains, data, options, config):
+    issue_id = f"control_signal_missing_{entry.entry_id}"
+    issues = ir.async_get(hass)
+
+    hass.states.async_set(INSIDE, "unavailable")
+    await _run(demand_control)
+
+    assert issues.async_get_issue(DOMAIN, issue_id) is None
+
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS)
+
+    assert issues.async_get_issue(DOMAIN, issue_id).translation_key == "missing_inside_temperature"
+
+    hass.states.async_set(OUTSIDE, "unavailable")
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0)
+
+    assert issues.async_get_issue(DOMAIN, issue_id).translation_key == "missing_outside_temperature"
+
+    hass.states.async_set(INSIDE, "20")
+    hass.states.async_set(OUTSIDE, "5")
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 10.0)
+
+    assert issues.async_get_issue(DOMAIN, issue_id) is None

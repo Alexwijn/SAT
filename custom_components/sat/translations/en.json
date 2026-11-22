@@ -375,6 +375,18 @@
     "control_loop_stalled": {
       "title": "Heating control stopped responding",
       "description": "SAT has not completed a control cycle for {name} in 15 minutes, so the boiler may not follow the demand. Check the connection to the boiler and the log, then reload the integration. This clears itself when control resumes."
+    },
+    "missing_inside_temperature": {
+      "title": "Inside temperature is missing",
+      "description": "SAT has had no inside temperature for {name} for over 10 minutes and released the boiler: a thermostat on an OpenTherm gateway takes over, otherwise heating is off. Check the inside temperature sensor. SAT takes control back when it returns."
+    },
+    "missing_outside_temperature": {
+      "title": "Outside temperature is missing",
+      "description": "SAT has had no outside temperature for {name} for over 10 minutes and released the boiler: a thermostat on an OpenTherm gateway takes over, otherwise heating is off. Check the outside temperature sensor or weather entity. SAT takes control back when it returns."
+    },
+    "missing_room_temperatures": {
+      "title": "No room can be reached",
+      "description": "SAT has not been able to read any room of {name} for over 10 minutes and released the boiler: a thermostat on an OpenTherm gateway takes over, otherwise heating is off. Check the room thermostats. SAT takes control back when one returns."
     }
   },
   "entity": {

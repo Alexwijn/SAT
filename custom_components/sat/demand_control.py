@@ -458,6 +458,7 @@ class SatDemandControl:
 
         await self.async_stop_controlling()
         ir.async_delete_issue(self._hass, DOMAIN, f"control_loop_stalled_{self._config.entry_id}")
+        ir.async_delete_issue(self._hass, DOMAIN, f"control_signal_missing_{self._config.entry_id}")
 
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
@@ -845,6 +846,7 @@ class SatDemandControl:
         """Control the boiler, hold it or release it, depending on the signals that are available."""
         now = event_timestamp(time)
         state = self._fail_safe.update(self._missing_signal(), now)
+        self._update_fail_safe_issue(state)
 
         if state.phase == FailSafePhase.HOLDING:
             await self._async_hold_demand(now)
@@ -872,6 +874,27 @@ class SatDemandControl:
             return ControlSignal.ROOM_TEMPERATURES if self.areas.unreachable else None
 
         return ControlSignal.INSIDE_TEMPERATURE if self.current_temperature is None else None
+
+    @callback
+    def _update_fail_safe_issue(self, state: FailSafeState) -> None:
+        """Report the signal the released boiler waits for, until it returns."""
+        issue_id = f"control_signal_missing_{self._config.entry_id}"
+
+        if state.just_resumed:
+            ir.async_delete_issue(self._hass, DOMAIN, issue_id)
+
+        if state.phase != FailSafePhase.RELEASED:
+            return
+
+        ir.async_create_issue(
+            self._hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=f"missing_{state.missing}",
+            translation_placeholders={"name": self._config.name},
+        )
 
     async def _async_hold_demand(self, now: float) -> None:
         """Replay the last demand, if there was one."""

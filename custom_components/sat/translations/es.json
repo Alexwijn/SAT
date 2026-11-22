@@ -375,6 +375,18 @@
     "control_loop_stalled": {
       "title": "El control de calefacción no responde",
       "description": "SAT no ha completado ningún ciclo de control para {name} en 15 minutos, por lo que la caldera puede no seguir la demanda. Compruebe la conexión con la caldera y el registro y, después, recargue la integración. Este aviso desaparece cuando se reanuda el control."
+    },
+    "missing_inside_temperature": {
+      "title": "Falta la temperatura interior",
+      "description": "SAT no tiene temperatura interior para {name} desde hace más de 10 minutos y ha liberado la caldera: un termostato en una pasarela OpenTherm toma el control; de lo contrario, la calefacción queda apagada. Compruebe el sensor interior. SAT recupera el control cuando vuelva."
+    },
+    "missing_outside_temperature": {
+      "title": "Falta la temperatura exterior",
+      "description": "SAT no tiene temperatura exterior para {name} desde hace más de 10 minutos y ha liberado la caldera: un termostato en una pasarela OpenTherm toma el control; de lo contrario, la calefacción queda apagada. Compruebe el sensor exterior o la entidad meteorológica. SAT recupera el control cuando vuelva."
+    },
+    "missing_room_temperatures": {
+      "title": "No se puede acceder a ninguna habitación",
+      "description": "SAT no puede leer ninguna habitación de {name} desde hace más de 10 minutos y ha liberado la caldera: un termostato en una pasarela OpenTherm toma el control; de lo contrario, la calefacción queda apagada. Compruebe los termostatos de las habitaciones. SAT recupera el control cuando vuelva alguno."
     }
   },
   "entity": {

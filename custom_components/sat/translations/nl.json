@@ -375,6 +375,18 @@
     "control_loop_stalled": {
       "title": "Verwarmingsregeling reageert niet meer",
       "description": "SAT heeft voor {name} al 15 minuten geen regelcyclus afgerond, waardoor de ketel de warmtevraag mogelijk niet volgt. Controleer de verbinding met de ketel en het logboek en herlaad daarna de integratie. Deze melding verdwijnt zodra de regeling wordt hervat."
+    },
+    "missing_inside_temperature": {
+      "title": "Binnentemperatuur ontbreekt",
+      "description": "SAT heeft voor {name} al meer dan 10 minuten geen binnentemperatuur en heeft de ketel vrijgegeven: een thermostaat aan een OpenTherm-gateway neemt het over, anders staat de verwarming uit. Controleer de binnentemperatuursensor. SAT neemt de regeling terug zodra die terugkeert."
+    },
+    "missing_outside_temperature": {
+      "title": "Buitentemperatuur ontbreekt",
+      "description": "SAT heeft voor {name} al meer dan 10 minuten geen buitentemperatuur en heeft de ketel vrijgegeven: een thermostaat aan een OpenTherm-gateway neemt het over, anders staat de verwarming uit. Controleer de buitentemperatuursensor of weer-entiteit. SAT neemt de regeling terug zodra die terugkeert."
+    },
+    "missing_room_temperatures": {
+      "title": "Geen enkele kamer is bereikbaar",
+      "description": "SAT kan al meer dan 10 minuten geen enkele kamer van {name} uitlezen en heeft de ketel vrijgegeven: een thermostaat aan een OpenTherm-gateway neemt het over, anders staat de verwarming uit. Controleer de kamerthermostaten. SAT neemt de regeling terug zodra er een terugkeert."
     }
   },
   "entity": {

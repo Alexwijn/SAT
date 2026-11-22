@@ -375,6 +375,18 @@
     "control_loop_stalled": {
       "title": "La régulation du chauffage ne répond plus",
       "description": "SAT n'a terminé aucun cycle de régulation pour {name} depuis 15 minutes, la chaudière peut donc ne pas suivre la demande. Vérifiez la connexion à la chaudière et le journal, puis rechargez l'intégration. Ce message disparaît dès que la régulation reprend."
+    },
+    "missing_inside_temperature": {
+      "title": "Température intérieure absente",
+      "description": "SAT n'a pas de température intérieure pour {name} depuis plus de 10 minutes et a libéré la chaudière : un thermostat relié à une passerelle OpenTherm prend le relais, sinon le chauffage est arrêté. Vérifiez le capteur intérieur. SAT reprend le contrôle à son retour."
+    },
+    "missing_outside_temperature": {
+      "title": "Température extérieure absente",
+      "description": "SAT n'a pas de température extérieure pour {name} depuis plus de 10 minutes et a libéré la chaudière : un thermostat relié à une passerelle OpenTherm prend le relais, sinon le chauffage est arrêté. Vérifiez le capteur extérieur ou l'entité météo. SAT reprend le contrôle à son retour."
+    },
+    "missing_room_temperatures": {
+      "title": "Aucune pièce n'est joignable",
+      "description": "SAT ne peut lire aucune pièce de {name} depuis plus de 10 minutes et a libéré la chaudière : un thermostat relié à une passerelle OpenTherm prend le relais, sinon le chauffage est arrêté. Vérifiez les thermostats des pièces. SAT reprend le contrôle dès que l'un d'eux revient."
     }
   },
   "entity": {

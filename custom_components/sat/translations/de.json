@@ -375,6 +375,18 @@
     "control_loop_stalled": {
       "title": "Heizungsregelung reagiert nicht mehr",
       "description": "SAT hat für {name} seit 15 Minuten keinen Regelzyklus abgeschlossen, daher folgt der Kessel dem Bedarf möglicherweise nicht. Prüfen Sie die Verbindung zum Kessel und das Protokoll und laden Sie die Integration dann neu. Die Meldung verschwindet, sobald die Regelung wieder läuft."
+    },
+    "missing_inside_temperature": {
+      "title": "Innentemperatur fehlt",
+      "description": "SAT hat für {name} seit über 10 Minuten keine Innentemperatur und hat den Kessel freigegeben: Ein Thermostat an einem OpenTherm-Gateway übernimmt, andernfalls ist die Heizung aus. Prüfen Sie den Innentemperatursensor. SAT übernimmt wieder, sobald er zurück ist."
+    },
+    "missing_outside_temperature": {
+      "title": "Außentemperatur fehlt",
+      "description": "SAT hat für {name} seit über 10 Minuten keine Außentemperatur und hat den Kessel freigegeben: Ein Thermostat an einem OpenTherm-Gateway übernimmt, andernfalls ist die Heizung aus. Prüfen Sie den Außentemperatursensor oder die Wetter-Entität. SAT übernimmt wieder, sobald der Wert zurück ist."
+    },
+    "missing_room_temperatures": {
+      "title": "Kein Raum ist erreichbar",
+      "description": "SAT kann seit über 10 Minuten keinen Raum von {name} auslesen und hat den Kessel freigegeben: Ein Thermostat an einem OpenTherm-Gateway übernimmt, andernfalls ist die Heizung aus. Prüfen Sie die Raumthermostate. SAT übernimmt wieder, sobald eines zurück ist."
     }
   },
   "entity": {

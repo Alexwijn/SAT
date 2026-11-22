@@ -375,6 +375,18 @@
     "control_loop_stalled": {
       "title": "O controlo do aquecimento deixou de responder",
       "description": "O SAT não conclui um ciclo de controlo para {name} há 15 minutos, pelo que a caldeira pode não seguir o pedido. Verifique a ligação à caldeira e o registo e depois recarregue a integração. Este aviso desaparece quando o controlo é retomado."
+    },
+    "missing_inside_temperature": {
+      "title": "Temperatura interior em falta",
+      "description": "O SAT não tem temperatura interior para {name} há mais de 10 minutos e libertou a caldeira: um termóstato num gateway OpenTherm assume, caso contrário o aquecimento fica desligado. Verifique o sensor interior. O SAT retoma o controlo quando este voltar."
+    },
+    "missing_outside_temperature": {
+      "title": "Temperatura exterior em falta",
+      "description": "O SAT não tem temperatura exterior para {name} há mais de 10 minutos e libertou a caldeira: um termóstato num gateway OpenTherm assume, caso contrário o aquecimento fica desligado. Verifique o sensor exterior ou a entidade meteorológica. O SAT retoma o controlo quando voltar."
+    },
+    "missing_room_temperatures": {
+      "title": "Nenhuma divisão está acessível",
+      "description": "O SAT não consegue ler nenhuma divisão de {name} há mais de 10 minutos e libertou a caldeira: um termóstato num gateway OpenTherm assume, caso contrário o aquecimento fica desligado. Verifique os termóstatos das divisões. O SAT retoma o controlo quando um voltar."
     }
   },
   "entity": {
