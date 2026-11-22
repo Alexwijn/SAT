@@ -391,6 +391,10 @@
     "running_on_fallback_sensor": {
       "title": "Chauffage sur une température de secours",
       "description": "Le capteur intérieur de {name} est perdu : SAT régule sur {source} et n'apprend rien pendant ce temps. Les thermostats de radiateur mesurent trop chaud, la pièce peut donc rester sous sa consigne. Vérifiez le capteur. SAT y revient de lui-même."
+    },
+    "missing_boiler": {
+      "title": "Passerelle de chaudière injoignable",
+      "description": "SAT n'a rien reçu de la passerelle de chaudière de {name} depuis plus de 10 minutes alors que le chauffage est actif : il ne la commande plus et tente de libérer la chaudière. Vérifiez la passerelle et le broker MQTT. SAT reprend le contrôle à son retour."
     }
   },
   "entity": {

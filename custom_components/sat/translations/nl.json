@@ -391,6 +391,10 @@
     "running_on_fallback_sensor": {
       "title": "Verwarmen op een reservetemperatuur",
       "description": "De binnentemperatuursensor van {name} is weggevallen, daarom regelt SAT op {source} en leert het intussen niets. Thermostaatknoppen op radiatoren meten warm, dus de kamer kan koeler blijven dan ingesteld. Controleer de sensor. SAT schakelt er vanzelf naar terug."
+    },
+    "missing_boiler": {
+      "title": "Ketelgateway is niet bereikbaar",
+      "description": "SAT heeft al meer dan 10 minuten niets gehoord van de ketelgateway van {name} terwijl de verwarming aan staat, en is daarom gestopt met aansturen en probeert de ketel vrij te geven. Controleer de gateway en de MQTT-broker. SAT neemt de regeling terug zodra de gateway terugkeert."
     }
   },
   "entity": {

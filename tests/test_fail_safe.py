@@ -164,3 +164,23 @@ async def test_issue_names_the_missing_signal_and_clears(hass, entry, demand_con
     await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 10.0)
 
     assert issues.async_get_issue(DOMAIN, issue_id) is None
+
+
+@MAIN_ROOM
+async def test_unavailable_boiler_holds_releases_and_resumes(hass, demand_control, coordinator, commands, monkeypatch, domains, data, options, config):
+    update, release = commands
+    reachable = {"value": False}
+    monkeypatch.setattr(type(coordinator), "available", property(lambda self: reachable["value"]))
+
+    await _run(demand_control)
+
+    assert demand_control._fail_safe.state.missing is ControlSignal.BOILER
+
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS)
+
+    release.assert_awaited_once()
+
+    reachable["value"] = True
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0)
+
+    update.assert_awaited_once()

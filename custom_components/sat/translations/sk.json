@@ -391,6 +391,10 @@
     "running_on_fallback_sensor": {
       "title": "Kúrenie podľa záložnej teploty",
       "description": "Vnútorný senzor {name} vypadol, preto SAT reguluje podľa {source} a zatiaľ sa nič neučí. Termostaty na radiátoroch merajú vyššie, takže izba môže zostať chladnejšia než cieľ. Skontrolujte senzor. SAT sa k nemu vráti sám."
+    },
+    "missing_boiler": {
+      "title": "Brána kotla nie je dostupná",
+      "description": "SAT pri zapnutom kúrení nedostal nič z brány kotla {name} viac ako 10 minút, preto ho prestal riadiť a pokúša sa ho uvoľniť. Skontrolujte bránu a MQTT broker. SAT prevezme riadenie späť po návrate brány."
     }
   },
   "entity": {

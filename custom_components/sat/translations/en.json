@@ -391,6 +391,10 @@
     "running_on_fallback_sensor": {
       "title": "Heating on a backup temperature",
       "description": "The inside temperature sensor of {name} is lost, so SAT controls on {source} instead and learns nothing meanwhile. Thermostats on radiators read warm, so the room may stay cooler than its target. Check the sensor. SAT returns to it by itself."
+    },
+    "missing_boiler": {
+      "title": "Boiler gateway cannot be reached",
+      "description": "SAT has not heard from the boiler gateway of {name} for over 10 minutes while heating is on, so it stopped commanding and is trying to release the boiler. Check the gateway and the MQTT broker. SAT takes control back when the gateway returns."
     }
   },
   "entity": {

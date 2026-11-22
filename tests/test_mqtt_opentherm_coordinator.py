@@ -1,11 +1,12 @@
 """Unit tests for the OpenTherm MQTT coordinator."""
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.sat.const import CONF_DEVICE, CONF_MODE, CONF_MQTT_TOPIC, OPTIONS_DEFAULTS
+from custom_components.sat.const import CONF_DEVICE, CONF_MODE, CONF_MQTT_TOPIC, CONF_SIMULATION, OPTIONS_DEFAULTS
 from custom_components.sat.coordinator.mqtt.opentherm import (
     DATA_BOILER_CAPACITY,
     DATA_BOILER_TEMPERATURE,
@@ -319,6 +320,7 @@ async def test_release_hands_back_to_the_thermostat(coordinator, monkeypatch, ma
 
     calls = []
     monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+    coordinator._mark_online()
 
     await coordinator.async_release()
 
@@ -341,3 +343,28 @@ async def test_only_static_values_are_saved(coordinator):
     await coordinator.async_will_remove_from_hass()
 
     coordinator._store.async_save.assert_awaited_once_with({DATA_SLAVE_MEMBERID: 8})
+
+
+def _message(payload, retain=False):
+    return SimpleNamespace(payload=payload, retain=retain)
+
+
+async def test_not_available_until_a_live_message(coordinator):
+    handler = coordinator._create_message_handler(DATA_BOILER_TEMPERATURE)
+
+    assert coordinator.available is False
+
+    handler(_message("55", retain=True))
+
+    assert coordinator.available is False
+
+    handler(_message("56"))
+
+    assert coordinator.available is True
+
+
+async def test_simulation_is_always_available(hass, monkeypatch, coordinator):
+    data = {**DEFAULT_USER_DATA, CONF_MODE: SatMode.MQTT_OPENTHERM, CONF_DEVICE: "otgw", CONF_MQTT_TOPIC: "OTGW"}
+    simulated = SatOpenThermMqttCoordinator(hass, SatConfig(entry_id="simulated", data=data, options={**OPTIONS_DEFAULTS, CONF_SIMULATION: True}))
+
+    assert simulated.available is True

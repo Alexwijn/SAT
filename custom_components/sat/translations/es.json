@@ -391,6 +391,10 @@
     "running_on_fallback_sensor": {
       "title": "Calefacción con una temperatura de respaldo",
       "description": "Se ha perdido el sensor interior de {name}, por lo que SAT regula con {source} y mientras tanto no aprende nada. Los termostatos de radiador miden de más, así que la habitación puede quedar por debajo del objetivo. Compruebe el sensor. SAT vuelve a él por sí solo."
+    },
+    "missing_boiler": {
+      "title": "No se puede acceder a la pasarela de la caldera",
+      "description": "SAT no recibe nada de la pasarela de la caldera de {name} desde hace más de 10 minutos con la calefacción activa, así que ha dejado de controlarla e intenta liberar la caldera. Compruebe la pasarela y el broker MQTT. SAT recupera el control cuando vuelva la pasarela."
     }
   },
   "entity": {

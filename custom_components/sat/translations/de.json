@@ -391,6 +391,10 @@
     "running_on_fallback_sensor": {
       "title": "Heizen mit einer Ersatztemperatur",
       "description": "Der Innentemperatursensor von {name} ist ausgefallen, daher regelt SAT nach {source} und lernt währenddessen nichts. Thermostate an Heizkörpern messen zu warm, der Raum kann also kühler bleiben als eingestellt. Prüfen Sie den Sensor. SAT kehrt selbst zu ihm zurück."
+    },
+    "missing_boiler": {
+      "title": "Kessel-Gateway nicht erreichbar",
+      "description": "SAT hat bei eingeschalteter Heizung seit über 10 Minuten nichts vom Kessel-Gateway von {name} gehört, steuert daher nicht mehr und versucht, den Kessel freizugeben. Prüfen Sie das Gateway und den MQTT-Broker. SAT übernimmt wieder, sobald das Gateway zurück ist."
     }
   },
   "entity": {

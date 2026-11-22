@@ -24,12 +24,23 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         self._device_id: str = str(self._config.device)
         self._topic: str = self._config.mqtt_topic or ""
+        self._online: bool = False
         self._subscriptions: list[Callable[[], None]] = []
         self._store: Store = Store(hass, STORAGE_VERSION, f"sat.mqtt.{self._device_id}")
 
     @property
     def id(self) -> str:
         return self._device_id
+
+    @property
+    def available(self) -> bool:
+        """Whether the gateway is known to be there, which stored and retained values do not prove."""
+        return self._online or self._config.simulation.enabled
+
+    @callback
+    def _mark_online(self) -> None:
+        """Remember that the gateway is there."""
+        self._online = True
 
     @staticmethod
     def _decode_payload(value: Any) -> Any:
@@ -117,6 +128,9 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         @callback
         def message_handler(message):
             """Handle an incoming MQTT message and schedule an update."""
+
+            if not message.retain:
+                self._mark_online()
 
             try:
                 # Process the payload and update the data property

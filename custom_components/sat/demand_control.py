@@ -904,6 +904,9 @@ class SatDemandControl:
         if self._hvac_mode == HVACMode.OFF:
             return None
 
+        if not self._coordinator.available:
+            return ControlSignal.BOILER
+
         if self.current_outside_temperature is None:
             return ControlSignal.OUTSIDE_TEMPERATURE
 

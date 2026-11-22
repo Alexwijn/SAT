@@ -100,6 +100,7 @@ class ControlSignal(StrEnum):
     INSIDE_TEMPERATURE = "inside_temperature"
     OUTSIDE_TEMPERATURE = "outside_temperature"
     ROOM_TEMPERATURES = "room_temperatures"
+    BOILER = "boiler"
 
 
 class InsideSource(StrEnum):

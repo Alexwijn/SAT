@@ -391,6 +391,10 @@
     "running_on_fallback_sensor": {
       "title": "Aquecimento com temperatura de reserva",
       "description": "O sensor interior de {name} perdeu-se, por isso o SAT regula por {source} e entretanto não aprende nada. Os termóstatos de radiador medem em excesso, pelo que a divisão pode ficar abaixo do objetivo. Verifique o sensor. O SAT volta a usá-lo sozinho."
+    },
+    "missing_boiler": {
+      "title": "Gateway da caldeira inacessível",
+      "description": "O SAT não recebe nada do gateway da caldeira de {name} há mais de 10 minutos com o aquecimento ligado, por isso deixou de a comandar e tenta libertá-la. Verifique o gateway e o broker MQTT. O SAT retoma o controlo quando o gateway voltar."
     }
   },
   "entity": {
