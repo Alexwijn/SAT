@@ -524,7 +524,12 @@ class SatHeatingControl:
 
         if not device_state.flame_active:
             if (return_temperature := device_state.return_temperature) is None:
-                _LOGGER.warning("Setpoint override (flame off): no return temperature found.")
+                _LOGGER.debug(
+                    "Setpoint override (flame off): no return temperature found, falling back to the requested setpoint."
+                )
+
+                self._control_setpoint = requested_setpoint
+
                 return
 
             flame_off_offset = config.flame_off_setpoint_offset_celsius

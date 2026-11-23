@@ -220,6 +220,27 @@ async def test_pwm_flame_off_return_offset(hass, monkeypatch, coordinator):
     assert heating_control.control_setpoint == 30.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
 
 
+async def test_pwm_flame_off_without_return_temperature_publishes_request(hass, coordinator, monkeypatch):
+    """A device that reports no return temperature must still be asked to fire.
+
+    The flame-off hold setpoint is derived from the return temperature. When that
+    temperature is unavailable, returning without assigning the setpoint leaves it at
+    MINIMUM_SETPOINT, so the heater is never asked to ignite while PWM holds the demand.
+    """
+    _update_coordinator_config(coordinator)
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+    assert coordinator.return_temperature is None
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == 40.0
+
+
 async def test_flame_off_setpoint_held_until_suppression_delay(hass, monkeypatch, coordinator):
     _update_coordinator_config(coordinator)
     monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: 30.0))
