@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.restore_state import DATA_RESTORE_STATE
 from homeassistant.helpers.storage import Store
-from sentry_sdk import Client, Hub
+from sentry_sdk import Client, get_global_scope
 
 from .const import (
     CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
@@ -324,8 +324,7 @@ def initialize_sentry() -> Client:
         dsn="https://144b75a0111295466e4f7f438ee79bbe@o4508432869621760.ingest.de.sentry.io/4508432872898640",
     )
 
-    # Bind the Sentry client to the Sentry hub
-    hub = Hub(client)
-    hub.bind_client(client)
+    # Bind the Sentry client to the global scope
+    get_global_scope().set_client(client)
 
     return client

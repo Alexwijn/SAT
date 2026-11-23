@@ -9,8 +9,9 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from sentry_sdk import get_client, get_global_scope
 
-from custom_components.sat import async_reload_entry, async_remove_entry, async_unload_entry
+from custom_components.sat import async_reload_entry, async_remove_entry, async_unload_entry, initialize_sentry
 from custom_components.sat.const import CONF_DEVICE, CONF_ROOMS, CONF_TARGET_TEMPERATURE_STEP, DOMAIN
 from tests.const import DEFAULT_USER_DATA
 
@@ -221,3 +222,14 @@ async def test_stopping_removes_the_listeners_without_errors(hass, caplog):
     await hass.async_stop()
 
     assert "Unable to remove unknown job listener" not in caplog.text
+
+
+def test_sentry_client_is_bound_to_the_global_scope(monkeypatch):
+    client = Mock()
+    monkeypatch.setattr("custom_components.sat.Client", Mock(return_value=client))
+
+    try:
+        assert initialize_sentry() is client
+        assert get_client() is client
+    finally:
+        get_global_scope().set_client(None)
