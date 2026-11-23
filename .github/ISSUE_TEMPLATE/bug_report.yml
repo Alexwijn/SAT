@@ -55,7 +55,8 @@ body:
       label: Integration version
       description: Select the SAT integration release.
       options:
-        - 4.2.1
+        - 5.1.0
+        - 5.0.0
         - 4.2.0
         - 4.1.2
         - 4.1.1
