@@ -183,6 +183,10 @@ class SatEmsMqttCoordinator(SatMqttCoordinator):
 
         await super()._async_release()
 
+    async def _async_keep_released(self) -> None:
+        """Repeat the off setpoint, as EMS boilers drop a flow setpoint that is not refreshed."""
+        await self._publish_command('{"cmd": "selflowtemp", "value": 0}')
+
     async def async_set_heater_state(self, state: HeaterState) -> None:
         """Heat demand on EMS boilers follows the flow setpoint alone."""
         await super().async_set_heater_state(state)

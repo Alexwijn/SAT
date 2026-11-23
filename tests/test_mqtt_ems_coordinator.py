@@ -346,6 +346,19 @@ async def test_release_switches_heating_off_and_restores_the_power(coordinator, 
     assert calls == [{"cmd": "selflowtemp", "value": 0}, {"cmd": "burnmaxpower", "value": 100}]
 
 
+async def test_released_boiler_keeps_receiving_the_off_setpoint(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+    coordinator._mark_online()
+    await coordinator.async_release()
+    calls.clear()
+
+    await coordinator.async_release()
+    await coordinator.async_release()
+
+    assert coordinator.released is True
+    assert calls == [{"cmd": "selflowtemp", "value": 0}] * 2
+
+
 async def test_nothing_is_restored_from_the_store(coordinator):
     coordinator._store.async_load = AsyncMock(return_value={"burngas": "on", "slave": {"status": {"flame": True}}})
 

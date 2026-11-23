@@ -254,14 +254,12 @@ class SatHeatingControl:
     async def async_release(self) -> None:
         """Stop commanding the boiler and release it."""
         async with self._command_lock:
-            if self._coordinator.released:
-                return
+            if not self._coordinator.released:
+                self._pwm.suspend(timestamp())
+                self._reset_pwm_disable_guards()
 
-            self._pwm.suspend(timestamp())
-            self._reset_pwm_disable_guards()
-
-            self._control_setpoint = MINIMUM_SETPOINT
-            self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
+                self._control_setpoint = MINIMUM_SETPOINT
+                self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
 
             await self._coordinator.async_release()
 

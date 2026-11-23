@@ -854,6 +854,17 @@ async def test_coordinator_release_switches_heating_off_once(coordinator, monkey
     release.assert_not_awaited()
 
 
+async def test_released_boiler_is_kept_released(heating_control, coordinator, monkeypatch):
+    await heating_control.async_release()
+
+    keep_released = AsyncMock()
+    monkeypatch.setattr(coordinator, "_async_keep_released", keep_released)
+    await heating_control.async_release()
+
+    keep_released.assert_awaited_once()
+    assert coordinator.released is True
+
+
 async def test_commanding_again_ends_the_release(coordinator):
     await coordinator.async_release()
     await coordinator.async_set_control_setpoint(45.0)

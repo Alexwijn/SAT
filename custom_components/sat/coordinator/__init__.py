@@ -376,11 +376,12 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         self._hass_notify_debouncer.async_cancel()
 
     async def async_release(self) -> None:
-        """Release the boiler once, until it is commanded again."""
-        if self._released:
-            return
-
+        """Release the boiler once, until it is commanded again, and keep it released."""
         async with asyncio.timeout(COMMAND_TIMEOUT_SECONDS):
+            if self._released:
+                await self._async_keep_released()
+                return
+
             await self._async_release()
 
         self._released = self.available
@@ -390,6 +391,9 @@ class SatDataUpdateCoordinator(DataUpdateCoordinator):
         await self.async_set_control_setpoint(MINIMUM_SETPOINT)
         await self.async_set_control_max_relative_modulation(self._config.pwm.maximum_relative_modulation)
         await self.async_set_heater_state(HeaterState.OFF)
+
+    async def _async_keep_released(self) -> None:
+        """Refresh the release for devices that forget it when it is not repeated."""
 
     async def async_control_heating_loop(self, timestamp: float) -> None:
         """Hook for device-specific loop updates."""
