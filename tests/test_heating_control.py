@@ -658,6 +658,40 @@ async def test_fresh_ignition_without_hold_derives_it_from_return_temperature(ha
     assert heating_control.control_setpoint == 30.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
 
 
+async def test_pwm_flame_off_without_return_temperature_offsets_the_flow(hass, monkeypatch, coordinator):
+    _update_coordinator_config(coordinator)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: None))
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+    await coordinator.async_set_boiler_temperature(35.0)
+    heating_control._control_setpoint = MINIMUM_SETPOINT
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == 35.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+
+
+async def test_fresh_ignition_without_return_temperature_holds_from_the_flow(hass, monkeypatch, coordinator):
+    _update_coordinator_config(coordinator)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: None))
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(37.0)
+    heating_control._control_setpoint = MINIMUM_SETPOINT
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == 37.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+
+
 async def _saturated_demand(heating_control, coordinator, monkeypatch, target_changed_seconds_ago: float) -> None:
     _enable_pwm(heating_control, PWMStatus.ON)
     monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
