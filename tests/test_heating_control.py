@@ -187,6 +187,18 @@ async def test_continuous_allows_increase_when_requested_increases(heating_contr
     assert heating_control.control_setpoint == expected
 
 
+async def test_continuous_control_setpoint_never_exceeds_maximum(heating_control, coordinator):
+    maximum = coordinator.maximum_setpoint
+    heating_control._control_setpoint = maximum - 10
+    await coordinator.async_set_boiler_temperature(maximum + 15)
+    await coordinator.async_set_heater_state(HeaterState.ON)
+
+    # The request is below the maximum, but the flow-minus-offset floor is well above it.
+    await heating_control.update(_make_demand(maximum - 5))
+
+    assert heating_control.control_setpoint == maximum
+
+
 async def test_pwm_suppression_applied(hass, coordinator, monkeypatch):
     _update_coordinator_config(coordinator)
 

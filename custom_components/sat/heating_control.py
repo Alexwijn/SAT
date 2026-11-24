@@ -284,6 +284,10 @@ class SatHeatingControl:
             self._control_setpoint = MINIMUM_SETPOINT
             self._relative_modulation_value = self._config.pwm.maximum_relative_modulation
 
+        # Cap the value that is actually sent to the boiler. The offset floor in
+        # _compute_continuous_control_setpoint can otherwise exceed the configured maximum.
+        self._control_setpoint = min(self._control_setpoint, self._coordinator.maximum_setpoint)
+
         await self._coordinator.async_set_control_setpoint(self._control_setpoint)
         await self._coordinator.async_set_control_max_relative_modulation(self._relative_modulation_value)
         await self._coordinator.async_set_heater_state(HeaterState.ON if self._control_setpoint > COLD_SETPOINT else HeaterState.OFF)
