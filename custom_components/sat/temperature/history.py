@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from statistics import mean, median
+from threading import Lock
 from typing import Deque, Optional
 
 from ..const import DEADBAND
@@ -42,6 +43,7 @@ class TemperatureHistory:
 
     def __init__(self) -> None:
         self._samples: Deque[TemperatureErrorSample] = deque()
+        self._lock = Lock()
 
     @property
     def statistics(self) -> TemperatureStatistics:
@@ -51,18 +53,21 @@ class TemperatureHistory:
     @property
     def window_statistics(self) -> TemperatureWindowStatistics:
         """Snapshot of rolling window statistics."""
+        samples = self._snapshot_samples()
         return TemperatureWindowStatistics(
-            recent=self._window_snapshot(RECENT_WINDOW_SECONDS),
-            daily=self._window_snapshot(DAILY_WINDOW_SECONDS),
+            recent=self._window_snapshot(self._recent_samples(samples, RECENT_WINDOW_SECONDS)),
+            daily=self._window_snapshot(self._recent_samples(samples, DAILY_WINDOW_SECONDS)),
         )
 
     def record(self, error: float, timestamp: float) -> None:
         """Record a new temperature error sample."""
-        self._samples.append(TemperatureErrorSample(timestamp=timestamp, error=error))
-        self._prune(timestamp)
+        with self._lock:
+            self._samples.append(TemperatureErrorSample(timestamp=timestamp, error=error))
+            cutoff = timestamp - DAILY_WINDOW_SECONDS
+            while self._samples and self._samples[0].timestamp < cutoff:
+                self._samples.popleft()
 
-    def _window_snapshot(self, window_seconds: int) -> TemperatureWindowSnapshot:
-        samples = self._recent_samples(window_seconds)
+    def _window_snapshot(self, samples: list[TemperatureErrorSample]) -> TemperatureWindowSnapshot:
         errors = [sample.error for sample in samples]
 
         if not errors:
@@ -84,14 +89,14 @@ class TemperatureHistory:
 
     def median_error(self, window_seconds: int) -> Optional[float]:
         """Return the median error over the window."""
-        if not (samples := self._recent_samples(window_seconds)):
+        if not (samples := self._recent_samples(self._snapshot_samples(), window_seconds)):
             return None
 
         return float(median(sample.error for sample in samples))
 
     def is_steady(self, window_seconds: int, maximum_range: float) -> bool:
         """Whether the error has covered the whole window without drifting more than the given range."""
-        samples = self._recent_samples(window_seconds)
+        samples = self._recent_samples(self._snapshot_samples(), window_seconds)
 
         if len(samples) < 3 or (samples[-1].timestamp - samples[0].timestamp) < 0.8 * window_seconds:
             return False
@@ -99,22 +104,17 @@ class TemperatureHistory:
         errors = [sample.error for sample in samples]
         return (max(errors) - min(errors)) <= maximum_range
 
-    def _recent_samples(self, window_seconds: int) -> list[TemperatureErrorSample]:
-        if (now := self._current_time_hint()) is None:
+    def _snapshot_samples(self) -> tuple[TemperatureErrorSample, ...]:
+        with self._lock:
+            return tuple(self._samples)
+
+    @staticmethod
+    def _recent_samples(samples: tuple[TemperatureErrorSample, ...], window_seconds: int) -> list[TemperatureErrorSample]:
+        if not samples:
             return []
 
-        cutoff = now - window_seconds
-        return [sample for sample in self._samples if sample.timestamp >= cutoff]
-
-    def _prune(self, now: float) -> None:
-        while self._samples and self._samples[0].timestamp < (now - DAILY_WINDOW_SECONDS):
-            self._samples.popleft()
-
-    def _current_time_hint(self) -> Optional[float]:
-        if not self._samples:
-            return None
-
-        return self._samples[-1].timestamp
+        cutoff = samples[-1].timestamp - window_seconds
+        return [sample for sample in samples if sample.timestamp >= cutoff]
 
     @staticmethod
     def _in_band_fraction(errors: list[float]) -> float:
