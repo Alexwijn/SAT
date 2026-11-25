@@ -101,12 +101,16 @@ class PWM:
 
     def reset(self) -> None:
         """Reset the PWM cycle state while keeping the learned enablement and boiler floor."""
+        self._clear_phase()
+        self._cycle_starts: list[float] = []
+
+    def _clear_phase(self) -> None:
+        """Forget the running phase while keeping the cycles of the last hour."""
         self._last_update: float = timestamp()
         self._status: PWMStatus = PWMStatus.IDLE
         self._duty_cycle: Optional[Tuple[int, int]] = None
 
         self._waiting_for_flame_on: bool = False
-        self._cycle_starts: list[float] = []
         self._last_duty_cycle_percentage: Optional[float] = None
         self._flame_on_at: Optional[float] = None
         self._floor_observed_at: Optional[float] = None
@@ -122,7 +126,7 @@ class PWM:
 
     def disable(self) -> None:
         """Disable the PWM control."""
-        self.reset()
+        self._clear_phase()
         self._enabled = False
 
     def suspend(self, timestamp: float) -> None:
@@ -194,17 +198,19 @@ class PWM:
 
             return
 
-        if self._status == PWMStatus.ON and device_state.flame_active:
+        heating_burn = device_state.flame_active and not device_state.hot_water_active
+
+        if self._status == PWMStatus.ON and heating_burn:
             if self._flame_on_at is None:
                 self._flame_on_at = timestamp
 
             if (timestamp - self._flame_on_at) >= HEATER_STARTUP_TIMEFRAME:
                 self._observe_floor(device_state.flow_temperature, timestamp)
 
-        if self._status == PWMStatus.ON and not device_state.flame_active and self._flame_on_at is not None:
+        if self._status == PWMStatus.ON and not heating_burn and self._flame_on_at is not None:
             self._flame_on_at = None
             self._floor_observed_at = None
-            _LOGGER.info("PWM ON phase lost the flame; the next ignition restarts the warm-up window.")
+            _LOGGER.info("PWM ON phase lost the heating burn; the next one restarts the warm-up window.")
 
         elapsed = timestamp - self._last_update
         on_time_seconds, off_time_seconds = self._calculate_duty_cycle(requested_setpoint, device_state)
@@ -218,6 +224,7 @@ class PWM:
         if self._status in (PWMStatus.OFF, PWMStatus.IDLE):
             if on_time_seconds >= HEATER_STARTUP_TIMEFRAME and (self._status == PWMStatus.IDLE or elapsed >= off_time_seconds):
                 if self.cycles_this_hour >= self._config.cycles_per_hour:
+                    self._status = PWMStatus.OFF
                     _LOGGER.info("Reached max cycles per hour, preventing new duty cycle.")
                     return
 

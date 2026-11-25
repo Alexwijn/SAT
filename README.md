@@ -209,6 +209,8 @@ For more information about which other entities are available for OpenTherm plea
    - Radiators: Users can add the TRV climate entities that are in the same room as the Inside Temperature sensor.
    - Rooms: Users can add the climate entities of their other rooms, which have their own target temperatures. So when any of the rooms will ask for heating, SAT will start the boiler.
    - Rooms only: If every heated room already has its own climate entity and there is no main room, leave the Inside Temperature sensor empty and add all rooms here. Each room then gets its own PID and heating curve, the boiler is asked for the highest room request, and it is only started while at least one room is calling for heat. The SAT climate entity stays as the on/off switch and the preset selector of the whole system: it has no target temperature of its own, shows the median room temperature, applies presets to the rooms (see the Room Presets tab), and while off it protects the coldest room against frost. Without a main room there is no Eco heating mode and no main PID, error or heating curve sensors; the room sensors and the boiler sensors are still created.
+   - A radiator or room that reports `heating_blocked_by`, as Better Thermostat does, does not ask the boiler for heat while it is blocked. SAT reports the same attribute on its own climate entity: `hvac_off`, `inputs_missing`, `window`, `hot_water` or `valves_closed`.
+
 > [!Note]
 > If SAT is the only climate entity, skip this step.
 
@@ -322,6 +324,8 @@ Pick a room, tick the presets it has its own temperature for and set them. The H
 
 *Minimum time for window to be open*: The minimum time a window must be open before the system reacts and pauses heating.
 
+*Minimum time for window to be closed*: How long all windows and doors must be closed before heating resumes. Defaults to none. A contact sensor that becomes unavailable counts as closed.
+
 *Frost Protection Temperature*: Keep heating when the room drops below this temperature, even while the thermostat is off. Set to 0 to disable.
 
 ## Advanced Tab
@@ -365,6 +369,17 @@ Pick a room, tick the presets it has its own temperature for and set them. The H
 - *Minimum Boiler Pressure* and *Maximum Boiler Pressure*: The range the pressure should stay within.
 - *Maximum Pressure Drop Rate*: How fast the pressure may drop before it is flagged.
 - *Pressure Max Value Age*: The maximum age of a pressure reading before the health is marked as unhealthy.
+
+---
+
+# Fail-safe
+
+SAT releases the boiler when it unloads, when Home Assistant stops, and when it has missed something it needs for 10 minutes while heating is on. With an OpenTherm Gateway (MQTT or serial) the wall thermostat then takes over. ESPHome, EMS-ESP, OTThing and PID ON/OFF have no thermostat to hand back to, so heating is switched off. Saving the options reloads SAT, which can therefore cost one burner restart.
+
+- *Inside temperature*: after the sensor has been lost for 2 minutes, SAT uses the wall thermostat, or else the mean of the radiator thermostats, and raises a repair issue. It learns nothing meanwhile, and returns to the sensor as soon as it is back. A sensor that stops reporting without becoming unavailable only counts as lost after the maximum value age.
+- *Outside temperature, rooms, or the inside temperature without a fallback*: SAT repeats its last demand for 10 minutes, then releases the boiler and raises a repair issue until the value returns.
+- *MQTT gateway*: SAT does not trust stored or retained values as proof that a gateway is there. It waits for a live message or, with an OpenTherm Gateway, the online announcement, and follows the offline announcement. A gateway that goes silent without announcing it is not detected.
+- *Frost protection* keeps working while SAT is switched off. While the boiler is released, the thermostat or the boiler itself is the only protection.
 
 ---
 

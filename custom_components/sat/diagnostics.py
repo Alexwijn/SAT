@@ -99,6 +99,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "wind": _safe(lambda: asdict(demand_control.current_wind) if demand_control.current_wind is not None else None),
         "requested_setpoint": _safe(lambda: demand_control.requested_setpoint),
         "valves_open": _safe(lambda: demand_control.valves_open),
+        "heating_blocked_by": _safe(lambda: demand_control.heating_blocked_by),
         "heating_curve_value": _safe(lambda: demand_control.heating_curve.value),
         "pid": {
             "output": _safe(lambda: demand_control.pid.output),

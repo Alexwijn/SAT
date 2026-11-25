@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Friendly name shown in Home Assistant.",
-          "device": "Socket URL, e.g. socket://otgw.local:25238."
+          "device": "Socket URL, e.g. {example_socket}."
         },
         "description": "Enter a name and a socket URL (e.g. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -190,7 +190,7 @@
           "error_monitoring": "Enable error monitoring",
           "climate_valve_offset": "Climate valve offset",
           "flame_off_setpoint_offset_celsius": "Flame-off setpoint offset",
-          "force_pulse_width_modulation": "Force Pulse Width Modulation ",
+          "force_pulse_width_modulation": "Force Pulse Width Modulation",
           "maximum_consumption": "Maximum Consumption",
           "maximum_relative_modulation": "Maximum Relative Modulation",
           "minimum_consumption": "Minimum Consumption",
@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Synchronize climates with mode",
           "sensor_max_value_age": "Temperature Sensor maximum value age",
           "window_minimum_open_time": "Minimum time for window to be open",
+          "window_minimum_closed_time": "Minimum time for window to be closed",
           "frost_protection_temperature": "Frost Protection Temperature"
         },
         "data_description": {
           "cycles_per_hour": "The maximum amount of duty cycles per hour.",
           "sensor_max_value_age": "The maximum age of the temperature sensor value before considering it as a stall.",
           "window_minimum_open_time": "The minimum time a window must be open before the system reacts.",
+          "window_minimum_closed_time": "The minimum time all windows must be closed before heating resumes.",
           "sync_climates_with_mode": "Also set HVAC mode on room climates when it changes here.",
           "frost_protection_temperature": "Keep heating when the room drops below this temperature, even while the thermostat is off. Set to 0 to disable."
         },
@@ -333,7 +335,7 @@
       "description": "This service resets the integrating part of the PID controller for the specified climate entity. This may be useful if the integral value has become too large or if the PID controller's performance has degraded."
     },
     "pulse_width_modulation": {
-      "name": "Pulse Width Modulation ",
+      "name": "Pulse Width Modulation",
       "description": "Force enable or disable the Pulse Width Modulation, do note that it may be turned on or off automatically right after again.",
       "fields": {
         "enabled": {
@@ -371,6 +373,30 @@
     "room_fault": {
       "title": "{room} reports a valve problem",
       "description": "The device in {room} on {name} reports a valve alarm. Check its installation, calibration and any external temperature sensor link."
+    },
+    "control_loop_stalled": {
+      "title": "Heating control stopped responding",
+      "description": "SAT has not completed a control cycle for {name} in 15 minutes, so the boiler may not follow the demand. Check the connection to the boiler and the log, then reload the integration. This clears itself when control resumes."
+    },
+    "missing_inside_temperature": {
+      "title": "Inside temperature is missing",
+      "description": "SAT has had no inside temperature for {name} for over 10 minutes and released the boiler: a thermostat on an OpenTherm gateway takes over, otherwise heating is off. Check the inside temperature sensor. SAT takes control back when it returns."
+    },
+    "missing_outside_temperature": {
+      "title": "Outside temperature is missing",
+      "description": "SAT has had no outside temperature for {name} for over 10 minutes and released the boiler: a thermostat on an OpenTherm gateway takes over, otherwise heating is off. Check the outside temperature sensor or weather entity. SAT takes control back when it returns."
+    },
+    "missing_room_temperatures": {
+      "title": "No room can be reached",
+      "description": "SAT has not been able to read any room of {name} for over 10 minutes and released the boiler: a thermostat on an OpenTherm gateway takes over, otherwise heating is off. Check the room thermostats. SAT takes control back when one returns."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Heating on a backup temperature",
+      "description": "The inside temperature sensor of {name} is lost, so SAT controls on {source} instead and learns nothing meanwhile. Thermostats on radiators read warm, so the room may stay cooler than its target. Check the sensor. SAT returns to it by itself."
+    },
+    "missing_boiler": {
+      "title": "Boiler gateway cannot be reached",
+      "description": "SAT has not heard from the boiler gateway of {name} for over 10 minutes while heating is on, so it stopped commanding and is trying to release the boiler. Check the gateway and the MQTT broker. SAT takes control back when the gateway returns."
     }
   },
   "entity": {

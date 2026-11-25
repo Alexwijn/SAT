@@ -193,7 +193,8 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
     async def async_connect(self) -> SatSerialCoordinator:
         try:
             await self._api.connect(port=self._port, timeout=5)
-        except (asyncio.TimeoutError, ConnectionError, SerialException) as exception:
+        except (asyncio.TimeoutError, ConnectionError, SerialException, IndexError, ValueError) as exception:
+            await self._graceful_disconnect()
             raise ConfigEntryNotReady(f"Could not connect to gateway at {self._port}: {exception}") from exception
 
         return self
@@ -255,13 +256,15 @@ class SatSerialCoordinator(SatDataUpdateCoordinator):
 
         await super().async_set_control_max_setpoint(value)
 
-    async def _graceful_disconnect(self) -> None:
-        try:
-            await self._api.set_control_setpoint(0)
-            await self._api.set_max_relative_mod("-")
-        except Exception:  # pragma: no cover - best effort cleanup
-            _LOGGER.debug("Failed to reset serial gateway state before disconnect", exc_info=True)
+    async def _async_release(self) -> None:
+        """Hand the boiler back to the thermostat on the gateway."""
+        if self._config.simulation.enabled:
+            return
 
+        await self._api.set_control_setpoint(0)
+        await self._api.set_max_relative_mod("-")
+
+    async def _graceful_disconnect(self) -> None:
         try:
             await self._api.disconnect()
         except Exception:  # pragma: no cover - best effort cleanup

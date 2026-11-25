@@ -1,11 +1,12 @@
 """Unit tests for the OpenTherm MQTT coordinator."""
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.sat.const import CONF_DEVICE, CONF_MODE, CONF_MQTT_TOPIC, OPTIONS_DEFAULTS
+from custom_components.sat.const import CONF_DEVICE, CONF_MODE, CONF_MQTT_TOPIC, CONF_SIMULATION, OPTIONS_DEFAULTS
 from custom_components.sat.coordinator.mqtt.opentherm import (
     DATA_BOILER_CAPACITY,
     DATA_BOILER_TEMPERATURE,
@@ -30,6 +31,7 @@ from custom_components.sat.coordinator.mqtt.opentherm import (
 )
 from custom_components.sat.entry_data import SatConfig, SatMode
 from custom_components.sat.types import HeaterState
+from custom_components.sat.manufacturer import ManufacturerFactory
 from tests.const import DEFAULT_USER_DATA
 
 
@@ -303,3 +305,111 @@ async def test_requested_setpoint_is_remembered(coordinator, monkeypatch):
     await coordinator.async_set_control_setpoint(42.5)
 
     assert coordinator._requested_setpoint == 42.5
+
+
+@pytest.mark.parametrize(
+    ("manufacturer", "commands"),
+    [
+        (None, ["CS=0", "MM=T"]),
+        ("Immergas", ["CS=0", "TP=11:12=80", "MM=T"]),
+    ],
+)
+async def test_release_hands_back_to_the_thermostat(coordinator, monkeypatch, manufacturer, commands):
+    if manufacturer is not None:
+        monkeypatch.setattr(type(coordinator), "manufacturer", property(lambda self: ManufacturerFactory.resolve_by_name(manufacturer)))
+
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+    coordinator._mark_online()
+
+    await coordinator.async_release()
+
+    assert calls == commands
+    assert coordinator.released is True
+
+
+async def test_only_static_values_are_restored(coordinator):
+    coordinator._store.async_load = AsyncMock(return_value={DATA_SLAVE_MEMBERID: 8, DATA_FLAME_ACTIVE: "ON", DATA_BOILER_TEMPERATURE: 60.0})
+
+    await coordinator.async_setup()
+
+    assert dict(coordinator.data) == {DATA_SLAVE_MEMBERID: 8}
+
+
+async def test_only_static_values_are_saved(coordinator):
+    coordinator.data.update({DATA_SLAVE_MEMBERID: 8, DATA_FLAME_ACTIVE: "ON"})
+    coordinator._store.async_save = AsyncMock()
+
+    await coordinator.async_will_remove_from_hass()
+
+    coordinator._store.async_save.assert_awaited_once_with({DATA_SLAVE_MEMBERID: 8})
+
+
+def _message(payload, retain=False):
+    return SimpleNamespace(payload=payload, retain=retain)
+
+
+async def test_not_available_until_a_live_message(coordinator):
+    handler = coordinator._create_message_handler(DATA_BOILER_TEMPERATURE)
+
+    assert coordinator.available is False
+
+    handler(_message("55", retain=True))
+
+    assert coordinator.available is False
+
+    handler(_message("56"))
+
+    assert coordinator.available is True
+
+
+async def test_simulation_is_always_available(hass, monkeypatch, coordinator):
+    data = {**DEFAULT_USER_DATA, CONF_MODE: SatMode.MQTT_OPENTHERM, CONF_DEVICE: "otgw", CONF_MQTT_TOPIC: "OTGW"}
+    simulated = SatOpenThermMqttCoordinator(hass, SatConfig(entry_id="simulated", data=data, options={**OPTIONS_DEFAULTS, CONF_SIMULATION: True}))
+
+    assert simulated.available is True
+
+
+async def test_retained_online_makes_the_gateway_available(coordinator):
+    coordinator._handle_availability_message(_message("online", retain=True))
+
+    assert coordinator.available is True
+
+
+async def test_offline_makes_the_gateway_unavailable(coordinator):
+    coordinator._create_message_handler(DATA_BOILER_TEMPERATURE)(_message("56"))
+    coordinator._handle_availability_message(_message("offline"))
+
+    assert coordinator.available is False
+
+
+async def test_return_resends_boot_commands_and_settings(hass, coordinator, monkeypatch):
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+
+    await coordinator.async_set_control_hot_water_setpoint(48.0)
+    await coordinator.async_set_control_hot_water_setpoint(50.0)
+    await coordinator.async_set_control_max_setpoint(60.0)
+    calls.clear()
+
+    coordinator._handle_availability_message(_message("offline"))
+    coordinator._handle_availability_message(_message("online"))
+    await hass.async_block_till_done()
+
+    assert calls[:3] == ["PM=3", "PM=15", "PM=48"]
+    assert calls[-2:] == ["SW=50.0", "SH=60.0"]
+
+
+async def test_online_without_an_outage_resends_nothing(hass, coordinator, monkeypatch):
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+
+    coordinator._handle_availability_message(_message("online"))
+    coordinator._handle_availability_message(_message("online"))
+    await hass.async_block_till_done()
+
+    assert calls == []
+
+
+async def test_availability_is_read_from_the_root_of_the_gateway(coordinator):
+    assert coordinator._get_topic_for_availability() == f"{coordinator._topic}/value/{coordinator.id}"

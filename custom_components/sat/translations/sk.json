@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Zobrazovaný názov v Home Assistant.",
-          "device": "URL socketu, napr. socket://otgw.local:25238."
+          "device": "URL socketu, napr. {example_socket}."
         },
         "description": "Zadajte názov a socket URL (napr. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Povoliť monitorovanie chýb",
           "climate_valve_offset": "Offset klimatizačného ventilu",
-          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu ",
+          "force_pulse_width_modulation": "Vynútená modulácia šírky impulzu",
           "maximum_consumption": "Maximálna spotreba",
           "maximum_relative_modulation": "Maximálna relatívna modulácia",
           "minimum_consumption": "Minimálna spotreba",
@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Synchronizujte klímu s režimom",
           "sensor_max_value_age": "Vek maximálnej hodnoty snímača teploty",
           "window_minimum_open_time": "Minimálny čas na otvorenie okna",
+          "window_minimum_closed_time": "Minimálny čas na zatvorenie okna",
           "frost_protection_temperature": "Teplota protimrazovej ochrany"
         },
         "data_description": {
           "cycles_per_hour": "Maximálny počet pracovných cyklov za hodinu.",
           "sensor_max_value_age": "Maximálny vek hodnoty teplotného snímača pred tým, než sa považuje za prerušenie.",
           "window_minimum_open_time": "Minimálny čas, počas ktorého musí byť okno otvorené, kým systém zareaguje.",
+          "window_minimum_closed_time": "Minimálny čas, počas ktorého musia byť všetky okná zatvorené, kým sa obnoví kúrenie.",
           "sync_climates_with_mode": "Pri zmene tu nastaví režim HVAC aj na klímach miestností.",
           "frost_protection_temperature": "Pokračovať vo vykurovaní, keď izba klesne pod túto teplotu, aj keď je termostat vypnutý. Nastavte 0 na vypnutie."
         },
@@ -333,7 +335,7 @@
       "description": "Táto služba resetuje integračnú časť PID regulátora pre zadanú entitu klimatizácie. Toto môže byť užitočné, ak sa integračná hodnota stala príliš veľkou alebo ak sa znížil výkon PID regulátora."
     },
     "pulse_width_modulation": {
-      "name": "Modulácia šírky impulzu ",
+      "name": "Modulácia šírky impulzu",
       "description": "Vynútené povolenie alebo zakázanie modulácie šírky impulzu . Upozorňujeme, že sa môže hneď potom automaticky zapnúť alebo vypnúť.",
       "fields": {
         "enabled": {
@@ -371,6 +373,30 @@
     "room_fault": {
       "title": "{room} hlási problém s ventilom",
       "description": "Zariadenie v {room} v {name} hlási alarm ventilu. Skontrolujte jeho inštaláciu, kalibráciu a prepojenie s prípadným externým snímačom teploty."
+    },
+    "control_loop_stalled": {
+      "title": "Riadenie kúrenia prestalo reagovať",
+      "description": "SAT už 15 minút nedokončil riadiaci cyklus pre {name}, takže kotol nemusí sledovať požiadavku. Skontrolujte pripojenie ku kotlu a záznam a potom znova načítajte integráciu. Upozornenie zmizne po obnovení riadenia."
+    },
+    "missing_inside_temperature": {
+      "title": "Chýba vnútorná teplota",
+      "description": "SAT nemá pre {name} vnútornú teplotu viac ako 10 minút a uvoľnil kotol: preberá ho termostat na bráne OpenTherm, inak je kúrenie vypnuté. Skontrolujte vnútorný senzor. SAT prevezme riadenie späť po jeho návrate."
+    },
+    "missing_outside_temperature": {
+      "title": "Chýba vonkajšia teplota",
+      "description": "SAT nemá pre {name} vonkajšiu teplotu viac ako 10 minút a uvoľnil kotol: preberá ho termostat na bráne OpenTherm, inak je kúrenie vypnuté. Skontrolujte vonkajší senzor alebo entitu počasia. SAT prevezme riadenie späť po jej návrate."
+    },
+    "missing_room_temperatures": {
+      "title": "Žiadna izba nie je dostupná",
+      "description": "SAT nevie prečítať žiadnu izbu {name} viac ako 10 minút a uvoľnil kotol: preberá ho termostat na bráne OpenTherm, inak je kúrenie vypnuté. Skontrolujte izbové termostaty. SAT prevezme riadenie späť po návrate niektorého z nich."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Kúrenie podľa záložnej teploty",
+      "description": "Vnútorný senzor {name} vypadol, preto SAT reguluje podľa {source} a zatiaľ sa nič neučí. Termostaty na radiátoroch merajú vyššie, takže izba môže zostať chladnejšia než cieľ. Skontrolujte senzor. SAT sa k nemu vráti sám."
+    },
+    "missing_boiler": {
+      "title": "Brána kotla nie je dostupná",
+      "description": "SAT pri zapnutom kúrení nedostal nič z brány kotla {name} viac ako 10 minút, preto ho prestal riadiť a pokúša sa ho uvoľniť. Skontrolujte bránu a MQTT broker. SAT prevezme riadenie späť po návrate brány."
     }
   },
   "entity": {

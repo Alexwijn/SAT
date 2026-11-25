@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Nome visualizzato in Home Assistant.",
-          "device": "URL socket, es. socket://otgw.local:25238."
+          "device": "URL socket, es. {example_socket}."
         },
         "description": "Inserisci un nome e un URL socket (es. {example_socket}).",
         "title": "Gateway OpenTherm (SERIALE)"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Abilita monitoraggio errori",
           "climate_valve_offset": "Offset della Valvola Climatica",
-          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso ",
+          "force_pulse_width_modulation": "Forzare la Modulazione di Larghezza di Impulso",
           "maximum_consumption": "Consumo Massimo",
           "maximum_relative_modulation": "Modulazione Relativa Massima",
           "minimum_consumption": "Consumo Minimo",
@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Sincronizza climi con la modalità",
           "sensor_max_value_age": "Età massima del valore del sensore di temperatura",
           "window_minimum_open_time": "Tempo minimo di apertura della finestra",
+          "window_minimum_closed_time": "Tempo minimo di chiusura della finestra",
           "frost_protection_temperature": "Temperatura di protezione antigelo"
         },
         "data_description": {
           "cycles_per_hour": "Il numero massimo di cicli per ora.",
           "sensor_max_value_age": "L'età massima del valore del sensore di temperatura prima di considerarlo stazionario.",
           "window_minimum_open_time": "Il tempo minimo che una finestra deve essere aperta prima che il sistema reagisca.",
+          "window_minimum_closed_time": "Il tempo minimo in cui tutte le finestre devono restare chiuse prima che il riscaldamento riprenda.",
           "sync_climates_with_mode": "Applica anche la modalità HVAC ai climi delle stanze quando cambia qui.",
           "frost_protection_temperature": "Continua a riscaldare quando la stanza scende sotto questa temperatura, anche con il termostato spento. Impostare a 0 per disattivare."
         },
@@ -333,7 +335,7 @@
       "description": "Questo servizio reimposta la parte integrale del controller PID per l’entità climate specificata. Può essere utile se il valore integrale è diventato troppo grande o se le prestazioni del PID sono peggiorate."
     },
     "pulse_width_modulation": {
-      "name": "Modulazione a larghezza d’impulso ",
+      "name": "Modulazione a larghezza d’impulso",
       "description": "Forza l’attivazione o la disattivazione della modulazione a larghezza d’impulso . Nota che può essere riattivata o disattivata automaticamente subito dopo.",
       "fields": {
         "enabled": {
@@ -371,6 +373,30 @@
     "room_fault": {
       "title": "{room} segnala un problema alla valvola",
       "description": "Il dispositivo in {room} di {name} segnala un allarme valvola. Controllare l'installazione, la calibrazione e il collegamento a un eventuale sensore di temperatura esterno."
+    },
+    "control_loop_stalled": {
+      "title": "La regolazione del riscaldamento non risponde",
+      "description": "SAT non completa un ciclo di regolazione per {name} da 15 minuti, quindi la caldaia potrebbe non seguire la richiesta. Controllare la connessione alla caldaia e il registro, poi ricaricare l'integrazione. L'avviso scompare quando la regolazione riprende."
+    },
+    "missing_inside_temperature": {
+      "title": "Temperatura interna mancante",
+      "description": "SAT non ha la temperatura interna di {name} da oltre 10 minuti e ha rilasciato la caldaia: un termostato su un gateway OpenTherm subentra, altrimenti il riscaldamento è spento. Controllare il sensore interno. SAT riprende il controllo quando ritorna."
+    },
+    "missing_outside_temperature": {
+      "title": "Temperatura esterna mancante",
+      "description": "SAT non ha la temperatura esterna di {name} da oltre 10 minuti e ha rilasciato la caldaia: un termostato su un gateway OpenTherm subentra, altrimenti il riscaldamento è spento. Controllare il sensore esterno o l'entità meteo. SAT riprende il controllo quando ritorna."
+    },
+    "missing_room_temperatures": {
+      "title": "Nessuna stanza è raggiungibile",
+      "description": "SAT non riesce a leggere alcuna stanza di {name} da oltre 10 minuti e ha rilasciato la caldaia: un termostato su un gateway OpenTherm subentra, altrimenti il riscaldamento è spento. Controllare i termostati delle stanze. SAT riprende il controllo quando uno ritorna."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Riscaldamento su una temperatura di riserva",
+      "description": "Il sensore interno di {name} non risponde, quindi SAT regola su {source} e nel frattempo non apprende nulla. I termostati sui radiatori misurano in eccesso, perciò la stanza può restare sotto l'obiettivo. Controllare il sensore. SAT vi ritorna da solo."
+    },
+    "missing_boiler": {
+      "title": "Gateway della caldaia non raggiungibile",
+      "description": "SAT non riceve nulla dal gateway della caldaia di {name} da oltre 10 minuti con il riscaldamento attivo, quindi ha smesso di comandarla e prova a rilasciarla. Controllare il gateway e il broker MQTT. SAT riprende il controllo quando il gateway ritorna."
     }
   },
   "entity": {

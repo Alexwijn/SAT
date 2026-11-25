@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.components.climate import HVACMode
@@ -41,9 +41,10 @@ from custom_components.sat.helpers import timestamp
 from custom_components.sat.temperature.history import TemperatureHistory
 from custom_components.sat.temperature.state import TemperatureState
 from custom_components.sat.manufacturer import ManufacturerFactory
+from custom_components.sat.inside_temperature import InsideTemperature
 from custom_components.sat.pid import PID
 from custom_components.sat.room_balance import RoomSignalReading, RoomSignals
-from custom_components.sat.types import HeaterState
+from custom_components.sat.types import ControlSignal, HeatingBlock, HeaterState
 from custom_components.sat.solar_gain import SolarGainController, SolarGainSnapshot
 from custom_components.sat.wind import WindHistory, WindReading
 from custom_components.sat.wind_sensitivity import WindDay
@@ -109,6 +110,18 @@ def test_requested_setpoint_uses_secondary_and_cap(monkeypatch, demand_control):
     assert demand_control.requested_setpoint == 43.1
 
 
+def test_requested_setpoint_is_not_capped_below_a_cold_main_room(monkeypatch, demand_control):
+    _update_climate_config(demand_control, options={CONF_HEATING_MODE: HeatingMode.COMFORT})
+    demand_control.heating_curve._value = 30.0
+
+    monkeypatch.setattr(PID, "output", property(lambda self: 42.0))
+    monkeypatch.setattr(type(demand_control), "temperature_state", property(lambda self: SimpleNamespace(error=1.0)))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.output", property(lambda self: 35.0))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.overshoot_cap", property(lambda self: 30.0))
+
+    assert demand_control.requested_setpoint == 42.0
+
+
 def test_requested_setpoint_applies_solar_gain_offset(monkeypatch, demand_control):
     _update_climate_config(demand_control, options={
         CONF_SOLAR_GAIN_COMPENSATION: True,
@@ -169,30 +182,29 @@ async def test_area_climate_change_updates_heating_curve(hass, demand_control):
     assert demand_control.heating_curve.value == expected_value
 
 
-def test_control_pid_resets_on_stale_inside_sensor(monkeypatch, hass, demand_control):
+def test_control_pid_skips_a_stale_inside_sensor(monkeypatch, hass, demand_control):
     _update_climate_config(demand_control, options={CONF_SENSOR_MAX_VALUE_AGE: "00:01:00"})
+    demand_control._inside_temperature = InsideTemperature(demand_control._config)
     demand_control._target_temperature = 21.0
 
     now = dt_util.utcnow()
-    monkeypatch.setattr(dt_util, "utcnow", lambda: now)
     hass.states.async_set("sensor.test_inside_sensor", "20")
     hass.states.async_set("sensor.test_outside_sensor", "5")
 
     monkeypatch.setattr(dt_util, "utcnow", lambda: now + timedelta(seconds=120))
 
-    reset_called = {"value": False}
-
-    def _reset(self):
-        reset_called["value"] = True
-
-    monkeypatch.setattr(PID, "reset", _reset)
+    update, reset = Mock(), Mock()
+    monkeypatch.setattr(demand_control.pid, "update", update)
+    monkeypatch.setattr(demand_control.pid, "reset", reset)
 
     demand_control.control_pid()
 
-    assert reset_called["value"] is True
+    update.assert_not_called()
+    reset.assert_not_called()
 
 
 async def test_control_loop_passes_the_target_temperature_change_time(monkeypatch, hass, demand_control):
+    hass.states.async_set("sensor.test_inside_sensor", "20")
     hass.states.async_set("sensor.test_outside_sensor", "5")
     demand_control._hvac_mode = HVACMode.HEAT
 
@@ -611,3 +623,30 @@ async def test_climate_reports_its_temperatures_natively(climate):
 def test_climate_provides_the_native_temperature_api_beside_the_legacy_one(climate):
     for name in ("temperature_unit", "current_temperature", "target_temperature"):
         assert {name, f"native_{name}"} <= set(vars(SatClimate))
+
+
+async def test_heating_blocked_by_names_the_reason(monkeypatch, demand_control, coordinator):
+    demand_control._hvac_mode = HVACMode.OFF
+    assert demand_control.heating_blocked_by is HeatingBlock.HVAC_OFF
+
+    demand_control._hvac_mode = HVACMode.HEAT
+    assert demand_control.heating_blocked_by is None
+
+    monkeypatch.setattr(type(demand_control), "valves_open", property(lambda self: False))
+    assert demand_control.heating_blocked_by is HeatingBlock.VALVES_CLOSED
+
+    monkeypatch.setattr(type(coordinator), "hot_water_active", property(lambda self: True))
+    assert demand_control.heating_blocked_by is HeatingBlock.HOT_WATER
+
+    demand_control.set_window_paused(True)
+    assert demand_control.heating_blocked_by is HeatingBlock.WINDOW
+
+    demand_control._fail_safe.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0)
+    assert demand_control.heating_blocked_by is HeatingBlock.INPUTS_MISSING
+
+
+async def test_frost_protection_is_not_blocked_by_being_off(demand_control):
+    demand_control._hvac_mode = HVACMode.OFF
+    demand_control._frost_protection_active = True
+
+    assert demand_control.heating_blocked_by is None

@@ -710,3 +710,10 @@ async def test_climate_feeds_both_monitors_without_rooms(hass, climate, demand_c
 
     assert [room.room_id for room in balance[0]] == [MAIN_ROOM_ID]
     assert [room.room_id for room in preheat[0]] == [MAIN_ROOM_ID]
+
+
+@WITH_ROOM
+async def test_blocked_room_is_not_calling(hass, climate, demand_control, domains, data, options, config):
+    hass.states.async_set(ROOM, HVACMode.HEAT, {"temperature": 21.0, "current_temperature": 19.0, "heating_blocked_by": "devices_released"})
+
+    assert demand_control.areas.get(ROOM).is_calling is False

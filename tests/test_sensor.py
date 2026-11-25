@@ -11,6 +11,7 @@ from custom_components.sat.cycles import Cycle, CycleMetrics, CycleShapeMetrics
 from custom_components.sat.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sat.efficiency import EfficiencyPeriod, EfficiencyReport
 from custom_components.sat.seasonal_curve import SeasonalCurveEvaluator, SeasonalCurveHour
+from custom_components.sat.sensor import BOILER_STATUS_ICONS
 from custom_components.sat.heating_control import ControlLoopSample
 from custom_components.sat.helpers import timestamp
 from custom_components.sat.pwm import PWMState
@@ -115,6 +116,7 @@ async def test_cycle_sensor_extra_attributes(hass, climate, demand_control, coor
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == CycleClassification.GOOD.name
+    assert state.attributes["icon"] == "mdi:check-circle"
 
     attrs = state.attributes
     assert attrs["kind"] == CycleKind.CENTRAL_HEATING.name
@@ -330,3 +332,4 @@ async def test_device_status_sensor_follows_heating_control(hass, heating_contro
     await hass.async_block_till_done()
 
     assert hass.states.get(entity_id).state == heating_control.device_status.name
+    assert hass.states.get(entity_id).attributes["icon"] == BOILER_STATUS_ICONS[heating_control.device_status]

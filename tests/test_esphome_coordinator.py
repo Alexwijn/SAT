@@ -585,3 +585,12 @@ async def test_commands_survive_a_disconnected_gateway(esphome_coordinator, runt
 
     runtime_data.client.number_command.assert_called_once()
     runtime_data.client.switch_command.assert_called_once()
+
+
+async def test_release_switches_heating_off(esphome_coordinator, runtime_data):
+    esphome_coordinator._keys = KEYS
+
+    await esphome_coordinator.async_release()
+
+    runtime_data.client.number_command.assert_any_call(KEYS.t_set.key, 10.0)
+    runtime_data.client.switch_command.assert_called_once_with(KEYS.ch_enable.key, False)

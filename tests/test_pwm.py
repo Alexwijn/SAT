@@ -636,3 +636,32 @@ def test_floor_observation_resets_when_the_on_phase_ends(pwm: PWM):
     assert pwm.status is PWMStatus.OFF
     assert pwm.state.floor_observed is False
     assert pwm.state.effective_on_temperature == 50.0
+
+
+def test_floor_is_not_learned_from_a_hot_water_burn(pwm: PWM):
+    pwm.enable()
+    pwm._status = PWMStatus.ON
+    pwm._last_update = 100.0
+    pwm._flame_on_at = 100.0
+    pwm._effective_on_temperature = 40.0
+
+    established = 100.0 + HEATER_STARTUP_TIMEFRAME
+    setpoint = pwm._heating_system.base_offset + 15.0
+
+    pwm.update(device_state=_make_device_state(flame_active=True, hot_water_active=True, flow_temperature=70.0), requested_setpoint=setpoint, timestamp=established)
+    assert pwm.state.effective_on_temperature == 40.0
+
+    pwm.update(device_state=_make_device_state(flame_active=True, flow_temperature=65.0), requested_setpoint=setpoint, timestamp=established + 5.0)
+    assert pwm.state.effective_on_temperature == 40.0
+
+
+def test_hourly_cap_survives_disable_and_enable(pwm: PWM):
+    pwm.enable()
+    pwm._cycle_starts = [800.0, 820.0, 840.0, 860.0]
+
+    pwm.disable()
+    pwm.enable()
+    pwm.update(device_state=_make_device_state(flame_active=True), requested_setpoint=pwm._heating_system.base_offset + 15.0, timestamp=900.0)
+
+    assert pwm.cycles_this_hour == 4
+    assert pwm.status is PWMStatus.OFF

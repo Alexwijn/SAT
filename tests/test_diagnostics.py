@@ -20,6 +20,7 @@ async def test_config_entry_diagnostics(hass):
     assert "pwm" in diagnostics["heating_control"]
     assert "climate" in diagnostics
     assert "curve_advisor" in diagnostics["climate"]
+    assert diagnostics["climate"]["heating_blocked_by"] == "hvac_off"
 
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

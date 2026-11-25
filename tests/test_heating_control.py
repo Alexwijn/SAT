@@ -1,6 +1,8 @@
 """Tests focused on heating control behavior."""
 
+import asyncio
 from typing import Optional
+from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.components.climate import HVACMode
@@ -271,6 +273,24 @@ async def test_enables_pwm_on_sustained_overshoot(heating_control, coordinator):
     ))
 
     assert heating_control.pwm_state.enabled is True
+
+
+async def test_no_overshoot_while_the_flame_is_off(heating_control, coordinator, monkeypatch):
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: False))
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(40.0)
+    start_time = timestamp()
+
+    for offset in (0.0, OVERSHOOT_SUSTAIN_SECONDS + 1):
+        await heating_control.update(HeatingDemand(
+            valves_open=True,
+            hvac_mode=HVACMode.HEAT,
+            requested_setpoint=30.0,
+            outside_temperature=10.0,
+            timestamp=start_time + offset,
+        ))
+
+    assert heating_control.pwm_state.enabled is False
 
 
 async def test_modulation_is_minimum_when_pwm_active_and_supported(heating_control, monkeypatch):
@@ -638,6 +658,40 @@ async def test_fresh_ignition_without_hold_derives_it_from_return_temperature(ha
     assert heating_control.control_setpoint == 30.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
 
 
+async def test_pwm_flame_off_without_return_temperature_offsets_the_flow(hass, monkeypatch, coordinator):
+    _update_coordinator_config(coordinator)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: None))
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.OFF)
+    await coordinator.async_set_boiler_temperature(35.0)
+    heating_control._control_setpoint = MINIMUM_SETPOINT
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == 35.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+
+
+async def test_fresh_ignition_without_return_temperature_holds_from_the_flow(hass, monkeypatch, coordinator):
+    _update_coordinator_config(coordinator)
+    monkeypatch.setattr(type(coordinator), "return_temperature", property(lambda self: None))
+
+    heating_control = SatHeatingControl(hass=hass, coordinator=coordinator, config=coordinator._config)
+    _enable_pwm(heating_control, PWMStatus.ON)
+    monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
+
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_boiler_temperature(37.0)
+    heating_control._control_setpoint = MINIMUM_SETPOINT
+
+    await heating_control.update(_make_demand(40.0))
+
+    assert heating_control.control_setpoint == 37.0 + OPTIONS_DEFAULTS[CONF_FLAME_OFF_SETPOINT_OFFSET_CELSIUS]
+
+
 async def _saturated_demand(heating_control, coordinator, monkeypatch, target_changed_seconds_ago: float) -> None:
     _enable_pwm(heating_control, PWMStatus.ON)
     monkeypatch.setattr(heating_control._pwm, "update", lambda *args, **kwargs: None)
@@ -781,3 +835,86 @@ async def test_cold_ignition_keeps_pwm_with_a_known_floor(heating_control, coord
     target_changed_at = now + SATURATION_SUSTAIN_SECONDS + 41
     await heating_control.update(_demand_at(61.0, now + SATURATION_SUSTAIN_SECONDS + 61, target_temperature_changed_at=target_changed_at))
     assert heating_control.pwm_state.enabled is False
+
+
+async def test_coordinator_release_switches_heating_off_once(coordinator, monkeypatch):
+    await coordinator.async_set_heater_state(HeaterState.ON)
+    await coordinator.async_set_control_setpoint(50.0)
+
+    await coordinator.async_release()
+
+    assert coordinator.released is True
+    assert coordinator.active is False
+    assert coordinator.setpoint == MINIMUM_SETPOINT
+
+    release = AsyncMock()
+    monkeypatch.setattr(coordinator, "_async_release", release)
+    await coordinator.async_release()
+
+    release.assert_not_awaited()
+
+
+async def test_released_boiler_is_kept_released(heating_control, coordinator, monkeypatch):
+    await heating_control.async_release()
+
+    keep_released = AsyncMock()
+    monkeypatch.setattr(coordinator, "_async_keep_released", keep_released)
+    await heating_control.async_release()
+
+    keep_released.assert_awaited_once()
+    assert coordinator.released is True
+
+
+async def test_commanding_again_ends_the_release(coordinator):
+    await coordinator.async_release()
+    await coordinator.async_set_control_setpoint(45.0)
+
+    assert coordinator.released is False
+
+
+async def test_undelivered_release_is_retried(coordinator, monkeypatch):
+    monkeypatch.setattr(type(coordinator), "available", property(lambda self: False))
+
+    await coordinator.async_release()
+
+    assert coordinator.released is False
+
+
+async def test_release_waits_for_an_update_in_flight(heating_control, coordinator, monkeypatch):
+    sending, finish = asyncio.Event(), asyncio.Event()
+
+    async def _slow_modulation(value):
+        sending.set()
+        await finish.wait()
+
+    monkeypatch.setattr(coordinator, "async_set_control_max_relative_modulation", _slow_modulation)
+    update = asyncio.create_task(heating_control.update(_make_demand(45.0)))
+    await sending.wait()
+    release = asyncio.create_task(heating_control.async_release())
+    await asyncio.sleep(0)
+
+    assert coordinator.released is False
+
+    finish.set()
+    await asyncio.gather(update, release)
+
+    assert coordinator.released is True
+    assert coordinator.active is False
+
+
+async def test_backend_that_never_returns_does_not_block_the_next_command(heating_control, coordinator, monkeypatch):
+    monkeypatch.setattr("custom_components.sat.heating_control.COMMAND_TIMEOUT_SECONDS", 0.01)
+
+    async def _never_returns(value):
+        await asyncio.Event().wait()
+
+    with monkeypatch.context() as hanging:
+        hanging.setattr(coordinator, "async_set_control_max_relative_modulation", _never_returns)
+
+        with pytest.raises(TimeoutError):
+            await heating_control.update(_make_demand(45.0))
+
+    await heating_control.update(_make_demand(45.0))
+    await heating_control.async_release()
+
+    assert coordinator.released is True

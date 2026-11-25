@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import datetime, timedelta
 from statistics import median
 from typing import Any, Callable, Optional, Union
 
-from homeassistant.components import sensor, weather
 from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN, HVACAction, HVACMode
-from homeassistant.const import ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import ATTR_TEMPERATURE, EVENT_HOMEASSISTANT_STARTED, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import CoreState, Event, EventStateChangedData, HassJob, HomeAssistant, State, callback
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
@@ -18,6 +19,8 @@ from homeassistant.util import dt as dt_util
 from .area import Area, Areas, DrivingRoom
 from .const import (
     COLD_SETPOINT,
+    DEADBAND,
+    DOMAIN,
     FROST_PROTECTION_HYSTERESIS_CELSIUS,
     FROST_PROTECTION_SETPOINT,
     HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS,
@@ -28,12 +31,15 @@ from .const import (
 from .coordinator import SatDataUpdateCoordinator
 from .efficiency import EfficiencyMonitor
 from .entry_data import SatConfig
+from .fail_safe import FailSafeMonitor, FailSafeState
 from .heating_control import HeatingDemand, SatHeatingControl
 from .heating_curve import (
     HeatingCurve, HeatingCurveAdvisor, HeatingCurveAdviceSample,
     RECOMMENDATION_MAXIMUM_ERROR_CELSIUS, RECOMMENDATION_MAXIMUM_SUN_ELEVATION, RECOMMENDATION_REQUEST_TOLERANCE_CELSIUS, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS,
 )
 from .helpers import clamp, ensure_list, event_timestamp, is_state_stale, state_age_seconds, timestamp
+from .inside_temperature import InsideTemperature
+from .outside_temperature import OutsideTemperature
 from .pid import PID, PID_UPDATE_INTERVAL
 from .preheat import PreheatForecast, PreheatMonitor
 from .room_balance import BoilerObservation, MAIN_ROOM_ID, RoomBalanceMonitor, RoomObservation, RoomSignals
@@ -42,8 +48,9 @@ from .solar_gain import SolarGainController, SolarGainSample, SolarGainSignals, 
 from .summer_simmer import SummerSimmer
 from .temperature.history import TemperatureHistory, TemperatureStatistics
 from .temperature.state import TemperatureState
-from .types import HeatingMode
+from .types import ControlSignal, FailSafePhase, HeatingBlock, HeatingMode, InsideSource
 from .warm_up import WARM_UP_MINIMUM_ERROR_CELSIUS, WarmUpEstimator
+from .watchdog import ControlWatchdog
 from .wind import WIND_HISTORY_STARTUP_DELAY_SECONDS, WindHistory, WindMonitor, WindReading
 from .wind_sensitivity import WIND_SENSITIVITY_UPDATE_INTERVAL, WindSensitivityMonitor
 
@@ -62,8 +69,14 @@ class SatDemandControl:
         self._heating_control = heating_control
 
         self._started: bool = False
+        self._controlling: bool = True
+        self._loop_stalled: bool = False
+        self._watchdog = ControlWatchdog()
+        self._fail_safe = FailSafeMonitor()
+        self._held_demand: Optional[HeatingDemand] = None
         self._id: Optional[str] = None
 
+        self._window_paused: bool = False
         self._frost_protection_active: bool = False
         self._target_temperature: Optional[float] = None
         self._hvac_mode: Optional[Union[HVACMode, str]] = None
@@ -83,6 +96,9 @@ class SatDemandControl:
 
         # Monitors
         self._wind = WindMonitor(self._config.sensors)
+        self._inside_source = InsideSource.SENSOR
+        self._inside_temperature = InsideTemperature(self._config)
+        self._outside_temperature = OutsideTemperature(self._config.sensors)
         self._wind_sensitivity = WindSensitivityMonitor()
         self._wind_history = WindHistory(self._config.entry_id, self._config.sensors)
         self._solar_gain = SolarGainController(self._config.solar_gain)
@@ -102,6 +118,11 @@ class SatDemandControl:
     def id(self) -> Optional[str]:
         """Return the id of the primary room."""
         return self._id
+
+    @property
+    def started(self) -> bool:
+        """Return whether control runs for the climate entity."""
+        return self._started
 
     @property
     def hvac_mode(self) -> Optional[HVACMode]:
@@ -140,13 +161,13 @@ class SatDemandControl:
         if self._config.rooms_only:
             return self.median_room_temperature
 
-        if (current_temperature := self._get_entity_state_float(self._config.sensors.inside_sensor_entity_id)) is None:
+        if (reading := self._inside_temperature.read(self._hass)) is None:
             return None
 
         if self._config.presets.thermal_comfort:
-            return SummerSimmer.index(current_temperature, self.current_humidity)
+            return SummerSimmer.index(reading.temperature, self.current_humidity)
 
-        return current_temperature
+        return reading.temperature
 
     @property
     def room_temperatures(self) -> dict[str, Optional[float]]:
@@ -228,6 +249,28 @@ class SatDemandControl:
         return self._frost_protection_active
 
     @property
+    def heating_blocked_by(self) -> Optional[HeatingBlock]:
+        """Return why heating is blocked, or None while it is allowed."""
+        if self.hvac_mode != HVACMode.HEAT:
+            return None if self._frost_protection_active else HeatingBlock.HVAC_OFF
+
+        if self._fail_safe.state.phase != FailSafePhase.CONTROLLING:
+            return HeatingBlock.INPUTS_MISSING
+
+        if self._window_paused:
+            return HeatingBlock.WINDOW
+
+        if self._coordinator.hot_water_active:
+            return HeatingBlock.HOT_WATER
+
+        return None if self.valves_open else HeatingBlock.VALVES_CLOSED
+
+    @callback
+    def set_window_paused(self, paused: bool) -> None:
+        """Remember whether an open window paused heating."""
+        self._window_paused = paused
+
+    @property
     def implied_curve_coefficient(self) -> Optional[float]:
         """Return the coefficient the house currently needs, while the system is in steady heating operation."""
         return self._curve_advisor.implied_coefficient(self._curve_advice_sample)
@@ -235,10 +278,7 @@ class SatDemandControl:
     @property
     def temperature_state(self) -> Optional[TemperatureState]:
         """Return the temperature state of the primary room."""
-        if self._config.sensors.inside_sensor_entity_id is None:
-            return None
-
-        if (state := self._hass.states.get(self._config.sensors.inside_sensor_entity_id)) is None:
+        if (reading := self._inside_temperature.read(self._hass)) is None:
             return None
 
         target_temperature = self.target_temperature
@@ -250,38 +290,15 @@ class SatDemandControl:
             entity_id=self._id or MAIN_ROOM_ID,
             setpoint=target_temperature,
             current=current_temperature,
-            last_reported=state.last_reported,
-            last_updated=state.last_updated,
-            last_changed=state.last_changed,
+            last_reported=reading.last_reported,
+            last_updated=reading.last_updated,
+            last_changed=reading.last_changed,
         )
 
     @property
     def current_outside_temperature(self) -> Optional[float]:
         """Return the current outside temperature"""
-        outside_sensor_entities = ensure_list(self._config.sensors.outside_sensor_entity_id)
-        outside_sensor_entities.sort(key=lambda x: "sensor" not in x)
-
-        for entity_id in outside_sensor_entities:
-            state = self._hass.states.get(entity_id)
-            if state is None:
-                continue
-
-            sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
-
-            if is_state_stale(state, sensor_max_value_age):
-                _LOGGER.debug("Outside sensor %s stale for %s (age=%.1fs > %.1fs)", entity_id, self._id, state_age_seconds(state), sensor_max_value_age)
-                continue
-
-            if state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
-                continue
-
-            if sensor.DOMAIN in entity_id:
-                return float(state.state)
-
-            if weather.DOMAIN in entity_id:
-                return float(state.attributes.get("temperature"))
-
-        return None
+        return self._outside_temperature.read(self._hass)
 
     @property
     def current_wind(self) -> Optional[WindReading]:
@@ -292,26 +309,19 @@ class SatDemandControl:
     def requested_setpoint(self) -> float:
         """Get the requested setpoint based on the heating curve and PIDs."""
         if self._config.rooms_only:
-            setpoint = self.areas.pids.output
+            demand = self.areas.pids.demand
         else:
             if self.heating_curve.value is None:
                 return MINIMUM_SETPOINT
 
-            setpoint = self.pid.output
-
             # ECO: only follow the primary PID.
             if self._config.presets.heating_mode == HeatingMode.ECO:
-                return clamp(round(setpoint, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
+                return clamp(round(self.pid.output, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
-            # Secondary rooms: heating information.
-            if (secondary_heating := self.areas.pids.output) is not None:
-                setpoint = max(setpoint, secondary_heating)
+            below_target = (temperature_state := self.temperature_state) is not None and temperature_state.error > DEADBAND
+            demand = self.areas.pids.demand.including(self.pid.output, below_target=below_target)
 
-        # Rooms that are overshooting cap the request.
-        overshoot_cap = self.areas.pids.overshoot_cap
-
-        if overshoot_cap is not None:
-            setpoint = min(setpoint, overshoot_cap)
+        setpoint = demand.setpoint
 
         if self._solar_gain_snapshot.active and self._config.solar_gain.enabled:
             setpoint -= self._config.solar_gain.setpoint_offset_celsius
@@ -360,6 +370,9 @@ class SatDemandControl:
 
             # If the thermostat is turned off, skip it
             if state.state == HVACMode.OFF:
+                continue
+
+            if Area.reports_block(state):
                 continue
 
             # If the thermostat reports that it is heating, we can assume the valves are open
@@ -412,6 +425,9 @@ class SatDemandControl:
         """Start controlling, with the given id for the primary room."""
         self._id = entity_id
         self._started = True
+        self._controlling = True
+        self._loop_stalled = False
+        self._watchdog.completed(timestamp())
 
         await self._heating_control.async_added_to_hass()
         await self.pid.async_added_to_hass(self._hass, entity_id, self._coordinator.id)
@@ -425,27 +441,41 @@ class SatDemandControl:
         await self.areas.async_added_to_hass(self._hass, self._coordinator.id)
 
         if self._hass.state is CoreState.running:
-            self._update_heating_curves()
-            self._register_event_listeners()
-
-            self.control_pid()
-            self.areas.control_pid()
-            self.schedule_heating_control_loop()
+            self._start_controlling()
         else:
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._update_heating_curves())
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self._register_event_listeners())
-
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.control_pid())
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.areas.control_pid())
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, lambda _: self.schedule_heating_control_loop())
+            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._start_controlling)
 
         self._target_temperature_changed_at = timestamp()
 
-        self._unsubscribers.append(
-            self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self.async_will_remove_from_hass)
-        )
+        self._unsubscribers.append(self._hass.async_add_shutdown_job(HassJob(self.async_stop_controlling)))
 
-    async def async_will_remove_from_hass(self, _event: Optional[Event] = None) -> None:
+    async def async_rename(self, entity_id: str) -> None:
+        """Carry on controlling under the new id of the climate entity."""
+        self._id = entity_id
+
+        await self.pid.async_rename(entity_id, self._coordinator.id)
+
+    @callback
+    def _start_controlling(self, _event: Optional[Event] = None) -> None:
+        """Start the controllers, their timers and the control loop."""
+        self._update_heating_curves()
+        self._register_event_listeners()
+
+        self.control_pid()
+        self.areas.control_pid()
+        self.schedule_heating_control_loop()
+
+    async def async_stop_controlling(self) -> None:
+        """Stop commanding the boiler and release it."""
+        self._controlling = False
+        self._cancel_scheduled_heating_control_loop()
+
+        try:
+            await self._heating_control.async_release()
+        except Exception:
+            _LOGGER.exception("Failed to release the boiler for %s", self._id)
+
+    async def async_will_remove_from_hass(self) -> None:
         """Stop controlling and persist what the monitors learned."""
         if not self._started:
             return
@@ -463,12 +493,16 @@ class SatDemandControl:
             self._cancel_wind_backfill()
             self._cancel_wind_backfill = None
 
+        await self.async_stop_controlling()
+        ir.async_delete_issue(self._hass, DOMAIN, f"control_loop_stalled_{self._config.entry_id}")
+        ir.async_delete_issue(self._hass, DOMAIN, f"control_signal_missing_{self._config.entry_id}")
+        ir.async_delete_issue(self._hass, DOMAIN, f"running_on_fallback_sensor_{self._config.entry_id}")
+
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
         await self._efficiency.async_will_remove_from_hass()
         await self._room_balance.async_save_data()
         await self._preheat.async_save_data()
-        await self._coordinator.async_will_remove_from_hass()
 
         for area in self.areas.items():
             await area.async_will_remove_from_hass()
@@ -487,6 +521,7 @@ class SatDemandControl:
     def set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Switch heating on or off."""
         self._hvac_mode = hvac_mode
+        self._held_demand = None
 
         self.reset_control_state()
         self.schedule_heating_control_loop()
@@ -545,30 +580,24 @@ class SatDemandControl:
             "rate_per_hour": rate.rate_per_hour if rate is not None else None,
         }
 
+    @callback
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Control the PID controller of the primary room and feed the monitors."""
         self._curve_advice_sample = None
         temperature_state = self.temperature_state
 
-        if not self._config.rooms_only:
-            sensor_max_value_age = self._config.sensors.sensor_max_value_age_seconds
-
-            if sensor_max_value_age > 0:
-                state = self._hass.states.get(self._config.sensors.inside_sensor_entity_id)
-                if is_state_stale(state, sensor_max_value_age):
-                    _LOGGER.debug(
-                        "Resetting PID for %s due to stale sensor %s (age=%.1fs > %.1fs)",
-                        self._id, self._config.sensors.inside_sensor_entity_id, state_age_seconds(state), sensor_max_value_age
-                    )
-                    self.pid.reset()
-                    return
-
-            if temperature_state is None:
-                _LOGGER.debug("Skipping control loop for %s because temperature is not available.", self._id)
-                return
+        if not self._config.rooms_only and temperature_state is None:
+            _LOGGER.debug("Skipping control loop for %s because temperature is not available.", self._id)
+            return
 
         now = event_timestamp(_time)
         self._wind.observe(self._hass, now)
+
+        if temperature_state is not None and self._inside_source != InsideSource.SENSOR:
+            self._solar_gain_snapshot = SolarGainSnapshot(active=False, rise_per_hour=None, sun_elevation=None)
+            self._warm_up.update(active=False, temperature=temperature_state.current, timestamp=now)
+            self.pid.update(temperature_state)
+            return
 
         if temperature_state is not None:
             self._solar_gain_snapshot = self._solar_gain.update(
@@ -778,6 +807,12 @@ class SatDemandControl:
     @callback
     def schedule_heating_control_loop(self, _time: Optional[datetime] = None, force: bool = False) -> None:
         """Schedule a debounced execution of the heating control loop."""
+        if not self._controlling:
+            return
+
+        if self._started:
+            self._update_stall_issue()
+
         if force or self._scheduled_heating_control_loop_is_overdue():
             self._cancel_scheduled_heating_control_loop()
             self._hass.async_create_task(self.async_control_heating_loop())
@@ -800,6 +835,33 @@ class SatDemandControl:
         _LOGGER.warning("Heating control loop for %s did not run %.0fs after being scheduled; running it now.", self._id, age)
         return True
 
+    @callback
+    def _update_stall_issue(self) -> None:
+        """Report a control loop that stopped completing, until it completes again."""
+        stalled = self._watchdog.check(timestamp())
+
+        if stalled == self._loop_stalled:
+            return
+
+        self._loop_stalled = stalled
+        issue_id = f"control_loop_stalled_{self._config.entry_id}"
+
+        if not stalled:
+            ir.async_delete_issue(self._hass, DOMAIN, issue_id)
+            return
+
+        _LOGGER.error("The heating control loop of %s stopped completing.", self._id)
+
+        ir.async_create_issue(
+            self._hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="control_loop_stalled",
+            translation_placeholders={"name": self._config.name},
+        )
+
     def _cancel_scheduled_heating_control_loop(self) -> None:
         self._control_heating_loop_scheduled_at = None
 
@@ -810,45 +872,157 @@ class SatDemandControl:
         self._control_heating_loop_unsub = None
 
     async def async_control_heating_loop(self, time: Optional[datetime] = None) -> None:
-        """Control the heating based on current temperature, target temperature, and outside temperature."""
+        """Run one control cycle and record that it completed."""
         self._cancel_scheduled_heating_control_loop()
 
-        if self._hvac_mode == HVACMode.OFF:
-            if self._update_frost_protection():
-                await self._heating_control.update(
-                    HeatingDemand(
-                        valves_open=True,
-                        hvac_mode=HVACMode.HEAT,
-                        timestamp=event_timestamp(time),
-                        requested_setpoint=max(self._coordinator.minimum_setpoint, FROST_PROTECTION_SETPOINT),
-                        outside_temperature=self.current_outside_temperature,
-                    )
-                )
-                return
-
-            await self._heating_control.update(
-                HeatingDemand(
-                    hvac_mode=HVACMode.OFF,
-                    valves_open=self.valves_open,
-                    timestamp=event_timestamp(time),
-                    requested_setpoint=MINIMUM_SETPOINT,
-                    outside_temperature=self.current_outside_temperature,
-                )
-            )
+        if not self._controlling:
             return
+
+        try:
+            await self._async_control_heating(time)
+        except TimeoutError:
+            _LOGGER.warning("Commands to the boiler of %s timed out.", self._id)
+            return
+
+        self._watchdog.completed(timestamp())
+
+    async def _async_control_heating(self, time: Optional[datetime] = None) -> None:
+        """Control the boiler, hold it or release it, depending on the signals that are available."""
+        now = event_timestamp(time)
+        self._follow_inside_source(now)
+        state = self._fail_safe.update(self._missing_signal(), now)
+        self._update_fail_safe_issue(state)
+
+        if state.phase != state.previous:
+            self.async_update_listeners()
+
+        if state.phase == FailSafePhase.HOLDING:
+            await self._async_hold_demand(now)
+            return
+
+        if state.phase == FailSafePhase.RELEASED:
+            await self._async_release_boiler(state)
+            return
+
+        if state.just_resumed:
+            self._resume_control()
+
+        self._held_demand = self._build_demand(now)
+        await self._heating_control.update(self._held_demand)
+
+    @callback
+    def _follow_inside_source(self, now: float) -> None:
+        """Restart the PID when the inside temperature changes source, and report a fallback."""
+        self._inside_temperature.observe(self._hass, now)
+
+        if (reading := self._inside_temperature.read(self._hass)) is None or reading.source == self._inside_source:
+            return
+
+        self._inside_source = reading.source
+        issue_id = f"running_on_fallback_sensor_{self._config.entry_id}"
+
+        self.pid.reset()
+        self.pid.forget_samples()
+        self.control_pid()
+
+        if reading.source == InsideSource.SENSOR:
+            ir.async_delete_issue(self._hass, DOMAIN, issue_id)
+            return
+
+        ir.async_create_issue(
+            self._hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="running_on_fallback_sensor",
+            translation_placeholders={"name": self._config.name, "source": reading.origin},
+        )
+
+    def _missing_signal(self) -> Optional[ControlSignal]:
+        """Return the signal that is missing to control the heating."""
+        if self.hvac_mode == HVACMode.OFF:
+            return None
+
+        if not self._coordinator.available:
+            return ControlSignal.BOILER
 
         if self.current_outside_temperature is None:
+            return ControlSignal.OUTSIDE_TEMPERATURE
+
+        if self._config.rooms_only:
+            return ControlSignal.ROOM_TEMPERATURES if self.areas.unreachable else None
+
+        return ControlSignal.INSIDE_TEMPERATURE if self.current_temperature is None else None
+
+    @callback
+    def _update_fail_safe_issue(self, state: FailSafeState) -> None:
+        """Report the signal the released boiler waits for, until it returns."""
+        issue_id = f"control_signal_missing_{self._config.entry_id}"
+
+        if state.just_resumed:
+            ir.async_delete_issue(self._hass, DOMAIN, issue_id)
+
+        if state.phase != FailSafePhase.RELEASED:
             return
 
-        await self._heating_control.update(
-            HeatingDemand(
-                hvac_mode=self.hvac_mode,
+        ir.async_create_issue(
+            self._hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=f"missing_{state.missing}",
+            translation_placeholders={"name": self._config.name},
+        )
+
+    async def _async_hold_demand(self, now: float) -> None:
+        """Replay the last demand, if there was one."""
+        if self._held_demand is not None:
+            await self._heating_control.update(replace(self._held_demand, timestamp=now))
+
+    async def _async_release_boiler(self, state: FailSafeState) -> None:
+        """Release the boiler, starting afresh once."""
+        if state.just_released:
+            self._held_demand = None
+            self.reset_control_state()
+            _LOGGER.warning("Released the boiler of %s because the %s has been missing for too long.", self._id, state.missing)
+
+        await self._heating_control.async_release()
+
+    def _resume_control(self) -> None:
+        """Bring the curves and controllers up to date after a release."""
+        self._update_heating_curves()
+        self.control_pid()
+        self.areas.control_pid()
+
+    def _build_demand(self, now: float) -> HeatingDemand:
+        """Turn the current state into a heating demand."""
+        if self._hvac_mode == HVACMode.OFF:
+            if self._update_frost_protection():
+                return HeatingDemand(
+                    timestamp=now,
+                    valves_open=True,
+                    hvac_mode=HVACMode.HEAT,
+                    requested_setpoint=max(self._coordinator.minimum_setpoint, FROST_PROTECTION_SETPOINT),
+                    outside_temperature=self.current_outside_temperature,
+                )
+
+            return HeatingDemand(
+                timestamp=now,
+                hvac_mode=HVACMode.OFF,
                 valves_open=self.valves_open,
-                timestamp=event_timestamp(time),
-                requested_setpoint=self.requested_setpoint,
+                requested_setpoint=MINIMUM_SETPOINT,
                 outside_temperature=self.current_outside_temperature,
-                target_temperature_changed_at=self._target_temperature_changed_at,
             )
+
+        return HeatingDemand(
+            timestamp=now,
+            hvac_mode=self.hvac_mode,
+            valves_open=self.valves_open,
+            requested_setpoint=self.requested_setpoint,
+            outside_temperature=self.current_outside_temperature,
+            target_temperature_changed_at=self._target_temperature_changed_at,
         )
 
     def _get_entity_state_float(self, entity_id: Optional[str]) -> Optional[float]:

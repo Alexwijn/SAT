@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Nom affiché dans Home Assistant.",
-          "device": "URL socket, p. ex. socket://otgw.local:25238."
+          "device": "URL socket, p. ex. {example_socket}."
         },
         "description": "Saisissez un nom et une URL socket (p. ex. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Activer la surveillance des erreurs",
           "climate_valve_offset": "Décalage de la vanne climatique",
-          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion ",
+          "force_pulse_width_modulation": "Forcer la Modulation de Largeur d'Impulsion",
           "maximum_consumption": "Consommation Maximale",
           "maximum_relative_modulation": "Modulation Relative Maximale",
           "minimum_consumption": "Consommation Minimale",
@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Synchroniser les climats avec le mode",
           "sensor_max_value_age": "Âge maximal de la valeur du capteur de température",
           "window_minimum_open_time": "Temps minimum d'ouverture de la fenêtre",
+          "window_minimum_closed_time": "Temps minimum de fermeture de la fenêtre",
           "frost_protection_temperature": "Température de protection antigel"
         },
         "data_description": {
           "cycles_per_hour": "Le nombre maximal de cycles par heure.",
           "sensor_max_value_age": "L'âge maximum de la valeur du capteur de température avant de la considérer comme stagnante.",
           "window_minimum_open_time": "Le temps minimum qu'une fenêtre doit être ouverte avant que le système ne réagisse.",
+          "window_minimum_closed_time": "Le temps minimum pendant lequel toutes les fenêtres doivent être fermées avant la reprise du chauffage.",
           "sync_climates_with_mode": "Applique aussi le mode HVAC aux climats des pièces lorsqu'il change ici.",
           "frost_protection_temperature": "Continuer à chauffer lorsque la pièce descend en dessous de cette température, même si le thermostat est éteint. Mettre à 0 pour désactiver."
         },
@@ -333,7 +335,7 @@
       "description": "Ce service réinitialise la partie intégrale du contrôleur PID pour l’entité climate spécifiée. Cela peut être utile si la valeur intégrale est devenue trop grande ou si les performances du PID se sont dégradées."
     },
     "pulse_width_modulation": {
-      "name": "Modulation de largeur d’impulsion ",
+      "name": "Modulation de largeur d’impulsion",
       "description": "Forcer l’activation ou la désactivation de la modulation de largeur d’impulsion . Notez qu’elle peut être réactivée ou désactivée automatiquement juste après.",
       "fields": {
         "enabled": {
@@ -371,6 +373,30 @@
     "room_fault": {
       "title": "{room} signale un problème de vanne",
       "description": "L'appareil de {room} de {name} signale une alarme de vanne. Vérifiez son installation, son étalonnage et le lien avec un éventuel capteur de température externe."
+    },
+    "control_loop_stalled": {
+      "title": "La régulation du chauffage ne répond plus",
+      "description": "SAT n'a terminé aucun cycle de régulation pour {name} depuis 15 minutes, la chaudière peut donc ne pas suivre la demande. Vérifiez la connexion à la chaudière et le journal, puis rechargez l'intégration. Ce message disparaît dès que la régulation reprend."
+    },
+    "missing_inside_temperature": {
+      "title": "Température intérieure absente",
+      "description": "SAT n'a pas de température intérieure pour {name} depuis plus de 10 minutes et a libéré la chaudière : un thermostat relié à une passerelle OpenTherm prend le relais, sinon le chauffage est arrêté. Vérifiez le capteur intérieur. SAT reprend le contrôle à son retour."
+    },
+    "missing_outside_temperature": {
+      "title": "Température extérieure absente",
+      "description": "SAT n'a pas de température extérieure pour {name} depuis plus de 10 minutes et a libéré la chaudière : un thermostat relié à une passerelle OpenTherm prend le relais, sinon le chauffage est arrêté. Vérifiez le capteur extérieur ou l'entité météo. SAT reprend le contrôle à son retour."
+    },
+    "missing_room_temperatures": {
+      "title": "Aucune pièce n'est joignable",
+      "description": "SAT ne peut lire aucune pièce de {name} depuis plus de 10 minutes et a libéré la chaudière : un thermostat relié à une passerelle OpenTherm prend le relais, sinon le chauffage est arrêté. Vérifiez les thermostats des pièces. SAT reprend le contrôle dès que l'un d'eux revient."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Chauffage sur une température de secours",
+      "description": "Le capteur intérieur de {name} est perdu : SAT régule sur {source} et n'apprend rien pendant ce temps. Les thermostats de radiateur mesurent trop chaud, la pièce peut donc rester sous sa consigne. Vérifiez le capteur. SAT y revient de lui-même."
+    },
+    "missing_boiler": {
+      "title": "Passerelle de chaudière injoignable",
+      "description": "SAT n'a rien reçu de la passerelle de chaudière de {name} depuis plus de 10 minutes alors que le chauffage est actif : il ne la commande plus et tente de libérer la chaudière. Vérifiez la passerelle et le broker MQTT. SAT reprend le contrôle à son retour."
     }
   },
   "entity": {

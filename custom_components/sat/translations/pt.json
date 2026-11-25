@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Nome exibido no Home Assistant.",
-          "device": "URL de socket, ex.: socket://otgw.local:25238."
+          "device": "URL de socket, ex.: {example_socket}."
         },
         "description": "Digite um nome e uma URL de socket (ex.: {example_socket}).",
         "title": "OpenTherm Gateway ( SERIAL )"
@@ -189,7 +189,7 @@
         "data": {
           "error_monitoring": "Ativar monitoramento de erros",
           "climate_valve_offset": "Offset da válvula do clima",
-          "force_pulse_width_modulation": "Forçar Modulação por Largura de Pulso ",
+          "force_pulse_width_modulation": "Forçar Modulação por Largura de Pulso",
           "maximum_consumption": "Consumo Máximo",
           "maximum_relative_modulation": "Modulação Relativa Máxima",
           "minimum_consumption": "Consumo Mínimo",
@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Sincronizar climas com o modo",
           "sensor_max_value_age": "Idade máxima do valor do sensor de temperatura",
           "window_minimum_open_time": "Tempo mínimo para a janela estar aberta",
+          "window_minimum_closed_time": "Tempo mínimo para a janela estar fechada",
           "frost_protection_temperature": "Temperatura de proteção anticongelamento"
         },
         "data_description": {
           "cycles_per_hour": "A quantidade máxima de ciclos por hora.",
           "sensor_max_value_age": "A idade máxima do valor do sensor de temperatura antes de ser considerado como estagnado.",
           "window_minimum_open_time": "O tempo mínimo que uma janela deve estar aberta antes de o sistema reagir.",
+          "window_minimum_closed_time": "O tempo mínimo que todas as janelas devem estar fechadas antes de o aquecimento ser retomado.",
           "sync_climates_with_mode": "Também aplica o modo HVAC aos climas dos ambientes quando alterado aqui.",
           "frost_protection_temperature": "Continuar a aquecer quando a divisão descer abaixo desta temperatura, mesmo com o termóstato desligado. Definir como 0 para desativar."
         },
@@ -333,7 +335,7 @@
       "description": "Este serviço redefine a parte integral do controlador PID para a entidade climate especificada. Pode ser útil se o valor integral ficou demasiado grande ou se o desempenho do PID se degradou."
     },
     "pulse_width_modulation": {
-      "name": "Modulação por largura de pulso ",
+      "name": "Modulação por largura de pulso",
       "description": "Forçar ativar ou desativar a Modulação por Largura de Pulso . Note que pode ser ativada ou desativada automaticamente logo a seguir.",
       "fields": {
         "enabled": {
@@ -371,6 +373,30 @@
     "room_fault": {
       "title": "{room} comunica um problema de válvula",
       "description": "O dispositivo em {room} de {name} comunica um alarme de válvula. Verifique a instalação, a calibração e a ligação a qualquer sensor de temperatura externo."
+    },
+    "control_loop_stalled": {
+      "title": "O controlo do aquecimento deixou de responder",
+      "description": "O SAT não conclui um ciclo de controlo para {name} há 15 minutos, pelo que a caldeira pode não seguir o pedido. Verifique a ligação à caldeira e o registo e depois recarregue a integração. Este aviso desaparece quando o controlo é retomado."
+    },
+    "missing_inside_temperature": {
+      "title": "Temperatura interior em falta",
+      "description": "O SAT não tem temperatura interior para {name} há mais de 10 minutos e libertou a caldeira: um termóstato num gateway OpenTherm assume, caso contrário o aquecimento fica desligado. Verifique o sensor interior. O SAT retoma o controlo quando este voltar."
+    },
+    "missing_outside_temperature": {
+      "title": "Temperatura exterior em falta",
+      "description": "O SAT não tem temperatura exterior para {name} há mais de 10 minutos e libertou a caldeira: um termóstato num gateway OpenTherm assume, caso contrário o aquecimento fica desligado. Verifique o sensor exterior ou a entidade meteorológica. O SAT retoma o controlo quando voltar."
+    },
+    "missing_room_temperatures": {
+      "title": "Nenhuma divisão está acessível",
+      "description": "O SAT não consegue ler nenhuma divisão de {name} há mais de 10 minutos e libertou a caldeira: um termóstato num gateway OpenTherm assume, caso contrário o aquecimento fica desligado. Verifique os termóstatos das divisões. O SAT retoma o controlo quando um voltar."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Aquecimento com temperatura de reserva",
+      "description": "O sensor interior de {name} perdeu-se, por isso o SAT regula por {source} e entretanto não aprende nada. Os termóstatos de radiador medem em excesso, pelo que a divisão pode ficar abaixo do objetivo. Verifique o sensor. O SAT volta a usá-lo sozinho."
+    },
+    "missing_boiler": {
+      "title": "Gateway da caldeira inacessível",
+      "description": "O SAT não recebe nada do gateway da caldeira de {name} há mais de 10 minutos com o aquecimento ligado, por isso deixou de a comandar e tenta libertá-la. Verifique o gateway e o broker MQTT. O SAT retoma o controlo quando o gateway voltar."
     }
   },
   "entity": {

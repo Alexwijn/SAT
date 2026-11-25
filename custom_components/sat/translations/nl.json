@@ -133,7 +133,7 @@
         },
         "data_description": {
           "name": "Weergavenaam in Home Assistant.",
-          "device": "Socket-URL, bijv. socket://otgw.local:25238."
+          "device": "Socket-URL, bijv. {example_socket}."
         },
         "description": "Voer een naam en een socket-URL in (bijv. {example_socket}).",
         "title": "OpenTherm Gateway ( SERIEEL )"
@@ -289,12 +289,14 @@
           "sync_climates_with_mode": "Synchroniseer klimaten met modus",
           "sensor_max_value_age": "Maximale leeftijd van de waarden van de temperatuursensor",
           "window_minimum_open_time": "Minimale open tijd van het raam",
+          "window_minimum_closed_time": "Minimale dicht tijd van het raam",
           "frost_protection_temperature": "Vorstbeschermingstemperatuur"
         },
         "data_description": {
           "cycles_per_hour": "Het maximale aantal cycli per uur.",
           "sensor_max_value_age": "De maximale leeftijd van de waarden van de temperatuursensor voordat het als verouderd wordt beschouwd.",
           "window_minimum_open_time": "De minimale tijd dat een raam open moet zijn voordat het systeem reageert.",
+          "window_minimum_closed_time": "De minimale tijd dat alle ramen dicht moeten zijn voordat de verwarming wordt hervat.",
           "sync_climates_with_mode": "Stel ook de HVAC-modus in op kamerklimaten wanneer die hier verandert.",
           "frost_protection_temperature": "Blijf verwarmen wanneer de kamer onder deze temperatuur zakt, ook als de thermostaat uit staat. Zet op 0 om uit te schakelen."
         },
@@ -333,7 +335,7 @@
       "description": "Deze service reset het integrale deel van de PID-regelaar voor de opgegeven climate-entiteit. Dit kan nuttig zijn als de integrale waarde te groot is geworden of als de PID-prestaties zijn verslechterd."
     },
     "pulse_width_modulation": {
-      "name": "Pulsbreedtemodulatie ",
+      "name": "Pulsbreedtemodulatie",
       "description": "Pulsbreedtemodulatie geforceerd aan of uit zetten. Let op dat deze kort daarna automatisch weer aan of uit kan worden gezet.",
       "fields": {
         "enabled": {
@@ -371,6 +373,30 @@
     "room_fault": {
       "title": "{room} meldt een klepprobleem",
       "description": "Het apparaat in {room} van {name} meldt een klepalarm. Controleer de installatie, de kalibratie en een eventuele koppeling met een externe temperatuursensor."
+    },
+    "control_loop_stalled": {
+      "title": "Verwarmingsregeling reageert niet meer",
+      "description": "SAT heeft voor {name} al 15 minuten geen regelcyclus afgerond, waardoor de ketel de warmtevraag mogelijk niet volgt. Controleer de verbinding met de ketel en het logboek en herlaad daarna de integratie. Deze melding verdwijnt zodra de regeling wordt hervat."
+    },
+    "missing_inside_temperature": {
+      "title": "Binnentemperatuur ontbreekt",
+      "description": "SAT heeft voor {name} al meer dan 10 minuten geen binnentemperatuur en heeft de ketel vrijgegeven: een thermostaat aan een OpenTherm-gateway neemt het over, anders staat de verwarming uit. Controleer de binnentemperatuursensor. SAT neemt de regeling terug zodra die terugkeert."
+    },
+    "missing_outside_temperature": {
+      "title": "Buitentemperatuur ontbreekt",
+      "description": "SAT heeft voor {name} al meer dan 10 minuten geen buitentemperatuur en heeft de ketel vrijgegeven: een thermostaat aan een OpenTherm-gateway neemt het over, anders staat de verwarming uit. Controleer de buitentemperatuursensor of weer-entiteit. SAT neemt de regeling terug zodra die terugkeert."
+    },
+    "missing_room_temperatures": {
+      "title": "Geen enkele kamer is bereikbaar",
+      "description": "SAT kan al meer dan 10 minuten geen enkele kamer van {name} uitlezen en heeft de ketel vrijgegeven: een thermostaat aan een OpenTherm-gateway neemt het over, anders staat de verwarming uit. Controleer de kamerthermostaten. SAT neemt de regeling terug zodra er een terugkeert."
+    },
+    "running_on_fallback_sensor": {
+      "title": "Verwarmen op een reservetemperatuur",
+      "description": "De binnentemperatuursensor van {name} is weggevallen, daarom regelt SAT op {source} en leert het intussen niets. Thermostaatknoppen op radiatoren meten warm, dus de kamer kan koeler blijven dan ingesteld. Controleer de sensor. SAT schakelt er vanzelf naar terug."
+    },
+    "missing_boiler": {
+      "title": "Ketelgateway is niet bereikbaar",
+      "description": "SAT heeft al meer dan 10 minuten niets gehoord van de ketelgateway van {name} terwijl de verwarming aan staat, en is daarom gestopt met aansturen en probeert de ketel vrij te geven. Controleer de gateway en de MQTT-broker. SAT neemt de regeling terug zodra de gateway terugkeert."
     }
   },
   "entity": {

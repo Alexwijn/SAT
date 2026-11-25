@@ -3,11 +3,12 @@ import traceback
 
 from homeassistant.components.climate import PRESET_HOME
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.restore_state import DATA_RESTORE_STATE
 from homeassistant.helpers.storage import Store
-from sentry_sdk import Client, Hub
+from sentry_sdk import Client, get_global_scope
 
 from .const import (
     CONF_FLOW_SETPOINT_OFFSET_CELSIUS,
@@ -22,6 +23,7 @@ from .const import (
 from .coordinator import SatDataUpdateCoordinatorFactory
 from .demand_control import SatDemandControl
 from .entry_data import SatConfig, SatEntryData
+from .entry_stores import EntryStores
 from .heating_control import SatHeatingControl
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -60,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    entry.async_on_unload(hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, entry_data.async_stop))
 
     return True
 
@@ -83,6 +86,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         if getattr(entry_data, "coordinator", None) is not None:
+            await entry_data.coordinator.async_release()
+    except Exception as error:
+        _LOGGER.error("Error while releasing the boiler: %s", error)
+
+    try:
+        if getattr(entry_data, "coordinator", None) is not None:
             await entry_data.coordinator.async_will_remove_from_hass()
     except Exception as error:
         _LOGGER.error("Error during coordinator cleanup: %s", error)
@@ -103,6 +112,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data.pop(DOMAIN, None)
 
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove what was stored for a config entry."""
+    await EntryStores(hass, entry).async_remove()
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -310,8 +324,7 @@ def initialize_sentry() -> Client:
         dsn="https://144b75a0111295466e4f7f438ee79bbe@o4508432869621760.ingest.de.sentry.io/4508432872898640",
     )
 
-    # Bind the Sentry client to the Sentry hub
-    hub = Hub(client)
-    hub.bind_client(client)
+    # Bind the Sentry client to the global scope
+    get_global_scope().set_client(client)
 
     return client

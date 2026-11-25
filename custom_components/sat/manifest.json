@@ -1,6 +1,11 @@
 {
   "domain": "sat",
   "name": "Smart Autotune Thermostat",
+  "after_dependencies": [
+    "energy",
+    "esphome",
+    "recorder"
+  ],
   "codeowners": [
     "@Alexwijn"
   ],
@@ -8,11 +13,6 @@
   "dependencies": [
     "mqtt",
     "dhcp"
-  ],
-  "after_dependencies": [
-    "energy",
-    "esphome",
-    "recorder"
   ],
   "dhcp": [
     {
@@ -28,8 +28,8 @@
     "OTGW/value/+"
   ],
   "requirements": [
-    "pyotgw==2.2.2",
-    "sentry-sdk==2.19.2"
+    "pyotgw>=2.2.2",
+    "sentry-sdk>=2.19.2"
   ],
-  "version": "5.0.0"
+  "version": "5.1.0"
 }

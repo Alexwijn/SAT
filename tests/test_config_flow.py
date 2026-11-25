@@ -1,8 +1,11 @@
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.data_entry_flow import FlowResultType
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sat.config_flow import SatFlowHandler
 from custom_components.sat.const import (
@@ -85,3 +88,37 @@ async def test_new_entry_enables_overshoot_protection(hass):
 
 def test_entries_that_disabled_overshoot_protection_keep_it_disabled():
     assert make_config(data={CONF_OVERSHOOT_PROTECTION: False}).overshoot_protection is False
+
+
+async def test_manufacturer_step_does_not_release_the_boiler(hass):
+    flow_handler = _sensors_flow(hass)
+
+    with patch("custom_components.sat.coordinator.SatDataUpdateCoordinator.async_release") as release:
+        await flow_handler.async_step_manufacturer()
+
+    release.assert_not_called()
+
+
+async def test_system_configuration_offers_the_window_close_delay(hass):
+    entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA, options={})
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "system_configuration"})
+
+    defaults = {str(key): key.default() for key in result["data_schema"].schema}
+
+    assert defaults["window_minimum_closed_time"] == "00:00:00"
+
+
+def test_existing_entries_have_no_window_close_delay():
+    assert make_config().sensors.window_minimum_closed_time_seconds == 0
+
+
+def test_window_close_delay_is_translated_in_every_language():
+    for file in sorted((Path(__file__).parent.parent / "custom_components" / "sat" / "translations").glob("*.json")):
+        step = json.loads(file.read_text())["options"]["step"]["system_configuration"]
+
+        assert step["data"]["window_minimum_closed_time"], file.stem
+        assert step["data_description"]["window_minimum_closed_time"], file.stem

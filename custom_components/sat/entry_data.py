@@ -11,7 +11,7 @@ from .helpers import calculate_default_maximum_setpoint, convert_time_str_to_sec
 from .types import HeatingSystem, HeatingMode
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
+    from homeassistant.core import Event, HomeAssistant
 
     from .climate import SatClimate
     from .demand_control import SatDemandControl
@@ -39,6 +39,7 @@ class SensorsConfig:
 
     sensor_max_value_age_seconds: float
     window_minimum_open_time_seconds: float
+    window_minimum_closed_time_seconds: float
 
 
 @dataclass(frozen=True)
@@ -210,6 +211,9 @@ class SatConfig:
             outside_sensor_entity_id=self.data[CONF_OUTSIDE_SENSOR_ENTITY_ID],
             wind_sensor_entity_id=list(self.data.get(CONF_WIND_SENSOR_ENTITY_ID) or []),
 
+            window_minimum_closed_time_seconds=convert_time_str_to_seconds(
+                self.options.get(CONF_WINDOW_MINIMUM_CLOSED_TIME)
+            ),
             window_minimum_open_time_seconds=convert_time_str_to_seconds(
                 self.options.get(CONF_WINDOW_MINIMUM_OPEN_TIME)
             ),
@@ -330,6 +334,11 @@ class SatEntryData:
 
     sentry: Optional[Client] = None
     climate: Optional[SatClimate] = None
+
+    async def async_stop(self, _event: Optional[Event] = None) -> None:
+        """Stop control and disconnect the backend as Home Assistant stops."""
+        await self.demand_control.async_will_remove_from_hass()
+        await self.coordinator.async_will_remove_from_hass()
 
 
 def get_entry_data(hass: HomeAssistant, entry_id: str) -> SatEntryData:

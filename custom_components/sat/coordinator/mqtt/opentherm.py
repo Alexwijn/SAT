@@ -3,7 +3,10 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from homeassistant.core import HomeAssistant
+
 from . import SatMqttCoordinator
+from ...entry_data import SatConfig
 from ...manufacturers.ideal import Ideal
 from ...manufacturers.immergas import Immergas
 from ...manufacturers.intergas import Intergas
@@ -37,6 +40,11 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 class SatOpenThermMqttCoordinator(SatMqttCoordinator):
     """Class to manage to fetch data from the OTGW Gateway using mqtt."""
+
+    def __init__(self, hass: HomeAssistant, config: SatConfig) -> None:
+        super().__init__(hass, config)
+
+        self._settings: dict[str, str] = {}
 
     @property
     def type(self) -> str:
@@ -221,6 +229,16 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
             DATA_DHW_SETPOINT_MAXIMUM,
         ]
 
+    def get_restorable_entities(self) -> list[str]:
+        return [
+            DATA_SLAVE_MEMBERID,
+            DATA_BOILER_CAPACITY,
+            DATA_REL_MIN_MOD_LEVEL,
+            DATA_REL_MIN_MOD_LEVEL_LEGACY,
+            DATA_DHW_SETPOINT_MINIMUM,
+            DATA_DHW_SETPOINT_MAXIMUM,
+        ]
+
     async def async_set_control_setpoint(self, value: float) -> None:
         await self._publish_command(f"CS={value:.1f}")
         await self._publish_command(f"PM=25")
@@ -228,19 +246,28 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_setpoint(value)
 
     async def async_set_control_hot_water_setpoint(self, value: float) -> None:
-        await self._publish_command(f"SW={value:.1f}")
+        await self._publish_setting(f"SW={value:.1f}")
 
         await super().async_set_control_hot_water_setpoint(value)
 
     async def async_set_hot_water_enabled(self, enabled: bool) -> None:
-        await self._publish_command(f"HW={1 if enabled else 0}")
+        await self._publish_setting(f"HW={1 if enabled else 0}")
 
         await super().async_set_hot_water_enabled(enabled)
 
     async def async_set_control_thermostat_setpoint(self, value: float) -> None:
-        await self._publish_command(f"TC={value:.1f}")
+        await self._publish_setting(f"TC={value:.1f}")
 
         await super().async_set_control_thermostat_setpoint(value)
+
+    async def _async_release(self) -> None:
+        """Hand the boiler back to the thermostat on the gateway."""
+        await self._publish_command("CS=0")
+
+        if isinstance(self.manufacturer, Immergas):
+            await self._publish_command(f"TP=11:12={min(self._config.pwm.maximum_relative_modulation, 80)}")
+
+        await self._publish_command("MM=T")
 
     async def async_set_heater_state(self, state: HeaterState) -> None:
         await self._publish_command(f"CH={1 if state == HeaterState.ON else 0}")
@@ -256,9 +283,25 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         await super().async_set_control_max_relative_modulation(value)
 
     async def async_set_control_max_setpoint(self, value: float) -> None:
-        await self._publish_command(f"SH={value:.1f}")
+        await self._publish_setting(f"SH={value:.1f}")
 
         await super().async_set_control_max_setpoint(value)
+
+    async def async_resynchronize(self) -> None:
+        """Repeat the boot commands and the settings made since starting."""
+        await super().async_resynchronize()
+
+        for command in list(self._settings.values()):
+            await self._publish_command(command)
+
+    async def _publish_setting(self, command: str) -> None:
+        """Publish a setting and remember it for when the gateway returns."""
+        self._settings[command.partition("=")[0]] = command
+
+        await self._publish_command(command)
+
+    def _get_topic_for_availability(self) -> Optional[str]:
+        return f"{self._topic}/value/{self._device_id}"
 
     def _get_topic_for_subscription(self, key: str) -> str:
         return f"{self._topic}/value/{self._device_id}/{key}"

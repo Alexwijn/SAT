@@ -14,6 +14,8 @@ from ...entry_data import SatConfig
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
+PAYLOAD_ONLINE = "online"
+PAYLOAD_OFFLINE = "offline"
 
 
 class SatMqttCoordinator(SatDataUpdateCoordinator):
@@ -24,12 +26,44 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
         self._device_id: str = str(self._config.device)
         self._topic: str = self._config.mqtt_topic or ""
+        self._online: bool = False
+        self._was_offline: bool = False
         self._subscriptions: list[Callable[[], None]] = []
         self._store: Store = Store(hass, STORAGE_VERSION, f"sat.mqtt.{self._device_id}")
 
     @property
     def id(self) -> str:
         return self._device_id
+
+    @property
+    def available(self) -> bool:
+        """Whether the gateway is known to be there, which stored and retained values do not prove."""
+        return self._online or self._config.simulation.enabled
+
+    @callback
+    def _mark_online(self) -> None:
+        """Remember that the gateway is there, bringing it up to date when it was offline."""
+        self._online = True
+
+        if self._was_offline:
+            self._was_offline = False
+            self.hass.async_create_task(self.async_resynchronize())
+
+    @callback
+    def _handle_availability_message(self, message) -> None:
+        """Follow the online and offline announcements of the gateway."""
+        payload = str(message.payload).strip().lower()
+
+        if payload == PAYLOAD_ONLINE:
+            self._mark_online()
+
+        if payload == PAYLOAD_OFFLINE:
+            self._online = False
+            self._was_offline = True
+
+    async def async_resynchronize(self) -> None:
+        """Repeat what a gateway forgets while it is offline."""
+        await self.boot()
 
     @staticmethod
     def _decode_payload(value: Any) -> Any:
@@ -52,6 +86,9 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
 
     async def async_added_to_hass(self, hass: HomeAssistant) -> None:
         await mqtt.async_wait_for_mqtt_client(hass)
+
+        if (availability_topic := self._get_topic_for_availability()) is not None:
+            self._subscriptions.append(await mqtt.async_subscribe(self.hass, availability_topic, self._handle_availability_message))
 
         for key in self.get_tracked_entities():
             self._subscriptions.append(await mqtt.async_subscribe(
@@ -77,11 +114,19 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     async def _load_stored_data(self) -> None:
         """Load the data from persistent storage."""
         if stored_data := await self._store.async_load():
-            self.async_set_updated_data({key: value for key, value in stored_data.items() if value not in (None, "")})
+            self.async_set_updated_data(self._restorable(stored_data))
 
     async def _save_data(self) -> None:
         """Save the data to persistent storage."""
-        await self._store.async_save(self.data)
+        await self._store.async_save(self._restorable(self.data))
+
+    def _restorable(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return the values that still hold after a restart."""
+        return {key: value for key, value in data.items() if key in self.get_restorable_entities() and value not in (None, "")}
+
+    def get_restorable_entities(self) -> list[str]:
+        """Return the values that cannot change while Home Assistant is down."""
+        return []
 
     @abstractmethod
     def get_tracked_entities(self) -> list[str]:
@@ -92,6 +137,10 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
     def _get_topic_for_subscription(self, key: str) -> str:
         """Method to be overridden in subclasses to provide a specific topic for subscribing."""
         pass
+
+    def _get_topic_for_availability(self) -> Optional[str]:
+        """Return the topic on which the gateway announces that it is online or offline."""
+        return None
 
     @abstractmethod
     def _get_topic_for_publishing(self) -> str:
@@ -109,6 +158,9 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         @callback
         def message_handler(message):
             """Handle an incoming MQTT message and schedule an update."""
+
+            if not message.retain:
+                self._mark_online()
 
             try:
                 # Process the payload and update the data property

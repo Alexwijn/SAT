@@ -313,3 +313,55 @@ def test_hot_water_active_detects_charging_and_boolean_payloads(coordinator):
 
     coordinator.data.update({"tapwateractive": "on"})
     assert coordinator.hot_water_active is True
+
+
+async def test_maximum_power_is_not_written_again_while_unchanged(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_control_max_relative_modulation(100)
+    await coordinator.async_set_control_max_relative_modulation(100)
+    coordinator.data.update({"burnmaxpower": 100})
+    await coordinator.async_set_control_max_relative_modulation(100)
+
+    assert calls == [{"cmd": "burnmaxpower", "value": 100}]
+
+
+async def test_maximum_power_is_written_again_when_the_boiler_reports_another(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+
+    await coordinator.async_set_control_max_relative_modulation(100)
+    coordinator.data.update({"burnmaxpower": 60})
+    await coordinator.async_set_control_max_relative_modulation(100)
+
+    assert calls == [{"cmd": "burnmaxpower", "value": 100}] * 2
+
+
+async def test_release_switches_heating_off_and_restores_the_power(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+    await coordinator.async_set_control_max_relative_modulation(100)
+    calls.clear()
+
+    await coordinator.async_release()
+
+    assert calls == [{"cmd": "selflowtemp", "value": 0}, {"cmd": "burnmaxpower", "value": 100}]
+
+
+async def test_released_boiler_keeps_receiving_the_off_setpoint(coordinator, monkeypatch):
+    calls = _commands(monkeypatch, coordinator)
+    coordinator._mark_online()
+    await coordinator.async_release()
+    calls.clear()
+
+    await coordinator.async_release()
+    await coordinator.async_release()
+
+    assert coordinator.released is True
+    assert calls == [{"cmd": "selflowtemp", "value": 0}] * 2
+
+
+async def test_nothing_is_restored_from_the_store(coordinator):
+    coordinator._store.async_load = AsyncMock(return_value={"burngas": "on", "slave": {"status": {"flame": True}}})
+
+    await coordinator.async_setup()
+
+    assert dict(coordinator.data) == {}

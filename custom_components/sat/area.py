@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta, datetime
 from typing import Optional
 
@@ -11,10 +11,10 @@ from homeassistant.const import (
     STATE_UNKNOWN,
     STATE_UNAVAILABLE,
 )
-from homeassistant.core import HomeAssistant, State
+from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import COLD_SETPOINT, MINIMUM_SETPOINT
+from .const import COLD_SETPOINT, DEADBAND, MINIMUM_SETPOINT
 from .entry_data import SatConfig
 from .heating_curve import HeatingCurve, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS
 from .helpers import event_timestamp, float_value, is_state_stale, state_age_seconds
@@ -28,11 +28,38 @@ ATTR_TEMPERATURE = "temperature"
 ATTR_CURRENT_TEMPERATURE = "current_temperature"
 ATTR_SENSOR_TEMPERATURE_ID = "sensor_temperature_id"
 ATTR_CURRENT_VALVE_POSITION = "current_valve_position"
+ATTR_HEATING_BLOCKED_BY = "heating_blocked_by"
 
 COMFORT_BAND = 0.1
 COOLING_SLOPE = 4.0
 OVERSHOOT_MARGIN = 0.3
 COOLING_HEADROOM = 10.0
+
+
+@dataclass(frozen=True, slots=True)
+class RoomDemand:
+    """What the rooms together ask of the boiler, and the limit the overshooting ones put on it."""
+
+    request: Optional[float]
+    overshoot_cap: Optional[float] = None
+    demand_floor: float = MINIMUM_SETPOINT
+
+    @property
+    def setpoint(self) -> float:
+        """Return the request, limited by overshooting rooms but never below what colder rooms need."""
+        request = self.request if self.request is not None else MINIMUM_SETPOINT
+
+        if self.overshoot_cap is None:
+            return request
+
+        return min(request, max(self.overshoot_cap, self.demand_floor))
+
+    def including(self, request: float, below_target: bool = False) -> RoomDemand:
+        """Return the demand with the request of the main room added."""
+        combined = request if self.request is None else max(request, self.request)
+        demand_floor = max(request, self.demand_floor) if below_target else self.demand_floor
+
+        return replace(self, request=combined, demand_floor=demand_floor)
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,11 +116,10 @@ class Area:
         if (sensor_temperature_id := climate_state.attributes.get(ATTR_SENSOR_TEMPERATURE_ID)) is not None:
             sensor_state = self._hass.states.get(sensor_temperature_id)
             if sensor_state and sensor_state.state not in [STATE_UNKNOWN, STATE_UNAVAILABLE, HVACMode.OFF]:
-                if is_state_stale(sensor_state, self._sensor_max_value_age):
-                    _LOGGER.debug("Area sensor %s stale for %s (age=%.1fs > %.1fs)", sensor_temperature_id, self._entity_id, state_age_seconds(sensor_state), self._sensor_max_value_age)
-                    return None
+                if not is_state_stale(sensor_state, self._sensor_max_value_age):
+                    return sensor_state
 
-                return sensor_state
+                _LOGGER.debug("Area sensor %s stale for %s (age=%.1fs > %.1fs)", sensor_temperature_id, self._entity_id, state_age_seconds(sensor_state), self._sensor_max_value_age)
 
         if is_state_stale(climate_state, self._sensor_max_value_age):
             _LOGGER.debug("Area climate %s stale for %s (age=%.1fs > %.1fs)", self._entity_id, self._entity_id, state_age_seconds(climate_state), self._sensor_max_value_age)
@@ -130,6 +156,17 @@ class Area:
                 return float_value(sensor_state.state)
 
         return float_value(state.attributes.get(ATTR_CURRENT_TEMPERATURE))
+
+    @property
+    def unreachable(self) -> bool:
+        """Return whether the room cannot be read, which a room that is switched off still can."""
+        if (self._hass is None) or (state := self._hass.states.get(self._entity_id)) is None:
+            return True
+
+        if state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return True
+
+        return state.state != HVACMode.OFF and self.current_temperature is None
 
     @property
     def target_temperature(self) -> Optional[float]:
@@ -197,9 +234,19 @@ class Area:
         return self._temperature_history.is_steady(RECOMMENDATION_STEADY_WINDOW_SECONDS, RECOMMENDATION_STEADY_RANGE_CELSIUS)
 
     @property
+    def is_blocked(self) -> bool:
+        """Return whether the climate entity reports that its heating is blocked."""
+        return (climate_state := self.climate_state) is not None and Area.reports_block(climate_state)
+
+    @staticmethod
+    def reports_block(state: State) -> bool:
+        """Return whether a climate state names a reason that blocks its heating."""
+        return bool(state.attributes.get(ATTR_HEATING_BLOCKED_BY))
+
+    @property
     def is_calling(self) -> bool:
         """Return whether the climate entity itself is asking for heat."""
-        if (climate_state := self.climate_state) is None:
+        if (climate_state := self.climate_state) is None or Area.reports_block(climate_state):
             return False
 
         if (hvac_action := climate_state.attributes.get("hvac_action")) is not None:
@@ -233,7 +280,7 @@ class Area:
     @property
     def requires_heat(self) -> bool:
         """Determine if this area should influence heating arbitration."""
-        if self.climate_state is None:
+        if self.climate_state is None or self.is_blocked:
             return False
 
         valve_position = self.valve_position
@@ -261,6 +308,7 @@ class Area:
             self._time_interval()
             self._time_interval = None
 
+    @callback
     def control_pid(self, _time: Optional[datetime] = None) -> None:
         """Update the PID controller with the current error and heating curve."""
         if (temperature_state := self.temperature_state) is None:
@@ -287,6 +335,11 @@ class Areas:
     @staticmethod
     def from_config(config: SatConfig) -> "Areas":
         return Areas([Area(config, entity_id) for entity_id in config.rooms])
+
+    @property
+    def unreachable(self) -> bool:
+        """Return whether there are rooms and none of them can be read."""
+        return bool(self._areas) and all(area.unreachable for area in self._areas)
 
     @property
     def pids(self) -> "Areas._PIDs":
@@ -405,6 +458,22 @@ class Areas:
             cap = max(COLD_SETPOINT, cap)
 
             return round(cap, 1)
+
+        @property
+        def demand(self) -> RoomDemand:
+            """Return what the rooms together ask of the boiler."""
+            return RoomDemand(request=self.output, overshoot_cap=self.overshoot_cap, demand_floor=self.demand_floor)
+
+        @property
+        def demand_floor(self) -> float:
+            """Return the highest output among the rooms that still are below their target."""
+            outputs = [
+                area.pid.output
+                for area in self._areas
+                if area.pid.available and area.requires_heat and (state := area.temperature_state) is not None and state.error > DEADBAND
+            ]
+
+            return max(outputs, default=MINIMUM_SETPOINT)
 
         def reset(self, entity_id: Optional[str] = None) -> None:
             for area in self._areas:
