@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 
 from custom_components.sat.helpers import timestamp
@@ -69,3 +71,23 @@ def test_temperature_history_median_error():
 
     assert history.median_error(1800) == pytest.approx(-0.1)
     assert history.median_error(600) == pytest.approx(-0.1)
+
+
+def test_temperature_history_read_during_record_and_prune():
+    history = TemperatureHistory()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        class Timestamp(float):
+            def __ge__(self, cutoff):
+                # Force a write from another thread while the reader is filtering samples.
+                executor.submit(history.record, 1.0, DAILY_WINDOW_SECONDS + 61.0).result(timeout=5)
+                return super().__ge__(cutoff)
+
+        history.record(0.0, Timestamp(0.0))
+        history.record(0.0, 30.0)
+        history.record(0.0, 60.0)
+
+        assert history.is_steady(60, 0.1) is True
+
+    assert history.is_steady(60, 0.1) is False
+    assert history.window_statistics.daily.sample_count == 1
