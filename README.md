@@ -14,6 +14,7 @@
 
 The Smart Autotune Thermostat, or SAT for short, is a custom component for Home Assistant that seamlessly integrates with the following devices:
 - [OpenTherm Gateway (OTGW)](https://otgw.tclcode.com/) (MQTT or Serial)
+- [elvinhome THRM ONE](https://elvinhome.io/shop/thrm-one-60) ESP32-C6 OpenTherm Master with Ethernet
 - [DIYLess](https://diyless.com/) Master OpenTherm Shield
 - [Ihor Melnyk's](http://ihormelnyk.com/opentherm_adapter) OpenTherm adapter
 - [Jiří Praus'](https://www.tindie.com/products/jiripraus/opentherm-gateway-arduino-shield/) OpenTherm Gateway Arduino Shield
