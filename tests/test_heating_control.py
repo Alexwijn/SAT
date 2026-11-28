@@ -18,6 +18,7 @@ from custom_components.sat.const import (
     CONF_MODULATION_SUPPRESSION_DELAY_SECONDS,
     CONF_OVERSHOOT_PROTECTION,
     HEATER_STARTUP_TIMEFRAME,
+    PWM_IGNITION_TIMEOUT_SECONDS,
     SATURATION_SUSTAIN_SECONDS,
     TARGET_TEMPERATURE_CHANGE_WINDOW_SECONDS,
     UNDERHEAT_SUSTAIN_SECONDS,
@@ -715,6 +716,15 @@ async def _saturated_demand(heating_control, coordinator, monkeypatch, target_ch
 
 async def test_saturation_right_after_a_target_change_leaves_pwm_at_once(heating_control, coordinator, monkeypatch):
     await _saturated_demand(heating_control, coordinator, monkeypatch, target_changed_seconds_ago=20.0)
+
+    assert heating_control.pwm_state.enabled is False
+
+
+async def test_saturation_after_a_slow_ignition_leaves_pwm_at_once(heating_control, coordinator, monkeypatch):
+    await _saturated_demand(
+        heating_control, coordinator, monkeypatch,
+        target_changed_seconds_ago=300.0 + PWM_IGNITION_TIMEOUT_SECONDS / 2,
+    )
 
     assert heating_control.pwm_state.enabled is False
 

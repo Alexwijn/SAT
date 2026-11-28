@@ -245,11 +245,15 @@ class PID:
 
     def _update_derivative(self, state: TemperatureState) -> None:
         """Derive the error slope from a least-squares fit over the recent samples."""
+        previous = self._samples[-1].timestamp if self._samples else None
         self._record_sample(state)
 
         window = self.derivative_window_seconds
         latest = self._samples[-1].timestamp
         samples = [sample for sample in self._samples if latest - sample.timestamp <= window]
+
+        if previous is not None and latest - previous > window:
+            self._raw_derivative = 0.0
 
         if len(samples) < DERIVATIVE_MINIMUM_SAMPLES or (latest - samples[0].timestamp) < DERIVATIVE_MINIMUM_SPAN_RATIO * window:
             return

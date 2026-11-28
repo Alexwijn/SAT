@@ -209,6 +209,21 @@ def test_derivative_holds_until_window_has_enough_span():
     assert pid.raw_derivative == pytest.approx(-0.1 / 60.0, abs=1e-6)
 
 
+@pytest.mark.parametrize("extra", [60.0, DERIVATIVE_WINDOW_MAXIMUM_SECONDS])
+def test_derivative_is_dropped_when_a_gap_outlasts_the_window(extra):
+    pid = _derivative_pid()
+
+    for index in range(12):
+        pid.update(_state_for_error(1.0, 1000.0 + index * 60.0, current=20.0 + index * 0.1))
+
+    assert pid.raw_derivative != 0.0
+
+    pid.update(_state_for_error(1.0, 1000.0 + 11 * 60.0 + pid.derivative_window_seconds + extra, current=21.0))
+
+    assert pid.raw_derivative == 0.0
+    assert pid.derivative == 0.0
+
+
 def test_derivative_is_capped():
     pid = _derivative_pid()
 
