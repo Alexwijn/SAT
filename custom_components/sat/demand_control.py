@@ -16,10 +16,9 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
 
-from .area import Area, Areas, DrivingRoom
+from .area import Area, Areas, DrivingRoom, OVERSHOOT_MARGIN
 from .const import (
     COLD_SETPOINT,
-    DEADBAND,
     DOMAIN,
     FROST_PROTECTION_HYSTERESIS_CELSIUS,
     FROST_PROTECTION_SETPOINT,
@@ -318,8 +317,8 @@ class SatDemandControl:
             if self._config.presets.heating_mode == HeatingMode.ECO:
                 return clamp(round(self.pid.output, 1), MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
-            below_target = (temperature_state := self.temperature_state) is not None and temperature_state.error > DEADBAND
-            demand = self.areas.pids.demand.including(self.pid.output, below_target=below_target)
+            holding_target = (temperature_state := self.temperature_state) is not None and temperature_state.error >= -OVERSHOOT_MARGIN
+            demand = self.areas.pids.demand.including(self.pid.output, holding_target=holding_target)
 
         setpoint = demand.setpoint
 

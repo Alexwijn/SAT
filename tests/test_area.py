@@ -150,18 +150,20 @@ def _room(output, error):
         ([_room(35.0, -0.5), _room(28.0, 0.5)], 30.0),
         ([_room(35.0, -0.5), _room(45.0, 1.0)], 45.0),
         ([_room(35.0, -3.0), _room(40.0, 1.0)], 40.0),
-        ([_room(45.0, -0.5), _room(40.0, 0.05)], 30.0),
+        ([_room(35.0, -3.0), _room(40.0, 0.0)], 40.0),
+        ([_room(35.0, -3.0), _room(40.0, -0.3)], 40.0),
+        ([_room(35.0, -3.0), _room(40.0, -0.31)], 22.0),
     ],
 )
-def test_overshooting_room_never_caps_below_what_colder_rooms_need(rooms, setpoint):
+def test_overshooting_room_never_caps_below_what_other_rooms_need(rooms, setpoint):
     assert Areas(rooms).pids.demand.setpoint == setpoint
 
 
 def test_cap_never_drops_below_what_a_cold_main_room_needs():
     demand = RoomDemand(request=35.0, overshoot_cap=30.0)
 
-    assert demand.including(42.0, below_target=True).setpoint == 42.0
-    assert demand.including(42.0, below_target=False).setpoint == 30.0
+    assert demand.including(42.0, holding_target=True).setpoint == 42.0
+    assert demand.including(42.0, holding_target=False).setpoint == 30.0
 
 
 @pytest.mark.parametrize(("blocked_by", "blocked"), [(None, False), ("", False), ("devices_released", True), ("valve_maintenance", True)])
