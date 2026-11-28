@@ -371,7 +371,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
             return False
 
         if self._problem_first_detected is None:
-            self._problem_first_detected = now
+            self._problem_first_detected = now - PRESSURE_PROBLEM_CONFIRMATION_SECONDS if self._problem else now
 
         return (now - self._problem_first_detected) >= PRESSURE_PROBLEM_CONFIRMATION_SECONDS
 
