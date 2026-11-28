@@ -400,12 +400,24 @@ async def test_return_resends_boot_commands_and_settings(hass, coordinator, monk
     assert calls[-2:] == ["SW=50.0", "SH=60.0"]
 
 
-async def test_online_without_an_outage_resends_nothing(hass, coordinator, monkeypatch):
+async def test_live_online_without_an_outage_resends_boot_commands_and_settings(hass, coordinator, monkeypatch):
     calls = []
     monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
 
+    await coordinator.async_set_control_max_setpoint(60.0)
+    calls.clear()
+
     coordinator._handle_availability_message(_message("online"))
-    coordinator._handle_availability_message(_message("online"))
+    await hass.async_block_till_done()
+
+    assert calls == ["PM=3", "PM=15", "PM=48", "SH=60.0"]
+
+
+async def test_retained_online_resends_nothing(hass, coordinator, monkeypatch):
+    calls = []
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))
+
+    coordinator._handle_availability_message(_message("online", retain=True))
     await hass.async_block_till_done()
 
     assert calls == []
