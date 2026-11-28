@@ -60,6 +60,7 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         if payload == PAYLOAD_OFFLINE:
             self._online = False
             self._was_offline = True
+            self.async_update_listeners()
 
     async def async_resynchronize(self) -> None:
         """Repeat what a gateway forgets while it is offline."""
