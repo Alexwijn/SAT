@@ -164,7 +164,7 @@ class SatOutsideTemperatureSensor(SatDemandControlEntity, SensorEntity):
     @property
     def native_unit_of_measurement(self):
         """Return the unit of measurement."""
-        return UnitOfTemperature.CELSIUS
+        return self.hass.config.units.temperature_unit
 
     @property
     def native_value(self) -> Optional[float]:
@@ -221,6 +221,7 @@ class SatWindSpeedSensor(SatDemandControlEntity, SensorEntity):
 
 
 class SatImpliedCurveCoefficientSensor(SatDemandControlEntity, SensorEntity, RestoreEntity):
+    _unrecorded_attributes = frozenset({"last_measured_at"})
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
