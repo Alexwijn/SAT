@@ -319,17 +319,20 @@ class SatHeatingControl:
             state=self._coordinator.state,
         )
 
-        self._cycle_tracker.update(
-            ControlLoopSample(
-                timestamp=event_timestamp(time),
-                pwm=self._pwm.state,
-                device_state=self._coordinator.state,
-                control_setpoint=self._control_setpoint,
-                requested_setpoint=self._last_requested_setpoint,
-                outside_temperature=self._last_outside_temperature,
-                relative_modulation=self._relative_modulation_value,
+        if not self._coordinator.available:
+            self._cycle_tracker.reset()
+        else:
+            self._cycle_tracker.update(
+                ControlLoopSample(
+                    timestamp=event_timestamp(time),
+                    pwm=self._pwm.state,
+                    device_state=self._coordinator.state,
+                    control_setpoint=self._control_setpoint,
+                    requested_setpoint=self._last_requested_setpoint,
+                    outside_temperature=self._last_outside_temperature,
+                    relative_modulation=self._relative_modulation_value,
+                )
             )
-        )
 
         self._boiler_health.update(self._coordinator.state, self._coordinator.boiler_pressure, event_timestamp(time))
 

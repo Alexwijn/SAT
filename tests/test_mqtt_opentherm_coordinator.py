@@ -30,6 +30,8 @@ from custom_components.sat.coordinator.mqtt.opentherm import (
     SatOpenThermMqttCoordinator,
 )
 from custom_components.sat.entry_data import SatConfig, SatMode
+from custom_components.sat.heating_control import SatHeatingControl
+from custom_components.sat.helpers import timestamp
 from custom_components.sat.types import HeaterState
 from custom_components.sat.manufacturer import ManufacturerFactory
 from tests.const import DEFAULT_USER_DATA
@@ -381,6 +383,33 @@ async def test_offline_makes_the_gateway_unavailable(coordinator):
     coordinator._handle_availability_message(_message("offline"))
 
     assert coordinator.available is False
+
+
+async def test_a_gateway_outage_does_not_end_the_cycle(hass, coordinator, monkeypatch):
+    clock = {"now": timestamp() - 600.0}
+    monkeypatch.setattr("custom_components.sat.heating_control.event_timestamp", lambda time: clock["now"])
+
+    monkeypatch.setattr(coordinator, "async_notify_listeners", lambda force=True: coordinator.async_update_listeners())
+
+    heating_control = SatHeatingControl(hass, coordinator, coordinator._config)
+    coordinator.async_add_listener(heating_control._handle_coordinator_update)
+    flame = coordinator._create_message_handler(DATA_FLAME_ACTIVE)
+    temperature = coordinator._create_message_handler(DATA_BOILER_TEMPERATURE)
+
+    flame(_message("ON"))
+    for offset in range(60, 180, 20):
+        clock["now"] = timestamp() - 600.0 + offset
+        temperature(_message("45"))
+
+    clock["now"] += 20
+    coordinator._handle_availability_message(_message("offline"))
+
+    clock["now"] += 300
+    flame(_message("OFF"))
+    clock["now"] += 60
+    temperature(_message("40"))
+
+    assert heating_control.last_cycle is None
 
 
 async def test_return_resends_boot_commands_and_settings(hass, coordinator, monkeypatch):
