@@ -14,7 +14,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import COLD_SETPOINT, DEADBAND, MINIMUM_SETPOINT
+from .const import COLD_SETPOINT, MINIMUM_SETPOINT
 from .entry_data import SatConfig
 from .heating_curve import HeatingCurve, RECOMMENDATION_STEADY_RANGE_CELSIUS, RECOMMENDATION_STEADY_WINDOW_SECONDS
 from .helpers import event_timestamp, float_value, is_state_stale, state_age_seconds
@@ -46,7 +46,7 @@ class RoomDemand:
 
     @property
     def setpoint(self) -> float:
-        """Return the request, limited by overshooting rooms but never below what colder rooms need."""
+        """Return the request, limited by overshooting rooms but never below what the other rooms need."""
         request = self.request if self.request is not None else MINIMUM_SETPOINT
 
         if self.overshoot_cap is None:
@@ -54,10 +54,10 @@ class RoomDemand:
 
         return min(request, max(self.overshoot_cap, self.demand_floor))
 
-    def including(self, request: float, below_target: bool = False) -> RoomDemand:
+    def including(self, request: float, holding_target: bool = False) -> RoomDemand:
         """Return the demand with the request of the main room added."""
         combined = request if self.request is None else max(request, self.request)
-        demand_floor = max(request, self.demand_floor) if below_target else self.demand_floor
+        demand_floor = max(request, self.demand_floor) if holding_target else self.demand_floor
 
         return replace(self, request=combined, demand_floor=demand_floor)
 
@@ -466,11 +466,11 @@ class Areas:
 
         @property
         def demand_floor(self) -> float:
-            """Return the highest output among the rooms that still are below their target."""
+            """Return the highest output among the rooms that are not overshooting their target."""
             outputs = [
                 area.pid.output
                 for area in self._areas
-                if area.pid.available and area.requires_heat and (state := area.temperature_state) is not None and state.error > DEADBAND
+                if area.pid.available and area.requires_heat and (state := area.temperature_state) is not None and state.error >= -OVERSHOOT_MARGIN
             ]
 
             return max(outputs, default=MINIMUM_SETPOINT)

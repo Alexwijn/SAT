@@ -122,6 +122,19 @@ def test_requested_setpoint_is_not_capped_below_a_cold_main_room(monkeypatch, de
     assert demand_control.requested_setpoint == 42.0
 
 
+@pytest.mark.parametrize(("error", "setpoint"), [(0.0, 42.0), (-0.3, 42.0), (-0.31, 30.0)])
+def test_requested_setpoint_is_not_capped_below_a_main_room_at_target(monkeypatch, demand_control, error, setpoint):
+    _update_climate_config(demand_control, options={CONF_HEATING_MODE: HeatingMode.COMFORT})
+    demand_control.heating_curve._value = 30.0
+
+    monkeypatch.setattr(PID, "output", property(lambda self: 42.0))
+    monkeypatch.setattr(type(demand_control), "temperature_state", property(lambda self: SimpleNamespace(error=error)))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.output", property(lambda self: 35.0))
+    monkeypatch.setattr("custom_components.sat.area.Areas._PIDs.overshoot_cap", property(lambda self: 30.0))
+
+    assert demand_control.requested_setpoint == setpoint
+
+
 def test_requested_setpoint_applies_solar_gain_offset(monkeypatch, demand_control):
     _update_climate_config(demand_control, options={
         CONF_SOLAR_GAIN_COMPENSATION: True,
