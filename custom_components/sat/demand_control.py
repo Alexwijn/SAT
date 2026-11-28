@@ -501,6 +501,7 @@ class SatDemandControl:
         await self._heating_control.async_will_remove_from_hass()
         await self._seasonal_curve.async_will_remove_from_hass()
         await self._efficiency.async_will_remove_from_hass()
+        await self._curve_advisor.async_will_remove_from_hass()
         await self._room_balance.async_save_data()
         await self._preheat.async_save_data()
 
