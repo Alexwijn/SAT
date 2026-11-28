@@ -206,6 +206,13 @@ class SatCentralHeatingSyncSensor(SatSyncSensor, SatDemandControlEntity, BinaryS
 
 class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _unrecorded_attributes = frozenset({
+        "pressure",
+        "smoothed_pressure",
+        "last_pressure",
+        "last_pressure_timestamp",
+        "last_seen_pressure_timestamp",
+    })
 
     def __init__(self, coordinator, config: SatConfig, heating_control: SatHeatingControl):
         super().__init__(coordinator, config, heating_control)
@@ -216,6 +223,7 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         self._last_pressure: Optional[float] = None
         self._last_drop_rate: Optional[float] = None
         self._last_seen_pressure: Optional[float] = None
+        self._problem = False
         self._last_pressure_timestamp: Optional[float] = None
         self._smoothed_pressure: Optional[float] = None
         self._problem_first_detected: Optional[float] = None
@@ -231,7 +239,9 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
         attributes = last_state.attributes or {}
         self._last_pressure = float_value(attributes.get("last_pressure"))
         self._last_pressure_timestamp = float_value(attributes.get("last_pressure_timestamp"))
-        self._last_seen_pressure = float_value(attributes.get("last_seen_pressure_timestamp"))
+        if float_value(attributes.get("last_seen_pressure_timestamp")) is not None:
+            self._last_seen_pressure = timestamp()
+            self._problem = last_state.state == "on"
         self._smoothed_pressure = float_value(attributes.get("smoothed_pressure"))
 
         if self._last_pressure is not None and self._last_pressure_timestamp is not None:
@@ -274,10 +284,10 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
             if self._last_seen_pressure is None:
                 return False
 
-            if maximum_age_seconds <= 0:
-                return False
+            if maximum_age_seconds > 0 and (now - self._last_seen_pressure) > maximum_age_seconds:
+                return True
 
-            return (now - self._last_seen_pressure) > maximum_age_seconds
+            return self._problem
 
         self._last_seen_pressure = now
         smoothed = self._update_smoothed_pressure(raw_pressure)
@@ -294,14 +304,14 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
 
         if not drop_rate_allowed:
             drop_rate = None
-            self._last_drop_rate = None
-        elif drop_rate is not None:
-            self._last_drop_rate = round(drop_rate, 3)
+
+        self._last_drop_rate = None if drop_rate is None else round(drop_rate, 3)
 
         drop_rate_high = drop_rate is not None and drop_rate > maximum_drop_rate
         raw_problem = pressure_low or pressure_high or drop_rate_high
 
-        return self._confirm_problem(now, raw_problem)
+        self._problem = self._confirm_problem(now, raw_problem)
+        return self._problem
 
     @property
     def extra_state_attributes(self) -> dict[str, Optional[float]]:
@@ -320,6 +330,10 @@ class SatPressureHealthSensor(SatEntity, RestoreEntity, BinarySensorEntity):
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-pressure-health"
+
+    async def async_will_remove_from_hass(self) -> None:
+        ir.async_delete_issue(self.hass, DOMAIN, f"boiler_pressure_{self._config.entry_id}")
+        await super().async_will_remove_from_hass()
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -459,6 +473,10 @@ class SatDeviceFaultSensor(SatEntity, BinarySensorEntity):
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-boiler-fault"
 
+    async def async_will_remove_from_hass(self) -> None:
+        ir.async_delete_issue(self.hass, DOMAIN, f"boiler_fault_{self._config.entry_id}")
+        await super().async_will_remove_from_hass()
+
     @callback
     def _handle_coordinator_update(self) -> None:
         if self._coordinator.fault_active:
@@ -549,6 +567,11 @@ class SatBoilerTrendsSensor(SatHeatingControlEntity, BinarySensorEntity):
         """Return a unique ID to use for this entity."""
         return f"{self._config.entry_id}-boiler-trends"
 
+    async def async_will_remove_from_hass(self) -> None:
+        ir.async_delete_issue(self.hass, DOMAIN, f"boiler_short_cycling_trend_{self._config.entry_id}")
+        ir.async_delete_issue(self.hass, DOMAIN, f"boiler_pressure_trend_{self._config.entry_id}")
+        await super().async_will_remove_from_hass()
+
     @callback
     def _handle_coordinator_update(self) -> None:
         trends = self._heating_control.boiler_health.trends
@@ -579,7 +602,7 @@ class SatBoilerTrendsSensor(SatHeatingControlEntity, BinarySensorEntity):
                 f"boiler_pressure_trend_{self._config.entry_id}",
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
-                translation_key="boiler_pressure_trend",
+                translation_key="boiler_pressure_trend" if pressure.is_slow_loss else "boiler_pressure_top_ups",
                 translation_placeholders={
                     "name": self._config.name,
                     "top_ups": str(pressure.top_ups),

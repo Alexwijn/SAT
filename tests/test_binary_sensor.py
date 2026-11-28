@@ -2,7 +2,7 @@
 
 import pytest
 from homeassistant.core import State
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, issue_registry as ir
 
 from custom_components.sat.const import CONF_HEATING_SYSTEM, DOMAIN
 from custom_components.sat.types import HeaterState, HeatingSystem
@@ -313,8 +313,6 @@ async def test_device_fault_sensor(hass, coordinator, entry, domains, data, opti
 
 
 async def test_device_fault_creates_repair_issue(hass, coordinator, entry, domains, data, options, config):
-    from homeassistant.helpers import issue_registry as ir
-
     coordinator._fault_active = True
     coordinator._fault_code = 133
     coordinator.async_update_listeners()
@@ -328,3 +326,121 @@ async def test_device_fault_creates_repair_issue(hass, coordinator, entry, domai
     await hass.async_block_till_done()
 
     assert registry.async_get_issue(DOMAIN, f"boiler_fault_{entry.entry_id}") is None
+
+
+async def test_pressure_health_restore_after_long_downtime_is_not_stale(hass, coordinator, entry, domains, data, options, config, monkeypatch):
+    current_time = 100.0
+
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", lambda: current_time)
+
+    await hass.config_entries.async_unload(entry.entry_id)
+
+    restored_attrs = {
+        "last_pressure": 1.4,
+        "last_pressure_timestamp": 100.0,
+        "last_seen_pressure_timestamp": 100.0,
+        "smoothed_pressure": 1.4,
+    }
+
+    async def fake_async_get_last_state(self):
+        return State(self.entity_id, "off", attributes=restored_attrs)
+
+    monkeypatch.setattr(sat_binary_sensor.SatPressureHealthSensor, "async_get_last_state", fake_async_get_last_state)
+
+    current_time = 100.0 + 4000.0
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][entry.entry_id].coordinator
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(_get_pressure_entity_id(hass, entry)).state == "off"
+
+
+async def test_pressure_health_keeps_problem_while_pressure_is_missing(hass, coordinator, entry, domains, data, options, config, monkeypatch):
+    current_time = 0.0
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", lambda: current_time)
+
+    for current_time in (0.0, 130.0):
+        await coordinator.async_set_boiler_pressure(0.6)
+        coordinator.async_update_listeners()
+        await hass.async_block_till_done()
+
+    assert hass.states.get(_get_pressure_entity_id(hass, entry)).state == "on"
+
+    current_time = 200.0
+    coordinator._boiler_pressure = None
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(_get_pressure_entity_id(hass, entry)).state == "on"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, f"boiler_pressure_{entry.entry_id}") is not None
+
+
+async def test_pressure_health_clears_drop_rate_attribute_when_rate_is_unknown(hass, coordinator, entry, domains, data, options, config, monkeypatch):
+    current_time = 0.0
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", lambda: current_time)
+    await coordinator.async_set_boiler_temperature(40.0)
+
+    for i in range(60):
+        current_time = float(i * 60)
+        await coordinator.async_set_boiler_pressure(1.8 - (i * 0.01))
+        coordinator.async_update_listeners()
+        await hass.async_block_till_done()
+
+    assert hass.states.get(_get_pressure_entity_id(hass, entry)).attributes["pressure_drop_rate_bar_per_hour"] is not None
+
+    await coordinator.async_set_boiler_temperature(20.0)
+    current_time += 60.0
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(_get_pressure_entity_id(hass, entry)).attributes["pressure_drop_rate_bar_per_hour"] is None
+
+
+def test_pressure_health_does_not_record_volatile_attributes(domains, data, options, config):
+    assert sat_binary_sensor.SatPressureHealthSensor._unrecorded_attributes == {
+        "pressure",
+        "smoothed_pressure",
+        "last_pressure",
+        "last_pressure_timestamp",
+        "last_seen_pressure_timestamp",
+    }
+
+
+async def test_pressure_health_restores_an_active_problem(hass, coordinator, entry, domains, data, options, config, monkeypatch):
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", lambda: 150.0)
+
+    await hass.config_entries.async_unload(entry.entry_id)
+
+    async def fake_async_get_last_state(self):
+        return State(self.entity_id, "on", attributes={"last_seen_pressure_timestamp": 100.0})
+
+    monkeypatch.setattr(sat_binary_sensor.SatPressureHealthSensor, "async_get_last_state", fake_async_get_last_state)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(_get_pressure_entity_id(hass, entry)).state == "on"
+
+
+async def test_removing_the_entry_deletes_the_boiler_repairs(hass, coordinator, entry, domains, data, options, config, heating_control, monkeypatch):
+    current_time = 0.0
+    monkeypatch.setattr(sat_binary_sensor, "timestamp", lambda: current_time)
+
+    for current_time in (0.0, 130.0):
+        await coordinator.async_set_boiler_pressure(0.6)
+        coordinator._fault_active = True
+        coordinator._fault_code = 133
+        coordinator.async_update_listeners()
+        await hass.async_block_till_done()
+
+    registry = ir.async_get(hass)
+    issue_ids = [f"boiler_pressure_{entry.entry_id}", f"boiler_fault_{entry.entry_id}"]
+    assert all(registry.async_get_issue(DOMAIN, issue_id) is not None for issue_id in issue_ids)
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert all(registry.async_get_issue(DOMAIN, issue_id) is None for issue_id in issue_ids)

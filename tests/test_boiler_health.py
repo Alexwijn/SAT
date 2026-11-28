@@ -188,6 +188,10 @@ def test_two_top_ups_are_a_problem():
     assert trend.is_problem
 
 
+def test_top_up_of_exactly_the_minimum_rise_is_detected_despite_float_error():
+    assert _pressure_trend([1.0, 1.2]).top_ups == 1
+
+
 def test_old_top_ups_no_longer_count():
     days = _pressure_days([1.5, 1.8, 1.5, 1.8])
     days = [BoilerHealthDay(date=(TODAY - timedelta(days=200 + index)).isoformat(), cold_pressure=day.cold_pressure) for index, day in enumerate(days)]
@@ -230,6 +234,48 @@ async def test_entity_raises_and_clears_the_pressure_issue(hass, coordinator, he
     await hass.async_block_till_done()
 
     assert hass.states.get(_trends_entity_id(hass, entry)).state == "off"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+@SETUP
+async def test_repeated_top_ups_issue_has_its_own_text(hass, coordinator, heating_control, entry, domains, data, options, config):
+    monitor = heating_control.boiler_health
+    today = dt_util.now().date()
+    pressures = [1.5] * 5 + [1.8] * 5 + [1.5] * 5 + [1.8] * 5
+
+    monitor._days = deque(
+        BoilerHealthDay(date=(today - timedelta(days=len(pressures) - index)).isoformat(), cold_pressure=pressure)
+        for index, pressure in enumerate(pressures)
+    )
+    monitor._trends = None
+
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"boiler_pressure_trend_{entry.entry_id}")
+    assert issue.translation_key == "boiler_pressure_top_ups"
+
+
+@SETUP
+async def test_removing_the_entry_deletes_the_trend_repairs(hass, coordinator, heating_control, entry, domains, data, options, config):
+    monitor = heating_control.boiler_health
+    today = dt_util.now().date()
+
+    monitor._days = deque(
+        BoilerHealthDay(date=(today - timedelta(days=20 - index)).isoformat(), cold_pressure=round(1.8 - index * 0.02, 2))
+        for index in range(20)
+    )
+    monitor._trends = None
+
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+
+    issue_id = f"boiler_pressure_trend_{entry.entry_id}"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is not None
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
     assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
 
 

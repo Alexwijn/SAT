@@ -358,6 +358,10 @@
       "title": "Ketel verliest langzaam druk",
       "description": "Het verwarmingssysteem van {name} is sinds de laatste keer bijvullen ongeveer {loss} bar gedaald en is de afgelopen 90 dagen {top_ups} keer bijgevuld. Dit kan wijzen op een klein lek of een defect expansievat. Controleer het systeem of neem contact op met je installateur."
     },
+    "boiler_pressure_top_ups": {
+      "title": "Ketel wordt herhaaldelijk bijgevuld",
+      "description": "Het verwarmingssysteem van {name} is de afgelopen 90 dagen {top_ups} keer bijgevuld. Dit kan wijzen op een klein lek of een defect expansievat. Controleer het systeem of neem contact op met je installateur."
+    },
     "boiler_short_cycling_trend": {
       "title": "Ketel pendelt vaker",
       "description": "De ketel van {name} start nu ongeveer {recent_cycles} keer per dag met een mediane brandtijd van {on_time} minuten, tegenover {baseline_cycles} starts per dag bij vergelijkbaar weer. Vaak kort branden verslijt de ketel en verspilt gas. Controleer de stooklijn, de PWM-instellingen en het minimale vermogen van de ketel."

@@ -358,6 +358,10 @@
       "title": "Kessel verliert langsam Druck",
       "description": "Das Heizsystem von {name} hat seit dem letzten Nachfüllen etwa {loss} bar verloren und wurde in den letzten 90 Tagen {top_ups} Mal nachgefüllt. Das kann auf ein kleines Leck oder ein defektes Ausdehnungsgefäß hindeuten. Prüfen Sie das System oder wenden Sie sich an Ihren Installateur."
     },
+    "boiler_pressure_top_ups": {
+      "title": "Kessel wird wiederholt nachgefüllt",
+      "description": "Das Heizsystem von {name} wurde in den letzten 90 Tagen {top_ups} Mal nachgefüllt. Das kann auf ein kleines Leck oder ein defektes Ausdehnungsgefäß hindeuten. Prüfen Sie das System oder wenden Sie sich an Ihren Installateur."
+    },
     "boiler_short_cycling_trend": {
       "title": "Kessel taktet häufiger",
       "description": "Der Kessel von {name} startet jetzt etwa {recent_cycles} Mal pro Tag mit einer mittleren Laufzeit von {on_time} Minuten, gegenüber {baseline_cycles} Starts pro Tag bei ähnlichem Wetter. Häufige kurze Laufzeiten verschleißen den Kessel und verschwenden Gas. Prüfen Sie die Heizkurve, die PWM-Einstellungen und die Mindestleistung des Kessels."

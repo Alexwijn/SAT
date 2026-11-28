@@ -358,6 +358,10 @@
       "title": "Kotol pomaly stráca tlak",
       "description": "Vykurovací systém {name} od posledného doplnenia stratil približne {loss} bar a za posledných 90 dní bol doplnený {top_ups}-krát. Môže to naznačovať malý únik alebo chybnú expanznú nádobu. Skontrolujte systém alebo kontaktujte svojho inštalatéra."
     },
+    "boiler_pressure_top_ups": {
+      "title": "Kotol sa opakovane dopĺňa",
+      "description": "Vykurovací systém {name} bol za posledných 90 dní doplnený {top_ups}-krát. Môže to naznačovať malý únik alebo chybnú expanznú nádobu. Skontrolujte systém alebo kontaktujte svojho inštalatéra."
+    },
     "boiler_short_cycling_trend": {
       "title": "Kotol častejšie krátko cykluje",
       "description": "Kotol {name} teraz štartuje približne {recent_cycles}-krát denne so strednou dobou behu {on_time} minút, oproti {baseline_cycles} štartom denne pri podobnom počasí. Časté krátke behy opotrebúvajú kotol a plytvajú plynom. Skontrolujte vykurovaciu krivku, nastavenia PWM a minimálny výkon kotla."

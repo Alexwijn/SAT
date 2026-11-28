@@ -233,7 +233,7 @@ class BoilerTrendEvaluator:
 
         top_up_indexes = [
             index for index in range(1, len(measured))
-            if measured[index].cold_pressure - measured[index - 1].cold_pressure >= PRESSURE_TOP_UP_MINIMUM_RISE_BAR
+            if round(measured[index].cold_pressure - measured[index - 1].cold_pressure, 3) >= PRESSURE_TOP_UP_MINIMUM_RISE_BAR
         ]
 
         segment = measured[top_up_indexes[-1]:] if top_up_indexes else measured

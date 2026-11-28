@@ -358,6 +358,10 @@
       "title": "A caldeira perde pressão lentamente",
       "description": "O sistema de aquecimento de {name} perdeu cerca de {loss} bar desde o último enchimento e foi reabastecido {top_ups} vezes nos últimos 90 dias. Isto pode indicar uma pequena fuga ou um vaso de expansão avariado. Verifique o sistema ou contacte o seu instalador."
     },
+    "boiler_pressure_top_ups": {
+      "title": "A caldeira é reabastecida repetidamente",
+      "description": "O sistema de aquecimento de {name} foi reabastecido {top_ups} vezes nos últimos 90 dias. Isto pode indicar uma pequena fuga ou um vaso de expansão avariado. Verifique o sistema ou contacte o seu instalador."
+    },
     "boiler_short_cycling_trend": {
       "title": "A caldeira faz mais ciclos curtos",
       "description": "A caldeira de {name} arranca agora cerca de {recent_cycles} vezes por dia com uma duração mediana de {on_time} minutos, em comparação com {baseline_cycles} arranques por dia com tempo semelhante. Ciclos curtos frequentes desgastam a caldeira e desperdiçam gás. Verifique a curva de aquecimento, as definições de PWM e a potência mínima da caldeira."
