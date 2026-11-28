@@ -21,6 +21,7 @@ from custom_components.sat.wind_sensitivity import WindDay
 from homeassistant.core import State
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
 pytestmark = pytest.mark.parametrize(
     ("domains", "data", "options", "config"),
@@ -283,6 +284,21 @@ async def test_outside_temperature_sensor_mirrors_the_climate(hass, climate, dem
     await hass.async_block_till_done()
 
     assert hass.states.get(entity_id).state == "4.3"
+
+
+async def test_outside_temperature_sensor_uses_the_system_unit(hass, climate, demand_control, entry, domains, data, options, config, monkeypatch):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", "sat", f"{entry.entry_id}-outside-temperature")
+
+    hass.config.units = US_CUSTOMARY_SYSTEM
+    monkeypatch.setattr(type(demand_control), "current_outside_temperature", property(lambda self: 50.0))
+    demand_control.async_update_listeners()
+    await hass.async_block_till_done()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "50.0"
+    assert state.attributes["unit_of_measurement"] == "°F"
 
 
 async def test_wind_speed_sensor_mirrors_the_climate(hass, climate, demand_control, entry, domains, data, options, config, monkeypatch):

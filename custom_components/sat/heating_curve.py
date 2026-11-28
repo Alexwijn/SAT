@@ -218,6 +218,11 @@ class HeatingCurveAdvisor:
 
         return round(clamp(self._coefficient + sample.coefficient_delta, MINIMUM_COEFFICIENT, MAXIMUM_COEFFICIENT), 2)
 
+    async def async_will_remove_from_hass(self) -> None:
+        """Save the samples still waiting for the next throttled save."""
+        if self._store is not None:
+            await self._store.async_save(self._data_to_save())
+
     def _prune(self, now: float) -> None:
         while self._samples and self._samples[0].timestamp < (now - RECOMMENDATION_WINDOW_SECONDS):
             self._samples.popleft()

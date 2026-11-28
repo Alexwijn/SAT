@@ -2,6 +2,9 @@
 
 import asyncio
 
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.sat.const import DOMAIN
 from custom_components.sat.heating_curve import (
     HeatingCurve,
     HeatingCurveAdviceSample,
@@ -17,6 +20,7 @@ from custom_components.sat.heating_curve import (
 from custom_components.sat.helpers import timestamp, weighted_median
 from custom_components.sat.types import HeatingCurveConfidence, HeatingCurveRecommendation, HeatingSystem
 from custom_components.sat.wind import WindHistory, WindReading
+from tests.const import DEFAULT_USER_DATA
 
 DAY_SECONDS = 24 * 60 * 60
 SHAPE = HeatingCurve.calculate(21.0, 5.0)
@@ -318,6 +322,22 @@ async def test_advisor_saves_periodically_while_recording(hass):
     await restored.async_added_to_hass(hass, "entry3")
 
     assert restored.advice.sample_count >= 1
+
+
+async def test_unloading_the_entry_saves_the_samples_still_waiting_to_be_saved(hass, hass_storage):
+    entry = MockConfigEntry(domain=DOMAIN, data=DEFAULT_USER_DATA)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+
+    advisor = hass.data[DOMAIN][entry.entry_id].demand_control.curve_advisor
+    now = timestamp()
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=now, correction=5.0))
+    advisor.record(HeatingCurveAdviceSample(shape=SHAPE, timestamp=now + RECOMMENDATION_SAMPLE_INTERVAL_SECONDS, correction=5.0))
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert len(hass_storage[f"sat.curve_advisor.{entry.entry_id}"]["data"]["samples"]) == 2
 
 
 async def test_advisor_discards_samples_for_other_coefficient(hass):

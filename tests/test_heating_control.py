@@ -28,6 +28,7 @@ from custom_components.sat.const import (
 )
 from custom_components.sat.const import OVERSHOOT_REFERENCE_WINDOW_SECONDS, OVERSHOOT_SUSTAIN_SECONDS
 from custom_components.sat.cycles.const import OVERSHOOT_MARGIN_CELSIUS
+from custom_components.sat.device import DeviceState
 from custom_components.sat.entry_data import SatConfig, SatMode
 from custom_components.sat.heating_control import (
     HeatingDemand,
@@ -732,13 +733,46 @@ async def test_burner_counts_as_recent_for_one_pwm_period(heating_control, coord
 
     assert heating_control.burned_within_pwm_period(now) is False
 
-    heating_control._device_tracker._last_flame_off_at = now - period + 1.0
+    heating_control._device_tracker._last_heating_flame_off_at = now - period + 1.0
     assert heating_control.burned_within_pwm_period(now) is True
 
-    heating_control._device_tracker._last_flame_off_at = now - period - 1.0
+    heating_control._device_tracker._last_heating_flame_off_at = now - period - 1.0
     assert heating_control.burned_within_pwm_period(now) is False
 
     monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: True))
+    assert heating_control.burned_within_pwm_period(now) is True
+
+
+async def test_hot_water_burn_does_not_count_as_a_recent_heating_burn(heating_control, coordinator, monkeypatch):
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: False))
+    tracker = heating_control._device_tracker
+    now = timestamp()
+
+    def device_state(flame_active: bool, hot_water_active: bool) -> DeviceState:
+        return DeviceState(
+            flame_active=flame_active,
+            central_heating=not hot_water_active,
+            hot_water_active=hot_water_active,
+            setpoint=50.0,
+            flow_temperature=40.0,
+            return_temperature=35.0,
+            max_modulation_level=100,
+            relative_modulation_level=30.0,
+        )
+
+    tracker.update(device_state(flame_active=True, hot_water_active=True), None, now - 20.0)
+    tracker.update(device_state(flame_active=False, hot_water_active=False), None, now - 10.0)
+
+    assert heating_control.burned_within_pwm_period(now) is False
+
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: True))
+    monkeypatch.setattr(type(coordinator), "hot_water_active", property(lambda self: True))
+    assert heating_control.burned_within_pwm_period(now) is False
+
+    monkeypatch.setattr(type(coordinator), "flame_active", property(lambda self: False))
+    tracker.update(device_state(flame_active=True, hot_water_active=False), None, now - 5.0)
+    tracker.update(device_state(flame_active=False, hot_water_active=False), None, now - 1.0)
+
     assert heating_control.burned_within_pwm_period(now) is True
 
 
