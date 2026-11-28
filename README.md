@@ -377,7 +377,7 @@ Pick a room, tick the presets it has its own temperature for and set them. The H
 SAT releases the boiler when it unloads, when Home Assistant stops, and when it has missed something it needs for 10 minutes while heating is on. With an OpenTherm Gateway (MQTT or serial) the wall thermostat then takes over. ESPHome, EMS-ESP, OTThing and PID ON/OFF have no thermostat to hand back to, so heating is switched off. Saving the options reloads SAT, which can therefore cost one burner restart.
 
 - *Inside temperature*: after the sensor has been lost for 2 minutes, SAT uses the wall thermostat, or else the mean of the radiator thermostats, and raises a repair issue. It learns nothing meanwhile, and returns to the sensor as soon as it is back. A sensor that stops reporting without becoming unavailable only counts as lost after the maximum value age.
-- *Outside temperature, rooms, or the inside temperature without a fallback*: SAT repeats its last demand for 10 minutes, then releases the boiler and raises a repair issue until the value returns.
+- *Outside temperature, rooms, or the inside temperature without a fallback*: SAT repeats its last demand for 10 minutes, then releases the boiler and raises a repair issue. The issue stays, and the boiler stays released, until the value has been back for 5 minutes.
 - *MQTT gateway*: SAT does not trust stored or retained values as proof that a gateway is there. It waits for a live message or, with an OpenTherm Gateway, the online announcement, and follows the offline announcement. A gateway that goes silent without announcing it is not detected.
 - *Frost protection* keeps working while SAT is switched off. While the boiler is released, the thermostat or the boiler itself is the only protection.
 

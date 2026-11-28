@@ -641,7 +641,7 @@ async def test_heating_blocked_by_names_the_reason(monkeypatch, demand_control, 
     demand_control.set_window_paused(True)
     assert demand_control.heating_blocked_by is HeatingBlock.WINDOW
 
-    demand_control._fail_safe.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0)
+    demand_control._fail_safe.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0, require_stable=True)
     assert demand_control.heating_blocked_by is HeatingBlock.INPUTS_MISSING
 
 

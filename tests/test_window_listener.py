@@ -198,7 +198,7 @@ async def test_pause_for_a_window_is_the_reason_heating_is_blocked(hass, climate
     await climate.async_set_preset_mode(PRESET_HOME)
     await _report(hass, KITCHEN, "on")
     await _wait(hass)
-    climate._demand_control._fail_safe.update(None, 1000.0)
+    climate._demand_control._fail_safe.update(None, 1000.0, require_stable=True)
 
     assert climate.extra_state_attributes["heating_blocked_by"] == "window"
 

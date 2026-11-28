@@ -890,7 +890,7 @@ class SatDemandControl:
         """Control the boiler, hold it or release it, depending on the signals that are available."""
         now = event_timestamp(time)
         self._follow_inside_source(now)
-        state = self._fail_safe.update(self._missing_signal(), now)
+        state = self._fail_safe.update(self._missing_signal(), now, require_stable=self.hvac_mode != HVACMode.OFF)
         self._update_fail_safe_issue(state)
 
         if state.phase != state.previous:

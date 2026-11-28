@@ -5,31 +5,53 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 
-from custom_components.sat.const import CONF_INSIDE_SENSOR_ENTITY_ID, CONF_RADIATORS, CONF_ROOMS, DOMAIN, FAIL_SAFE_GRACE_SECONDS
+from custom_components.sat.const import CONF_INSIDE_SENSOR_ENTITY_ID, CONF_RADIATORS, CONF_ROOMS, DOMAIN, FAIL_SAFE_GRACE_SECONDS, FAIL_SAFE_RESUME_SECONDS
 from custom_components.sat.fail_safe import FailSafeMonitor
-from custom_components.sat.types import ControlSignal, FailSafePhase
+from custom_components.sat.types import ControlSignal, FailSafePhase, HeatingBlock
 
 
 def test_monitor_holds_then_releases():
     monitor = FailSafeMonitor()
 
-    assert monitor.update(ControlSignal.INSIDE_TEMPERATURE, 1000.0).phase is FailSafePhase.HOLDING
-    assert monitor.update(ControlSignal.INSIDE_TEMPERATURE, 999.0 + FAIL_SAFE_GRACE_SECONDS).phase is FailSafePhase.HOLDING
+    assert monitor.update(ControlSignal.INSIDE_TEMPERATURE, 1000.0, require_stable=True).phase is FailSafePhase.HOLDING
+    assert monitor.update(ControlSignal.INSIDE_TEMPERATURE, 999.0 + FAIL_SAFE_GRACE_SECONDS, require_stable=True).phase is FailSafePhase.HOLDING
 
-    released = monitor.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0 + FAIL_SAFE_GRACE_SECONDS)
+    released = monitor.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0 + FAIL_SAFE_GRACE_SECONDS, require_stable=True)
 
     assert released.phase is FailSafePhase.RELEASED
     assert released.just_released is True
-    assert monitor.update(ControlSignal.OUTSIDE_TEMPERATURE, 1010.0 + FAIL_SAFE_GRACE_SECONDS).just_released is False
+    assert monitor.update(ControlSignal.OUTSIDE_TEMPERATURE, 1010.0 + FAIL_SAFE_GRACE_SECONDS, require_stable=True).just_released is False
 
 
 def test_monitor_restarts_the_grace_period_after_the_signal_returns():
     monitor = FailSafeMonitor()
-    monitor.update(ControlSignal.INSIDE_TEMPERATURE, 1000.0)
-    monitor.update(ControlSignal.INSIDE_TEMPERATURE, 1000.0 + FAIL_SAFE_GRACE_SECONDS)
+    monitor.update(ControlSignal.INSIDE_TEMPERATURE, 1000.0, require_stable=True)
+    monitor.update(ControlSignal.INSIDE_TEMPERATURE, 1000.0 + FAIL_SAFE_GRACE_SECONDS, require_stable=True)
 
-    assert monitor.update(None, 2000.0).just_resumed is True
-    assert monitor.update(ControlSignal.INSIDE_TEMPERATURE, 2010.0).phase is FailSafePhase.HOLDING
+    assert monitor.update(None, 2000.0, require_stable=True).phase is FailSafePhase.RELEASED
+    assert monitor.update(None, 2000.0 + FAIL_SAFE_RESUME_SECONDS, require_stable=True).just_resumed is True
+    assert monitor.update(ControlSignal.INSIDE_TEMPERATURE, 2010.0 + FAIL_SAFE_RESUME_SECONDS, require_stable=True).phase is FailSafePhase.HOLDING
+
+
+def test_monitor_stays_released_until_the_signal_is_stable():
+    monitor = FailSafeMonitor()
+    monitor.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0, require_stable=True)
+    monitor.update(ControlSignal.OUTSIDE_TEMPERATURE, 1000.0 + FAIL_SAFE_GRACE_SECONDS, require_stable=True)
+
+    for offset in (10.0, 100.0, 200.0):
+        assert monitor.update(None, 2000.0 + offset, require_stable=True).phase is FailSafePhase.RELEASED
+        assert monitor.update(ControlSignal.OUTSIDE_TEMPERATURE, 2005.0 + offset, require_stable=True).phase is FailSafePhase.RELEASED
+
+    waiting = monitor.update(None, 3000.0, require_stable=True)
+
+    assert waiting.phase is FailSafePhase.RELEASED
+    assert waiting.missing is ControlSignal.OUTSIDE_TEMPERATURE
+    assert monitor.update(None, 3000.0 + FAIL_SAFE_RESUME_SECONDS - 1.0, require_stable=True).phase is FailSafePhase.RELEASED
+
+    resumed = monitor.update(None, 3000.0 + FAIL_SAFE_RESUME_SECONDS, require_stable=True)
+
+    assert resumed.just_resumed is True
+    assert monitor.update(None, 3001.0 + FAIL_SAFE_RESUME_SECONDS, require_stable=True).just_resumed is False
 
 
 INSIDE = "sensor.test_inside_sensor"
@@ -111,8 +133,42 @@ async def test_control_resumes_when_the_signal_returns(hass, demand_control, com
     hass.states.async_set(OUTSIDE, "5")
     await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0)
 
+    update.assert_not_awaited()
+
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0 + FAIL_SAFE_RESUME_SECONDS)
+
     update.assert_awaited_once()
     assert demand_control.heating_curve.value is not None
+
+
+@MAIN_ROOM
+async def test_flapping_signal_does_not_retake_control_after_a_release(hass, demand_control, commands, domains, data, options, config):
+    update, release = commands
+    hass.states.async_set(OUTSIDE, "unavailable")
+    await _run(demand_control)
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS)
+
+    for cycle in range(1, 4):
+        hass.states.async_set(OUTSIDE, "5")
+        await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + cycle * 120.0)
+        hass.states.async_set(OUTSIDE, "unavailable")
+        await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + cycle * 120.0 + 60.0)
+
+    update.assert_not_awaited()
+    assert demand_control.heating_blocked_by is HeatingBlock.INPUTS_MISSING
+
+
+@MAIN_ROOM
+async def test_hvac_off_ends_a_release_at_once(hass, demand_control, commands, domains, data, options, config):
+    update, release = commands
+    hass.states.async_set(OUTSIDE, "unavailable")
+    await _run(demand_control)
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS)
+
+    demand_control._hvac_mode = HVACMode.OFF
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0)
+
+    assert update.call_args.args[0].hvac_mode is HVACMode.OFF
 
 
 @MAIN_ROOM
@@ -163,6 +219,10 @@ async def test_issue_names_the_missing_signal_and_clears(hass, entry, demand_con
     hass.states.async_set(OUTSIDE, "5")
     await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 10.0)
 
+    assert issues.async_get_issue(DOMAIN, issue_id).translation_key == "missing_outside_temperature"
+
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 10.0 + FAIL_SAFE_RESUME_SECONDS)
+
     assert issues.async_get_issue(DOMAIN, issue_id) is None
 
 
@@ -182,6 +242,7 @@ async def test_unavailable_boiler_holds_releases_and_resumes(hass, demand_contro
 
     reachable["value"] = True
     await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0)
+    await _run(demand_control, FAIL_SAFE_GRACE_SECONDS + 5.0 + FAIL_SAFE_RESUME_SECONDS)
 
     update.assert_awaited_once()
 
