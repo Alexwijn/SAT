@@ -13,6 +13,10 @@ UNDERSHOOT_MARGIN_CELSIUS: float = -3.0
 # Some boilers flag hot water a few seconds after (or before) the flame shows up
 HOT_WATER_LEAD_SECONDS: float = 30.0
 
+# A flame that relights this soon after dropping out within the ignition window is the same burn
+IGNITION_WINDOW_SECONDS: float = 30.0
+IGNITION_RELIGHT_SECONDS: float = 10.0
+
 # Timeouts
 LAST_CYCLE_MAX_AGE_SECONDS: float = 6 * 3600
 

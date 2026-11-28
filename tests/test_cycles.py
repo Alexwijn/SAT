@@ -365,9 +365,11 @@ def test_cycle_tracker_records_cycle(hass):
     tracker.update(_make_sample(timestamp=base + 2.0, flame_active=True))
     tracker.update(_make_sample(timestamp=base + 3.0, flame_active=True))
     tracker.update(_make_sample(timestamp=base + 4.0, flame_active=False))
+    tracker.update(_make_sample(timestamp=base + 60.0, flame_active=False))
 
     assert history.last_cycle is not None
     assert history.last_cycle.sample_count == 3
+    assert history.last_cycle.end == base + 4.0
 
 
 def test_cycle_tracker_ignores_short_cycles(hass):
@@ -437,6 +439,51 @@ def test_cycle_tracker_kind_of_a_burn_near_a_hot_water_flag(hass, events, kind, 
     assert history.last_cycle is not None
     assert history.last_cycle.kind == kind
     assert history.last_cycle.classification == classification
+
+
+def test_cycle_tracker_joins_an_ignition_cut_out_and_relight_into_one_cycle(hass):
+    history = CycleHistory()
+    tracker = CycleTracker(hass, history, minimum_samples_per_cycle=3)
+    base = timestamp()
+
+    tracker.update(_make_sample(timestamp=base, flame_active=False))
+    for offset in (1.0, 2.0, 3.0, 4.0):
+        tracker.update(_make_sample(timestamp=base + offset, flame_active=True))
+
+    tracker.update(_make_sample(timestamp=base + 5.0, flame_active=False))
+    assert history.last_cycle is None
+
+    for offset in (8.0, 9.0, 10.0):
+        tracker.update(_make_sample(timestamp=base + offset, flame_active=True))
+
+    tracker.update(_make_sample(timestamp=base + 200.0, flame_active=False))
+
+    assert history.last_cycle is not None
+    assert history.last_cycle.start == base + 1.0
+    assert history.last_cycle.end == base + 200.0
+    assert history.last_cycle.sample_count == 7
+
+
+def test_cycle_tracker_does_not_join_a_relight_to_a_hot_water_burn(hass):
+    history = CycleHistory()
+    tracker = CycleTracker(hass, history, minimum_samples_per_cycle=3)
+    base = timestamp()
+
+    tracker.update(_make_sample(timestamp=base, flame_active=False))
+    for offset in range(1, 20, 6):
+        tracker.update(_make_sample(timestamp=base + offset, flame_active=True, hot_water_active=True))
+
+    tracker.update(_make_sample(timestamp=base + 20.0, flame_active=False))
+
+    for offset in range(25, 1225, 10):
+        tracker.update(_make_sample(timestamp=base + offset, flame_active=True))
+
+    tracker.update(_make_sample(timestamp=base + 1225.0, flame_active=False))
+
+    assert history.last_cycle is not None
+    assert history.last_cycle.kind == CycleKind.CENTRAL_HEATING
+    assert history.last_cycle.start == base + 25.0
+    assert history.last_cycle.classification == CycleClassification.GOOD
 
 
 def test_cycle_history_rates():
