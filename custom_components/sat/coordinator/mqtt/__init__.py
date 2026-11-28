@@ -55,6 +55,9 @@ class SatMqttCoordinator(SatDataUpdateCoordinator):
         payload = str(message.payload).strip().lower()
 
         if payload == PAYLOAD_ONLINE:
+            # A gateway that rebooted comes back with its defaults, even when no offline was seen.
+            # A retained message is a replay, and the boot after subscribing covers it.
+            self._was_offline = self._was_offline or not message.retain
             self._mark_online()
 
         if payload == PAYLOAD_OFFLINE:
