@@ -469,11 +469,11 @@ class SatHeatingControl:
         return True
 
     def burned_within_pwm_period(self, now: float) -> bool:
-        """Whether the burner is on or last ran no longer ago than the off phase of a PWM cycle can explain."""
-        if self._coordinator.flame_active:
+        """Whether the burner is heating or last heated no longer ago than the off phase of a PWM cycle can explain."""
+        if self._coordinator.flame_active and not self._coordinator.hot_water_active:
             return True
 
-        if (flame_off_since := self._device_tracker.flame_off_since) is None:
+        if (flame_off_since := self._device_tracker.heating_flame_off_since) is None:
             return False
 
         return (now - flame_off_since) <= self._pwm.maximum_cycle_seconds

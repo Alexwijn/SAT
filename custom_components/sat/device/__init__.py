@@ -31,6 +31,7 @@ class DeviceTracker:
 
         self._last_flame_on_at: Optional[float] = None
         self._last_flame_off_at: Optional[float] = None
+        self._last_heating_flame_off_at: Optional[float] = None
         self._last_flame_off_was_overshoot: bool = False
         self._last_hot_water_on_at: Optional[float] = None
         self._last_hot_water_off_at: Optional[float] = None
@@ -92,6 +93,10 @@ class DeviceTracker:
     @property
     def flame_off_since(self) -> Optional[float]:
         return self._last_flame_off_at
+
+    @property
+    def heating_flame_off_since(self) -> Optional[float]:
+        return self._last_heating_flame_off_at
 
     @property
     def hot_water_on_since(self) -> Optional[float]:
@@ -204,6 +209,10 @@ class DeviceTracker:
         if previous.flame_active and not current.flame_active:
             # Flame ON -> OFF
             self._last_flame_off_at = self._last_update_at
+
+            if not previous.hot_water_active:
+                self._last_heating_flame_off_at = self._last_update_at
+
             self._last_flame_off_was_overshoot = DeviceStatusEvaluator.did_overshoot_at_flame_off(previous)
 
         elif not previous.flame_active and current.flame_active:
