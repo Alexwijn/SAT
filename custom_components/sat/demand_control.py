@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import replace
 from datetime import datetime, timedelta
 from statistics import median
@@ -26,6 +27,8 @@ from .const import (
     HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS,
     HEATING_CURVE_SETTLE_SECONDS,
     MINIMUM_SETPOINT,
+    SETPOINT_FILTER_SNAP_CELSIUS,
+    SETPOINT_FILTER_TIME_CONSTANT_SECONDS,
     SIGNAL_DEMAND_CONTROL_UPDATED,
 )
 from .coordinator import SatDataUpdateCoordinator
@@ -74,6 +77,7 @@ class SatDemandControl:
         self._watchdog = ControlWatchdog()
         self._fail_safe = FailSafeMonitor()
         self._held_demand: Optional[HeatingDemand] = None
+        self._smoothed_setpoint: Optional[tuple[float, float]] = None
         self._id: Optional[str] = None
 
         self._window_paused: bool = False
@@ -329,6 +333,14 @@ class SatDemandControl:
         return clamp(setpoint, MINIMUM_SETPOINT, self._coordinator.maximum_setpoint)
 
     @property
+    def effective_requested_setpoint(self) -> float:
+        """Get the requested setpoint after smoothing, as sent to the boiler."""
+        if self._smoothed_setpoint is None:
+            return self.requested_setpoint
+
+        return self._smoothed_setpoint[0]
+
+    @property
     def median_error(self) -> Optional[float]:
         errors: list[float] = []
 
@@ -522,6 +534,7 @@ class SatDemandControl:
         """Switch heating on or off."""
         self._hvac_mode = hvac_mode
         self._held_demand = None
+        self._smoothed_setpoint = None
 
         self.reset_control_state()
         self.schedule_heating_control_loop()
@@ -992,6 +1005,7 @@ class SatDemandControl:
 
     def _resume_control(self) -> None:
         """Bring the curves and controllers up to date after a release."""
+        self._smoothed_setpoint = None
         self._update_heating_curves()
         self.control_pid()
         self.areas.control_pid()
@@ -1016,11 +1030,29 @@ class SatDemandControl:
                 outside_temperature=self.current_outside_temperature,
             )
 
+        requested_setpoint = self.requested_setpoint
+
+        # A cold setpoint is an off command and passes through unsmoothed.
+        if requested_setpoint <= COLD_SETPOINT:
+            self._smoothed_setpoint = None
+        elif self._smoothed_setpoint is None:
+            self._smoothed_setpoint = (requested_setpoint, now)
+        else:
+            previous, previous_at = self._smoothed_setpoint
+            alpha = 1 - math.exp(-max(now - previous_at, 0.0) / SETPOINT_FILTER_TIME_CONSTANT_SECONDS)
+            smoothed = previous + alpha * (requested_setpoint - previous)
+
+            if abs(requested_setpoint - smoothed) < SETPOINT_FILTER_SNAP_CELSIUS:
+                smoothed = requested_setpoint
+
+            self._smoothed_setpoint = (clamp(smoothed, MINIMUM_SETPOINT, self._coordinator.maximum_setpoint), now)
+            requested_setpoint = self._smoothed_setpoint[0]
+
         return HeatingDemand(
             timestamp=now,
             hvac_mode=self.hvac_mode,
             valves_open=self.valves_open,
-            requested_setpoint=self.requested_setpoint,
+            requested_setpoint=requested_setpoint,
             outside_temperature=self.current_outside_temperature,
             target_temperature_changed_at=self._target_temperature_changed_at,
         )

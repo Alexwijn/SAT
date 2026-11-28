@@ -32,6 +32,10 @@ COMMAND_TIMEOUT_SECONDS = 30.0
 CONTROL_LOOP_STALL_SECONDS = 900.0
 FAIL_SAFE_GRACE_SECONDS = 600.0
 INSIDE_FALLBACK_DELAY_SECONDS = 120.0
+# About 135 s: spans several steps of a coarse room sensor (alpha 0.2 on a 30 s tick), yet stays well under the boiler's multi-minute response.
+SETPOINT_FILTER_TIME_CONSTANT_SECONDS = 135.0
+# Within this distance the filter lands on the raw value, so a saturated demand reaches the maximum setpoint exactly.
+SETPOINT_FILTER_SNAP_CELSIUS = 0.05
 FROST_PROTECTION_HYSTERESIS_CELSIUS = 1.0
 FROST_PROTECTION_SETPOINT = 30.0
 
