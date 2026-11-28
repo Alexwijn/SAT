@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Callable, Deque, Optional, TypeAlias
 from homeassistant.core import HomeAssistant
 
 from .classifier import CycleClassifier
-from .const import IN_BAND_MARGIN_CELSIUS, OVERSHOOT_MARGIN_CELSIUS
+from .const import HOT_WATER_LEAD_SECONDS, IN_BAND_MARGIN_CELSIUS, OVERSHOOT_MARGIN_CELSIUS
 from .history import CycleHistory
 from .types import Cycle, CycleMetrics, CycleShapeMetrics
 from ..const import EVENT_SAT_CYCLE_ENDED, EVENT_SAT_CYCLE_STARTED, OVERSHOOT_SUSTAIN_SECONDS
@@ -40,6 +40,9 @@ class CycleTracker:
         self._last_flame_active: Optional[bool] = None
         self._current_cycle_start: Optional[float] = None
         self._last_flame_off_timestamp: Optional[float] = None
+        self._last_hot_water_timestamp: Optional[float] = None
+        self._current_cycle_hot_water: bool = False
+        self._hot_water_flag_leftover: bool = False
 
     @property
     def started_since(self) -> Optional[float]:
@@ -51,11 +54,23 @@ class CycleTracker:
         self._last_flame_active = None
         self._current_cycle_start = None
         self._last_flame_off_timestamp = None
+        self._last_hot_water_timestamp = None
+        self._current_cycle_hot_water = False
+        self._hot_water_flag_leftover = False
 
     def update(self, sample: "ControlLoopSample") -> None:
         """Consume a new control-loop sample to update cycle tracking."""
         previously_active = self._last_flame_active
         currently_active = sample.device_state.flame_active
+
+        if not sample.device_state.hot_water_active:
+            self._hot_water_flag_leftover = False
+
+        elif not self._hot_water_flag_leftover:
+            self._last_hot_water_timestamp = sample.timestamp
+
+            if self._current_cycle_start is not None and sample.timestamp - self._current_cycle_start <= HOT_WATER_LEAD_SECONDS:
+                self._current_cycle_hot_water = True
 
         if currently_active and not previously_active:
             self._history.record_off_with_demand_duration(self._compute_off_with_demand_duration(
@@ -65,6 +80,10 @@ class CycleTracker:
 
             _LOGGER.debug("Flame transition OFF->ON, starting new cycle.")
             self._current_cycle_start = sample.timestamp
+            self._current_cycle_hot_water = (
+                    self._last_hot_water_timestamp is not None
+                    and sample.timestamp - self._last_hot_water_timestamp <= HOT_WATER_LEAD_SECONDS
+            )
             self._current_samples.clear()
             self._hass.bus.fire(EVENT_SAT_CYCLE_STARTED, {"sample": sample})
 
@@ -82,6 +101,8 @@ class CycleTracker:
 
             self._current_samples.clear()
             self._current_cycle_start = None
+            self._last_hot_water_timestamp = None
+            self._hot_water_flag_leftover = self._current_cycle_hot_water
 
         self._last_flame_active = currently_active
 
@@ -105,7 +126,7 @@ class CycleTracker:
 
         fraction_domestic_hot_water = dhw_count / float(sample_count)
         fraction_space_heating = heating_count / float(sample_count)
-        kind = CycleTracker._determine_cycle_kind(fraction_domestic_hot_water, fraction_space_heating)
+        kind = CycleKind.DOMESTIC_HOT_WATER if self._current_cycle_hot_water else CycleTracker._determine_cycle_kind(fraction_domestic_hot_water, fraction_space_heating)
 
         flow_temperatures = [sample.device_state.flow_temperature for sample in samples]
         min_flow_temperature, max_flow_temperature = min_max(flow_temperatures)

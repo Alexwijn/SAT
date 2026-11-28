@@ -19,7 +19,7 @@ class CycleClassifier:
         if duration_seconds <= 0.0:
             return CycleClassification.INSUFFICIENT_DATA
 
-        if kind == CycleKind.UNKNOWN:
+        if kind in (CycleKind.UNKNOWN, CycleKind.DOMESTIC_HOT_WATER):
             return CycleClassification.UNCERTAIN
 
         if tail_metrics.hot_water_active_fraction > 0.0:

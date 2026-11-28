@@ -10,6 +10,9 @@ TARGET_MIN_ON_TIME_SECONDS: float = 600.0
 OVERSHOOT_MARGIN_CELSIUS: float = 3.0
 UNDERSHOOT_MARGIN_CELSIUS: float = -3.0
 
+# Some boilers flag hot water a few seconds after (or before) the flame shows up
+HOT_WATER_LEAD_SECONDS: float = 30.0
+
 # Timeouts
 LAST_CYCLE_MAX_AGE_SECONDS: float = 6 * 3600
 
