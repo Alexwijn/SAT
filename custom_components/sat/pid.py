@@ -251,6 +251,9 @@ class PID:
         latest = self._samples[-1].timestamp
         samples = [sample for sample in self._samples if latest - sample.timestamp <= window]
 
+        if len(samples) == 1 and len(self._samples) > 1:
+            self._raw_derivative = 0.0
+
         if len(samples) < DERIVATIVE_MINIMUM_SAMPLES or (latest - samples[0].timestamp) < DERIVATIVE_MINIMUM_SPAN_RATIO * window:
             return
 
