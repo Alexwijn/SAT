@@ -1,5 +1,6 @@
 """Tests focused on SAT climate setpoint and heating curve behavior."""
 
+import math
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -14,6 +15,7 @@ from custom_components.sat.entry_data import SatConfig
 from custom_components.sat.const import (
     COLD_SETPOINT,
     HEATING_CONTROL_SCHEDULE_TIMEOUT_SECONDS,
+    SETPOINT_FILTER_TIME_CONSTANT_SECONDS,
     CONF_HEATING_CURVE_COEFFICIENT,
     CONF_HEATING_MODE,
     CONF_SOLAR_GAIN_COMPENSATION,
@@ -234,6 +236,98 @@ async def test_control_loop_commands_heater_off_when_hvac_off(monkeypatch, hass,
     assert demand.hvac_mode == HVACMode.OFF
     assert demand.requested_setpoint == MINIMUM_SETPOINT
     assert demand.heater_state == HeaterState.OFF
+
+
+def _drive_requested_setpoint(monkeypatch, demand_control, value):
+    raw = [value]
+    demand_control._hvac_mode = HVACMode.HEAT
+    monkeypatch.setattr(type(demand_control), "requested_setpoint", property(lambda self: raw[0]))
+    return raw
+
+
+@pytest.mark.parametrize("interval", [30.0, 5.0])
+def test_build_demand_smooths_a_step_in_the_requested_setpoint(monkeypatch, demand_control, interval):
+    raw = _drive_requested_setpoint(monkeypatch, demand_control, 40.0)
+    assert demand_control._build_demand(1000.0).requested_setpoint == 40.0
+
+    raw[0] = 50.0
+    previous = 40.0
+    for tick in range(1, int(60.0 / interval) + 1):
+        smoothed = demand_control._build_demand(1000.0 + tick * interval).requested_setpoint
+        assert previous < smoothed < 50.0
+        previous = smoothed
+
+    assert smoothed == pytest.approx(40.0 + 10.0 * (1 - math.exp(-60.0 / SETPOINT_FILTER_TIME_CONSTANT_SECONDS)))
+
+
+async def test_pwm_is_disabled_once_the_smoothed_demand_reaches_the_maximum_setpoint(monkeypatch, demand_control):
+    maximum = demand_control._coordinator.maximum_setpoint
+    raw = _drive_requested_setpoint(monkeypatch, demand_control, 40.0)
+    heating_control = demand_control._heating_control
+    heating_control._pwm._enabled = True
+
+    await heating_control.update(demand_control._build_demand(1000.0))
+    assert heating_control.pwm_state.enabled is True
+
+    raw[0] = maximum
+    for tick in range(1, 61):
+        await heating_control.update(demand_control._build_demand(1000.0 + tick * 30.0))
+
+    assert heating_control.pwm_state.enabled is False
+
+
+def test_effective_requested_setpoint_follows_the_smoothed_value(monkeypatch, demand_control):
+    raw = _drive_requested_setpoint(monkeypatch, demand_control, 40.0)
+    assert demand_control.effective_requested_setpoint == 40.0
+
+    demand_control._build_demand(1000.0)
+    raw[0] = 50.0
+    smoothed = demand_control._build_demand(1030.0).requested_setpoint
+
+    assert demand_control.requested_setpoint == 50.0
+    assert demand_control.effective_requested_setpoint == smoothed
+
+
+def test_build_demand_passes_a_cold_setpoint_through_and_reseeds_afterwards(monkeypatch, demand_control):
+    raw = _drive_requested_setpoint(monkeypatch, demand_control, 50.0)
+    demand_control._build_demand(1000.0)
+
+    raw[0] = float(COLD_SETPOINT)
+    assert demand_control._build_demand(1030.0).requested_setpoint == COLD_SETPOINT
+
+    raw[0] = 45.0
+    assert demand_control._build_demand(1060.0).requested_setpoint == 45.0
+
+
+def test_set_hvac_mode_reseeds_the_smoothed_setpoint(monkeypatch, demand_control):
+    raw = _drive_requested_setpoint(monkeypatch, demand_control, 50.0)
+    demand_control._build_demand(1000.0)
+
+    demand_control.set_hvac_mode(HVACMode.OFF)
+    demand_control.set_hvac_mode(HVACMode.HEAT)
+
+    raw[0] = 35.0
+    assert demand_control._build_demand(1030.0).requested_setpoint == 35.0
+
+
+def test_resume_control_reseeds_the_smoothed_setpoint(monkeypatch, demand_control):
+    raw = _drive_requested_setpoint(monkeypatch, demand_control, 50.0)
+    demand_control._build_demand(1000.0)
+
+    demand_control._resume_control()
+
+    raw[0] = 35.0
+    assert demand_control._build_demand(1030.0).requested_setpoint == 35.0
+
+
+def test_build_demand_keeps_the_smoothed_setpoint_under_a_lowered_maximum(monkeypatch, demand_control):
+    raw = _drive_requested_setpoint(monkeypatch, demand_control, 60.0)
+    demand_control._build_demand(1000.0)
+
+    raw[0] = 45.0
+    monkeypatch.setattr(type(demand_control._coordinator), "maximum_setpoint", property(lambda self: 50.0))
+
+    assert demand_control._build_demand(1005.0).requested_setpoint == 50.0
 
 
 def test_register_event_listeners_is_idempotent(monkeypatch, demand_control):

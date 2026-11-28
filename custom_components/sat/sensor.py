@@ -135,7 +135,7 @@ class SatRequestedSetpoint(SatDemandControlEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[float]:
-        return self._demand_control.requested_setpoint
+        return self._demand_control.effective_requested_setpoint
 
     @property
     def unique_id(self) -> str:

@@ -213,7 +213,7 @@ class SatClimate(SatEntity, ClimateEntity, RestoreEntity):
             "valves_open": self._demand_control.valves_open,
             "heating_blocked_by": self._demand_control.heating_blocked_by,
             "heating_curve": self._demand_control.heating_curve.value,
-            "requested_setpoint": self._demand_control.requested_setpoint,
+            "requested_setpoint": self._demand_control.effective_requested_setpoint,
             "outside_temperature": self._demand_control.current_outside_temperature,
             "wind_speed": self._demand_control.current_wind.speed if self._demand_control.current_wind is not None else None,
 
