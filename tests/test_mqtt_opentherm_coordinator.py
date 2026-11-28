@@ -413,6 +413,25 @@ async def test_live_online_without_an_outage_resends_boot_commands_and_settings(
     assert calls == ["PM=3", "PM=15", "PM=48", "SH=60.0"]
 
 
+async def test_resend_sends_a_setting_changed_while_it_runs(hass, coordinator, monkeypatch):
+    calls = []
+
+    async def publish(command, *args, **kwargs):
+        calls.append(command)
+
+        if command == "SW=48.0":
+            await coordinator.async_set_control_max_setpoint(65.0)
+
+    monkeypatch.setattr(coordinator, "_publish_command", AsyncMock())
+    await coordinator.async_set_control_hot_water_setpoint(48.0)
+    await coordinator.async_set_control_max_setpoint(60.0)
+    coordinator._publish_command.side_effect = publish
+
+    await coordinator.async_resynchronize()
+
+    assert [call for call in calls if call.startswith("SH=")][-1] == "SH=65.0"
+
+
 async def test_retained_online_resends_nothing(hass, coordinator, monkeypatch):
     calls = []
     monkeypatch.setattr(coordinator, "_publish_command", AsyncMock(side_effect=lambda *a, **kw: calls.append(a[0])))

@@ -291,8 +291,8 @@ class SatOpenThermMqttCoordinator(SatMqttCoordinator):
         """Repeat the boot commands and the settings made since starting."""
         await super().async_resynchronize()
 
-        for command in list(self._settings.values()):
-            await self._publish_command(command)
+        for key in list(self._settings):
+            await self._publish_command(self._settings[key])
 
     async def _publish_setting(self, command: str) -> None:
         """Publish a setting and remember it for when the gateway returns."""
